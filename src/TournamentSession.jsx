@@ -4,11 +4,12 @@ import { C, S, Chip } from "./ui.jsx";
 import {
   addGame, removeGame, setGameField, addDay, removeDay, setDayField, updateDay,
   dayTotal, dayAverage, dayGamesEntered, cutMargin,
-  tournamentTotal, tournamentAverage, tournamentMoney,
+  tournamentTotal, tournamentTotalWithHandicap, tournamentAverage, tournamentMoney,
   TOURNAMENT_FORMATS, TOURNAMENT_SCORING_FORMATS,
 } from "./domain/tournaments.js";
 import { patternDisplayName, searchPatterns, describePattern, patternStats } from "./domain/oilPatterns.js";
 import { leagueFormat, isNoTapLeague } from "./domain/leagueSeasons.js";
+import { isBaker, appliesHandicap, bakerFramesFor, BAKER_STARTERS } from "./domain/tournamentFormats.js";
 import {
   SIDE_POT_TYPES, addSidePot, removeSidePot, setSidePotField, sidePotMoney, sidePotTotals,
 } from "./domain/sidePots.js";
@@ -569,7 +570,12 @@ function MatchPlay({ tournament, onChange }) {
 }
 
 export default function TournamentSession({ tournament, onChange, onSave, saved, oilPatterns, submitOilPattern, tournaments, shotScores = null }) {
-  const total = tournamentTotal(tournament, shotScores);
+  // The handicap total is what the tournament used, so it is what a
+  // bowler needs to see. Scratch is kept alongside rather than replaced
+  // -- it is the number that says how they actually bowled.
+  const scratchTotal = tournamentTotal(tournament, shotScores);
+  const total = tournamentTotalWithHandicap(tournament, shotScores);
+
   const avg = tournamentAverage(tournament, shotScores);
   const money = tournamentMoney(tournament);
   const multiDay = (tournament.days || []).length > 1;
@@ -613,6 +619,53 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
           </div>
         )}
       </div>
+
+      {/* Handicap. Only for a handicap event, and only asked once --
+          it applies to EVERY game, which is the thing bowlers get wrong
+          when adding it up by hand: 40 pins across four games is 160,
+          not 40. */}
+      {tournament.format === "handicap" && (
+        <div style={{ marginBottom: "12px" }}>
+          {fieldLabel("Handicap per game")}
+          <input style={S.input} type="number" inputMode="numeric" placeholder="e.g. 40"
+            value={tournament.handicap || ""}
+            onChange={e => onChange({ ...tournament, handicap: e.target.value })} />
+          {appliesHandicap(tournament) && (
+            <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "4px", lineHeight: 1.5 }}>
+              Added to every game, so it counts once per game toward your block total.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Baker. Two bowlers, alternating frames, one score.
+
+          Who bowls which frame follows from who starts, so nothing has
+          to be marked per shot -- the app works it out. The tenth is not
+          split: whoever starts it bowls all of it, fill ball included,
+          because a fill ball earned by a strike belongs to whoever threw
+          the strike. */}
+      {isBaker(tournament) && (
+        <div style={{ marginBottom: "12px" }}>
+          {fieldLabel("Bowling with")}
+          <input style={S.input} placeholder="Partner's name"
+            value={tournament.bakerPartner || ""}
+            onChange={e => onChange({ ...tournament, bakerPartner: e.target.value })} />
+          <div style={{ fontSize: "11px", color: C.textMuted, margin: "8px 0 4px" }}>Who bowls frame 1</div>
+          <div style={S.chips}>
+            {BAKER_STARTERS.map(b => (
+              <Chip key={b.id} label={b.label} dense
+                selected={(tournament.bakerStarter || "me") === b.id}
+                onToggle={() => onChange({ ...tournament, bakerStarter: b.id })} />
+            ))}
+          </div>
+          <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "6px", lineHeight: 1.5 }}>
+            You bowl frames {bakerFramesFor("me", tournament.bakerStarter).join(", ")}.
+            The score stays out of your average since you did not bowl it alone, but your own
+            frames still count toward strikes, spares and how each ball carried.
+          </div>
+        </div>
+      )}
 
       {/* Scoring, separate from the event format above.
 
@@ -668,13 +721,21 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
           <div style={{ display: "flex", gap: "6px" }}>
             <div style={{ ...S.statBox, border: `1px solid ${C.accent}44` }}>
               <div style={{ ...S.statNum, fontSize: "20px", color: C.accent }}>{total}</div>
-              <div style={S.statLbl}>All Days</div>
+              <div style={S.statLbl}>{appliesHandicap(tournament) ? "With handicap" : "All Days"}</div>
             </div>
             <div style={S.statBox}>
               <div style={{ ...S.statNum, fontSize: "20px" }}>{avg === null ? "—" : avg.toFixed(1)}</div>
               <div style={S.statLbl}>Average</div>
             </div>
           </div>
+          {/* Scratch alongside, not instead. The handicap total is what
+              the tournament used; the scratch total is how the bowler
+              actually bowled, and both matter. */}
+          {appliesHandicap(tournament) && scratchTotal !== null && (
+            <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "6px", textAlign: "center" }}>
+              {scratchTotal} scratch · {total - scratchTotal} handicap pins
+            </div>
+          )}
         </div>
       )}
 
