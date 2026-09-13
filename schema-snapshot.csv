@@ -403,7 +403,7 @@ constraint,hidden_leagues,hidden_leagues_user_id_league_id_key,"UNIQUE (user_id,
 constraint,imported_scores,imported_scores_bowler_user_id_fkey,FOREIGN KEY (bowler_user_id) REFERENCES auth.users(id) ON DELETE CASCADE
 constraint,imported_scores,imported_scores_corrected_by_fkey,FOREIGN KEY (corrected_by) REFERENCES auth.users(id) ON DELETE SET NULL
 constraint,imported_scores,imported_scores_pkey,PRIMARY KEY (id)
-constraint,imported_scores,imported_scores_status_check,"CHECK ((status = ANY (ARRAY['pending'::text, 'verified'::text, 'corrected'::text, 'rejected'::text])))"
+constraint,imported_scores,imported_scores_status_check,"CHECK ((status = ANY (ARRAY['pending'::text, 'verified'::text, 'corrected'::text, 'rejected'::text, 'superseded'::text])))"
 constraint,imported_scores,imported_scores_uploaded_by_fkey,FOREIGN KEY (uploaded_by) REFERENCES auth.users(id) ON DELETE CASCADE
 constraint,lane_patterns,lane_patterns_league_id_fkey,FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE SET NULL
 constraint,lane_patterns,lane_patterns_pkey,PRIMARY KEY (id)
@@ -452,20 +452,20 @@ constraint,tournaments,tournaments_user_id_fkey,FOREIGN KEY (user_id) REFERENCES
 constraint,user_preferences,user_preferences_pkey,PRIMARY KEY (user_id)
 constraint,user_preferences,user_preferences_user_id_fkey,FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
 constraint,user_preferences,user_preferences_user_id_key,UNIQUE (user_id)
-function,accept_team_invite,invite_id uuid,boolean
-function,are_friends,other_user uuid,boolean
-function,check_api_rate_limit,"p_endpoint text, p_limit integer, p_window interval",boolean
-function,claim_signup_code,code text,uuid
-function,coached_bowler_handedness,"","TABLE(bowler_user_id uuid, bowler_name text, left_handed boolean)"
-function,handle_new_user,"",trigger
-function,is_accepted_coach_of,target_bowler_id uuid,boolean
-function,is_league_member,check_league_id uuid,boolean
-function,is_team_member,check_team_id uuid,boolean
-function,prune_api_usage,"",void
-function,prune_sync_tombstones,"",integer
-function,record_tombstone,"",trigger
-function,set_updated_at,"",trigger
-function,teammate_bowler_profiles,"","TABLE(bowler_name text, left_handed boolean, two_handed boolean, aliases jsonb)"
+function,accept_team_invite,invite_id uuid,boolean security definer
+function,are_friends,other_user uuid,boolean security definer
+function,check_api_rate_limit,"p_endpoint text, p_limit integer, p_window interval",boolean security definer
+function,claim_signup_code,code text,uuid security definer
+function,coached_bowler_handedness,"","TABLE(bowler_user_id uuid, bowler_name text, left_handed boolean) security definer"
+function,handle_new_user,"",trigger security definer
+function,is_accepted_coach_of,target_bowler_id uuid,boolean security definer
+function,is_league_member,check_league_id uuid,boolean security definer
+function,is_team_member,check_team_id uuid,boolean security definer
+function,prune_api_usage,"",void security definer
+function,prune_sync_tombstones,"",integer security definer
+function,record_tombstone,"",trigger security definer
+function,set_updated_at,"",trigger security invoker
+function,teammate_bowler_profiles,"","TABLE(bowler_name text, left_handed boolean, two_handed boolean, aliases jsonb) security definer"
 index,api_usage,api_usage_lookup_idx,"CREATE INDEX api_usage_lookup_idx ON public.api_usage USING btree (user_id, endpoint, called_at DESC)"
 index,api_usage,api_usage_pkey,CREATE UNIQUE INDEX api_usage_pkey ON public.api_usage USING btree (id)
 index,arsenals,arsenal_pkey,CREATE UNIQUE INDEX arsenal_pkey ON public.arsenals USING btree (id)

@@ -97,7 +97,7 @@ ALTER TABLE public.hidden_leagues ADD CONSTRAINT hidden_leagues_user_id_league_i
 ALTER TABLE public.hidden_leagues ADD CONSTRAINT hidden_leagues_league_id_fkey FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE;
 ALTER TABLE public.hidden_leagues ADD CONSTRAINT hidden_leagues_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.imported_scores ADD CONSTRAINT imported_scores_pkey PRIMARY KEY (id);
-ALTER TABLE public.imported_scores ADD CONSTRAINT imported_scores_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'verified'::text, 'corrected'::text, 'rejected'::text])));
+ALTER TABLE public.imported_scores ADD CONSTRAINT imported_scores_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'verified'::text, 'corrected'::text, 'rejected'::text, 'superseded'::text])));
 ALTER TABLE public.imported_scores ADD CONSTRAINT imported_scores_bowler_user_id_fkey FOREIGN KEY (bowler_user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.imported_scores ADD CONSTRAINT imported_scores_corrected_by_fkey FOREIGN KEY (corrected_by) REFERENCES auth.users(id) ON DELETE SET NULL;
 ALTER TABLE public.imported_scores ADD CONSTRAINT imported_scores_uploaded_by_fkey FOREIGN KEY (uploaded_by) REFERENCES auth.users(id) ON DELETE CASCADE;
