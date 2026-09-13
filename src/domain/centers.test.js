@@ -219,3 +219,20 @@ describe('statsByRackType', () => {
     expect(statsByRackType(null, null, null, null, 'Ryan')).toEqual([]);
   });
 });
+
+describe('rack type persistence', () => {
+  // Without this the value lived only in memory and vanished on reload,
+  // which would have looked like the chips not saving.
+  it('round-trips through a row', () => {
+    const row = centerToRow({ id: '1', name: 'Holiday', rackType: 'string' }, 'u1');
+    expect(row.rack_type).toBe('string');
+    expect(centerFromRow(row).rackType).toBe('string');
+  });
+
+  // Unrecorded is NULL, not an empty string -- an empty string would be a
+  // third value meaning the same thing as blank.
+  it('writes null when unrecorded', () => {
+    expect(centerToRow({ id: '2', name: 'X' }, 'u1').rack_type).toBe(null);
+    expect(centerFromRow({ id: '2', name: 'X', rack_type: null }).rackType).toBe('');
+  });
+});

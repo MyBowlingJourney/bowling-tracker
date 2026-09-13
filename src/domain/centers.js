@@ -256,6 +256,10 @@ export function centerToRow(center, userId) {
     country: center.country || null,
     lat: center.lat,
     lng: center.lng,
+    // Blank means unrecorded, and unrecorded is NULL in the database --
+    // an empty string would be a third value meaning the same thing,
+    // which is exactly what removing the "not sure" chip avoided.
+    rack_type: center.rackType || null,
     created_by: userId || null,
   };
 }
@@ -273,5 +277,6 @@ export function centerFromRow(row) {
     country: row.country,
     lat: row.lat,
     lng: row.lng,
+    rackType: row.rack_type || "",
   });
 }
