@@ -57,7 +57,7 @@ import { DEFAULT_BALL_GROUPS, emptyBallSpecs, normalizeBallSpecs, specsToRow, sp
 import { ballKey, catalogState, bestEntry, rejectedBallsFor, clearedSpecsAfterRejection, canVote } from "./domain/ballCatalog.js";
 import { normalizeCenter, centerToRow, centerFromRow, findExistingCenter, statsByCenter } from "./domain/centers.js";
 import { normalizePattern, patternFromRow, patternToRow, patternAverages, allVerifiedPbaPatterns } from "./domain/oilPatterns.js";
-import { normalizeLeagueDates, needsBookAverageUpdate } from "./domain/leagueSeasons.js";
+import { normalizeLeagueDates, needsBookAverageUpdate , isNoTapLeague, leagueFormat} from "./domain/leagueSeasons.js";
 import { archiveOnNewStart, compareSeasons, describeSeasonChange } from "./domain/seasons.js";
 import { emptyDrill, normalizeDrill, drillToRow, drillFromRow } from "./domain/drills.js";
 import { scorekeepingOptions, allowsOtherBowlers, normalizeGuests, addGuest, removeGuest } from "./domain/scorekeeping.js";
@@ -737,6 +737,9 @@ export default function BowlingTracker(){
   // Shared across everyone in the league (like center), unlike per-bowler
   // book-average tracking which lives on the profile.
   const[leagueDates,setLeagueDates]=useState({});
+  // Scoring format per league. Absent means 10 pin, so no existing
+  // league changes meaning because this was added.
+  const[leagueFormats,setLeagueFormats]=useState({});
   // Archived season ranges, one row per season that has ended. Written
   // when a new start date would otherwise overwrite the old range.
   const[closedSeasons,setClosedSeasons]=useState([]);
@@ -1389,12 +1392,16 @@ export default function BowlingTracker(){
                 if(leagueCentersRes.online&&leagueCentersRes.data){
           const map={};
           const dateMap={};
+          const formatMap={};
           leagueCentersRes.data.forEach(r=>{
             if(r.center_id)map[r.name]=r.center_id;
             if(r.start_date||r.end_date)dateMap[r.name]=normalizeLeagueDates({startDate:r.start_date||"",endDate:r.end_date||""});
+
+            if(r.format)formatMap[r.name]=leagueFormat(r.format);
           });
           setLeagueCenters(map);
           setLeagueDates(dateMap);
+          setLeagueFormats(formatMap);
           try{await window.storage.set(LEAGUE_CENTERS_KEY,JSON.stringify(map));}catch{}
           try{await window.storage.set(LEAGUE_DATES_KEY,JSON.stringify(dateMap));}catch{}
         }else{
@@ -1941,6 +1948,18 @@ export default function BowlingTracker(){
     try{window.storage.set(OIL_PATTERNS_KEY,JSON.stringify(updated));}catch{}
     cloudWrite("oil_patterns",patternToRow(normalized,user?.id||null));
     return normalized;
+  }
+
+  const LEAGUE_FORMATS_KEY="bowling-league-formats-v1";
+
+  async function saveLeagueFormat(name,format){
+    const next={...leagueFormats,[name]:leagueFormat(format)};
+    setLeagueFormats(next);
+    try{window.storage.set(LEAGUE_FORMATS_KEY,JSON.stringify(next));}catch{}
+    const id=leagueIdsRef.current?.[name];
+    // cloudUpdate, not cloudWrite: an upsert would send the whole row and
+    // blank the league's other columns.
+    if(id)await cloudUpdate("leagues",{id},{format:leagueFormat(format)});
   }
 
   async function saveLeagueDates(name,startDate,endDate){
@@ -3433,7 +3452,56 @@ export default function BowlingTracker(){
   const maxPinCount=firstBallPins!==null?firstBallPins+Math.max(0,standingPins-1):9;
   const minPinCount=firstBallPins!==null?firstBallPins:0;
   const isSinglePin=standingPins===1;
-  const isNoTap=form.result==="Other Leave"&&form.otherLeave.includes("9 Pin No-Tap");
+  // Declared here, above its first use.
+  //
+  // It used to sit ~280 lines further down, which was fine until the
+  // no-tap check below started reading it -- const is not hoisted, so
+  // the app crashed on mount with "Cannot access before
+  // initialization". Nothing here depends on anything local, so it is
+  // safe this high.
+  const effectiveSessionLeague=
+    preferences.environment==="practice"?PRACTICE_SESSION_KEY:
+    preferences.environment==="casual"?CASUAL_SESSION_KEY:
+    // A tournament gets its own container league, named for the event.
+    //
+    // Shots have to belong to a league -- every stat, filter and history
+    // view keys off one -- and without this they saved with an empty
+    // league in tournament mode, orphaned from everything. One container
+    // per event rather than one for all tournaments, because the pattern
+    // you shot 172 on at the City Open is the thing worth knowing before
+    // you bowl it again.
+    //
+    // Falls back to the plain key until the tournament has a name, so a
+    // shot logged before the bowler types one is not lost.
+    preferences.environment==="tournament"
+      ?(activeTournament?.name
+          ?tournamentLeagueCloudName(activeTournament.name,user?.id||"")
+          :TOURNAMENT_SESSION_KEY)
+      :sessionLeague;
+
+  // A no-tap strike, worked out rather than declared.
+  //
+  // In a 9-pin no-tap league a first ball that leaves ONE pin is a
+  // strike. The bowler should not have to tell the app that -- the app
+  // knows the league format and can see the leave.
+  //
+  // This replaces a "9 Pin No-Tap" pseudo-pin the bowler used to tick in
+  // the leave list, which was a second thing to remember and put a fake
+  // pin in the pin data.
+  //
+  // First ball only, and one pin only. Nine down across two balls is a
+  // spare, and it always was.
+  const noTapLeague=isNoTapLeague(leagueFormats?.[effectiveSessionLeague]);
+  const isFirstBall=!form.ballNum||Number(form.ballNum)===1;
+  const pinsLeft=(form.otherLeave||[]).length;
+  const isNoTap=noTapLeague&&isFirstBall&&form.result!=="Strike"&&(
+    // A named corner-pin leave is one pin by definition; anything else
+    // has to actually have one pin ticked.
+    form.result==="Weak 10"||form.result==="Ringing 10"
+      ?true
+      :(form.result==="Other Leave"&&pinsLeft===1)
+  );
+
   const isStrike=form.result==="Strike";
   const hasLeave=form.result&&!isStrike&&!isNoTap;
   // A blank Spare Made isn't a safe "no" — the scoring engine treats it
@@ -3700,25 +3768,6 @@ export default function BowlingTracker(){
     const valid=scores.filter(s=>s!=null);
     return valid.length?valid.reduce((a,b)=>a+b,0):null;
   }
-  const effectiveSessionLeague=
-    preferences.environment==="practice"?PRACTICE_SESSION_KEY:
-    preferences.environment==="casual"?CASUAL_SESSION_KEY:
-    // A tournament gets its own container league, named for the event.
-    //
-    // Shots have to belong to a league -- every stat, filter and history
-    // view keys off one -- and without this they saved with an empty
-    // league in tournament mode, orphaned from everything. One container
-    // per event rather than one for all tournaments, because the pattern
-    // you shot 172 on at the City Open is the thing worth knowing before
-    // you bowl it again.
-    //
-    // Falls back to the plain key until the tournament has a name, so a
-    // shot logged before the bowler types one is not lost.
-    preferences.environment==="tournament"
-      ?(activeTournament?.name
-          ?tournamentLeagueCloudName(activeTournament.name,user?.id||"")
-          :TOURNAMENT_SESSION_KEY)
-      :sessionLeague;
 
 
   async function submitSession(){
@@ -5775,7 +5824,8 @@ export default function BowlingTracker(){
             filtered={filtered} ballUniverse={ballUniverse}
             startEdit={startEdit} deleteShot={deleteShot}
             centers={centers} leagueCenters={leagueCenters} setLeagueCenter={setLeagueCenter} searchCenters={searchCenters}
-            leagueDates={leagueDates} setLeagueDates={saveLeagueDates} renameLeague={renameLeague}
+            leagueDates={leagueDates} setLeagueDates={saveLeagueDates}
+            leagueFormats={leagueFormats} setLeagueFormat={saveLeagueFormat} renameLeague={renameLeague}
             hiddenLeagues={hiddenLeagues} leagueIds={leagueIdsRef.current} toggleLeagueHidden={toggleLeagueHidden}
             shots={shots}
             teams={teams} activeBowler={activeBowler} leaveTeam={leaveTeam} leftHandedForBowler={leftHandedForBowler}/>

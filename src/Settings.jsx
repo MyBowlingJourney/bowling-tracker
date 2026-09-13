@@ -4,6 +4,7 @@ import { THEMES, DARK_THEME_IDS, LIGHT_THEME_IDS } from "./domain/themes.js";
 import { useAuth } from "./AuthProvider.jsx";
 import HistoryView from "./HistoryView.jsx";
 import CalendarView from "./CalendarView.jsx";
+import { LEAGUE_FORMATS, leagueFormat, isNoTapLeague } from "./domain/leagueSeasons.js";
 import { availableTours } from "./domain/tour.js";
 import SessionHistory from "./SessionHistory.jsx";
 import CenterPicker from "./CenterPicker.jsx";
@@ -36,6 +37,7 @@ export default function Settings({
   startEdit, deleteShot,
   centers, leagueCenters, setLeagueCenter, searchCenters,
   leagueDates, setLeagueDates, renameLeague,
+  leagueFormats = {}, setLeagueFormat,
   tournaments = [],
   hiddenLeagues, leagueIds, toggleLeagueHidden, teams, activeBowler, leaveTeam, onCreateTeam,
   shots, leftHandedForBowler,
@@ -552,6 +554,38 @@ export default function Settings({
                     value={leagueDates?.[league]?.endDate || ""}
                     onChange={e => setLeagueDates(league, leagueDates?.[league]?.startDate || "", e.target.value)} />
                 </div>
+
+                {/* Scoring format.
+
+                    Not a display preference -- 9-pin no-tap changes what
+                    a frame SCORES, so it has to be set per league and
+                    known wherever a game is scored.
+
+                    10 pin is the default and stays selected unless the
+                    bowler says otherwise: a league that predates this
+                    setting was a 10-pin league, and quietly rescoring
+                    someone's season would be worse than not offering the
+                    option at all. */}
+                {league !== "Practice" && league !== "Casual" && (
+                  <>
+                    <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "8px", marginBottom: "4px" }}>
+                      Scoring
+                    </div>
+                    <div style={S.chips}>
+                      {LEAGUE_FORMATS.map(f => (
+                        <Chip key={f.id} label={f.label} dense
+                          selected={leagueFormat(leagueFormats?.[league]) === f.id}
+                          onToggle={() => setLeagueFormat(league, f.id)} />
+                      ))}
+                    </div>
+                    {isNoTapLeague(leagueFormats?.[league]) && (
+                      <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "4px", lineHeight: 1.5 }}>
+                        Nine on the first ball counts as a strike. Those are kept separate from your
+                        regular strike percentage, but still count toward how your ball carries.
+                      </div>
+                    )}
+                  </>
+                )}
 
                 {/* Hiding is personal and reversible: the league leaves
                     YOUR pickers, but teammates, rosters, and every past
