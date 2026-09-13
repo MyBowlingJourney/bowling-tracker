@@ -55,8 +55,18 @@ COPY (
     WHERE n.nspname = 'public' AND c.relkind = 'r'
 
     UNION ALL
+    -- The fourth column carried the RETURN TYPE, and audit_live_schema
+    -- filtered it for the string 'security definer' -- which a return
+    -- type is never going to be. So the definer audit matched nothing,
+    -- always, and reported a clean bill of health for a check that could
+    -- not see.
+    --
+    -- prosecdef is the actual catalog flag. The return type moves into
+    -- the same field so nothing is lost: "boolean security definer"
+    -- rather than "boolean".
     SELECT 'function', p.proname, pg_get_function_identity_arguments(p.oid),
            pg_get_function_result(p.oid)
+             || CASE WHEN p.prosecdef THEN ' security definer' ELSE ' security invoker' END
     FROM pg_proc p
     WHERE p.pronamespace = 'public'::regnamespace
 
