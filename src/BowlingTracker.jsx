@@ -594,7 +594,20 @@ export default function BowlingTracker(){
   // re-run on every unrelated team edit.
   // Keyed on team IDS, not members: members are empty at startup, so a
   // member-based key never changed and this never re-ran.
-  const teammateKey=(teams||[]).map(t=>t.id).filter(Boolean).sort().join(",");
+  // Keyed on the ROSTER, not just the team ids.
+  //
+  // This was team ids alone, so adding a member to an existing team left
+  // the key unchanged, the effect never re-ran, and syncTeammateFriendships
+  // never saw them -- the teammate was added and simply never became a
+  // friend. It only fired when a team was created or joined, which is
+  // the one case where the roster is empty anyway.
+  //
+  // Member ids are sorted so a reorder of the roster is not mistaken for
+  // a change: lineup position is not a reason to re-read friendships.
+  const teammateKey=(teams||[])
+    .map(t=>`${t.id}:${(t.members||[]).map(m=>m?.userId).filter(Boolean).sort().join("|")}`)
+    .filter(Boolean).sort().join(",");
+
   useEffect(()=>{
     if(!user?.id||!teammateKey)return;
     loadFriends();
