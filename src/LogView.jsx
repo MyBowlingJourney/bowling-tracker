@@ -419,6 +419,18 @@ export default function LogView({
                             </div>
                           </div>
                         )}
+                        {/* Notes, on any pattern -- house shot included.
+
+                            An average tells a bowler a pattern is hard.
+                            "Played 4th arrow, ball rolled out, should
+                            have moved right" tells them what to do about
+                            it next time, and that is the thing they keep
+                            in a phone notes app today. Here it sits next
+                            to the score it explains. */}
+                        <textarea style={{...S.input,marginTop:"6px",minHeight:"52px",resize:"vertical"}}
+                          placeholder="How it played — line, ball, what you'd do differently"
+                          value={rec.notes||""}
+                          onChange={e=>setLanePattern(form.teamId||sessionLeague,sessionLeague,sessionDate,lane,{notes:e.target.value})}/>
                       </div>
                     );
                   };
@@ -1014,6 +1026,29 @@ export default function LogView({
             </div>
             )}
 
+            {/* Save Shot, with the shot.
+                
+                This was a bar fixed to the bottom of the screen. Moving
+                it here puts it where the work finishes: you pick a
+                result, you save. The sticky bar is now the session
+                button, which is the one control that should be reachable
+                from anywhere on a long page.
+                
+                The spare-made warning stays attached to it -- it explains
+                why the button is disabled, and separating them left the
+                bowler tapping a dead button with the reason somewhere
+                off-screen. */}
+            {(editingId||(leagueReady&&preferences.trackingMode==="shot"&&!(preferences.environment==="practice"&&practiceMode==="drill")))&&(
+              <div style={{marginBottom:"12px"}}>
+                <button style={S.btn("primary")} onClick={submitShot} disabled={!form.result||!form.bowler||needsSpareMade}>
+                  {saved?(editingId?"\u2713 Shot Updated":"\u2713 Shot Saved"):(editingId?"Update Shot":"Save Shot")}
+                </button>
+                {needsSpareMade&&(
+                  <div style={{fontSize:"12px",color:C.spare,marginTop:"8px",textAlign:"center"}}>Answer "Spare Made" above to save.</div>
+                )}
+              </div>
+            )}
+
             {/* Enter game scores directly, without shot-by-shot logging.
                 Two cases: a screenshot that only showed game totals, and
                 bowlers who want score tracking without logging 30 shots a
@@ -1371,10 +1406,10 @@ export default function LogView({
                     </div>
                   )}
 
-                  {/* Save, where the work ends. */}
-                  <button style={{...S.btn("primary"),marginTop:"12px"}} onClick={submitSession}>
-                    {sessionSaveMessage?sessionSaveMessage:sessionSaved?"\u2713 Session Saved":"Save Session & View Summary"}
-                  </button>
+                  {/* No save button here any more -- the sticky bar at
+                      the bottom of the screen is the one place a session
+                      ends, in every mode. Three buttons for one idea was
+                      the problem. */}
 
                 </CollapsibleCard>
               );
@@ -1384,23 +1419,10 @@ export default function LogView({
                 league summary below: both are scores-only, and the league
                 block leans on theoretical scores, releases and misses that
                 neither environment records. */}
-            {/* Ending a session is explicit in every environment, not just
-                league. Without it practice and casual had no "I'm done"
-                moment at all: scores accumulated, no session row was
-                written, and no summary ever appeared -- so nothing marked
-                the night as finished and averages never picked it up.
-                Drills and tournaments save from their own cards, so this
-                covers the game-score environments. */}
-            {!editingId&&activeBowler&&effectiveSessionLeague
-              &&preferences.environment!=="league"
-              &&preferences.environment!=="tournament"
-              &&practiceMode!=="drill"&&(
-              <button style={{...S.btn("primary"),marginBottom:"12px"}} onClick={submitSession}>
-                {sessionSaveMessage?sessionSaveMessage:sessionSaved
-                  ?"✓ Session Saved"
-                  :preferences.environment==="practice"?"End Practice & View Summary":"Finish & View Summary"}
-              </button>
-            )}
+            {/* The end-session button used to live here, gated to
+                exclude league, tournament and drills -- which is why the
+                drills tab had no way to finish a session at all. It is
+                now the sticky bar at the bottom, unconditional. */}
 
             {!editingId&&(preferences.environment==="casual"||preferences.environment==="practice")&&effectiveSessionLeague&&(
               <SessionRecap
@@ -2037,48 +2059,46 @@ export default function LogView({
             </CollapsibleCard>
 
 
+            </>)}
+            </>)}
+
+          {/* Clears the sticky session bar.
+
+              Moved OUT of the shot-mode block above. The bar used to be
+              Save Shot, which only appeared in shot mode, so the spacer
+              belonged there too. The bar is the session button now and
+              shows in every mode -- left where it was, the last card in
+              game-tracking and on the drills tab would sit underneath
+              it. */}
+          {!editingId&&activeBowler&&effectiveSessionLeague&&(
             <div style={{height:`${footerHeight}px`}}/>
-            </>)}
-            </>)}
+          )}
           </>
-          {/* Sits ABOVE the bottom nav, not under it. The nav is fixed at
+          {/* The sticky bar is the SESSION button now, in every mode.
+              
+              It was Save Shot, which meant the "I'm done" control was an
+              inline button somewhere up the page in some modes, missing
+              entirely on the drills tab, and in a collapsible card in
+              others. Three different places for one idea.
+              
+              Sits ABOVE the bottom nav, not under it. The nav is fixed at
               bottom:0 with zIndex 100, so this bar -- also fixed at
-              bottom:0, zIndex 50 -- was rendering behind it and looked
-              like the Save Shot button had vanished, which stopped
-              shot-by-shot logging from advancing at all.
-              64px clears the nav; the safe-area inset clears the iOS
-              home indicator underneath it. */}
-          {(editingId||(leagueReady&&preferences.trackingMode==="shot"&&!(preferences.environment==="practice"&&practiceMode==="drill")))&&(
-          <div ref={footerRef} style={{position:"fixed",bottom:"calc(64px + env(safe-area-inset-bottom, 0px))",left:0,right:0,backgroundColor:C.surface,borderTop:`1px solid ${C.border}`,padding:"12px 16px",zIndex:90,maxWidth:"480px",margin:"0 auto"}}>
-            <button style={S.btn("primary")} onClick={submitShot} disabled={!form.result||!form.bowler||needsSpareMade}>
-              {saved?(editingId?"✓ Shot Updated":"✓ Shot Saved"):(editingId?"Update Shot":"Save Shot")}
+              bottom:0, zIndex 50 -- rendered behind it and looked like
+              the button had vanished. 64px clears the nav; the safe-area
+              inset clears the iOS home indicator underneath it. */}
+          {!editingId&&activeBowler&&effectiveSessionLeague&&(
+          <div ref={footerRef} style={{position:"fixed",bottom:"calc(64px + env(safe-area-inset-bottom, 0px))",left:0,right:0,zIndex:50,padding:"10px 14px",backgroundColor:C.bg,borderTop:`1px solid ${C.border}`}}>
+            <button style={S.btn("primary")} onClick={submitSession}>
+              {sessionSaveMessage?sessionSaveMessage:sessionSaved
+                ?"\u2713 Session Saved"
+                :preferences.environment==="practice"
+                  ?"End Practice & View Summary"
+                  :preferences.environment==="tournament"
+                    ?"End Block & View Summary"
+                    :preferences.environment==="league"
+                      ?"End Session & View Summary"
+                      :"Finish & View Summary"}
             </button>
-            {needsSpareMade&&(
-              <div style={{fontSize:"12px",color:C.spare,marginTop:"8px",textAlign:"center"}}>Answer "Spare Made" above before saving — it directly affects the score.</div>
-            )}
-            {editingId&&(
-              <button style={{...S.btn("warn"),marginTop:"8px"}} onClick={cancelEdit}>Cancel Edit</button>
-            )}
-            {/* Delete the shot being edited.
-            
-                Editing was reachable from the Bowl tab -- tap a frame on
-                the scoresheet -- but deleting was not, so a frame logged
-                by mistake meant going to History > Shots to find and
-                remove it. That's the hunt the scoresheet exists to avoid.
-                
-                Confirmed because it can't be undone, and named so the
-                dialog says WHICH frame rather than "are you sure?". */}
-            {editingId&&deleteShot&&(
-              <button style={{...S.btn(),marginTop:"8px",width:"100%",color:C.miss,borderColor:C.miss+"55"}}
-                onClick={()=>{
-                  const which=`frame ${form.frame}${form.ballNum?`, ball ${form.ballNum}`:""} of game ${form.game}`;
-                  if(!window.confirm(`Delete ${which}? This can't be undone.`))return;
-                  deleteShot(editingId);
-                  cancelEdit?.();
-                }}>
-                Delete this shot
-              </button>
-            )}
           </div>
           )}
     </>
