@@ -5,7 +5,8 @@ import {
   addGame, removeGame, setGameField, addDay, removeDay, setDayField, updateDay,
   dayTotal, dayAverage, dayGamesEntered, cutMargin,
   tournamentTotal, tournamentTotalWithHandicap, tournamentAverage, tournamentMoney,
-  TOURNAMENT_FORMATS, TOURNAMENT_SCORING_FORMATS,
+  SCORING_BASES, TRACKING_MODES, PIN_FORMATS, PLAY_STYLES,
+  scoringBasis, trackingMode, pinFormat, playStyle,
 } from "./domain/tournaments.js";
 import { patternDisplayName, searchPatterns, describePattern, patternStats } from "./domain/oilPatterns.js";
 import { leagueFormat, isNoTapLeague } from "./domain/leagueSeasons.js";
@@ -596,55 +597,54 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
         </div>
       </div>
 
-      {/* Format. Metadata rather than scoring -- the scores entered here
-          are final scores the house scorer already produced, so no-tap is
-          baked in by the time they are typed.
+      {/* Four independent settings.
 
-          Recorded because a 250 in a no-tap squad is not a 250 in a
-          scratch event, and a Baker score is not an individual score at
-          all. Blank stays blank: an unrecorded format should not claim
-          to have been scratch. */}
-      <div style={{ marginBottom: "12px" }}>
-        {fieldLabel("Format")}
-        <select style={S.sel} value={tournament.format || ""}
-          onChange={e => onChange({ ...tournament, format: e.target.value })}>
-          <option value="">Not recorded</option>
-          {TOURNAMENT_FORMATS.map(f => (
-            <option key={f.id} value={f.id}>{f.label}</option>
-          ))}
-        </select>
-        {tournament.format && (
-          <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "4px", lineHeight: 1.5 }}>
-            {TOURNAMENT_FORMATS.find(f => f.id === tournament.format)?.blurb}
+          Not one dropdown with six values: a Baker squad can be
+          handicapped, no-tap and frame-tracked all at once, and folding
+          them together needs a combinatorial list. Every default is the
+          one that means "as it always was", so an event set up without
+          touching any of these behaves exactly as before. */}
+      {[
+        ["Scoring", SCORING_BASES, "scoringBasis", scoringBasis],
+        ["Tracking", TRACKING_MODES, "trackingMode", trackingMode],
+        ["Pins", PIN_FORMATS, "pinFormat", pinFormat],
+        ["Style", PLAY_STYLES, "playStyle", playStyle],
+      ].map(([label, options, field, resolve]) => (
+        <div key={field} style={{ marginBottom: "10px" }}>
+          {fieldLabel(label)}
+          <div style={S.chips}>
+            {options.map(o => (
+              <Chip key={o.id} label={o.label} dense
+                selected={resolve(tournament) === o.id}
+                onToggle={() => onChange({ ...tournament, [field]: o.id })} />
+            ))}
           </div>
-        )}
-      </div>
+          {/* Only when it is not the default -- explaining "Scratch" or
+              "10 pin" to a bowler is noise. */}
+          {resolve(tournament) !== options[0].id && (
+            <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "4px", lineHeight: 1.5 }}>
+              {options.find(o => o.id === resolve(tournament))?.blurb}
+            </div>
+          )}
+        </div>
+      ))}
 
-      {/* Handicap. Only for a handicap event, and only asked once --
+      {/* Handicap pins. Only for a handicap event, and asked once --
           it applies to EVERY game, which is the thing bowlers get wrong
-          when adding it up by hand: 40 pins across four games is 160,
-          not 40. */}
-      {tournament.format === "handicap" && (
+          adding it up by hand: 40 pins across four games is 160. */}
+      {scoringBasis(tournament) === "handicap" && (
         <div style={{ marginBottom: "12px" }}>
           {fieldLabel("Handicap per game")}
           <input style={S.input} type="number" inputMode="numeric" placeholder="e.g. 40"
             value={tournament.handicap || ""}
             onChange={e => onChange({ ...tournament, handicap: e.target.value })} />
-          {appliesHandicap(tournament) && (
-            <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "4px", lineHeight: 1.5 }}>
-              Added to every game, so it counts once per game toward your block total.
-            </div>
-          )}
         </div>
       )}
 
-      {/* Baker. Two bowlers, alternating frames, one score.
-
-          Who bowls which frame follows from who starts, so nothing has
-          to be marked per shot -- the app works it out. The tenth is not
-          split: whoever starts it bowls all of it, fill ball included,
-          because a fill ball earned by a strike belongs to whoever threw
-          the strike. */}
+      {/* Baker. Who bowls which frame follows from who starts, so
+          nothing is marked per shot. The tenth is not split: whoever
+          starts it bowls all of it, fill ball included, because a fill
+          ball earned by a strike belongs to whoever threw the strike. */}
       {isBaker(tournament) && (
         <div style={{ marginBottom: "12px" }}>
           {fieldLabel("Bowling with")}
@@ -666,36 +666,6 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
           </div>
         </div>
       )}
-
-      {/* Scoring, separate from the event format above.
-
-          Different axes: scratch and Baker describe how the event runs,
-          10 pin and no-tap describe what a frame is worth. A Baker squad
-          can be no-tap and a scratch squad can be no-tap, so folding
-          them into one field would need a combinatorial list.
-
-          This one is not metadata. Tournament games can be frame-tracked,
-          so the app scores them itself and no-tap changes the number.
-
-          10 pin is selected unless the bowler says otherwise -- an event
-          recorded before this existed was a 10-pin event, and quietly
-          rescoring it would be worse than not offering the option. */}
-      <div style={{ marginBottom: "12px" }}>
-        {fieldLabel("Scoring")}
-        <div style={S.chips}>
-          {TOURNAMENT_SCORING_FORMATS.map(f => (
-            <Chip key={f.id} label={f.label} dense
-              selected={leagueFormat(tournament.scoringFormat) === f.id}
-              onToggle={() => onChange({ ...tournament, scoringFormat: f.id })} />
-          ))}
-        </div>
-        {isNoTapLeague(tournament.scoringFormat) && (
-          <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "4px", lineHeight: 1.5 }}>
-            Nine on the first ball counts as a strike. Kept out of your regular strike
-            percentage, but still counted toward how your ball carries.
-          </div>
-        )}
-      </div>
 
       {(tournament.days || []).map(day => (
         <DayBlock key={day.dayNumber}

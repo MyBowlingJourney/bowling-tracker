@@ -3515,7 +3515,7 @@ export default function BowlingTracker(){
   // per-event container league, so the detection below needs no special
   // case beyond reading the format from the right place.
   const activeScoringFormat=preferences.environment==="tournament"
-    ?activeTournament?.scoringFormat
+    ?activeTournament?.pinFormat
     :leagueFormats?.[effectiveSessionLeague];
   const noTapLeague=isNoTapLeague(activeScoringFormat);
   const isFirstBall=!form.ballNum||Number(form.ballNum)===1;
