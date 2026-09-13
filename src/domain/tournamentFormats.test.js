@@ -6,7 +6,7 @@ import {
 } from './tournamentFormats.js';
 
 describe('handicap', () => {
-  const t = { format: 'handicap', handicap: '40' };
+  const t = { scoringBasis: 'handicap', handicap: '40' };
 
   // A 40-pin handicap across four games is 160 pins, not 40. Adding it
   // once would under-report by three games and put a bowler below a cut
@@ -35,13 +35,13 @@ describe('handicap', () => {
   // Stored but not applied: switching to scratch and back should not
   // lose the number the bowler typed.
   it('is ignored in a scratch event even when a value is stored', () => {
-    expect(appliesHandicap({ format: 'scratch', handicap: '40' })).toBe(false);
-    expect(handicapPins({ format: 'scratch', handicap: '40' }, 4)).toBe(0);
+    expect(appliesHandicap({ scoringBasis: 'scratch', handicap: '40' })).toBe(false);
+    expect(handicapPins({ scoringBasis: 'scratch', handicap: '40' }, 4)).toBe(0);
   });
 
   it('is ignored when the handicap is zero or missing', () => {
-    expect(appliesHandicap({ format: 'handicap', handicap: '0' })).toBe(false);
-    expect(appliesHandicap({ format: 'handicap' })).toBe(false);
+    expect(appliesHandicap({ scoringBasis: 'handicap', handicap: '0' })).toBe(false);
+    expect(appliesHandicap({ scoringBasis: 'handicap' })).toBe(false);
   });
 });
 
@@ -97,25 +97,25 @@ describe('what a Baker game contributes', () => {
 
   // Half the score was thrown by someone else.
   it('keeps a Baker score out of the bowler’s average', () => {
-    expect(scoreCountsForBowler({ format: 'baker' })).toBe(false);
-    expect(scoreCountsForBowler({ format: 'scratch' })).toBe(true);
-    expect(scoreCountsForBowler({ format: 'handicap' })).toBe(true);
+    expect(scoreCountsForBowler({ playStyle: 'baker' })).toBe(false);
+    expect(scoreCountsForBowler({ scoringBasis: 'scratch' })).toBe(true);
+    expect(scoreCountsForBowler({ scoringBasis: 'handicap' })).toBe(true);
   });
 
   // Without a reason, an excluded 210 looks like a bug.
   it('explains why the score is set aside', () => {
-    const note = bakerScoreNote({ format: 'baker', bakerPartner: 'Dave' });
+    const note = bakerScoreNote({ playStyle: 'baker', bakerPartner: 'Dave' });
     expect(note).toContain('Dave');
     expect(note).toContain('out of your average');
     expect(note).toContain('still count');
   });
 
   it('says nothing for a non-Baker event', () => {
-    expect(bakerScoreNote({ format: 'scratch' })).toBe('');
+    expect(bakerScoreNote({ scoringBasis: 'scratch' })).toBe('');
   });
 
   it('copes with no partner name', () => {
-    expect(bakerScoreNote({ format: 'baker' })).toContain('your partner');
+    expect(bakerScoreNote({ playStyle: 'baker' })).toContain('your partner');
   });
 });
 

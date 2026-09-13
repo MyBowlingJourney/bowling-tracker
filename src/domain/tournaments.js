@@ -1,5 +1,5 @@
 import { leagueFormat } from "./leagueSeasons.js";
-import { handicapPins } from "./tournamentFormats.js";
+import { handicapPins, scoringBasis, trackingMode, pinFormat, playStyle } from "./tournamentFormats.js";
 // Tournament sessions.
 //
 // A tournament night is shaped differently enough from a league night that
@@ -57,40 +57,42 @@ export function emptyTournamentDay(dayNumber = 1) {
 // event, and averaging them together quietly inflates a bowler's record.
 // Stored so that comparison can be made honestly later, and so a bowler
 // looking back in two years knows what they actually bowled.
-export const TOURNAMENT_FORMATS = [
-  { id: "scratch",  label: "Scratch",  blurb: "No handicap." },
-  { id: "handicap", label: "Handicap", blurb: "Scratch scores plus your handicap." },
-  { id: "baker",    label: "Baker",    blurb: "Team-mates alternate frames; one score for the team." },
-];
+// The four axes live in tournamentFormats.js, which also holds what each
+// one DOES. Re-exported here so callers have one import for tournaments.
+export {
+  SCORING_BASES, TRACKING_MODES, PIN_FORMATS, PLAY_STYLES,
+  scoringBasis, trackingMode, pinFormat, playStyle,
+} from "./tournamentFormats.js";
 
-// Scoring format is a SEPARATE field from event format, and shares the
-// league vocabulary rather than inventing its own.
+// Should this event's SCORES join the bowler's scratch figures?
 //
-// They are different axes. Scratch, handicap and Baker describe how the
-// event is run; 10 pin and 9-pin no-tap describe what a frame is worth.
-// A Baker squad can be no-tap, and a scratch squad can be no-tap, so one
-// field could not carry both without a combinatorial list -- which is
-// what the earlier version was drifting into with "baker-no-tap".
+// Two reasons they might not, and they are independent:
 //
-// It matters more here than it used to. Tournament games can be
-// frame-tracked, so the app scores them itself and no-tap genuinely
-// changes the number.
-export { LEAGUE_FORMATS as TOURNAMENT_SCORING_FORMATS } from "./leagueSeasons.js";
-
-export const TOURNAMENT_FORMAT_IDS = TOURNAMENT_FORMATS.map(f => f.id);
-
-export function formatLabel(id) {
-  return TOURNAMENT_FORMATS.find(f => f.id === id)?.label || "";
+//   Baker    -- half the pins were thrown by a partner. Not the
+//               bowler's score to claim.
+//   No-tap   -- a nine counts as a strike, so the scores run high.
+//               Pooling them inflates an average with an easier format.
+//
+// Handicap is NOT a reason. The scratch pins underneath are entirely the
+// bowler's and entirely comparable; only the total on the sheet differs.
+//
+// The FRAMES are a separate question and the answer is usually yes --
+// see myBakerShots. A bowler threw the balls they threw, whatever the
+// event was called.
+export function scoresJoinScratchFigures(tournament) {
+  return playStyle(tournament) === "standard" && pinFormat(tournament) === "tenpin";
 }
 
-// Is this a format whose scores should NOT be pooled with scratch play?
-//
-// No-tap inflates scores substantially and Baker is a team score rather
-// than an individual one. Both belong in a bowler's history and neither
-// belongs in their scratch average.
-export function isNonScratchFormat(id) {
-  return id === "no-tap-9" || id === "no-tap-8"
-    || id === "baker" || id === "baker-no-tap";
+// A short description of the event's settings, for history and share
+// cards -- "Handicap, 9 pin no-tap, Baker". Defaults are left out: a
+// standard scratch 10-pin event needs no explaining.
+export function describeTournamentFormat(tournament) {
+  const bits = [];
+  if (scoringBasis(tournament) === "handicap") bits.push("Handicap");
+  if (pinFormat(tournament) === "notap9") bits.push("9 pin no-tap");
+  if (playStyle(tournament) === "baker") bits.push("Baker");
+  if (trackingMode(tournament) === "game") bits.push("Game tracking");
+  return bits.join(" · ");
 }
 
 export function emptyTournament() {
@@ -105,8 +107,11 @@ export function emptyTournament() {
     // Blank means unrecorded rather than scratch. An old tournament
     // logged before this field existed should not silently claim to have
     // been a scratch event.
-    format: "",
-    scoringFormat: "",
+    // Four independent axes; every default means "as it always was".
+    scoringBasis: "scratch",
+    trackingMode: "shot",
+    pinFormat: "tenpin",
+    playStyle: "standard",
     // Handicap pins, added to EVERY game when the format is handicap.
     // Kept when the format changes so switching away and back does not
     // lose what the bowler typed.
@@ -156,8 +161,10 @@ export function normalizeTournament(raw) {
     center: raw.center || "",
     // Validated against the known list rather than trusted: a format
     // nobody can interpret is worse than none recorded.
-    format: TOURNAMENT_FORMAT_IDS.includes(raw.format) ? raw.format : "",
-    scoringFormat: leagueFormat(raw.scoringFormat),
+    scoringBasis: scoringBasis(raw),
+    trackingMode: trackingMode(raw),
+    pinFormat: pinFormat(raw),
+    playStyle: playStyle(raw),
     handicap: raw.handicap ?? "",
     bakerPartner: raw.bakerPartner || "",
     bakerStarter: raw.bakerStarter === "partner" ? "partner" : "me",
@@ -391,8 +398,10 @@ export function tournamentToRow(t, userId) {
     bowler_name: t.bowler,
     name: t.name,
     center: t.center || null,
-    format: t.format || null,
-    scoring_format: leagueFormat(t.scoringFormat),
+    scoring_basis: scoringBasis(t),
+    tracking_mode: trackingMode(t),
+    pin_format: pinFormat(t),
+    play_style: playStyle(t),
     handicap: num(t.handicap),
     baker_partner: t.bakerPartner || null,
     baker_starter: t.bakerStarter === "partner" ? "partner" : "me",
@@ -412,8 +421,10 @@ export function tournamentFromRow(row) {
     bowler: row.bowler_name || "",
     name: row.name || "",
     center: row.center || "",
-    format: row.format || "",
-    scoringFormat: leagueFormat(row.scoring_format),
+    scoringBasis: scoringBasis({ scoringBasis: row.scoring_basis }),
+    trackingMode: trackingMode({ trackingMode: row.tracking_mode }),
+    pinFormat: pinFormat({ pinFormat: row.pin_format }),
+    playStyle: playStyle({ playStyle: row.play_style }),
     handicap: row.handicap == null ? "" : String(row.handicap),
     bakerPartner: row.baker_partner || "",
     bakerStarter: row.baker_starter === "partner" ? "partner" : "me",

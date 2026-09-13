@@ -1,73 +1,69 @@
 import { describe, it, expect } from 'vitest';
 import {
   emptyTournament, tournamentToRow, tournamentFromRow,
-  TOURNAMENT_FORMATS, TOURNAMENT_FORMAT_IDS, TOURNAMENT_SCORING_FORMATS, formatLabel, isNonScratchFormat,
+      
   resolveTournamentGameScore, dayTotal, dayGamesEntered, tournamentGamesEntered,
   tournamentTotal, tournamentAverage,
   tournamentTotalWithHandicap,
+  SCORING_BASES, TRACKING_MODES, PIN_FORMATS, PLAY_STYLES, scoresJoinScratchFigures, describeTournamentFormat,
 } from './tournaments.js';
-describe('tournament format', () => {
-  // Metadata, not scoring. Tournament games are entered as final scores,
-  // so the house scorer has already applied no-tap by the time the
-  // bowler types the number.
-  // Event format and scoring format are different axes. Scratch and
-  // Baker describe how the event runs; no-tap describes what a frame is
-  // worth, and a Baker squad can be either -- so folding them into one
-  // field needed a combinatorial list ("baker-no-tap"), which is what
-  // this used to be drifting into.
-  it('offers only event formats, not scoring', () => {
-    expect(TOURNAMENT_FORMAT_IDS).toEqual(['scratch', 'handicap', 'baker']);
-    expect(TOURNAMENT_FORMAT_IDS).not.toContain('no-tap-9');
+describe('four independent settings', () => {
+  // Not one dropdown with six values: a Baker squad can be handicapped,
+  // no-tap and frame-tracked at once. An earlier version packed
+  // scratch/handicap/baker into one field and was already drifting into
+  // a combinatorial list with "baker-no-tap".
+  it('offers each axis separately', () => {
+    expect(SCORING_BASES.map(o => o.id)).toEqual(['scratch', 'handicap']);
+    expect(TRACKING_MODES.map(o => o.id)).toEqual(['shot', 'game']);
+    expect(PIN_FORMATS.map(o => o.id)).toEqual(['tenpin', 'notap9']);
+    expect(PLAY_STYLES.map(o => o.id)).toEqual(['standard', 'baker']);
   });
 
-  it('offers scoring format separately, sharing the league vocabulary', () => {
-    expect(TOURNAMENT_SCORING_FORMATS.map(f => f.id)).toEqual(['tenpin', 'notap9']);
+  // Every default means "behaves as it always has".
+  it('defaults to scratch, frame tracking, 10 pin, standard', () => {
+    const t = emptyTournament();
+    expect(t.scoringBasis).toBe('scratch');
+    expect(t.trackingMode).toBe('shot');
+    expect(t.pinFormat).toBe('tenpin');
+    expect(t.playStyle).toBe('standard');
   });
 
-  // Tournament games can be frame-tracked, so this one is not metadata --
-  // the app scores them itself and no-tap changes the number.
-  it('round-trips the scoring format', () => {
-    const t = { ...emptyTournament(), id: 't1', bowler: 'Ryan', scoringFormat: 'notap9' };
-    expect(tournamentToRow(t, 'u1').scoring_format).toBe('notap9');
-    expect(tournamentFromRow(tournamentToRow(t, 'u1')).scoringFormat).toBe('notap9');
+  it('round-trips all four through a row', () => {
+    const t = { ...emptyTournament(), id: 't1', bowler: 'Ryan',
+      scoringBasis: 'handicap', trackingMode: 'game', pinFormat: 'notap9', playStyle: 'baker' };
+    const back = tournamentFromRow(tournamentToRow(t, 'u1'));
+    expect(back.scoringBasis).toBe('handicap');
+    expect(back.trackingMode).toBe('game');
+    expect(back.pinFormat).toBe('notap9');
+    expect(back.playStyle).toBe('baker');
   });
 
-  // An event recorded before this existed was a 10-pin event.
-  it('defaults scoring to 10 pin', () => {
-    expect(tournamentFromRow({ id: 't', scoring_format: null }).scoringFormat).toBe('tenpin');
+  // An unknown value scores as standard rather than stranding the event.
+  it('falls back to the default for anything unrecognised', () => {
+    const back = tournamentFromRow({ id: 't', scoring_basis: 'nope', pin_format: 'nope',
+      play_style: 'nope', tracking_mode: 'nope' });
+    expect(back.scoringBasis).toBe('scratch');
+    expect(back.pinFormat).toBe('tenpin');
+    expect(back.playStyle).toBe('standard');
+    expect(back.trackingMode).toBe('shot');
   });
 
-  // A 250 in a no-tap squad is not a 250 in a scratch event, and a Baker
-  // score is not an individual score at all.
-  it('knows which formats should not be pooled with scratch play', () => {
-    expect(isNonScratchFormat('no-tap-9')).toBe(true);
-    expect(isNonScratchFormat('baker')).toBe(true);
-    expect(isNonScratchFormat('scratch')).toBe(false);
-    expect(isNonScratchFormat('handicap')).toBe(false);
+  // Handicap is not a reason to exclude a score: the scratch pins
+  // underneath are entirely the bowler's and entirely comparable.
+  it('keeps handicap scores in the scratch figures', () => {
+    expect(scoresJoinScratchFigures({ scoringBasis: 'handicap' })).toBe(true);
   });
 
-  // Blank means unrecorded. A tournament logged before this field
-  // existed should not claim to have been scratch.
-  it('leaves the format blank by default', () => {
-    expect(emptyTournament().format).toBe('');
-    expect(isNonScratchFormat('')).toBe(false);
+  it('keeps Baker and no-tap out of them', () => {
+    expect(scoresJoinScratchFigures({ playStyle: 'baker' })).toBe(false);
+    expect(scoresJoinScratchFigures({ pinFormat: 'notap9' })).toBe(false);
   });
 
-  it('round-trips the event format', () => {
-    const t = { ...emptyTournament(), id: 't1', bowler: 'Ryan', name: 'Open', format: 'baker' };
-    expect(tournamentToRow(t, 'u1').format).toBe('baker');
-    expect(tournamentFromRow({ ...tournamentToRow(t, 'u1') }).format).toBe('baker');
-  });
-
-  it('stores null rather than an empty string when unrecorded', () => {
-    expect(tournamentToRow(emptyTournament(), 'u1').format).toBe(null);
-  });
-
-  it('survives junk', () => {
-    for (const junk of [null, undefined, 42, {}]) {
-      expect(() => formatLabel(junk)).not.toThrow();
-      expect(() => isNonScratchFormat(junk)).not.toThrow();
-    }
+  // A standard scratch 10-pin event needs no explaining.
+  it('describes only the non-default settings', () => {
+    expect(describeTournamentFormat(emptyTournament())).toBe('');
+    expect(describeTournamentFormat({ scoringBasis: 'handicap', pinFormat: 'notap9', playStyle: 'baker' }))
+      .toBe('Handicap · 9 pin no-tap · Baker');
   });
 });
 
@@ -143,19 +139,19 @@ describe('handicap reaches the total', () => {
 
   // The number the tournament used, which is what decides the cut.
   it('adds the handicap once per game', () => {
-    expect(tournamentTotalWithHandicap({ format: 'handicap', handicap: '40', days: [day] })).toBe(690);
+    expect(tournamentTotalWithHandicap({ scoringBasis: 'handicap', handicap: '40', days: [day] })).toBe(690);
   });
 
   it('leaves a scratch event alone even with a handicap stored', () => {
-    expect(tournamentTotalWithHandicap({ format: 'scratch', handicap: '40', days: [day] })).toBe(570);
+    expect(tournamentTotalWithHandicap({ scoringBasis: 'scratch', handicap: '40', days: [day] })).toBe(570);
   });
 
   it('leaves Baker alone', () => {
-    expect(tournamentTotalWithHandicap({ format: 'baker', handicap: '40', days: [day] })).toBe(570);
+    expect(tournamentTotalWithHandicap({ playStyle: 'baker', handicap: '40', days: [day] })).toBe(570);
   });
 
   it('gives nothing when nothing was bowled', () => {
-    expect(tournamentTotalWithHandicap({ format: 'handicap', handicap: '40', days: [{ games: [] }] })).toBe(null);
+    expect(tournamentTotalWithHandicap({ scoringBasis: 'handicap', handicap: '40', days: [{ games: [] }] })).toBe(null);
   });
 
   it('survives junk', () => {

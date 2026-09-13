@@ -1,14 +1,66 @@
-// What the tournament formats actually DO.
+// The four things a tournament can be, and what each one does.
 //
-// Scratch, handicap and Baker were metadata: recorded, displayed, and
-// computing nothing. This is the behaviour behind them.
+// They are FOUR INDEPENDENT AXES, not one setting with six values:
 //
-// They are independent of everything else. 10 pin or 9-pin no-tap, frame
-// or game tracking, one day or five -- none of it changes here, and none
-// of it is changed by what is here. A Baker squad can be no-tap and
-// handicapped and frame-tracked all at once.
+//   scoringBasis  scratch | handicap   -- are pins added to each game
+//   trackingMode  shot    | game       -- frames, or final scores only
+//   pinFormat     tenpin  | notap9     -- what counts as a strike
+//   playStyle     standard| baker      -- bowling alone, or alternating
+//
+// Any combination is legal. A Baker squad can be handicapped, no-tap and
+// frame-tracked all at once, which is why an earlier version that packed
+// scratch/handicap/baker into one field was already drifting toward a
+// combinatorial list with "baker-no-tap".
+//
+// Every default is the one that means "behaves as it always has":
+// scratch, frame tracking, 10 pin, standard. A tournament recorded before
+// any of this keeps its scores unchanged.
 
 import { leagueFormat } from "./leagueSeasons.js";
+
+// The stored value is "shot" and the label is "Frame tracking" -- that
+// mismatch predates this and is left alone deliberately. Changing the
+// stored value would rewrite every existing preference for a wording
+// change nobody sees.
+export const SCORING_BASES = [
+  { id: "scratch",  label: "Scratch",  blurb: "Your pins, as bowled." },
+  { id: "handicap", label: "Handicap", blurb: "Pins added to every game." },
+];
+
+export const TRACKING_MODES = [
+  { id: "shot", label: "Frame tracking", blurb: "Every frame, with leaves and carry." },
+  { id: "game", label: "Game tracking",  blurb: "Final score for each game." },
+];
+
+export const PIN_FORMATS = [
+  { id: "tenpin", label: "10 pin",       blurb: "Standard scoring." },
+  { id: "notap9", label: "9 pin no-tap", blurb: "Nine on the first ball counts as a strike." },
+];
+
+export const PLAY_STYLES = [
+  { id: "standard", label: "Standard", blurb: "You bowl the whole game." },
+  { id: "baker",    label: "Baker",    blurb: "You and a partner alternate frames." },
+];
+
+// Resolvers. Anything unrecognised -- blank, missing, a value from a
+// future version -- falls back to the default rather than throwing or
+// being stored as-is, so an unknown value scores as standard rather than
+// stranding the event.
+export function scoringBasis(t) {
+  return t?.scoringBasis === "handicap" ? "handicap" : "scratch";
+}
+
+export function trackingMode(t) {
+  return t?.trackingMode === "game" ? "game" : "shot";
+}
+
+export function pinFormat(t) {
+  return leagueFormat(t?.pinFormat);
+}
+
+export function playStyle(t) {
+  return t?.playStyle === "baker" ? "baker" : "standard";
+}
 
 const num = v => {
   if (v === null || v === undefined || v === "") return null;
@@ -44,7 +96,7 @@ export function gameWithHandicap(score, handicap) {
 // scratch stays stored -- switching back should not lose it -- but it
 // must not be applied while the event is scratch.
 export function appliesHandicap(tournament) {
-  return tournament?.format === "handicap" && handicapPerGame(tournament) > 0;
+  return scoringBasis(tournament) === "handicap" && handicapPerGame(tournament) > 0;
 }
 
 // Handicap pins across however many games were actually bowled.
@@ -78,7 +130,7 @@ export const BAKER_STARTERS = [
 ];
 
 export function isBaker(tournament) {
-  return tournament?.format === "baker";
+  return playStyle(tournament) === "baker";
 }
 
 // "me" or "partner" -- who bowls this frame.
