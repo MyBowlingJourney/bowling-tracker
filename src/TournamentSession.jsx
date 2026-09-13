@@ -186,14 +186,15 @@ function OilPatternField({ value, onChange, patterns, onSubmitPattern, tournamen
   );
 }
 
-function DayBlock({ tournament, day, onChange, canRemoveDay, onRemoveDay, multiDay, oilPatterns, submitOilPattern, tournaments, shotScores }) {
-  const total = dayTotal(day, shotScores);
-  const avg = dayAverage(day);
-  const entered = dayGamesEntered(day);
-  const margin = cutMargin(day, shotScores);
-
+function DayDetails({ tournament, day, onChange, canRemoveDay, onRemoveDay, multiDay, oilPatterns, submitOilPattern, tournaments }) {
   function update(next) { onChange(next); }
 
+  // Block details only -- date, time, squad, block number.
+  //
+  // Games moved out to the Scoring tab, and Starting Lanes went
+  // with them: a tournament moves pairs after every game, so the
+  // pair belongs beside the game it applies to rather than as a
+  // single value set once before the block starts.
   return (
     <div style={{ ...S.card, border: `1px solid ${C.border}` }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
@@ -224,11 +225,6 @@ function DayBlock({ tournament, day, onChange, canRemoveDay, onRemoveDay, multiD
           <input style={S.input} placeholder="e.g. A, 2, Sat AM" value={day.squad}
             onChange={e => update({ ...day, squad: e.target.value })} />
         </div>
-        <div style={{ flex: 1 }}>
-          {fieldLabel("Starting Lanes")}
-          <input style={S.input} placeholder="e.g. 13-14" value={day.startingLanes}
-            onChange={e => update({ ...day, startingLanes: e.target.value })} />
-        </div>
       </div>
 
       <div style={{ ...S.row, marginTop: "8px" }}>
@@ -248,8 +244,20 @@ function DayBlock({ tournament, day, onChange, canRemoveDay, onRemoveDay, multiD
         </div>
       </div>
 
-      <div style={S.divider} />
+    </div>
+  );
+}
 
+function DayScoring({ tournament, day, onChange, multiDay, shotScores }) {
+  const total = dayTotal(day, shotScores);
+  const avg = dayAverage(day, shotScores);
+  const entered = dayGamesEntered(day, shotScores);
+  const margin = cutMargin(day, shotScores);
+  function update(next) { onChange(next); }
+
+  return (
+    <div style={{ ...S.card, border: `1px solid ${C.border}` }}>
+      {multiDay && <div style={{ ...S.label, marginBottom: "8px" }}>Day {day.dayNumber}</div>}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
         <div style={S.label}>Games</div>
         <button style={{ ...S.btn(), padding: "4px 12px", fontSize: "12px" }} onClick={() => update(addGame(day))}>
@@ -609,19 +617,12 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
           <input style={S.input} placeholder="e.g. Bowlero Pittsburgh"
             value={tournament.center} onChange={e => onChange({ ...tournament, center: e.target.value })} />
         </div>
-      </div>
 
-      {/* Set Up: four settings that define the event, in a 2x2.
-          
-          Grouped rather than stacked because they are read together --
-          "standard, 10 pin, scratch" is one sentence about the event,
-          and four full-width rows made it four separate decisions.
-          
-          Tracking is deliberately absent: frame or game tracking is set
-          on the Bowl card and in Settings, and having a second control
-          for it here would be two sources of truth for one preference. */}
-      <div style={S.card}>
-        <div style={S.label}>Set Up</div>
+        {/* The four settings that define the event, in the same card
+            as the name and centre -- they are read together as one
+            sentence about the event, and a separate card made them
+            feel like a second job. */}
+        <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: `1px solid ${C.border}` }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
 
           <div>
@@ -694,14 +695,17 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
             </div>
           </div>
         )}
+        </div>
       </div>
 
-      </>)}
 
-      {tab === "scoring" && (<>
+      {/* Block details -- date, time, squad, block number.
+          
+          Here rather than with the scores because they are set once
+          before the block starts. Games and the lane pair moved to
+          Scoring, where they belong beside the game they describe. */}
       {(tournament.days || []).map(day => (
-        <DayBlock key={day.dayNumber}
-          shotScores={shotScores}
+        <DayDetails key={day.dayNumber}
           tournament={tournament}
           day={day}
           multiDay={multiDay}
@@ -711,6 +715,18 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
           oilPatterns={oilPatterns}
           submitOilPattern={submitOilPattern}
           tournaments={tournaments} />
+      ))}
+
+      </>)}
+
+      {tab === "scoring" && (<>
+      {(tournament.days || []).map(day => (
+        <DayScoring key={day.dayNumber}
+          shotScores={shotScores}
+          tournament={tournament}
+          day={day}
+          multiDay={multiDay}
+          onChange={next => onChange(updateDay(tournament, day.dayNumber, () => next))} />
       ))}
 
       <button style={{ ...S.btn(), width: "100%", marginBottom: "12px" }} onClick={() => onChange(addDay(tournament))}>
