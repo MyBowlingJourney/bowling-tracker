@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense} from "react";
+import { useState, useRef, lazy, Suspense} from "react";
 import { C, S, F, Chip, PinDeck, CollapsibleCard, StatLead } from "./ui.jsx";
 import { PLASTIC_BALL, formatDate, localDateString, RESULTS, SURFACES, RELEASES, MISSES, BALL_CHANGE_REASONS, resultsForHandedness, storedResultFor, strikeDescriptionsForHand, storedStrikeDescriptionFor } from "./constants.js";
 import { rAvg, cAvg, threeSixNineResults } from "./domain/stats.js";
@@ -36,7 +36,7 @@ export default function LogView({
   promptForTeam = false, onDismissTeamPrompt,
   shots, sessions, bowlers, footerHeight, footerRef, teams, leagues, startEdit, deleteShot,
   activeBowler, newBowlerName, setNewBowlerName, arsenals, newBallName, setNewBallName,
-  form, setForm, editingId, saved, sessionSaved, sessionSaveMessage,
+  form, setForm, editingId, saved, sessionSaved, sessionSaveMessage, tournamentSaveMessage,
   sessionLeague, setSessionLeague, effectiveSessionLeague, sessionDate, setSessionDate,
   startingLane, setStartingLane, setShowSummary, expandedSections,
   ballNumLabel, curSession, currentLane, firstBallPins, g1score, g2score, g3score,
@@ -171,6 +171,14 @@ export default function LogView({
   // Tournament tab, owned here so Shot Context can follow it.
   const [tournamentTab,setTournamentTab]=useState("setup");
   const [tenthPick,setTenthPick]=useState(null);
+  // Scroll target for Save Shot.
+  //
+  // Picking a result is the last thing a bowler does before saving, and
+  // the button is below the fold on a phone -- so every shot needed a
+  // scroll the app could have done itself. Between frames that is a
+  // hundred scrolls a night.
+  const saveShotRef=useRef(null);
+
   // Shot Context (game/frame/lane) is meaningless without shots -- a
   // scores-only night has games, not frames.
   //
@@ -340,6 +348,8 @@ export default function LogView({
             {!editingId&&activeBowler&&preferences.environment==="tournament"&&(
               <TournamentSession
                 tab={tournamentTab} onTabChange={setTournamentTab}
+
+                saveMessage={tournamentSaveMessage}
                 shotScoresByDate={tournamentShotScoresByDate}
                 tournament={activeTournament}
                 onChange={updateTournament}
@@ -1010,6 +1020,20 @@ export default function LogView({
                       onToggle={()=>{
                         const newResult=form.result===stored?"":stored;
 
+                        // Choosing a result scrolls the save button into
+                        // view. Deselecting does not -- that is a bowler
+                        // changing their mind, not finishing.
+                        //
+                        // A frame after paint, so the layout has settled:
+                        // picking a result can add the Spare Made row or
+                        // the pin picker, and scrolling before those
+                        // exist lands short.
+                        if(newResult){
+                          requestAnimationFrame(()=>
+                            saveShotRef.current?.scrollIntoView({behavior:"smooth",block:"center"}));
+                        }
+
+
                         // Deselecting the result of a SAVED shot deletes
                         // it. The result is what a frame is -- a shot with
                         // no result isn't an empty frame, it's a row that
@@ -1145,6 +1169,7 @@ export default function LogView({
                 why the button is disabled, and separating them left the
                 bowler tapping a dead button with the reason somewhere
                 off-screen. */}
+            <div ref={saveShotRef} />
             {(editingId||(leagueReady&&preferences.trackingMode==="shot"
               &&!(preferences.environment==="practice"&&practiceMode==="drill")
               /* Tournament: Scoring tab only. Saving a shot from the

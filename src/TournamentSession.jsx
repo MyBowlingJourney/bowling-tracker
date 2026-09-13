@@ -642,7 +642,7 @@ function MatchPlay({ tournament, onChange }) {
   );
 }
 
-export default function TournamentSession({ tournament, onChange, onSave, saved, oilPatterns, submitOilPattern, tournaments, shotScoresByDate = null, tab: controlledTab, onTabChange }) {
+export default function TournamentSession({ tournament, onChange, onSave, saved, oilPatterns, submitOilPattern, tournaments, shotScoresByDate = null, tab: controlledTab, onTabChange, saveMessage = "" }) {
   // The tab is owned by the caller.
   //
   // LogView renders Shot Context alongside this card, and it only makes
@@ -917,6 +917,12 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
           value={tournament.notes} onChange={e => onChange({ ...tournament, notes: e.target.value })} />
       </CollapsibleCard>
 
+      {/* Why the save was refused, next to the button that refused it. */}
+      {saveMessage && (
+        <div style={{ fontSize: "12px", color: C.miss, marginBottom: "8px", lineHeight: 1.5 }}>
+          {saveMessage}
+        </div>
+      )}
       <button style={S.btn("primary")} onClick={onSave}>
         {saved ? "✓ Tournament Saved" : "Save Tournament"}
       </button>

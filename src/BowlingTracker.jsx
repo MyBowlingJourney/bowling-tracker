@@ -789,6 +789,7 @@ export default function BowlingTracker(){
   const[scoringForOthers,setScoringForOthers]=useState(false);
   const[activeTournament,setActiveTournament]=useState(emptyTournament());
   const[tournamentSaved,setTournamentSaved]=useState(false);
+  const[tournamentSaveMessage,setTournamentSaveMessage]=useState("");
   // Manually-entered game scores, keyed bowler|league|date|game. These take
   // precedence over scores computed from shots -- see domain/manualScores.js.
   const[manualScores,setManualScores]=useState({});
@@ -3038,12 +3039,25 @@ export default function BowlingTracker(){
   }
 
   async function saveTournament(){
-    if(!activeTournament.name.trim())return;
+    // A silent return: tapping Save Tournament with no name did
+    // nothing at all -- no save, no error, no clue which field was
+    // missing, on a different tab from the button. A refusal the
+    // bowler cannot see is worse than the mistake it guards against.
+    if(!activeTournament.name.trim()){
+      setTournamentSaveMessage("Give the tournament a name first \u2014 it's on the Set up tab.");
+      setTimeout(()=>setTournamentSaveMessage(""),4000);
+      return;
+    }
     // Same guard as saveDrill: a tournament belongs to the bowler who
     // bowled it. Stamping the CURRENT activeBowler onto one that already
     // names someone else would file their scores under the wrong person --
     // reachable by switching bowlers in practice and returning here.
-    if(activeTournament.bowler&&activeTournament.bowler!==activeBowler)return;
+    if(activeTournament.bowler&&activeTournament.bowler!==activeBowler){
+      setTournamentSaveMessage(`This tournament is ${activeTournament.bowler}\u2019s. Switch bowler to save it.`);
+      setTimeout(()=>setTournamentSaveMessage(""),4000);
+      return;
+    }
+    setTournamentSaveMessage("");
     const withIds={...activeTournament,id:activeTournament.id||crypto.randomUUID(),bowler:activeTournament.bowler||activeBowler};
     setActiveTournament(withIds);
     try{window.storage.set(TOURNAMENT_KEY,JSON.stringify(withIds));}catch{}
@@ -6020,6 +6034,7 @@ export default function BowlingTracker(){
             setSessionMoneyArray={setSessionMoneyArray} setSessionMoneyValue={setSessionMoneyValue}
             activeBowlerLeftHanded={activeBowlerLeftHanded}
             ballLayouts={ballLayouts} setBallLayout={setBallLayout}
+            tournamentSaveMessage={tournamentSaveMessage}
             activeTournament={activeTournament} updateTournament={updateTournament} saveTournament={saveTournament} tournamentSaved={tournamentSaved}
             manualScores={manualScores} updateManualScore={updateManualScore}
             ownerName={ownerName} scoringForOthers={scoringForOthers} setScoringForOthers={setScoringForOthers}
