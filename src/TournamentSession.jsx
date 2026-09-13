@@ -6,11 +6,10 @@ import {
   dayTotal, dayAverage, dayGamesEntered, cutMargin,
   tournamentTotal, tournamentTotalWithHandicap, tournamentAverage, tournamentMoney,
   SCORING_BASES, PIN_FORMATS, PLAY_STYLES,
-  scoringBasis, pinFormat, playStyle, cutTarget,
-} from "./domain/tournaments.js";
+  scoringBasis, pinFormat, playStyle, cutTarget, describeTournamentFormat} from "./domain/tournaments.js";
 import { patternDisplayName, searchPatterns, describePattern, patternStats } from "./domain/oilPatterns.js";
 import { leagueFormat, isNoTapLeague } from "./domain/leagueSeasons.js";
-import { isBaker, appliesHandicap, bakerFramesFor, BAKER_STARTERS, handicapPins } from "./domain/tournamentFormats.js";
+import { isBaker, appliesHandicap, bakerFramesFor, BAKER_STARTERS, handicapPins, bakerScoreNote } from "./domain/tournamentFormats.js";
 import {
   SIDE_POT_TYPES, addSidePot, removeSidePot, setSidePotField, sidePotMoney, sidePotTotals,
 } from "./domain/sidePots.js";
@@ -921,6 +920,80 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
       <button style={S.btn("primary")} onClick={onSave}>
         {saved ? "✓ Tournament Saved" : "Save Tournament"}
       </button>
+
+      {/* The whole event, once it is saved.
+
+          Everything here is spread across four tabs while the bowler is
+          filling it in, which is right for entry and wrong for looking
+          back: nobody wants to tab around to answer "how did that go".
+
+          Only after saving -- a summary of a half-entered event is a
+          summary of nothing. */}
+      {saved && (
+        <div style={{ ...S.card, border: `1.5px solid ${C.accent}`, marginTop: "12px" }}>
+          <div style={{ ...S.label, color: C.accent }}>{tournament.name || "Tournament"}</div>
+          {(describeTournamentFormat(tournament) || tournament.center) && (
+            <div style={{ fontSize: "11px", color: C.textMuted, marginBottom: "8px" }}>
+              {[describeTournamentFormat(tournament), tournament.center].filter(Boolean).join(" · ")}
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: "6px", marginBottom: "10px" }}>
+            <div style={S.statBox}>
+              <div style={{ ...S.statNum, fontSize: "18px", color: C.accent }}>{total ?? "—"}</div>
+              <div style={S.statLbl}>{appliesHandicap(tournament) ? "With handicap" : "Total"}</div>
+            </div>
+            <div style={S.statBox}>
+              <div style={{ ...S.statNum, fontSize: "18px" }}>{avg === null ? "—" : avg.toFixed(1)}</div>
+              <div style={S.statLbl}>Average</div>
+            </div>
+            <div style={S.statBox}>
+              <div style={{ ...S.statNum, fontSize: "18px" }}>{gamesAll}</div>
+              <div style={S.statLbl}>Games</div>
+            </div>
+          </div>
+
+          {/* Block by block, because a bowler who missed the cut wants to
+              know which block lost it. */}
+          {(tournament.days || []).map(d => {
+            const dt = dayTotal(d, dayScores(d));
+            const dg = dayGamesEntered(d, dayScores(d));
+            if (!dg) return null;
+            return (
+              <div key={d.dayNumber} style={{ display: "flex", justifyContent: "space-between",
+                fontSize: "12px", padding: "3px 0", color: C.text }}>
+                <span style={{ color: C.textMuted }}>
+                  {(tournament.days || []).length > 1 ? `Day ${d.dayNumber}` : "Block"}
+                  {d.date ? ` · ${d.date}` : ""}
+                </span>
+                <span>{dt} <span style={{ color: C.textMuted }}>({dg} game{dg === 1 ? "" : "s"})</span></span>
+              </div>
+            );
+          })}
+
+          {(money.buyIn !== 0 || money.winnings !== 0 || money.side.count > 0) && (
+            <div style={{ marginTop: "10px", paddingTop: "8px", borderTop: `1px solid ${C.border}`,
+              display: "flex", justifyContent: "space-between", fontSize: "12px" }}>
+              <span style={{ color: C.textMuted }}>Money</span>
+              <span>
+                <span style={{ color: C.miss }}>−${Math.abs(money.totalCost).toFixed(2)}</span>
+                {" / "}
+                <span style={{ color: C.strike }}>+${Math.abs(money.totalWon).toFixed(2)}</span>
+                {" = "}
+                <span style={{ color: money.net >= 0 ? C.strike : C.miss, fontWeight: 700 }}>
+                  {money.net < 0 ? "−" : ""}${Math.abs(money.net).toFixed(2)}
+                </span>
+              </span>
+            </div>
+          )}
+
+          {isBaker(tournament) && (
+            <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "8px", lineHeight: 1.5 }}>
+              {bakerScoreNote(tournament)}
+            </div>
+          )}
+        </div>
+      )}
       </>)}
 
       {tab === "scoring" && (<>

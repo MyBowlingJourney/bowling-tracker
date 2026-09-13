@@ -170,6 +170,7 @@ export default function LogView({
   // scores-only night has games, not frames. It had no gate at all.
   // Tournament tab, owned here so Shot Context can follow it.
   const [tournamentTab,setTournamentTab]=useState("setup");
+  const [tenthPick,setTenthPick]=useState(null);
   // Shot Context (game/frame/lane) is meaningless without shots -- a
   // scores-only night has games, not frames.
   //
@@ -669,6 +670,27 @@ export default function LogView({
                 right under it because "frame 5: strike" is one thought;
                 equipment after because it changes rarely; shoes above
                 notes because both are things you set once and leave. */}
+              {/* Which ball in the tenth.
+                  
+                  Only when there is more than one -- a single-ball tenth
+                  goes straight in, because a chooser with one option is
+                  a tap for nothing. Labels say what was actually thrown,
+                  so the bowler picks the wrong ball by recognising it
+                  rather than by counting. */}
+              {tenthPick&&(
+                <div style={{...S.card,border:`1.5px solid ${C.accent}`}}>
+                  <div style={S.label}>Which ball in the 10th?</div>
+                  <div style={S.chips}>
+                    {tenthPick.balls.map((b,i)=>(
+                      <Chip key={i}
+                        label={`${i===2?"Fill":`Ball ${i+1}`} · ${b.result==="Strike"?"X":(b._displayResult||b.result||"—")}`}
+                        onToggle={()=>{setTenthPick(null);startEdit(b);}} />
+                    ))}
+                    <Chip label="Cancel" onToggle={()=>setTenthPick(null)} />
+                  </div>
+                </div>
+              )}
+
             {showShotContext&&(
             <div style={S.card}>
               <div style={S.label}>
@@ -791,6 +813,7 @@ export default function LogView({
                 every render, so a mark appears as soon as a shot saves. */}
             {showShotContext&&(
               <Scoresheet
+
                 shots={(shots||[]).filter(sh=>{
                   // Matched loosely on purpose.
                   //
@@ -814,7 +837,19 @@ export default function LogView({
                 currentBall={form.ballNum}
                 bowlerName={form.bowler||activeBowler}
                 maxScore={maxScoreThisGame}
-                onSelectFrame={(frame,shot)=>{
+                onSelectFrame={(frame,shot,tenth)=>{
+
+                  // The tenth can hold three balls, so ask which one.
+                  //
+                  // Tapping it used to jump straight into ball 1, which
+                  // is the only ball you could reach -- a mis-tapped fill
+                  // ball had no way in at all.
+                  const balls=[tenth?.ball1,tenth?.ball2,tenth?.ball3].filter(Boolean);
+                  if(Number(frame)===10&&balls.length>1&&startEdit){
+                    setTenthPick({balls});
+                    return;
+                  }
+
                   const goTo=()=>setForm(f=>({...f,frame:String(frame),
                     ballNum:Number(frame)===10?1:null}));
 
@@ -2152,7 +2187,7 @@ export default function LogView({
               shows in every mode -- left where it was, the last card in
               game-tracking and on the drills tab would sit underneath
               it. */}
-          {!editingId&&activeBowler&&effectiveSessionLeague&&(
+          {!editingId&&activeBowler&&effectiveSessionLeague&&env!=="tournament"&&(
             <div style={{height:`${footerHeight}px`}}/>
           )}
           </>
@@ -2168,7 +2203,11 @@ export default function LogView({
               bottom:0, zIndex 50 -- rendered behind it and looked like
               the button had vanished. 64px clears the nav; the safe-area
               inset clears the iOS home indicator underneath it. */}
-          {!editingId&&activeBowler&&effectiveSessionLeague&&(
+          {/* Not in a tournament. The tournament card has its own Save
+              Tournament on the Results tab, and two buttons that both
+              end something is a question about which one finishes the
+              event. */}
+          {!editingId&&activeBowler&&effectiveSessionLeague&&env!=="tournament"&&(
           <div ref={footerRef} style={{position:"fixed",bottom:"calc(64px + env(safe-area-inset-bottom, 0px))",left:0,right:0,zIndex:50,padding:"10px 14px",backgroundColor:C.bg,borderTop:`1px solid ${C.border}`}}>
             <button style={S.btn("primary")} onClick={submitSession}>
               {sessionSaveMessage?sessionSaveMessage:sessionSaved

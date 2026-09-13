@@ -35,7 +35,7 @@ import { splitConversionByType, isSplit, isTenPinLeave, isCornerPinLeave, isSing
 import { maxPossibleScore,
   isStk, firstBallOf, secondBallOf, tenthBall3Available, tenthBall3Pins,
   nextState, tenthFrameStatus, strictPartial, frameQualityScore, makeTheoreticalShots,
-  freshRackShots, theoreticalFillBallValue,
+  freshRackShots, theoreticalFillBallValue, tenthBall3Earned,
 } from "./domain/scoring.js";
 import { emptyShot, computeSessionStats, findExistingShotSlot } from "./domain/sessions.js";
 import { buyInsForLeague, costArraysFor } from "./domain/money.js";
@@ -3605,7 +3605,33 @@ export default function BowlingTracker(){
 
     if(editingId){
       const shotData={...form,result:effectiveResult,noTap:noTapFlag,_displayResult:form.result,_displayLeave:[...(form.otherLeave||[])]};
-      const updated=shots.map(s=>s.id===editingId?{...shotData,id:editingId}:s);
+      let updated=shots.map(s=>s.id===editingId?{...shotData,id:editingId}:s);
+
+      // Drop a fill ball the edit just un-earned.
+      //
+      // Three strikes in the 10th, then ball 1 edited to an open: ball 3
+      // was still there, giving "9 miss, strike" -- a frame that cannot
+      // happen and a score to match. The entry path never allowed it,
+      // because it asks ball by ball; only editing could produce it.
+      //
+      // Ball 2 goes too when ball 1 stops being a strike and no spare
+      // follows, for the same reason: the frame is over after two balls
+      // and the second one is now the last.
+      if(parseInt(shotData.frame)===10){
+        const mine=s=>s.bowler===shotData.bowler&&s.league===shotData.league
+          &&s.date===shotData.date&&String(s.game)===String(shotData.game)
+          &&parseInt(s.frame)===10;
+        const b1=updated.find(s=>mine(s)&&(!s.ballNum||Number(s.ballNum)===1))||null;
+        const b2=updated.find(s=>mine(s)&&Number(s.ballNum)===2)||null;
+        if(!tenthBall3Earned(b1,b2)){
+          const stale=updated.filter(s=>mine(s)&&Number(s.ballNum)===3);
+          if(stale.length){
+            updated=updated.filter(s=>!(mine(s)&&Number(s.ballNum)===3));
+            for(const sh of stale)await cloudDelete("shots",sh.id);
+          }
+        }
+      }
+
       await saveShots(updated);
       setEditingId(null);
       // Return to wherever the user was actively logging before they jumped

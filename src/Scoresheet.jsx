@@ -36,7 +36,13 @@ export default function Scoresheet({
           return (
             <button
               key={r.frame}
-              onClick={() => onSelectFrame?.(r.frame, r.shot)}
+              /* The tenth's other balls travel with the tap.
+                 
+                 The row only ever passed r.shot, which is ball 1 -- so
+                 tapping the tenth could only ever edit the first ball,
+                 with no way to reach a bad second or fill ball. */
+              onClick={() => onSelectFrame?.(r.frame, r.shot, r.tenth)}
+
               aria-label={`Frame ${r.frame}${bowled ? `, ${r.marks.join(" ")}` : ", not bowled"}${r.running != null ? `, running ${r.running}` : ""}`}
               style={{
                 flex: tenth ? "0 0 62px" : "1 1 0",
