@@ -66,6 +66,9 @@ export const STATS_CARDS = [
   { id: "headToHead", label: "Head-to-Head" },
   { id: "teamRecords", label: "Team Records" },
   { id: "seasonRecord", label: "Season Record" },
+  // Season over season. Only appears once a season has actually ended
+  // and a new one started -- see the gating in StatsView.
+  { id: "seasonCompare", label: "This Season vs Last" },
   // Free fall vs string. Only appears once both rack types are
   // represented in the data -- see the gating in StatsView.
   { id: "rackType", label: "Free Fall vs String" },

@@ -214,6 +214,11 @@ export function lanePatternToSupabaseRow(pattern,leagueIdsMap){
     length:pattern.length||"",
     volume:pattern.volume||"",
     ratio:pattern.ratio||"",
+    // What the bowler wrote down after bowling on it. The reason to keep
+    // this next to the score rather than in a phone notes app: "played
+    // 4th arrow, ball rolled out" is only useful when it sits beside the
+    // 172 it explains.
+    notes:pattern.notes||null,
   };
 }
 
@@ -229,5 +234,34 @@ export function lanePatternFromSupabaseRow(row,leagueNameById){
     length:row.length||"",
     volume:row.volume||"",
     ratio:row.ratio||"",
+    notes:row.notes||"",
+  };
+}
+
+// Archived season ranges.
+//
+// The season a night belongs to is worked out from these date ranges
+// rather than stored on the night itself, so closing a season works
+// retroactively and cannot drift out of step with thousands of rows.
+export function closedSeasonToRow(season, userId) {
+  if (!season || typeof season !== "object") return null;
+  return {
+    id: season.id,
+    user_id: userId || null,
+    league: season.league,
+    start_date: season.startDate,
+    end_date: season.endDate,
+    closed_at: season.closedAt || new Date().toISOString(),
+  };
+}
+
+export function closedSeasonFromRow(row) {
+  if (!row || typeof row !== "object") return null;
+  return {
+    id: row.id,
+    league: row.league || "",
+    startDate: row.start_date || "",
+    endDate: row.end_date || "",
+    closedAt: row.closed_at || "",
   };
 }
