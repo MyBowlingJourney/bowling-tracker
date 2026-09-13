@@ -345,10 +345,14 @@ column,tournaments,id,uuid NOT NULL
 column,tournaments,match_play,jsonb NOT NULL
 column,tournaments,name,text NOT NULL
 column,tournaments,notes,text
+column,tournaments,pin_format,text
 column,tournaments,placement,text
 column,tournaments,placement_note,text
+column,tournaments,play_style,text
+column,tournaments,scoring_basis,text
 column,tournaments,scoring_format,text
 column,tournaments,side_pots,jsonb NOT NULL
+column,tournaments,tracking_mode,text
 column,tournaments,updated_at,timestamp with time zone NOT NULL
 column,tournaments,user_id,uuid
 column,tournaments,winnings,numeric
@@ -604,10 +608,10 @@ grant,teams,INSERT,"created_at, created_by, id, league_id, name"
 grant,teams,REFERENCES,"created_at, created_by, id, league_id, name"
 grant,teams,SELECT,"created_at, created_by, id, league_id, name"
 grant,teams,UPDATE,"created_at, created_by, id, league_id, name"
-grant,tournaments,INSERT,"baker_partner, baker_starter, bowler_name, buy_in, center, created_at, days, format, handicap, id, match_play, name, notes, placement, placement_note, scoring_format, side_pots, updated_at, user_id, winnings"
-grant,tournaments,REFERENCES,"baker_partner, baker_starter, bowler_name, buy_in, center, created_at, days, format, handicap, id, match_play, name, notes, placement, placement_note, scoring_format, side_pots, updated_at, user_id, winnings"
-grant,tournaments,SELECT,"baker_partner, baker_starter, bowler_name, buy_in, center, created_at, days, format, handicap, id, match_play, name, notes, placement, placement_note, scoring_format, side_pots, updated_at, user_id, winnings"
-grant,tournaments,UPDATE,"baker_partner, baker_starter, bowler_name, buy_in, center, created_at, days, format, handicap, id, match_play, name, notes, placement, placement_note, scoring_format, side_pots, updated_at, user_id, winnings"
+grant,tournaments,INSERT,"baker_partner, baker_starter, bowler_name, buy_in, center, created_at, days, format, handicap, id, match_play, name, notes, pin_format, placement, placement_note, play_style, scoring_basis, scoring_format, side_pots, tracking_mode, updated_at, user_id, winnings"
+grant,tournaments,REFERENCES,"baker_partner, baker_starter, bowler_name, buy_in, center, created_at, days, format, handicap, id, match_play, name, notes, pin_format, placement, placement_note, play_style, scoring_basis, scoring_format, side_pots, tracking_mode, updated_at, user_id, winnings"
+grant,tournaments,SELECT,"baker_partner, baker_starter, bowler_name, buy_in, center, created_at, days, format, handicap, id, match_play, name, notes, pin_format, placement, placement_note, play_style, scoring_basis, scoring_format, side_pots, tracking_mode, updated_at, user_id, winnings"
+grant,tournaments,UPDATE,"baker_partner, baker_starter, bowler_name, buy_in, center, created_at, days, format, handicap, id, match_play, name, notes, pin_format, placement, placement_note, play_style, scoring_basis, scoring_format, side_pots, tracking_mode, updated_at, user_id, winnings"
 grant,user_preferences,INSERT,"preferences, updated_at, user_id"
 grant,user_preferences,REFERENCES,"preferences, updated_at, user_id"
 grant,user_preferences,SELECT,"preferences, updated_at, user_id"
