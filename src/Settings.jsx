@@ -36,6 +36,7 @@ export default function Settings({
   startEdit, deleteShot,
   centers, leagueCenters, setLeagueCenter, searchCenters,
   leagueDates, setLeagueDates, renameLeague,
+  tournaments = [],
   hiddenLeagues, leagueIds, toggleLeagueHidden, teams, activeBowler, leaveTeam, onCreateTeam,
   shots, leftHandedForBowler,
 }) {
@@ -209,6 +210,7 @@ export default function Settings({
           {historyTab === "calendar" && (
             <CalendarView
               sessions={sessions || []}
+              tournaments={tournaments || []}
               bowler={statsBowler || activeBowler}
               league={statsLeague || ""} />
           )}

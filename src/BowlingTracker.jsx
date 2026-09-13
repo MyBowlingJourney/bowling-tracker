@@ -5720,7 +5720,7 @@ export default function BowlingTracker(){
             exportData={exportData} importData={importData}
             confirmClear={confirmClear} setConfirmClear={setConfirmClear}
             clearAllData={clearAllData} hasData={shots.length>0}
-            sessions={sessions} bowlers={bowlers} leagues={leagues}
+            sessions={sessions} bowlers={bowlers} leagues={leagues} tournaments={tournaments}
             statsBowler={statsBowler} setStatsBowler={chooseStatsBowler}
             statsLeague={statsLeague} setStatsLeague={chooseStatsLeague}
             filterBowler={filterBowler} setFilterBowler={setFilterBowler}
@@ -5997,7 +5997,19 @@ export default function BowlingTracker(){
           an answer is about them rather than about nothing. Brooklyn is
           told to say when a sample is thin, so a thin answer is honest
           rather than hollow. */}
-      {onboarded&&hasAnythingLogged&&(
+      {/* Not in open bowling.
+
+          Brooklyn answers from league and practice statistics -- spare
+          conversion, carry by ball, position in the set. Open bowling
+          logs scores and nothing else, so she would be answering every
+          question from an average, which is the thin-data problem the
+          lamp is already hidden for elsewhere.
+
+          It is also the wrong tone. Open bowling deliberately strips the
+          app back to a scoresheet and badges; a coaching genie is
+          exactly the kind of thing that mode exists to get out of the
+          way. */}
+      {onboarded&&hasAnythingLogged&&!casualMode&&(
         <BowlingGenie asked={genieAsked} today={localDateString()} onAsk={askGenie}/>
       )}
 

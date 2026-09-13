@@ -2,6 +2,7 @@ import { useState } from "react";
 import { C, S } from "./ui.jsx";
 import {
   monthGrid, monthsWithSessions, monthLabel, weekdayLabels, shiftMonth,
+  tournamentNights, cellModes,
 } from "./domain/calendar.js";
 
 // A month of bowling nights.
@@ -14,10 +15,42 @@ import {
 // A tapped night expands in place rather than navigating away, because
 // the reason to be here is scanning the shape of a month and losing the
 // grid to see one night defeats that.
+// One colour per kind of night.
+//
+// Drawn from the existing palette rather than invented, so the calendar
+// agrees with the rest of the app: accent for league (the default
+// bowling colour everywhere else), spare-green for practice, strike for
+// tournament, muted for open bowling -- which is deliberately the
+// quietest, since it is the mode that strips everything back.
+const MODE_COLORS = {
+  league: c => c.accent,
+  practice: c => c.spare,
+  tournament: c => c.strike,
+  casual: c => c.textMuted,
+};
+
+const MODE_LABELS = {
+  league: "League",
+  practice: "Practice",
+  tournament: "Tournament",
+  casual: "Open bowling",
+};
+
 export default function CalendarView({
-  sessions = [], bowler = "", league = "", weekStart = 0,
+  sessions = [], tournaments = [], bowler = "", league = "", weekStart = 0,
 }) {
-  const months = monthsWithSessions(sessions, bowler, league);
+  // Tournament days are folded in as nights, because they are nights the
+  // bowler bowled -- they just live in a different table. Without this a
+  // tournament weekend is a blank square.
+  //
+  // Only when no league filter is on: a tournament is not part of a
+  // league, so filtering to one and still showing them would be wrong.
+  const allNights = league
+    ? sessions
+    : [...sessions, ...tournamentNights(tournaments, bowler)];
+
+  const months = monthsWithSessions(allNights, bowler, league);
+
   const [monthIdx, setMonthIdx] = useState(0);
   const [openDate, setOpenDate] = useState(null);
 
@@ -35,7 +68,7 @@ export default function CalendarView({
   // Clamped rather than wrapped: paging past the oldest month should
   // stop, not jump to the newest.
   const key = months[Math.min(Math.max(monthIdx, 0), months.length - 1)];
-  const grid = monthGrid(key, sessions, bowler, league, weekStart);
+  const grid = monthGrid(key, allNights, bowler, league, weekStart);
   if (!grid) return null;
 
   // Stepping moves by calendar month, but only lands on months with
@@ -48,7 +81,23 @@ export default function CalendarView({
     setOpenDate(null);
   };
 
+  // Solid for one kind of night, a horizontal split for two.
+  function cellFill(nights) {
+    const modes = cellModes(nights);
+    const col = m => (MODE_COLORS[m] || MODE_COLORS.league)(C) + "44";
+    if (modes.length === 1) return { backgroundColor: col(modes[0]) };
+    return {
+      backgroundColor: "transparent",
+      backgroundImage: `linear-gradient(to bottom, ${col(modes[0])} 0 50%, ${col(modes[1])} 50% 100%)`,
+    };
+  }
+
+  // Which colours are actually on screen this month. A fixed legend
+  // would explain colours the bowler cannot see.
+  const modesShown = [...new Set(grid.cells.flatMap(c => c.nights.map(n => n.mode || "league")))];
+
   const open = openDate
+
     ? grid.cells.find(c => c.date === openDate)
     : null;
 
@@ -104,7 +153,14 @@ export default function CalendarView({
                   borderRadius: "6px",
                   // A bowled night is filled; an empty day is just a
                   // number. The contrast is the whole point of the view.
-                  backgroundColor: bowled ? C.accent + "33" : "transparent",
+                  //
+                  // Two kinds of night on one day -- a league night and
+                  // a practice session, say -- splits the square
+                  // horizontally rather than one silently winning.
+                  // Three or more is not worth a third band: the square
+                  // is 40px and the detail is one tap away.
+                  ...(bowled ? cellFill(cell.nights) : { backgroundColor: "transparent" }),
+
                   color: cell.day === null ? "transparent" : (bowled ? C.text : C.textMuted),
                   fontSize: "11px", fontWeight: bowled ? 600 : 400,
                   cursor: bowled ? "pointer" : "default",
@@ -124,12 +180,28 @@ export default function CalendarView({
             );
           })}
         </div>
+
+        {/* Only the colours actually on screen. A fixed legend would
+            explain a colour the bowler cannot see this month. */}
+        {modesShown.length > 1 && (
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", justifyContent: "center", marginTop: "10px" }}>
+            {modesShown.map(m => (
+              <div key={m} style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                <span style={{
+                  width: "9px", height: "9px", borderRadius: "2px",
+                  backgroundColor: (MODE_COLORS[m] || MODE_COLORS.league)(C) + "88",
+                }} />
+                <span style={{ fontSize: "10px", color: C.textMuted }}>{MODE_LABELS[m] || m}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {open && open.nights.map((night, i) => (
         <div key={i} style={S.card}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "6px" }}>
-            <div style={{ fontSize: "13px", fontWeight: 600, color: C.text }}>
+            <div style={{ fontSize: "13px", fontWeight: 600, color: (MODE_COLORS[night.mode]||MODE_COLORS.league)(C) }}>
               {night.league || "Bowling"}
             </div>
             <div style={{ fontSize: "12px", color: C.textMuted }}>{night.date}</div>
