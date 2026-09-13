@@ -38,6 +38,7 @@ export default function Settings({
   centers, leagueCenters, setLeagueCenter, searchCenters,
   leagueDates, setLeagueDates, renameLeague,
   leagueFormats = {}, setLeagueFormat,
+  updateCenter,
   tournaments = [],
   hiddenLeagues, leagueIds, toggleLeagueHidden, teams, activeBowler, leaveTeam, onCreateTeam,
   shots, leftHandedForBowler,
@@ -537,7 +538,7 @@ export default function Settings({
                   leagueName={league.replace(" House Shot", "")}
                   currentCenter={center}
                   onSelect={candidate => setLeagueCenter(league, candidate)}
-                  onSetRackType={(c, rackType) => setLeagueCenter(league, { ...c, rackType })}
+                  onSetRackType={(c, rackType) => updateCenter(c.id, { rackType })}
                   onSearch={searchCenters} />
 
                 {/* Season dates, editable here in case they were skipped

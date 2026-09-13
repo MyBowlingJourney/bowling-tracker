@@ -2232,6 +2232,25 @@ export default function BowlingTracker(){
     return created;
   }
 
+  // Update a field on a centre that already exists.
+  //
+  // NOT via ensureCenter/setLeagueCenter. ensureCenter's job is "give me
+  // a centre for this candidate, creating one if needed" -- so when the
+  // centre already exists it returns it UNCHANGED and discards whatever
+  // was passed in. Routing an edit through it meant the rack-type chips
+  // fired, nothing persisted, and they re-rendered from untouched state
+  // looking like they were not selectable at all.
+  function updateCenter(centerId,changes){
+    if(!centerId||!changes||typeof changes!=="object")return;
+    const next=(centers||[]).map(c=>c&&c.id===centerId?{...c,...changes}:c);
+    setCenters(next);
+    try{window.storage.set(CENTERS_KEY,JSON.stringify(next));}catch{}
+    const updated=next.find(c=>c&&c.id===centerId);
+    // cloudUpdate, not cloudWrite: an upsert would resend every column
+    // and blank anything not in `changes`.
+    if(updated)cloudUpdate("bowling_centers",{id:centerId},centerToRow(updated,user?.id||null));
+  }
+
   function setLeagueCenter(leagueName,candidate){
     const center=candidate?ensureCenter(candidate):null;
     const updated={...leagueCenters};
@@ -5825,7 +5844,7 @@ export default function BowlingTracker(){
             startEdit={startEdit} deleteShot={deleteShot}
             centers={centers} leagueCenters={leagueCenters} setLeagueCenter={setLeagueCenter} searchCenters={searchCenters}
             leagueDates={leagueDates} setLeagueDates={saveLeagueDates}
-            leagueFormats={leagueFormats} setLeagueFormat={saveLeagueFormat} renameLeague={renameLeague}
+            leagueFormats={leagueFormats} setLeagueFormat={saveLeagueFormat} updateCenter={updateCenter} renameLeague={renameLeague}
             hiddenLeagues={hiddenLeagues} leagueIds={leagueIdsRef.current} toggleLeagueHidden={toggleLeagueHidden}
             shots={shots}
             teams={teams} activeBowler={activeBowler} leaveTeam={leaveTeam} leftHandedForBowler={leftHandedForBowler}/>
