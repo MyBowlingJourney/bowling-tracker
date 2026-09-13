@@ -47,7 +47,7 @@ export default function LogView({
   handleSpareMadeToggle, matchHandicap, previousShotBall, removeBall, removeBowler,
   selectBowler, set, setLanePattern, setMatchHandicap, setMatchOpponent, setPokerWinnings, setThreeSixNineWinnings, winningsSaved, confirmWinningsSaved, setView,
   leagueBuyIns, onSaveLeagueBuyIns, onReplayTour, casualExtraGames = 2, setCasualExtraGames,
-  stepPinCount, submitSession, submitShot, theoreticalScoreForGame, maxScoreThisGame, toggle, toggleMulti, toggleSection,
+  stepPinCount, strictPartial, submitSession, submitShot, theoreticalScoreForGame, maxScoreThisGame, toggle, toggleMulti, toggleSection,
   preferences, setSessionMoneyArray, setSessionMoneyValue, activeBowlerLeftHanded,
   ballLayouts, setBallLayout,
   activeTournament, updateTournament, saveTournament, tournamentSaved,
@@ -95,6 +95,33 @@ export default function LogView({
   // once a league WAS picked, and would still skew any average that
   // doesn't filter by league. Waiting for one tap prevents all of it.
   const leagueReady=env!=="league"||!!effectiveSessionLeague;
+
+
+  // Shot-derived scores for this tournament day, by game number.
+  //
+  // Tournament games are typed by hand, so a bowler frame-tracking an
+  // event had to log every shot AND type the total -- one number entered
+  // twice, with two chances to disagree.
+  //
+  // This supplies the frames half. resolveTournamentGameScore prefers
+  // whatever was typed, because the house scorer decides whether you
+  // cashed and a mis-tapped frame needs an override the app will not
+  // argue with.
+  const tournamentShotScores=(()=>{
+    if(env!=="tournament"||!activeBowler||!effectiveSessionLeague)return null;
+    const mine=(shots||[]).filter(sh=>sh&&sh.bowler===activeBowler
+      &&sh.league===effectiveSessionLeague&&sh.date===sessionDate);
+    if(!mine.length)return null;
+    const byGame={};
+    for(const sh of mine)(byGame[String(sh.game)]=byGame[String(sh.game)]||[]).push(sh);
+    const out={};
+    for(const[game,gs]of Object.entries(byGame)){
+      const v=strictPartial(gs);
+      if(typeof v==="number")out[game]=v;
+    }
+    return Object.keys(out).length?out:null;
+  })();
+
 
   const showGoals=leagueReady&&(env==="league"||(env==="practice"&&!isDrill));
   // Bug fix: showEquipment checked environment but never trackingMode, so
@@ -268,6 +295,7 @@ export default function LogView({
                 it entirely rather than trying to bend one into the other. */}
             {!editingId&&activeBowler&&preferences.environment==="tournament"&&(
               <TournamentSession
+                shotScores={tournamentShotScores}
                 tournament={activeTournament}
                 onChange={updateTournament}
                 onSave={saveTournament}
