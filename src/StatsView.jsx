@@ -12,11 +12,16 @@ import { totalMoney } from "./domain/money.js";
 import { isContainerLeague } from "./domain/leagueMembership.js";
 import { anyMoneyGameShown, visibleStatsCardOrder, STATS_CARDS } from "./domain/preferences.js";
 import { visibleStatsCards, lockedStatsMessage, lockedStatsDetail } from "./domain/statsGating.js";
+import { compareSeasons, describeSeasonChange } from "./domain/seasons.js";
+import { patternHistory, patternVersusOverall } from "./domain/oilPatterns.js";
+import { statsByRackType } from "./domain/centers.js";
 
 export default function StatsView({
   centerStats,
   preferences,
   view, shots, sessions, bowlers, teams, leagues: allLeagues, arsenals, saved,
+  lanePatterns = [],
+  centers = [],
   statsBowler, setStatsBowler, compareBowler, setCompareBowler,
   compareFriendId, setCompareFriendId, friends=[], onLoadFriendData, onOpenFriends, compareSessions, displayName="",
   statsLeague, setStatsLeague,
@@ -34,6 +39,7 @@ export default function StatsView({
   viewedLeftHanded=false,
 }) {
   const [showLocked, setShowLocked] = useState(false);
+  const [expandedPattern, setExpandedPattern] = useState(null);
   // Practice and Just Bowling are containers, not teams -- nobody plays
   // FOR them, so "compare me to Practice" is a comparison against a
   // filing cabinet. Filtered once here rather than at each of the five
@@ -382,6 +388,108 @@ showTeamCompare&&(()=>{
                   );
                 })()
                 );
+                byId["rackType"] = (()=>{
+                  const who=statsBowler||displayName;
+                  const rows=statsByRackType(sessions,shots,allLeagues,centers,who);
+                  // Needs BOTH types represented, or this is not a
+                  // comparison -- it is one number with nothing to set it
+                  // against, which is what the average-by-centre card
+                  // already shows.
+                  if(rows.length<2)return null;
+                  return(
+                    <div style={S.card}>
+                      <div style={S.label}>Free fall vs string</div>
+                      {rows.map(r=>(
+                        <StatRow key={r.rackType} label={r.rackType}
+                          value={r.average===null?"—":String(r.average)}
+                          sub={`${r.games} game${r.games===1?"":"s"}${r.messengerRate!==null?` · ${r.messengerRate}% of strikes were messengers`:""}`}/>
+                      ))}
+                    </div>
+                  );
+                })();
+
+                byId["patternHistory"] = (()=>{
+                  const who=statsBowler||displayName;
+                  const hist=patternHistory(sessions,lanePatterns,who);
+                  if(!hist.length)return null;
+                  // Against their own overall, because 172 alone says
+                  // nothing -- "17 below your average" is actionable.
+                  const withDiff=patternVersusOverall(hist,bStats?.average??null);
+                  const diffFor=n=>withDiff.find(x=>x.name===n)?.versusOverall??null;
+                  return(
+                    <div style={S.card}>
+                      <div style={S.label}>By oil pattern</div>
+                      {hist.map(p=>{
+                        const d=diffFor(p.name);
+                        const open=expandedPattern===p.name;
+                        return(
+                          <div key={p.name} style={{marginBottom:"10px"}}>
+                            <StatRow label={p.name}
+                              value={p.average===null?"—":String(p.average)}
+                              sub={`${p.games} game${p.games===1?"":"s"} over ${p.nights} night${p.nights===1?"":"s"}`}
+                              badge={d===null||d===0?null:`${d>0?"+":""}${d}`}
+                              color={d===null?undefined:(d>0?C.strike:C.miss)}/>
+                            {(p.hasNotes||p.entries.length>1)&&(
+                              <button style={{background:"none",border:"none",padding:"2px 0",cursor:"pointer",
+                                color:C.accent,fontSize:"11px"}}
+                                onClick={()=>setExpandedPattern(open?null:p.name)}>
+                                {open?"Hide nights":`${p.hasNotes?"Notes and nights":"Nights"}`}
+                              </button>
+                            )}
+                            {open&&p.entries.map((e,i)=>(
+                              <div key={i} style={{fontSize:"11px",color:C.textMuted,lineHeight:1.5,
+                                paddingLeft:"8px",borderLeft:`2px solid ${C.border}`,marginTop:"4px"}}>
+                                <div>{e.date}{e.series!==null?` · ${e.series} series`:""}</div>
+                                {e.notes&&<div style={{marginTop:"2px",fontStyle:"italic"}}>{e.notes}</div>}
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })();
+
+                byId["seasonCompare"] = (()=>{
+                  // Seasons are inferred from breaks in play, because a
+                  // league only stores its CURRENT season's dates -- by
+                  // the time a bowler wants to compare years, last
+                  // year's boundaries have been overwritten.
+                  const c=compareSeasons(sessions,statsBowler||displayName,statsLeague);
+                  if(!c)return null;
+                  const row=(label,now,then,change,lowerBetter)=>{
+                    if(now===null||now===undefined)return null;
+                    const better=change===null?null:(lowerBetter?change<0:change>0);
+                    const sign=change>0?"+":"";
+                    return(
+                      <StatRow key={label} label={label}
+                        value={String(now)}
+                        sub={then===null||then===undefined?"":`was ${then}`}
+                        badge={change===null||change===0?null:`${sign}${change}`}
+                        color={better===null?undefined:(better?C.strike:C.miss)}/>
+                    );
+                  };
+                  return(
+                    <div style={S.card}>
+                      <div style={S.label}>{c.current.label} vs {c.previous.label}</div>
+                      <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"10px",lineHeight:1.5}}>
+                        {describeSeasonChange(c)}
+                      </div>
+                      <StatRows>
+                        {row("Average",c.current.average,c.previous.average,c.changes.average)}
+                        {row("High game",c.current.highGame,c.previous.highGame,c.changes.highGame)}
+                        {row("High series",c.current.highSeries,c.previous.highSeries,c.changes.highSeries)}
+                        {row("200 games",c.current.over200,c.previous.over200,c.changes.over200)}
+                        {/* Lower spread is steadier, so a drop is the
+                            improvement -- flagged so the colour does not
+                            show getting streakier as a gain. */}
+                        {row("Score spread",c.current.spread,c.previous.spread,c.changes.spread,true)}
+                        {row("Games",c.current.games,c.previous.games,c.changes.games)}
+                      </StatRows>
+                    </div>
+                  );
+                })();
+
                 byId["seasonRecord"] = (
 !statsBowler&&(()=>{
                   const rMain=seasonRecord(matches,statsLeague);

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { C, S, Chip } from "./ui.jsx";
+import { C, S, Chip, AiNote } from "./ui.jsx";
+import { RACK_TYPES } from "./domain/centers.js";
 import { centerLabel, distanceMiles } from "./domain/centers.js";
 
 // Picks the bowling center a league plays at.
@@ -10,7 +11,7 @@ import { centerLabel, distanceMiles } from "./domain/centers.js";
 // Manual entry is always available, not a fallback for errors only. Small
 // houses are genuinely missing from HERE's data, and a league at one must
 // still be recordable.
-export default function CenterPicker({ leagueName, currentCenter, onSelect, onSearch }) {
+export default function CenterPicker({ leagueName, currentCenter, onSelect, onSearch, onSetRackType }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [status, setStatus] = useState("idle");
@@ -66,6 +67,33 @@ export default function CenterPicker({ leagueName, currentCenter, onSelect, onSe
             Change
           </button>
         </div>
+      ) : null}
+
+      {/* How the pins are set.
+
+          String pins are tethered and pulled back up; free-fall pins are
+          set by a machine and fall freely. They carry differently, which
+          is why USBC certifies string pinsetters separately -- so a
+          bowler's strike rate at a string house is not comparable with
+          their rate at a free-fall house.
+
+          No "not sure" chip. A bowler who does not know leaves this
+          blank -- tapping the selected chip again clears it -- rather
+          than the app manufacturing a third category that means the
+          same thing as blank but looks like a recorded answer. */}
+      {currentCenter && onSetRackType ? (
+        <div style={{ marginBottom: "8px" }}>
+          <div style={{ fontSize: "11px", color: C.textMuted, marginBottom: "4px" }}>Pins</div>
+          <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+            {RACK_TYPES.map(r => {
+              const selected = (currentCenter.rackType || "") === r.id;
+              return (
+                <Chip key={r.id} label={r.label} dense selected={selected}
+                  onToggle={() => onSetRackType(currentCenter, selected ? "" : r.id)} />
+              );
+            })}
+          </div>
+        </div>
       ) : (
         <>
         <div style={S.label}>Bowling Center</div>
@@ -97,6 +125,10 @@ export default function CenterPicker({ leagueName, currentCenter, onSelect, onSe
               No centers found nearby. You can add it by name below.
             </div>
           )}
+
+          {/* Centre lookup goes through a model too, so a name or an
+              address here can be wrong or out of date. */}
+          {results.length > 0 && <AiNote what="This list" verb="found" check="check the name and address before you rely on it" style={{ marginTop: "10px" }} />}
 
           {results.length > 0 && (
             <div style={{ marginTop: "8px", border: `1px solid ${C.border}`, borderRadius: "8px", overflow: "hidden" }}>

@@ -5911,6 +5911,7 @@ export default function BowlingTracker(){
           <StatsView
             centerStats={centerStats}
             lanePatterns={lanePatterns}
+            centers={centers}
             view={view} shots={shots} sessions={sessions} bowlers={bowlers} teams={teams} leagues={leagues} arsenals={arsenals} saved={saved}
             statsBowler={statsBowler} setStatsBowler={chooseStatsBowler} compareBowler={compareBowler} setCompareBowler={setCompareBowler}
             compareFriendId={compareFriendId} setCompareFriendId={setCompareFriendId}
