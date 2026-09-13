@@ -3,9 +3,13 @@
 // They are FOUR INDEPENDENT AXES, not one setting with six values:
 //
 //   scoringBasis  scratch | handicap   -- are pins added to each game
-//   trackingMode  shot    | game       -- frames, or final scores only
 //   pinFormat     tenpin  | notap9     -- what counts as a strike
 //   playStyle     standard| baker      -- bowling alone, or alternating
+//
+// Frame-vs-game tracking is NOT here. It is a bowler preference set on
+// the Bowl card and in Settings, and giving a tournament its own copy
+// would be two sources of truth for one setting -- the kind that drift
+// apart and leave nobody sure which won.
 //
 // Any combination is legal. A Baker squad can be handicapped, no-tap and
 // frame-tracked all at once, which is why an earlier version that packed
@@ -13,10 +17,11 @@
 // combinatorial list with "baker-no-tap".
 //
 // Every default is the one that means "behaves as it always has":
-// scratch, frame tracking, 10 pin, standard. A tournament recorded before
+// scratch, 10 pin, standard. A tournament recorded before
 // any of this keeps its scores unchanged.
 
 import { leagueFormat } from "./leagueSeasons.js";
+import { isTournamentLeagueName, tournamentLeagueEventName } from "../constants.js";
 
 // The stored value is "shot" and the label is "Frame tracking" -- that
 // mismatch predates this and is left alone deliberately. Changing the
@@ -27,10 +32,6 @@ export const SCORING_BASES = [
   { id: "handicap", label: "Handicap", blurb: "Pins added to every game." },
 ];
 
-export const TRACKING_MODES = [
-  { id: "shot", label: "Frame tracking", blurb: "Every frame, with leaves and carry." },
-  { id: "game", label: "Game tracking",  blurb: "Final score for each game." },
-];
 
 export const PIN_FORMATS = [
   { id: "tenpin", label: "10 pin",       blurb: "Standard scoring." },
@@ -50,9 +51,6 @@ export function scoringBasis(t) {
   return t?.scoringBasis === "handicap" ? "handicap" : "scratch";
 }
 
-export function trackingMode(t) {
-  return t?.trackingMode === "game" ? "game" : "shot";
-}
 
 export function pinFormat(t) {
   return leagueFormat(t?.pinFormat);
@@ -191,4 +189,38 @@ export function bakerScoreNote(tournament) {
   const who = partner ? `you and ${partner}` : "you and your partner";
   return `Baker: ${who} bowled this together, so the score stays out of your average. `
     + `Your own frames still count toward strikes, spares and how each ball carried.`;
+}
+
+// Sessions whose SCORES belong in the bowler's figures.
+//
+// A frame-tracked tournament creates a session under the event's
+// container league, so without this a Baker block lands in the average
+// like any other night -- and half those pins were a partner's.
+//
+// The link needs no new field: the container league carries the event
+// name, so the tournament can be found from the session.
+//
+// Only SCORES are filtered. The shots stay exactly where they are and
+// keep counting toward strike percentage, carry and leaves, because the
+// bowler threw those balls whatever the event was called.
+export function sessionsForFigures(sessions, tournaments) {
+  const rows = (Array.isArray(sessions) ? sessions : []).filter(s => s && typeof s === "object");
+  const events = (Array.isArray(tournaments) ? tournaments : [])
+    .filter(t => t && typeof t === "object");
+  if (!events.length) return rows;
+
+  // Event name -> whether its scores are comparable.
+  const excluded = new Set();
+  for (const t of events) {
+    const name = String(t.name || "").trim();
+    if (!name) continue;
+    if (playStyle(t) === "baker" || pinFormat(t) === "notap9") excluded.add(name);
+  }
+  if (!excluded.size) return rows;
+
+  return rows.filter(s => {
+    const league = String(s.league || "");
+    if (!isTournamentLeagueName(league)) return true;
+    return !excluded.has(tournamentLeagueEventName(league));
+  });
 }

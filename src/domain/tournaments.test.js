@@ -5,7 +5,7 @@ import {
   resolveTournamentGameScore, dayTotal, dayGamesEntered, tournamentGamesEntered,
   tournamentTotal, tournamentAverage,
   tournamentTotalWithHandicap,
-  SCORING_BASES, TRACKING_MODES, PIN_FORMATS, PLAY_STYLES, scoresJoinScratchFigures, describeTournamentFormat,
+  SCORING_BASES, PIN_FORMATS, PLAY_STYLES, scoresJoinScratchFigures, describeTournamentFormat,
 } from './tournaments.js';
 describe('four independent settings', () => {
   // Not one dropdown with six values: a Baker squad can be handicapped,
@@ -14,26 +14,23 @@ describe('four independent settings', () => {
   // a combinatorial list with "baker-no-tap".
   it('offers each axis separately', () => {
     expect(SCORING_BASES.map(o => o.id)).toEqual(['scratch', 'handicap']);
-    expect(TRACKING_MODES.map(o => o.id)).toEqual(['shot', 'game']);
     expect(PIN_FORMATS.map(o => o.id)).toEqual(['tenpin', 'notap9']);
     expect(PLAY_STYLES.map(o => o.id)).toEqual(['standard', 'baker']);
   });
 
   // Every default means "behaves as it always has".
-  it('defaults to scratch, frame tracking, 10 pin, standard', () => {
+  it('defaults to scratch, 10 pin, standard', () => {
     const t = emptyTournament();
     expect(t.scoringBasis).toBe('scratch');
-    expect(t.trackingMode).toBe('shot');
     expect(t.pinFormat).toBe('tenpin');
     expect(t.playStyle).toBe('standard');
   });
 
   it('round-trips all four through a row', () => {
     const t = { ...emptyTournament(), id: 't1', bowler: 'Ryan',
-      scoringBasis: 'handicap', trackingMode: 'game', pinFormat: 'notap9', playStyle: 'baker' };
+      scoringBasis: 'handicap', pinFormat: 'notap9', playStyle: 'baker' };
     const back = tournamentFromRow(tournamentToRow(t, 'u1'));
     expect(back.scoringBasis).toBe('handicap');
-    expect(back.trackingMode).toBe('game');
     expect(back.pinFormat).toBe('notap9');
     expect(back.playStyle).toBe('baker');
   });
@@ -41,11 +38,10 @@ describe('four independent settings', () => {
   // An unknown value scores as standard rather than stranding the event.
   it('falls back to the default for anything unrecognised', () => {
     const back = tournamentFromRow({ id: 't', scoring_basis: 'nope', pin_format: 'nope',
-      play_style: 'nope', tracking_mode: 'nope' });
+      play_style: 'nope' });
     expect(back.scoringBasis).toBe('scratch');
     expect(back.pinFormat).toBe('tenpin');
     expect(back.playStyle).toBe('standard');
-    expect(back.trackingMode).toBe('shot');
   });
 
   // Handicap is not a reason to exclude a score: the scratch pins

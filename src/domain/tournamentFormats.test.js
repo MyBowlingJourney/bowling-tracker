@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   handicapPerGame, gameWithHandicap, appliesHandicap, handicapPins,
   isBaker, bakerFrameOwner, bakerFramesFor, isMyBakerFrame,
-  myBakerShots, scoreCountsForBowler, bakerScoreNote, BAKER_STARTERS,
+  myBakerShots, scoreCountsForBowler, bakerScoreNote, BAKER_STARTERS, sessionsForFigures,
 } from './tournamentFormats.js';
 
 describe('handicap', () => {
@@ -134,5 +134,52 @@ describe('survives junk', () => {
     }
     expect(myBakerShots(null, 'me')).toEqual([]);
     expect(handicapPerGame(null)).toBe(0);
+  });
+});
+
+describe('which sessions reach the bowler’s figures', () => {
+  const lg = name => `Tournament\u00b7${name}\u00b7u1`;
+  const sessions = [
+    { bowler: 'R', league: 'Tuesday Night', scores: [180] },
+    { bowler: 'R', league: lg('City Open'), scores: [210] },
+    { bowler: 'R', league: lg('Masters'), scores: [200] },
+  ];
+
+  // A frame-tracked tournament creates a session under the event's
+  // container league, so without this a Baker block lands in the average
+  // like any other night -- and half those pins are a partner's.
+  it('drops a Baker event', () => {
+    const kept = sessionsForFigures(sessions, [{ name: 'City Open', playStyle: 'baker' }]);
+    expect(kept.map(s => s.league)).not.toContain(lg('City Open'));
+  });
+
+  // Different reason: a nine counts as a strike, so pooling inflates the
+  // average with an easier format.
+  it('drops a no-tap event', () => {
+    const kept = sessionsForFigures(sessions, [{ name: 'Masters', pinFormat: 'notap9' }]);
+    expect(kept.map(s => s.league)).not.toContain(lg('Masters'));
+  });
+
+  // The pins underneath are entirely the bowler's and entirely
+  // comparable; only the total on the sheet differs.
+  it('keeps a handicap event', () => {
+    const kept = sessionsForFigures(sessions, [{ name: 'Masters', scoringBasis: 'handicap' }]);
+    expect(kept).toHaveLength(3);
+  });
+
+  it('never drops an ordinary league night', () => {
+    const kept = sessionsForFigures(sessions, [{ name: 'City Open', playStyle: 'baker' }]);
+    expect(kept.map(s => s.league)).toContain('Tuesday Night');
+  });
+
+  it('keeps everything when there are no tournaments', () => {
+    expect(sessionsForFigures(sessions, [])).toHaveLength(3);
+  });
+
+  it('survives junk', () => {
+    for (const j of [null, undefined, 'x', 42, [null], [{}]]) {
+      expect(() => sessionsForFigures(j, j)).not.toThrow();
+    }
+    expect(sessionsForFigures(null, null)).toEqual([]);
   });
 });

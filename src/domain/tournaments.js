@@ -1,5 +1,5 @@
 import { leagueFormat } from "./leagueSeasons.js";
-import { handicapPins, scoringBasis, trackingMode, pinFormat, playStyle } from "./tournamentFormats.js";
+import { handicapPins, scoringBasis, pinFormat, playStyle } from "./tournamentFormats.js";
 // Tournament sessions.
 //
 // A tournament night is shaped differently enough from a league night that
@@ -60,8 +60,8 @@ export function emptyTournamentDay(dayNumber = 1) {
 // The four axes live in tournamentFormats.js, which also holds what each
 // one DOES. Re-exported here so callers have one import for tournaments.
 export {
-  SCORING_BASES, TRACKING_MODES, PIN_FORMATS, PLAY_STYLES,
-  scoringBasis, trackingMode, pinFormat, playStyle,
+  SCORING_BASES, PIN_FORMATS, PLAY_STYLES,
+  scoringBasis, pinFormat, playStyle,
 } from "./tournamentFormats.js";
 
 // Should this event's SCORES join the bowler's scratch figures?
@@ -91,7 +91,6 @@ export function describeTournamentFormat(tournament) {
   if (scoringBasis(tournament) === "handicap") bits.push("Handicap");
   if (pinFormat(tournament) === "notap9") bits.push("9 pin no-tap");
   if (playStyle(tournament) === "baker") bits.push("Baker");
-  if (trackingMode(tournament) === "game") bits.push("Game tracking");
   return bits.join(" · ");
 }
 
@@ -109,7 +108,6 @@ export function emptyTournament() {
     // been a scratch event.
     // Four independent axes; every default means "as it always was".
     scoringBasis: "scratch",
-    trackingMode: "shot",
     pinFormat: "tenpin",
     playStyle: "standard",
     // Handicap pins, added to EVERY game when the format is handicap.
@@ -162,7 +160,6 @@ export function normalizeTournament(raw) {
     // Validated against the known list rather than trusted: a format
     // nobody can interpret is worse than none recorded.
     scoringBasis: scoringBasis(raw),
-    trackingMode: trackingMode(raw),
     pinFormat: pinFormat(raw),
     playStyle: playStyle(raw),
     handicap: raw.handicap ?? "",
@@ -399,7 +396,6 @@ export function tournamentToRow(t, userId) {
     name: t.name,
     center: t.center || null,
     scoring_basis: scoringBasis(t),
-    tracking_mode: trackingMode(t),
     pin_format: pinFormat(t),
     play_style: playStyle(t),
     handicap: num(t.handicap),
@@ -422,7 +418,6 @@ export function tournamentFromRow(row) {
     name: row.name || "",
     center: row.center || "",
     scoringBasis: scoringBasis({ scoringBasis: row.scoring_basis }),
-    trackingMode: trackingMode({ trackingMode: row.tracking_mode }),
     pinFormat: pinFormat({ pinFormat: row.pin_format }),
     playStyle: playStyle({ playStyle: row.play_style }),
     handicap: row.handicap == null ? "" : String(row.handicap),
