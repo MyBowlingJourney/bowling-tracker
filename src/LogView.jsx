@@ -133,7 +133,18 @@ export default function LogView({
   // meant the option in Settings did nothing there, which is worse than
   // not offering it. Casual stays excluded: scores-only is the entire
   // point of that mode, so it doesn't get the choice at all.
-  const showEquipment=leagueReady&&env!=="casual"&&!isDrill&&preferences.trackingMode==="shot";
+  // Ball, surface, release and the rest of the equipment block.
+  //
+  // Not in a tournament. The tournament card is already a dense screen
+  // and these appeared on every one of its tabs; the bowler asked for
+  // them gone.
+  //
+  // WORTH KNOWING: this means a frame-tracked tournament records no ball
+  // per shot, so carry-by-ball will have nothing from those nights. If
+  // that turns out to matter, the fix is to gate it to the Scoring tab
+  // the way Shot Context is, rather than to drop it.
+  const showEquipment=leagueReady&&env!=="casual"&&env!=="tournament"&&!isDrill&&preferences.trackingMode==="shot";
+
   // Shot Context (game/frame/lane) is meaningless without shots -- a
   // scores-only night has games, not frames. It had no gate at all.
   // Tournament tab, owned here so Shot Context can follow it.
@@ -1078,7 +1089,12 @@ export default function LogView({
                 why the button is disabled, and separating them left the
                 bowler tapping a dead button with the reason somewhere
                 off-screen. */}
-            {(editingId||(leagueReady&&preferences.trackingMode==="shot"&&!(preferences.environment==="practice"&&practiceMode==="drill")))&&(
+            {(editingId||(leagueReady&&preferences.trackingMode==="shot"
+              &&!(preferences.environment==="practice"&&practiceMode==="drill")
+              /* Tournament: Scoring tab only. Saving a shot from the
+                 Brackets or Results tab is not a thing a bowler means to
+                 do, and it appeared on all four. */
+              &&(env!=="tournament"||tournamentTab==="scoring")))&&(
               <div style={{marginBottom:"12px"}}>
                 <button style={S.btn("primary")} onClick={submitShot} disabled={!form.result||!form.bowler||needsSpareMade}>
                   {saved?(editingId?"\u2713 Shot Updated":"\u2713 Shot Saved"):(editingId?"Update Shot":"Save Shot")}
@@ -2088,7 +2104,11 @@ export default function LogView({
               </div>
             )}
 
-            {/* Notes */}
+            {/* Notes -- not in a tournament, where the tournament card
+                carries its own day notes and overall notes. Two notes
+                fields on one screen is a question about which one to
+                use. */}
+            {env!=="tournament"&&(
             <CollapsibleCard
               title="Notes"
               summary={form.notes?"✓":""}
@@ -2097,6 +2117,7 @@ export default function LogView({
               <textarea style={{...S.input,minHeight:"60px",resize:"vertical"}}
                 placeholder="Optional notes..." value={form.notes} onChange={e=>set("notes",e.target.value)}/>
             </CollapsibleCard>
+            )}
 
 
             </>)}
