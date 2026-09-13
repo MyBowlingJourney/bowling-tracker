@@ -22,6 +22,11 @@ export function shotToSupabaseRow(shot,userId,leagueIdsMap){
     // Null for a shot the bowler logged themselves; the source import's
     // id when it arrived from someone else's scorecard photo.
     imported_from:shot.importedFrom||null,
+    // A no-tap strike: nine down on the first ball, counted as a strike
+    // in a 9-pin no-tap league. Stored as a flag beside the real leave
+    // rather than as result "Strike", so strike statistics stay clean
+    // while carry statistics still see how the ball drove.
+    no_tap:shot.noTap===true?true:null,
     bowler_name:shot.bowler||"",
     date:shot.date,
     game:parseInt(shot.game)||1,
@@ -61,6 +66,8 @@ export function shotFromSupabaseRow(row,leagueNameById){
     league:leagueNameById[row.league_id]||"",
     date:row.date,
     importedFrom:row.imported_from||null,
+
+    noTap:row.no_tap===true?true:undefined,
     game:String(row.game),
     frame:String(row.frame),
     ballNum:row.ball_num,

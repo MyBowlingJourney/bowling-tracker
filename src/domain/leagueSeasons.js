@@ -64,3 +64,44 @@ export function needsBookAverageUpdate(leaguesWithDates, bookAverageAsOf, today 
   }
   return { needed: true, league: mostRecent };
 }
+
+// League scoring format.
+//
+// Ten-pin is the default and always will be: a bowler who never touches
+// this setting gets standard scoring, and no existing league changes
+// meaning because a field was added.
+//
+// 9-pin no-tap is not a display preference -- it changes what a frame
+// SCORES. A first ball leaving one pin counts as a strike, ends the
+// frame, and no spare is attempted. So this has to be known wherever a
+// game is scored, not just where it is shown.
+export const LEAGUE_FORMATS = [
+  { id: "tenpin", label: "10 pin", blurb: "Standard scoring." },
+  { id: "notap9", label: "9 pin no-tap", blurb: "Nine on the first ball counts as a strike." },
+];
+
+export const LEAGUE_FORMAT_IDS = LEAGUE_FORMATS.map(f => f.id);
+
+// Blank, unknown and missing all mean ten-pin. A league recorded before
+// this existed was a ten-pin league, and guessing otherwise would
+// silently rescore a bowler's history.
+export function leagueFormat(format) {
+  return format === "notap9" ? "notap9" : "tenpin";
+}
+
+export function isNoTapLeague(format) {
+  return leagueFormat(format) === "notap9";
+}
+
+export function leagueFormatLabel(format) {
+  return LEAGUE_FORMATS.find(f => f.id === leagueFormat(format))?.label || "10 pin";
+}
+
+// How many pins on the first ball count as a strike.
+//
+// Ten for standard, nine for no-tap. Returned as a number so the caller
+// compares rather than branching on a format string, which is what keeps
+// an 8-pin no-tap league from needing this logic rewritten.
+export function strikePinThreshold(format) {
+  return isNoTapLeague(format) ? 9 : 10;
+}

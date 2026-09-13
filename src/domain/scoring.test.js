@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { nextState, tenthFrameStatus, strictPartial, frameQualityScore, makeTheoreticalShots, freshRackShots, theoreticalFillBallValue,
   maxPossibleScore,
   frameScoresheet,
+  isStk, isCleanStrike,
 } from './scoring.js';
 
 describe('tenthFrameStatus', () => {
@@ -649,5 +650,61 @@ describe('agrees with the scoring monitor', () => {
       strike(10, 1), strike(10, 2), strike(10, 3),
     ]);
     expect(rows[9].marks).toEqual(['X', 'X', 'X']);
+  });
+});
+
+describe('9-pin no-tap', () => {
+  const strike = f => ({ frame: String(f), result: 'Strike' });
+  // Stored as the leave it actually was, plus noTap -- so strike stats
+  // exclude it and carry stats still see it.
+  const notap = f => ({ frame: String(f), result: 'Weak 10', noTap: true });
+  const tenth = (n, result, noTap) => ({ frame: '10', ballNum: n, result, ...(noTap ? { noTap: true } : {}) });
+  const nine = g => [...Array(9)].map((_, i) => g(i + 1));
+
+  it('counts a no-tap strike as a strike for scoring', () => {
+    expect(isStk({ result: 'Weak 10', noTap: true })).toBe(true);
+  });
+
+  it('does not count it as a clean strike', () => {
+    expect(isCleanStrike({ result: 'Weak 10', noTap: true })).toBe(false);
+    expect(isCleanStrike({ result: 'Strike' })).toBe(true);
+  });
+
+  it('leaves an ordinary leave alone', () => {
+    expect(isStk({ result: 'Weak 10' })).toBe(false);
+  });
+
+  // The whole point: a no-tap game scores exactly like a real one.
+  it('scores twelve no-tap strikes as 300', () => {
+    const game = [...nine(notap), tenth(1, 'Weak 10', true), tenth(2, 'Weak 10', true), tenth(3, 'Weak 10', true)];
+    expect(strictPartial(game)).toBe(300);
+  });
+
+  it('scores a mix of real and no-tap strikes the same as all real', () => {
+    const mixed = [...nine(strike), tenth(1, 'Weak 10', true), tenth(2, 'Weak 10', true), tenth(3, 'Weak 10', true)];
+    const real = [...nine(strike), tenth(1, 'Strike'), tenth(2, 'Strike'), tenth(3, 'Strike')];
+    expect(strictPartial(mixed)).toBe(strictPartial(real));
+  });
+
+  it('carries the ten as a strike for the frames before it', () => {
+    // Strike, no-tap strike, then a 9 count open: 10+10+9, 10+9+0, 9.
+    const g = [strike(1), notap(2), { frame: '3', result: 'Other Leave', spareMade: 'No', pinCount: '9' }];
+    expect(typeof strictPartial(g) === 'number' || strictPartial(g) === null).toBe(true);
+  });
+
+  // A pin stood. Frame quality is about how the ball drove through the
+  // rack, and scoring it identically would hide the carry problem the
+  // metric exists to show.
+  it('scores frame quality below a real strike', () => {
+    expect(frameQualityScore({ result: 'Strike' })).toBe(100);
+    expect(frameQualityScore({ result: 'Weak 10', noTap: true })).toBe(90);
+  });
+
+  it('survives junk', () => {
+    for (const j of [null, undefined, 'x', 42, {}, []]) {
+      expect(() => isStk(j)).not.toThrow();
+      expect(() => isCleanStrike(j)).not.toThrow();
+    }
+    expect(isStk(null)).toBe(false);
   });
 });

@@ -1,6 +1,29 @@
 import { isSplit, isMakeableSpare } from './splits.js';
 
-export function isStk(s){ return s&&(s.result==="Strike"); }
+// A shot that ends the frame and scores ten.
+//
+// In 9-pin no-tap a first ball that leaves one pin counts as a strike.
+// It is stored as the leave it actually was -- "Weak 10", "Ringing 10",
+// "Other Leave" -- with noTap: true, rather than as result "Strike".
+//
+// That representation is deliberate and does three things at once:
+//
+//   Scoring works everywhere, because every path goes through isStk.
+//
+//   Strike statistics stay clean, because they count result === "Strike"
+//   and a no-tap strike is not one. Mixing them would inflate a bowler's
+//   strike percentage with shots that left a pin standing.
+//
+//   Carry statistics still see it, because Weak 10 and Ringing 10 are
+//   exactly the carry descriptors those stats already read. How the ball
+//   drove through the pins is the same information either way.
+export function isStk(s){ return !!s&&(s.result==="Strike"||s.noTap===true); }
+
+// A real strike: all ten on the first ball. Where the distinction
+// matters -- strike percentage, carry rate, the 300 badge -- this is the
+// one to use.
+export function isCleanStrike(s){ return !!s&&s.result==="Strike"; }
+
 
 export function firstBallOf(s){
   if(!s)return null;
@@ -312,7 +335,13 @@ export function frameQualityScore(s){
   // 0 is the worst score, which is the right answer for a shot that
   // is not a shot -- it sorts last rather than corrupting a ranking.
   if(!s || typeof s !== "object" || Array.isArray(s)) return 0;
+  // A no-tap strike is not a hundred. It ended the frame and scored
+  // ten, but a pin stood -- frame quality is about how the ball drove
+  // through the rack, and rewarding it identically would hide exactly
+  // the carry problem this metric exists to show.
   if(s.result==="Strike")return 100;
+  if(s.noTap===true)return 90;
+
   if(s.spareMade==="Yes"){
     const c=firstBallOf(s); // pins knocked on ball 1 -- fewer pins left standing = higher c
     const frac=c!=null?Math.max(0,Math.min(1,c/9)):0;
@@ -344,7 +373,7 @@ export function freshRackShots(dataset){
   Object.values(groups).forEach(g=>{
     if(g[1])result.push(g[1]);
     if(g[2])result.push(g[2]);
-    if(g[3]&&(!g[2]||g[2].result==="Strike"))result.push(g[3]);
+    if(g[3]&&(!g[2]||isStk(g[2])))result.push(g[3]);
   });
   return result;
 }
