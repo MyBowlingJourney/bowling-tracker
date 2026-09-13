@@ -178,6 +178,9 @@ export default function LogView({
   // scroll the app could have done itself. Between frames that is a
   // hundred scrolls a night.
   const saveShotRef=useRef(null);
+  const scrollToSave=()=>requestAnimationFrame(()=>
+    saveShotRef.current?.scrollIntoView({behavior:"smooth",block:"center"}));
+
 
   // Shot Context (game/frame/lane) is meaningless without shots -- a
   // scores-only night has games, not frames.
@@ -1028,10 +1031,7 @@ export default function LogView({
                         // picking a result can add the Spare Made row or
                         // the pin picker, and scrolling before those
                         // exist lands short.
-                        if(newResult){
-                          requestAnimationFrame(()=>
-                            saveShotRef.current?.scrollIntoView({behavior:"smooth",block:"center"}));
-                        }
+                        if(newResult)scrollToSave();
 
 
                         // Deselecting the result of a SAVED shot deletes
@@ -1129,8 +1129,16 @@ export default function LogView({
                   <div style={S.divider}/>
                   <div style={S.label}>Spare Made</div>
                   <div style={S.chips}>
+                    {/* Scrolls again after answering.
+
+                        Answering "No" reveals the total-pins field, so
+                        the save button moves further down than it was
+                        when the result was picked -- the first scroll is
+                        no longer far enough and the bowler is back to
+                        scrolling by hand. */}
                     {["Yes","No"].map(s=>(
-                      <Chip key={s} label={s} selected={form.spareMade===s} onToggle={()=>handleSpareMadeToggle(s)}
+                      <Chip key={s} label={s} selected={form.spareMade===s}
+                        onToggle={()=>{handleSpareMadeToggle(s);scrollToSave();}}
                         color={s==="Yes"?C.strike:C.miss}/>
                     ))}
                   </div>
