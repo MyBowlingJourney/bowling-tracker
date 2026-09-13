@@ -3480,11 +3480,27 @@ export default function BowlingTracker(){
 
   async function submitShot(){
     if(!form.result||!form.bowler)return;
-    const effectiveResult=isNoTap?"Strike":form.result;
+    // A no-tap strike is stored as the LEAVE, with noTap: true -- not as
+    // result "Strike".
+    //
+    // It used to store "Strike", which meant every stat counting
+    // result === "Strike" swallowed it: strike percentage, carry rate and
+    // the 300 badge all inflated by shots that left a pin standing. One
+    // is inherently easier than the other and pooling them makes both
+    // numbers meaningless.
+    //
+    // Stored this way, scoring still treats it as a strike (isStk reads
+    // the flag), strike stats exclude it for free, and carry stats keyed
+    // on Weak 10 / Ringing 10 pick it up unchanged -- which is right,
+    // because how the ball drove through the rack is the same
+    // information either way.
+    const effectiveResult=form.result;
+    const noTapFlag=isNoTap?true:undefined;
+
     const autoLane=calcLane(startingLane,form.game,form.frame,form.ballNum);
 
     if(editingId){
-      const shotData={...form,result:effectiveResult,_displayResult:form.result,_displayLeave:[...(form.otherLeave||[])]};
+      const shotData={...form,result:effectiveResult,noTap:noTapFlag,_displayResult:form.result,_displayLeave:[...(form.otherLeave||[])]};
       const updated=shots.map(s=>s.id===editingId?{...shotData,id:editingId}:s);
       await saveShots(updated);
       setEditingId(null);
@@ -3507,6 +3523,7 @@ export default function BowlingTracker(){
         // device, and that has to hold permanently.
         localOnly:shotIsGuest(form.bowler)||undefined,
         result:effectiveResult,
+        noTap:noTapFlag,
         _displayResult:form.result,
         _displayLeave:[...(form.otherLeave||[])],
         lane:autoLane?String(autoLane):form.lane,
