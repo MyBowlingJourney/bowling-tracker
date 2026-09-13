@@ -10,7 +10,7 @@ import {
 } from "./domain/tournaments.js";
 import { patternDisplayName, searchPatterns, describePattern, patternStats } from "./domain/oilPatterns.js";
 import { leagueFormat, isNoTapLeague } from "./domain/leagueSeasons.js";
-import { isBaker, appliesHandicap, bakerFramesFor, BAKER_STARTERS } from "./domain/tournamentFormats.js";
+import { isBaker, appliesHandicap, bakerFramesFor, BAKER_STARTERS, handicapPins } from "./domain/tournamentFormats.js";
 import {
   SIDE_POT_TYPES, addSidePot, removeSidePot, setSidePotField, sidePotMoney, sidePotTotals,
 } from "./domain/sidePots.js";
@@ -353,7 +353,10 @@ function DayScoring({ tournament, day, onChange, multiDay, shotScores, expanded 
               resolveTournamentGameScore applies the same rule to every
               total, so what shows here is what the cut line uses. */}
           <input style={{ ...S.input, flex: 1, fontSize: "13px", padding: "6px 10px",
-              color: g.score === "" && derived(g) !== null ? C.textMuted : undefined }}
+              /* C.text, not undefined -- an explicit undefined here
+                 overrode S.input's own colour and left the text black,
+                 invisible on the dark palette. */
+              color: g.score === "" && derived(g) !== null ? C.textMuted : C.text }}
             type="number" inputMode="numeric"
             placeholder={derived(g) !== null ? String(derived(g)) : "Score"}
             value={g.score} onChange={e => update(setGameField(day, g.gameNumber, "score", e.target.value))} />
@@ -640,7 +643,7 @@ function MatchPlay({ tournament, onChange }) {
   );
 }
 
-export default function TournamentSession({ tournament, onChange, onSave, saved, oilPatterns, submitOilPattern, tournaments, shotScores = null, tab: controlledTab, onTabChange }) {
+export default function TournamentSession({ tournament, onChange, onSave, saved, oilPatterns, submitOilPattern, tournaments, shotScoresByDate = null, tab: controlledTab, onTabChange }) {
   // The tab is owned by the caller.
   //
   // LogView renders Shot Context alongside this card, and it only makes
@@ -660,10 +663,20 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
   // The handicap total is what the tournament used, so it is what a
   // bowler needs to see. Scratch is kept alongside rather than replaced
   // -- it is the number that says how they actually bowled.
-  const scratchTotal = tournamentTotal(tournament, shotScores);
-  const total = tournamentTotalWithHandicap(tournament, shotScores);
+  // Totals span every block, so they need each block's own scores. The
+  // domain functions take one flat map, so this walks the days and adds
+  // them up with each day's slice.
+  const dayScores = d => (shotScoresByDate || {})[String(d?.date || "")] || null;
+  const scratchTotal = (tournament.days || []).reduce((a, d) => {
+    const v = dayTotal(d, dayScores(d));
+    return v === null ? a : (a === null ? v : a + v);
+  }, null);
+  const gamesAll = (tournament.days || []).reduce((a, d) => a + dayGamesEntered(d, dayScores(d)), 0);
+  const total = scratchTotal === null ? null
+    : scratchTotal + handicapPins(tournament, gamesAll);
 
-  const avg = tournamentAverage(tournament, shotScores);
+
+  const avg = (scratchTotal !== null && gamesAll) ? scratchTotal / gamesAll : null;
   const money = tournamentMoney(tournament);
   const multiDay = (tournament.days || []).length > 1;
 
@@ -913,7 +926,7 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
       {tab === "scoring" && (<>
       {(tournament.days || []).map(day => (
         <DayScoring key={day.dayNumber}
-          shotScores={shotScores}
+          shotScores={(shotScoresByDate || {})[String(day.date || "")] || null}
           tournament={tournament}
           day={day}
           multiDay={multiDay}

@@ -3139,7 +3139,15 @@ export default function BowlingTracker(){
   // nothing yet to compare against.
   function previousShotBall(){
     const bowlerName=editingId?form.bowler:activeBowler;
-    const league=editingId?form.league:sessionLeague;
+    // effectiveSessionLeague, not sessionLeague.
+    //
+    // Practice, open bowling and tournaments all bowl under a container
+    // league rather than one the bowler picked -- sessionLeague is blank
+    // for them. Saving shots with the blank value meant a tournament's
+    // frames never matched the tournament, so the games card stayed
+    // empty and the recap reported no shots logged.
+    const league=editingId?form.league:effectiveSessionLeague;
+
     const date=editingId?form.date:sessionDate;
     if(!bowlerName||!league||!date)return null;
     const relevant=shots.filter(s=>s.bowler===bowlerName&&s.league===league&&s.date===date&&s.id!==editingId);
@@ -3193,11 +3201,11 @@ export default function BowlingTracker(){
         }).pop();
         const allBShots=shots.filter(s=>s.bowler===name&&s.league===sessionLeague&&s.date===sessionDate);
         const{game:ng,frame:nf,ballNum:nb}=nextState(allBShots,name,sessionLeague,sessionDate,last.game,last.frame,last.ballNum);
-        setForm(f=>({...f,...resetFields,bowler:name,teamId,league:sessionLeague,date:sessionDate,game:ng,frame:nf,ballNum:nb}));
+        setForm(f=>({...f,...resetFields,bowler:name,teamId,league:effectiveSessionLeague,date:sessionDate,game:ng,frame:nf,ballNum:nb}));
         return;
       }
       // No shots yet for this bowler tonight — start fresh at Game 1 Frame 1
-      setForm(f=>({...f,...resetFields,bowler:name,teamId,league:sessionLeague,date:sessionDate,game:"1",frame:"1",ballNum:null}));
+      setForm(f=>({...f,...resetFields,bowler:name,teamId,league:effectiveSessionLeague,date:sessionDate,game:"1",frame:"1",ballNum:null}));
       return;
     }
     setForm(f=>({...f,...resetFields,bowler:name}));
@@ -4515,7 +4523,7 @@ export default function BowlingTracker(){
   useEffect(()=>{
     try{
       window.localStorage.setItem(SESSION_CONTEXT_KEY,JSON.stringify({
-        league:sessionLeague,date:sessionDate,lane:startingLane,
+        league:effectiveSessionLeague,date:sessionDate,lane:startingLane,
         // Where they'd got to. Without this the form reset to game 1
         // frame 1 on refresh, and since saving matches on
         // (bowler, league, date, game, frame), the NEXT shot silently
@@ -4977,7 +4985,7 @@ export default function BowlingTracker(){
   const scoreOptions=scorekeepingOptions({
     environment:preferences.environment,
     owner:ownerName,
-    league:sessionLeague,
+    league:effectiveSessionLeague,
     teams,
     guests,
   });

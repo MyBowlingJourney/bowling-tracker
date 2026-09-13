@@ -107,17 +107,38 @@ export default function LogView({
   // whatever was typed, because the house scorer decides whether you
   // cashed and a mis-tapped frame needs an override the app will not
   // argue with.
-  const tournamentShotScores=(()=>{
+  // Frame-derived scores for a tournament, keyed BY BLOCK DATE then by
+  // game number.
+  //
+  // One flat map of game -> score was wrong the moment a tournament had
+  // more than one block: day 1 game 1 and day 2 game 1 are different
+  // games, and a single map showed the same number for both. A bowler
+  // with a Saturday and a Sunday block saw Saturday's frames under
+  // Sunday's games.
+  //
+  // Keyed on the block's own date rather than the session date, because
+  // those drift apart -- the shot form can still be on today while the
+  // bowler is filling in tomorrow's block.
+  const tournamentShotScoresByDate=(()=>{
     if(env!=="tournament"||!activeBowler||!effectiveSessionLeague)return null;
     const mine=(shots||[]).filter(sh=>sh&&sh.bowler===activeBowler
-      &&sh.league===effectiveSessionLeague&&sh.date===sessionDate);
+      &&sh.league===effectiveSessionLeague);
     if(!mine.length)return null;
-    const byGame={};
-    for(const sh of mine)(byGame[String(sh.game)]=byGame[String(sh.game)]||[]).push(sh);
+    const byDate={};
+    for(const sh of mine){
+      const d=String(sh.date||"");
+      if(!d)continue;
+      (byDate[d]=byDate[d]||{});
+      (byDate[d][String(sh.game)]=byDate[d][String(sh.game)]||[]).push(sh);
+    }
     const out={};
-    for(const[game,gs]of Object.entries(byGame)){
-      const v=strictPartial(gs);
-      if(typeof v==="number")out[game]=v;
+    for(const[date,games]of Object.entries(byDate)){
+      const scores={};
+      for(const[game,gs]of Object.entries(games)){
+        const v=strictPartial(gs);
+        if(typeof v==="number")scores[game]=v;
+      }
+      if(Object.keys(scores).length)out[date]=scores;
     }
     return Object.keys(out).length?out:null;
   })();
@@ -318,7 +339,7 @@ export default function LogView({
             {!editingId&&activeBowler&&preferences.environment==="tournament"&&(
               <TournamentSession
                 tab={tournamentTab} onTabChange={setTournamentTab}
-                shotScores={tournamentShotScores}
+                shotScoresByDate={tournamentShotScoresByDate}
                 tournament={activeTournament}
                 onChange={updateTournament}
                 onSave={saveTournament}
