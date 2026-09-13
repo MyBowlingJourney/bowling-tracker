@@ -5,8 +5,8 @@ import {
   addGame, removeGame, setGameField, addDay, removeDay, setDayField, updateDay,
   dayTotal, dayAverage, dayGamesEntered, cutMargin,
   tournamentTotal, tournamentTotalWithHandicap, tournamentAverage, tournamentMoney,
-  SCORING_BASES, TRACKING_MODES, PIN_FORMATS, PLAY_STYLES,
-  scoringBasis, trackingMode, pinFormat, playStyle,
+  SCORING_BASES, PIN_FORMATS, PLAY_STYLES,
+  scoringBasis, pinFormat, playStyle,
 } from "./domain/tournaments.js";
 import { patternDisplayName, searchPatterns, describePattern, patternStats } from "./domain/oilPatterns.js";
 import { leagueFormat, isNoTapLeague } from "./domain/leagueSeasons.js";
@@ -571,6 +571,7 @@ function MatchPlay({ tournament, onChange }) {
 }
 
 export default function TournamentSession({ tournament, onChange, onSave, saved, oilPatterns, submitOilPattern, tournaments, shotScores = null }) {
+  const [tab, setTab] = useState("setup");
   // The handicap total is what the tournament used, so it is what a
   // bowler needs to see. Scratch is kept alongside rather than replaced
   // -- it is the number that says how they actually bowled.
@@ -583,6 +584,19 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
 
   return (
     <div>
+      {/* Two tabs, because a tournament carries far more than a league
+          night and one scroll of it was unreadable.
+          
+          Set up is what you fill in once; Scoring is what you come back
+          to between games. Same chip pattern as Stats and Trends. */}
+      <div style={{ ...S.card, padding: "10px 12px" }}>
+        <div style={S.chips}>
+          <Chip label="Set up" selected={tab === "setup"} onToggle={() => setTab("setup")} />
+          <Chip label="Scoring" selected={tab === "scoring"} onToggle={() => setTab("scoring")} />
+        </div>
+      </div>
+
+      {tab === "setup" && (<>
       <div style={S.card}>
         <div style={S.label}>Tournament</div>
         <div style={{ marginBottom: "8px" }}>
@@ -597,76 +611,94 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
         </div>
       </div>
 
-      {/* Four independent settings.
+      {/* Set Up: four settings that define the event, in a 2x2.
+          
+          Grouped rather than stacked because they are read together --
+          "standard, 10 pin, scratch" is one sentence about the event,
+          and four full-width rows made it four separate decisions.
+          
+          Tracking is deliberately absent: frame or game tracking is set
+          on the Bowl card and in Settings, and having a second control
+          for it here would be two sources of truth for one preference. */}
+      <div style={S.card}>
+        <div style={S.label}>Set Up</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
 
-          Not one dropdown with six values: a Baker squad can be
-          handicapped, no-tap and frame-tracked all at once, and folding
-          them together needs a combinatorial list. Every default is the
-          one that means "as it always was", so an event set up without
-          touching any of these behaves exactly as before. */}
-      {[
-        ["Scoring", SCORING_BASES, "scoringBasis", scoringBasis],
-        ["Tracking", TRACKING_MODES, "trackingMode", trackingMode],
-        ["Pins", PIN_FORMATS, "pinFormat", pinFormat],
-        ["Style", PLAY_STYLES, "playStyle", playStyle],
-      ].map(([label, options, field, resolve]) => (
-        <div key={field} style={{ marginBottom: "10px" }}>
-          {fieldLabel(label)}
-          <div style={S.chips}>
-            {options.map(o => (
-              <Chip key={o.id} label={o.label} dense
-                selected={resolve(tournament) === o.id}
-                onToggle={() => onChange({ ...tournament, [field]: o.id })} />
-            ))}
-          </div>
-          {/* Only when it is not the default -- explaining "Scratch" or
-              "10 pin" to a bowler is noise. */}
-          {resolve(tournament) !== options[0].id && (
-            <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "4px", lineHeight: 1.5 }}>
-              {options.find(o => o.id === resolve(tournament))?.blurb}
+          <div>
+            {fieldLabel("Style")}
+            <div style={S.chips}>
+              {PLAY_STYLES.map(o => (
+                <Chip key={o.id} label={o.label} dense
+                  selected={playStyle(tournament) === o.id}
+                  onToggle={() => onChange({ ...tournament, playStyle: o.id })} />
+              ))}
             </div>
-          )}
-        </div>
-      ))}
-
-      {/* Handicap pins. Only for a handicap event, and asked once --
-          it applies to EVERY game, which is the thing bowlers get wrong
-          adding it up by hand: 40 pins across four games is 160. */}
-      {scoringBasis(tournament) === "handicap" && (
-        <div style={{ marginBottom: "12px" }}>
-          {fieldLabel("Handicap per game")}
-          <input style={S.input} type="number" inputMode="numeric" placeholder="e.g. 40"
-            value={tournament.handicap || ""}
-            onChange={e => onChange({ ...tournament, handicap: e.target.value })} />
-        </div>
-      )}
-
-      {/* Baker. Who bowls which frame follows from who starts, so
-          nothing is marked per shot. The tenth is not split: whoever
-          starts it bowls all of it, fill ball included, because a fill
-          ball earned by a strike belongs to whoever threw the strike. */}
-      {isBaker(tournament) && (
-        <div style={{ marginBottom: "12px" }}>
-          {fieldLabel("Bowling with")}
-          <input style={S.input} placeholder="Partner's name"
-            value={tournament.bakerPartner || ""}
-            onChange={e => onChange({ ...tournament, bakerPartner: e.target.value })} />
-          <div style={{ fontSize: "11px", color: C.textMuted, margin: "8px 0 4px" }}>Who bowls frame 1</div>
-          <div style={S.chips}>
-            {BAKER_STARTERS.map(b => (
-              <Chip key={b.id} label={b.label} dense
-                selected={(tournament.bakerStarter || "me") === b.id}
-                onToggle={() => onChange({ ...tournament, bakerStarter: b.id })} />
-            ))}
           </div>
-          <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "6px", lineHeight: 1.5 }}>
-            You bowl frames {bakerFramesFor("me", tournament.bakerStarter).join(", ")}.
-            The score stays out of your average since you did not bowl it alone, but your own
-            frames still count toward strikes, spares and how each ball carried.
-          </div>
-        </div>
-      )}
 
+          <div>
+            {fieldLabel("Scoring")}
+            <div style={S.chips}>
+              {SCORING_BASES.map(o => (
+                <Chip key={o.id} label={o.label} dense
+                  selected={scoringBasis(tournament) === o.id}
+                  onToggle={() => onChange({ ...tournament, scoringBasis: o.id })} />
+              ))}
+            </div>
+          </div>
+
+          <div>
+            {fieldLabel("Format")}
+            <div style={S.chips}>
+              {PIN_FORMATS.map(o => (
+                <Chip key={o.id} label={o.label} dense
+                  selected={pinFormat(tournament) === o.id}
+                  onToggle={() => onChange({ ...tournament, pinFormat: o.id })} />
+              ))}
+            </div>
+          </div>
+
+          {/* Cascades from Scoring: only a handicap event needs a number,
+              and an empty box in a scratch event is a question with no
+              answer. */}
+          <div>
+            {scoringBasis(tournament) === "handicap" ? (
+              <>
+                {fieldLabel("Handicap per game")}
+                <input style={S.input} type="number" inputMode="numeric" placeholder="e.g. 40"
+                  value={tournament.handicap || ""}
+                  onChange={e => onChange({ ...tournament, handicap: e.target.value })} />
+              </>
+            ) : null}
+          </div>
+
+        </div>
+
+        {/* Baker needs two more answers, and only Baker does. */}
+        {isBaker(tournament) && (
+          <div style={{ marginTop: "10px", paddingTop: "10px", borderTop: `1px solid ${C.border}` }}>
+            {fieldLabel("Bowling with")}
+            <input style={S.input} placeholder="Partner's name"
+              value={tournament.bakerPartner || ""}
+              onChange={e => onChange({ ...tournament, bakerPartner: e.target.value })} />
+            <div style={{ fontSize: "11px", color: C.textMuted, margin: "8px 0 4px" }}>Who bowls frame 1</div>
+            <div style={S.chips}>
+              {BAKER_STARTERS.map(b => (
+                <Chip key={b.id} label={b.label} dense
+                  selected={(tournament.bakerStarter || "me") === b.id}
+                  onToggle={() => onChange({ ...tournament, bakerStarter: b.id })} />
+              ))}
+            </div>
+            <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "6px", lineHeight: 1.5 }}>
+              You bowl frames {bakerFramesFor("me", tournament.bakerStarter).join(", ")}. The score stays
+              out of your average since you did not bowl it alone, but your own frames still count.
+            </div>
+          </div>
+        )}
+      </div>
+
+      </>)}
+
+      {tab === "scoring" && (<>
       {(tournament.days || []).map(day => (
         <DayBlock key={day.dayNumber}
           shotScores={shotScores}
@@ -794,6 +826,7 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
         {saved ? "✓ Tournament Saved" : "Save Tournament"}
       </button>
       <div style={{ height: "24px" }} />
+      </>)}
     </div>
   );
 }

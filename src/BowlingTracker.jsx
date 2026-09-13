@@ -59,6 +59,8 @@ import { normalizeCenter, centerToRow, centerFromRow, findExistingCenter, statsB
 import { normalizePattern, patternFromRow, patternToRow, patternAverages, allVerifiedPbaPatterns } from "./domain/oilPatterns.js";
 import { normalizeLeagueDates, needsBookAverageUpdate , isNoTapLeague, leagueFormat} from "./domain/leagueSeasons.js";
 import { archiveOnNewStart, compareSeasons, describeSeasonChange } from "./domain/seasons.js";
+
+import { sessionsForFigures } from "./domain/tournamentFormats.js";
 import { emptyDrill, normalizeDrill, drillToRow, drillFromRow } from "./domain/drills.js";
 import { scorekeepingOptions, allowsOtherBowlers, normalizeGuests, addGuest, removeGuest } from "./domain/scorekeeping.js";
 import { visibleLeagues, isLeagueHidden, teamsInLeague, describeLeaveImpact, leaveConfirmationText } from "./domain/leagueMembership.js";
@@ -4564,7 +4566,19 @@ export default function BowlingTracker(){
     const cornerPinAtt=mine.filter(s=>isCornerPinLeave(s,!!preferences.leftHanded)&&s.spareMade!=="");
     const cornerPinMade=cornerPinAtt.filter(s=>s.spareMade==="Yes").length;
 
-    const mySessions=sessions.filter(s=>!who||s.bowler===who);
+    // Baker and no-tap scores are left out of the figures.
+    //
+    // A frame-tracked tournament creates a session under the event's
+    // container league, so without this a Baker block lands in the
+    // average like any other night -- and half those pins belong to a
+    // partner. No-tap is out for a different reason: a nine counts as a
+    // strike, so pooling it inflates the average with an easier format.
+    //
+    // Only the SCORES are filtered. `mine` above is shots, untouched, so
+    // strike percentage, carry by ball and leave patterns still count
+    // every ball the bowler actually threw.
+    const mySessions=sessionsForFigures(sessions,tournaments).filter(s=>!who||s.bowler===who);
+
     const gameCount=mySessions.reduce((n,s)=>n+(s.scores?.length||0),0);
 
     const ballRows=[...new Set(mine.map(s=>s.ball).filter(Boolean))].map(name=>{
