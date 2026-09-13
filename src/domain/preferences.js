@@ -49,7 +49,7 @@ export const TRACKING_MODE_LABELS = {
 };
 
 export const TRACKING_MODE_DESCRIPTIONS = {
-  shot: "Every frame — leaves, spare conversion and how each ball carried.",
+  shot: "Every frame — strikes, spare conversions, open frames and how each ball carried.",
   game: "The final score for each game. Fast, and still tracks averages and trends.",
 };
 

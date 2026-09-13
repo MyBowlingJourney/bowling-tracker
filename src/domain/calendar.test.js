@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   parseMonthKey, monthKey, monthsWithSessions, nightSummary,
-  monthGrid, monthLabel, weekdayLabels, shiftMonth,
+  monthGrid, monthLabel, weekdayLabels, shiftMonth, cellModes, tournamentNights, sessionMode,
 } from './calendar.js';
 
 const n = (date, scores, league = 'Tue', bowler = 'Ryan') => ({ bowler, league, date, scores });
@@ -162,5 +162,68 @@ describe('survives junk', () => {
     }
     expect(monthsWithSessions(null, 'Ryan')).toEqual([]);
     expect(monthGrid(null, null, null)).toBe(null);
+  });
+});
+
+describe('cell fill modes', () => {
+  const night = mode => ({ mode, scores: [180], date: '2026-02-03' });
+
+  it('gives one mode for a single kind of night', () => {
+    expect(cellModes([night('league')])).toEqual(['league']);
+  });
+
+  // A league night and a practice session on one day splits the square
+  // rather than one silently winning.
+  it('gives both when two kinds share a day', () => {
+    expect(cellModes([night('league'), night('practice')])).toEqual(['league', 'practice']);
+  });
+
+  it('does not repeat a mode bowled twice in a day', () => {
+    expect(cellModes([night('league'), night('league')])).toEqual(['league']);
+  });
+
+  // A square is 40px. A third band would be 13px of colour nobody can
+  // read, and the detail is one tap away.
+  it('caps at two', () => {
+    expect(cellModes([night('league'), night('practice'), night('tournament')]))
+      .toHaveLength(2);
+  });
+
+  it('defaults an untagged night to league', () => {
+    expect(cellModes([{ scores: [180] }])).toEqual(['league']);
+  });
+
+  it('survives junk', () => {
+    for (const j of [null, undefined, 'x', 42, [null]]) {
+      expect(() => cellModes(j)).not.toThrow();
+    }
+    expect(cellModes(null)).toEqual([]);
+  });
+});
+
+describe('tournament nights', () => {
+  const t = [{ bowler: 'Ryan', name: 'City Open', days: [
+    { date: '2026-02-14', games: [{ score: '220' }, { score: '195' }] },
+    { date: '2026-02-15', games: [] },
+  ] }];
+
+  // Tournaments live in their own table, so a tournament weekend would
+  // otherwise be a blank square on a day spent eight hours at a centre.
+  it('turns tournament days into nights', () => {
+    const nights = tournamentNights(t, 'Ryan');
+    expect(nights).toHaveLength(1);
+    expect(nights[0].mode).toBe('tournament');
+    expect(nights[0].scores).toEqual([220, 195]);
+  });
+
+  it('skips a day with no scores entered', () => {
+    expect(tournamentNights(t, 'Ryan').map(n => n.date)).not.toContain('2026-02-15');
+  });
+
+  it('survives junk', () => {
+    for (const j of [null, undefined, 'x', 42, [null], [{ days: 'no' }]]) {
+      expect(() => tournamentNights(j, 'Ryan')).not.toThrow();
+    }
+    expect(tournamentNights(null, 'Ryan')).toEqual([]);
   });
 });

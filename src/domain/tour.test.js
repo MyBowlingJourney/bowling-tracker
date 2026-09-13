@@ -24,7 +24,10 @@ describe('tourSteps by environment', () => {
   // BowlingTracker and silently bounces to Bowl.
   it('only names tabs that exist in the nav', () => {
     // 'teams' added when the Vault split into Gear ('locker') and Teams.
-    const NAV = ['log', 'history', 'data', 'insights', 'locker', 'teams', 'coaching', 'social'];
+    // 'badges' added when Badges became its own tab -- the casual tour
+    // still pointed at 'social', so it described badges while standing
+    // on the standings screen.
+    const NAV = ['log', 'history', 'data', 'insights', 'locker', 'teams', 'coaching', 'social', 'badges'];
     for (const prefs of [league, casual, practice, tournament]) {
       for (const s of tourSteps(prefs)) if (s.tab) expect(NAV).toContain(s.tab);
     }

@@ -23,7 +23,27 @@
 // shift it a day either side of UTC, which would put a Tuesday night in
 // Monday's box.
 
+import { isPracticeLeagueName, isCasualLeagueName } from "../constants.js";
+
 const rows = v => (Array.isArray(v) ? v : []).filter(x => x && typeof x === "object");
+
+// What kind of night this was.
+//
+// Derived from the league name rather than a stored field, because that
+// is where the distinction already lives: practice and open bowling both
+// use reserved league names scoped to the user. Adding a mode column to
+// sessions would be a second source of truth for something already
+// unambiguous.
+//
+// Tournaments are NOT in the sessions table at all -- they are their own
+// rows with their own days -- so they arrive separately and are tagged
+// by the caller.
+export function sessionMode(session) {
+  const league = String(session?.league || "");
+  if (isPracticeLeagueName(league) || league === "Practice") return "practice";
+  if (isCasualLeagueName(league) || league === "Just Bowling") return "casual";
+  return "league";
+}
 
 const num = v => {
   if (v === null || v === undefined || v === "") return null;
@@ -74,6 +94,7 @@ export function nightSummary(session) {
   return {
     date: String(s.date || ""),
     league: s.league || "",
+    mode: s.mode || sessionMode(s),
     games: scores.length,
     scores,
     series: scores.reduce((a, b) => a + b, 0),
@@ -91,6 +112,34 @@ export function nightSummary(session) {
 // weekStart is 0 for Sunday, 1 for Monday. League nights are named by
 // weekday, so which column a Tuesday sits in matters to a bowler
 // scanning for their own night.
+// Tournament days as calendar nights.
+//
+// Tournaments live in their own table with their own days, not in
+// sessions, so a tournament would otherwise be a blank square on a day
+// the bowler spent eight hours at a centre.
+export function tournamentNights(tournaments, bowler) {
+  const out = [];
+  for (const t of rows(tournaments)) {
+    if (bowler && t.bowler && t.bowler !== bowler) continue;
+    for (const day of rows(t.days)) {
+      const date = String(day.date || "");
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+      const scores = rows(day.games)
+        .map(g => num(g.score))
+        .filter(v => v !== null);
+      if (!scores.length) continue;
+      out.push({
+        bowler: t.bowler || bowler || "",
+        league: t.name || "Tournament",
+        date,
+        scores,
+        mode: "tournament",
+      });
+    }
+  }
+  return out;
+}
+
 export function monthGrid(key, sessions, bowler, league, weekStart = 0) {
   const parsed = parseMonthKey(key);
   if (!parsed) return null;
@@ -182,4 +231,21 @@ export function shiftMonth(key, delta) {
   if (!parsed) return "";
   const total = parsed.year * 12 + (parsed.month - 1) + Number(delta || 0);
   return monthKey(Math.floor(total / 12), (total % 12 + 12) % 12 + 1);
+}
+
+// Which modes a day's nights represent, in a stable order.
+//
+// Pulled out of the view so it can be tested: a fill rule that lives
+// inside a component is only verifiable by rendering, and inline styles
+// do not survive the test shim.
+//
+// Capped at two. A square is 40px; a third band would be 13px of colour
+// nobody can read, and the detail is one tap away.
+export function cellModes(nights) {
+  const seen = [];
+  for (const n of rows(nights)) {
+    const m = n.mode || "league";
+    if (!seen.includes(m)) seen.push(m);
+  }
+  return seen.slice(0, 2);
 }
