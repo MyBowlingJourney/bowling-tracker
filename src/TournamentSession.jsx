@@ -317,6 +317,38 @@ function DayScoring({ tournament, day, onChange, multiDay, shotScores, expanded 
   const entered = dayGamesEntered(day, shotScores);
   const margin = cutMargin(day, shotScores);
   const derived = g => shotScores ? (Number.isFinite(Number(shotScores[String(g.gameNumber)])) ? Number(shotScores[String(g.gameNumber)]) : null) : null;
+
+  // Frame-tracked scores are WRITTEN into the games, not just shown
+  // behind them.
+  //
+  // A placeholder was not enough: the number has to be in the field, so
+  // it saves with the tournament, survives a reload and reads as a
+  // recorded score rather than a hint. A bowler frame-tracking a block
+  // should never have to copy their own scores across.
+  //
+  // scoreAuto marks a score this filled in. While it is set, the frames
+  // keep the field up to date as the game is bowled. The moment the
+  // bowler types over it the flag clears and the app stops touching it
+  // -- the house scorer wins, and a mis-tapped frame stays correctable.
+  useEffect(() => {
+    if (!shotScores) return;
+    let next = day;
+    let changed = false;
+    for (const g of day.games || []) {
+      const v = derived(g);
+      if (v === null) continue;
+      const typedOver = g.score !== "" && !g.scoreAuto;
+      if (typedOver) continue;
+      if (String(g.score) === String(v) && g.scoreAuto) continue;
+      next = setGameField(next, g.gameNumber, "score", String(v));
+      next = setGameField(next, g.gameNumber, "scoreAuto", true);
+      changed = true;
+    }
+    if (changed) update(next);
+    // day.games is the dependency that matters; shotScores changes as
+    // frames land.
+  }, [shotScores, day]);
+
   function update(next) { onChange(next); }
 
   return (
@@ -354,11 +386,18 @@ function DayScoring({ tournament, day, onChange, multiDay, shotScores, expanded 
           <input style={{ ...S.input, flex: 1, fontSize: "13px", padding: "6px 10px",
               /* C.text, not undefined -- an explicit undefined here
                  overrode S.input's own colour and left the text black,
-                 invisible on the dark palette. */
-              color: g.score === "" && derived(g) !== null ? C.textMuted : C.text }}
+                 invisible on the dark palette.
+
+                 A frame-filled score is shown in full colour, not greyed:
+                 it IS the score now, saved with the tournament, not a
+                 suggestion. */
+              color: C.text }}
             type="number" inputMode="numeric"
-            placeholder={derived(g) !== null ? String(derived(g)) : "Score"}
-            value={g.score} onChange={e => update(setGameField(day, g.gameNumber, "score", e.target.value))} />
+            placeholder="Score"
+            value={g.score}
+            onChange={e => update(setGameField(
+              setGameField(day, g.gameNumber, "scoreAuto", false),
+              g.gameNumber, "score", e.target.value))} />
           <input style={{ ...S.input, flex: 1, fontSize: "13px", padding: "6px 10px" }}
             placeholder="Pair" value={g.lanePair}
             onChange={e => update(setGameField(day, g.gameNumber, "lanePair", e.target.value))} />

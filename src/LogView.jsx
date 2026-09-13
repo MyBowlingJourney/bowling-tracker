@@ -39,7 +39,7 @@ export default function LogView({
   form, setForm, editingId, saved, sessionSaved, sessionSaveMessage, tournamentSaveMessage,
   sessionLeague, setSessionLeague, effectiveSessionLeague, sessionDate, setSessionDate,
   startingLane, setStartingLane, setShowSummary, expandedSections,
-  ballNumLabel, curSession, currentLane, firstBallPins, g1score, g2score, g3score,
+  ballNumLabel, curSession, currentLane, firstBallPins, gameScores = [],
   hasLeave, inTenth, isNoTap, isStrike, needsSpareMade, sessionTotal, showPinCount,
   standingPins, tenthOptions,
   addBall, addBowler, autoFillLine, calcLane, cancelEdit, cycleGameResult, cycleSeriesResult,
@@ -187,16 +187,25 @@ export default function LogView({
   // The block for tonight if one matches the session date, otherwise the
   // longest block in the event: a bowler stepping through games before
   // filling in dates should not hit a wall at three.
-  const maxGames=(()=>{
-    if(env!=="tournament")return 3;
-    const days=activeTournament?.days||[];
-    if(!days.length)return 3;
-    const today=days.find(d=>d&&String(d.date)===String(sessionDate));
-    const count=today
-      ?(today.games||[]).length
-      :Math.max(...days.map(d=>(d?.games||[]).length),0);
-    return Math.max(3,count);
-  })();
+  // How far the game stepper goes.
+  //
+  // Three is right for a league night. A tournament is whatever the
+  // bowler is bowling -- five-game qualifying, eight-game blocks -- so
+  // it must not stop them at three.
+  //
+  // Deliberately NOT derived from the block's game count. That was the
+  // first attempt and it depended on the block being dated, matching
+  // tonight, and already having the games added -- three ways to still
+  // be stuck at three with no way to tell which one bit. In a tournament
+  // the stepper simply always allows one more, which is what "let the
+  // bowler control it" actually means.
+  //
+  // Twelve is a stop, not a limit anyone should reach: it is past any
+  // real block, and an unbounded stepper turns a stuck tap into a game
+  // number in the hundreds.
+  const maxGames=env==="tournament"
+    ? Math.min(12, Math.max(3, (parseInt(form.game)||1)+1))
+    : 3;
 
   const saveShotRef=useRef(null);
   const scrollToSave=()=>requestAnimationFrame(()=>
@@ -766,7 +775,11 @@ export default function LogView({
                     <div style={{fontSize:"12px",color:C.textMuted,marginTop:"6px"}}>Series so far</div>
                   </div>
                   <div style={{display:"flex",gap:"14px",paddingBottom:"4px"}}>
-                    {[g1score,g2score,g3score].map((score,i)=>(
+                    {/* Every game bowled, not a fixed three. A
+                        tournament block can be five or eight, and games
+                        past the third simply never appeared. */}
+                    {gameScores.map((score,i)=>(
+
                       <div key={i} style={{textAlign:"center"}}>
                         <div className="num" style={{fontSize:"22px",lineHeight:1,fontWeight:700,fontFamily:F.num,color:score!=null?C.text:C.textMuted}}>
                           {score!=null?score:"—"}

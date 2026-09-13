@@ -5148,9 +5148,33 @@ export default function BowlingTracker(){
   },[inTenth,form.game,form.bowler,form.ballNum,shots]);
   const ballNumLabel=inTenth?` · Ball ${form.ballNum||1}`:"";
 
-  const g1score=getGameStrict(activeBowler,sessionLeague,sessionDate,1);
-  const g2score=getGameStrict(activeBowler,sessionLeague,sessionDate,2);
-  const g3score=getGameStrict(activeBowler,sessionLeague,sessionDate,3);
+  // Every game bowled tonight, not just the first three.
+  //
+  // These were three fixed lookups, so the summary at the top of Shot
+  // Context stopped at G3 -- fine for a league night, wrong for a
+  // tournament block, where game 4 onward simply never appeared however
+  // many the bowler entered.
+  //
+  // Length follows the work: three at a minimum so a league night keeps
+  // its familiar shape, more once the bowler has gone past it, in either
+  // frames or typed scores. Capped at twelve to match the stepper.
+  const gameScores=(()=>{
+    const league=effectiveSessionLeague;
+    let highest=3;
+    for(const sh of shots||[]){
+      if(sh&&sh.bowler===activeBowler&&sh.league===league&&sh.date===sessionDate){
+        const n=parseInt(sh.game);
+        if(Number.isFinite(n)&&n>highest)highest=n;
+      }
+    }
+    for(let n=4;n<=12;n++){
+      if(getGameStrict(activeBowler,sessionLeague,sessionDate,n)!=null)highest=Math.max(highest,n);
+    }
+    highest=Math.min(12,highest);
+    return Array.from({length:highest},(_,i)=>
+      getGameStrict(activeBowler,sessionLeague,sessionDate,i+1));
+  })();
+
   const sessionTotal=getSessionTotal();
 
   // Corner pin depends on which hand THREW the shot, and a "Stats" view
@@ -6093,7 +6117,7 @@ export default function BowlingTracker(){
             startingLane={startingLane} setStartingLane={setStartingLane} setShowSummary={setShowSummary} expandedSections={expandedSections}
             offerShotByShot={offerShotByShot} onTryShotByShot={tryShotByShot} onDismissShotByShot={dismissShotPrompt}
             promptForTeam={promptForTeam} onDismissTeamPrompt={dismissTeamPrompt}
-            ballNumLabel={ballNumLabel} curSession={curSession} currentLane={currentLane} firstBallPins={firstBallPins} g1score={g1score} g2score={g2score} g3score={g3score}
+            ballNumLabel={ballNumLabel} curSession={curSession} currentLane={currentLane} firstBallPins={firstBallPins} gameScores={gameScores}
             hasLeave={hasLeave} inTenth={inTenth} isNoTap={isNoTap} isStrike={isStrike} needsSpareMade={needsSpareMade} sessionTotal={sessionTotal} showPinCount={showPinCount}
             standingPins={standingPins} tenthOptions={tenthOptions}
             addBall={addBall} addBowler={addBowler} autoFillLine={autoFillLine} calcLane={calcLane} cancelEdit={cancelEdit} cycleGameResult={cycleGameResult} cycleSeriesResult={cycleSeriesResult}
