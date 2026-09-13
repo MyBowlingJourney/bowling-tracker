@@ -40,6 +40,8 @@ export function emptyTournamentDay(dayNumber = 1) {
     oilPattern: "",
     games: [emptyTournamentGame(1)],
     cutLine: "",
+    // "+" or "-": is the cut over or under a 200 average.
+    cutSign: "+",
     // null = not yet known (the usual state until the squad finishes)
     madeCut: null,
     notes: "",
@@ -199,6 +201,7 @@ export function normalizeTournamentDay(raw, dayNumber = 1) {
     oilPattern: raw.oilPattern || "",
     games,
     cutLine: raw.cutLine ?? "",
+    cutSign: raw.cutSign === "-" ? "-" : "+",
     madeCut: raw.madeCut === true || raw.madeCut === false ? raw.madeCut : null,
     notes: raw.notes || "",
   };
@@ -317,11 +320,34 @@ export function dayAverage(day, shotScores) {
 // Margin against the day's cut line. Positive = above the cut.
 // Returns null when either side is unknown, so the UI can stay quiet
 // rather than implying a standing that isn't real yet.
+// Pace scoring: 200 a game is even, and a cut is quoted as pins over or
+// under that.
+//
+// A cut posted as "+150" after eight games means 1750, and "-20" means
+// 1580. Bowlers read and repeat cuts this way, so asking for the raw
+// total made them do arithmetic the app can do -- and a mistake in that
+// arithmetic silently misreports whether they cashed.
+export const PACE_PER_GAME = 200;
+
+// The absolute total the cut represents, for however many games have
+// been bowled.
+//
+// Games ENTERED, not scheduled: a cut quoted after eight games means
+// nothing until eight are in, and computing it against five would show a
+// bowler comfortably over a line that has not been reached yet.
+export function cutTarget(day, shotScores) {
+  const pace = num(day?.cutLine);
+  if (pace === null) return null;
+  const games = dayGamesEntered(day, shotScores);
+  if (!games) return null;
+  return (PACE_PER_GAME * games) + (day?.cutSign === "-" ? -pace : pace);
+}
+
 export function cutMargin(day, shotScores) {
   const total = dayTotal(day, shotScores);
-  const cut = num(day?.cutLine);
-  if (total === null || cut === null) return null;
-  return total - cut;
+  const target = cutTarget(day, shotScores);
+  if (total === null || target === null) return null;
+  return total - target;
 }
 
 // The total that decides where a bowler finished.

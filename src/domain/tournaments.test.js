@@ -5,7 +5,7 @@ import {
   resolveTournamentGameScore, dayTotal, dayGamesEntered, tournamentGamesEntered,
   tournamentTotal, tournamentAverage,
   tournamentTotalWithHandicap,
-  SCORING_BASES, PIN_FORMATS, PLAY_STYLES, scoresJoinScratchFigures, describeTournamentFormat,
+  SCORING_BASES, PIN_FORMATS, PLAY_STYLES, scoresJoinScratchFigures, describeTournamentFormat, cutTarget, cutMargin,
 } from './tournaments.js';
 describe('four independent settings', () => {
   // Not one dropdown with six values: a Baker squad can be handicapped,
@@ -153,6 +153,47 @@ describe('handicap reaches the total', () => {
   it('survives junk', () => {
     for (const j of [null, undefined, 'x', 42, {}]) {
       expect(() => tournamentTotalWithHandicap(j, j)).not.toThrow();
+    }
+  });
+});
+
+describe('the cut line is pace over or under a 200 average', () => {
+  // Cuts are posted and repeated as "+150", not as a raw total. Asking
+  // for the total made the bowler do arithmetic the app can do -- and a
+  // slip in that arithmetic silently misreports whether they cashed.
+  const eight = n => ({ games: [...Array(8)].map((_, i) => ({ gameNumber: i + 1, score: String(n) })) });
+
+  it('reads +150 after eight games as 1750', () => {
+    expect(cutTarget({ ...eight(220), cutLine: '150', cutSign: '+' })).toBe(1750);
+  });
+
+  it('reads -20 after eight games as 1580', () => {
+    expect(cutTarget({ ...eight(220), cutLine: '20', cutSign: '-' })).toBe(1580);
+  });
+
+  it('defaults to over when no sign is set', () => {
+    expect(cutTarget({ ...eight(220), cutLine: '150' })).toBe(1750);
+  });
+
+  it('gives the margin against that target', () => {
+    expect(cutMargin({ ...eight(220), cutLine: '150', cutSign: '+' })).toBe(10);
+  });
+
+  // A cut quoted after eight games means nothing until eight are in.
+  it('scales with the games actually entered', () => {
+    const four = { games: [...Array(4)].map((_, i) => ({ gameNumber: i + 1, score: '200' })), cutLine: '100', cutSign: '+' };
+    expect(cutTarget(four)).toBe(900);
+  });
+
+  it('gives nothing with no games or no cut', () => {
+    expect(cutTarget({ games: [], cutLine: '150' })).toBe(null);
+    expect(cutTarget({ ...eight(200) })).toBe(null);
+  });
+
+  it('survives junk', () => {
+    for (const j of [null, undefined, 'x', 42, {}]) {
+      expect(() => cutTarget(j, j)).not.toThrow();
+      expect(() => cutMargin(j, j)).not.toThrow();
     }
   });
 });
