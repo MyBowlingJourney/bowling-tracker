@@ -640,8 +640,17 @@ function MatchPlay({ tournament, onChange }) {
   );
 }
 
-export default function TournamentSession({ tournament, onChange, onSave, saved, oilPatterns, submitOilPattern, tournaments, shotScores = null }) {
-  const [tab, setTab] = useState("setup");
+export default function TournamentSession({ tournament, onChange, onSave, saved, oilPatterns, submitOilPattern, tournaments, shotScores = null, tab: controlledTab, onTabChange }) {
+  // The tab is owned by the caller.
+  //
+  // LogView renders Shot Context alongside this card, and it only makes
+  // sense on the Scoring tab -- so something outside this component has
+  // to know which tab is showing. Keeping the state private here meant
+  // Shot Context appeared under Set up, Brackets and Results too.
+  const [ownTab, setOwnTab] = useState("setup");
+  const tab = controlledTab ?? ownTab;
+  const setTab = onTabChange ?? setOwnTab;
+
   // Which cards are open. Everything starts open -- a bowler setting up
   // an event needs to see the fields, and collapsing is for getting them
   // out of the way afterwards, not for hiding them on arrival.

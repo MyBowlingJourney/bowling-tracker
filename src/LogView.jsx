@@ -136,7 +136,18 @@ export default function LogView({
   const showEquipment=leagueReady&&env!=="casual"&&!isDrill&&preferences.trackingMode==="shot";
   // Shot Context (game/frame/lane) is meaningless without shots -- a
   // scores-only night has games, not frames. It had no gate at all.
-  const showShotContext=leagueReady&&env!=="casual"&&!isDrill&&preferences.trackingMode==="shot";
+  // Tournament tab, owned here so Shot Context can follow it.
+  const [tournamentTab,setTournamentTab]=useState("setup");
+  // Shot Context (game/frame/lane) is meaningless without shots -- a
+  // scores-only night has games, not frames.
+  //
+  // And in a tournament it belongs to the Scoring tab only. It sits
+  // beside the tournament card rather than inside it, so without this it
+  // appeared under Set up, Brackets and Results as well -- three places
+  // where "which frame are you on" is not a question.
+  const showShotContext=leagueReady&&env!=="casual"&&!isDrill&&preferences.trackingMode==="shot"
+    &&(env!=="tournament"||tournamentTab==="scoring");
+
 
   return (
     <>
@@ -295,6 +306,7 @@ export default function LogView({
                 it entirely rather than trying to bend one into the other. */}
             {!editingId&&activeBowler&&preferences.environment==="tournament"&&(
               <TournamentSession
+                tab={tournamentTab} onTabChange={setTournamentTab}
                 shotScores={tournamentShotScores}
                 tournament={activeTournament}
                 onChange={updateTournament}
