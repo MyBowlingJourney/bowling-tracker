@@ -56,8 +56,47 @@ export function isCasualLeagueName(name) {
 }
 
 // Any per-user league reads back as its plain display name.
+// Tournament container leagues, one per event.
+//
+// Shots have to belong to a league -- every stat, filter and history
+// view keys off one -- and a tournament is not a league. Practice and
+// open bowling solve this with a single reserved league each; a
+// tournament cannot, because pooling every event into one bucket would
+// flatten exactly what a bowler wants to see. The pattern you shot 172
+// on at the City Open is the thing worth knowing before you bowl it
+// again, and "Tournament: 189 average" tells you nothing.
+//
+// So the league is named for the event. Same prefix trick as the others,
+// with the event name carried in the middle so it survives the round
+// trip and can be displayed without a lookup.
+//
+//   Tournament\u00b7City Open\u00b7<userId>
+//
+// The separator is U+00B7, which is already the convention here and
+// cannot appear in a league name a bowler types.
+export const TOURNAMENT_SESSION_KEY = "Tournament";
+
+export function tournamentLeagueCloudName(eventName, userId) {
+  const clean = String(eventName || "").trim().replace(/\u00b7/g, " ") || "Tournament";
+  return `${TOURNAMENT_SESSION_KEY}\u00b7${clean}\u00b7${userId}`;
+}
+
+export function isTournamentLeagueName(name) {
+  return typeof name === "string" && name.startsWith(`${TOURNAMENT_SESSION_KEY}\u00b7`);
+}
+
+// "Tournament\u00b7City Open\u00b7abc123" -> "City Open"
+export function tournamentLeagueEventName(name) {
+  if (!isTournamentLeagueName(name)) return "";
+  const parts = String(name).split("\u00b7");
+  return parts.length >= 3 ? parts.slice(1, -1).join("\u00b7") : "";
+}
+
 export function practiceLeagueDisplayName(name) {
   if (isCasualLeagueName(name)) return CASUAL_SESSION_KEY;
+  // The event name, not "Tournament" -- the whole point of a league per
+  // event is that History and Stats can tell them apart.
+  if (isTournamentLeagueName(name)) return tournamentLeagueEventName(name) || TOURNAMENT_SESSION_KEY;
   return isPracticeLeagueName(name) ? PRACTICE_SESSION_KEY : name;
 }
 export const CASUAL_SESSION_KEY = "Just Bowling";

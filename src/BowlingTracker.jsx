@@ -70,7 +70,7 @@ import { casualNightsFrom, setGameEquipment as setGameEquipmentIn, gameEquipment
 import { bowlerHighGame, bowlerHighSeries, hangAssistCounts, teamDateGroups, teamHighGame, teamHighSeries, seasonRecord, weeklyPointsData, gameAvg, teamGameTotalAvg, teamGameTotalAvgAt, rAvg, cAvg, avgProgress, cumulativeAvgBeforeDate, hungCounts, beatHighBowlerStats, scoreValues, scoreConsistency, histogramBuckets } from "./domain/stats.js";
 import { lineupSort, renameLeagueInRecords } from "./domain/leagues.js";
 import { C, S, F, Chip, applyTheme } from "./ui.jsx";
-import { PLASTIC_BALL, DEFAULT_ARSENAL, MISSES, DEFAULT_LEAGUES, localDateString, APP_NAME, PRACTICE_SESSION_KEY, CASUAL_SESSION_KEY , practiceLeagueCloudName, casualLeagueCloudName, practiceLeagueDisplayName, isPracticeLeagueName, isCasualLeagueName } from "./constants.js";
+import { PLASTIC_BALL, DEFAULT_ARSENAL, MISSES, DEFAULT_LEAGUES, localDateString, APP_NAME, PRACTICE_SESSION_KEY, CASUAL_SESSION_KEY , practiceLeagueCloudName, casualLeagueCloudName, practiceLeagueDisplayName, isPracticeLeagueName, isCasualLeagueName , TOURNAMENT_SESSION_KEY, tournamentLeagueCloudName} from "./constants.js";
 import { validTeamId,
   shotToSupabaseRow, shotFromSupabaseRow, sessionToSupabaseRow, sessionFromSupabaseRow,
   matchToSupabaseRow, matchFromSupabaseRow, lanePatternToSupabaseRow, lanePatternFromSupabaseRow,
@@ -3686,7 +3686,23 @@ export default function BowlingTracker(){
   const effectiveSessionLeague=
     preferences.environment==="practice"?PRACTICE_SESSION_KEY:
     preferences.environment==="casual"?CASUAL_SESSION_KEY:
-    sessionLeague;
+    // A tournament gets its own container league, named for the event.
+    //
+    // Shots have to belong to a league -- every stat, filter and history
+    // view keys off one -- and without this they saved with an empty
+    // league in tournament mode, orphaned from everything. One container
+    // per event rather than one for all tournaments, because the pattern
+    // you shot 172 on at the City Open is the thing worth knowing before
+    // you bowl it again.
+    //
+    // Falls back to the plain key until the tournament has a name, so a
+    // shot logged before the bowler types one is not lost.
+    preferences.environment==="tournament"
+      ?(activeTournament?.name
+          ?tournamentLeagueCloudName(activeTournament.name,user?.id||"")
+          :TOURNAMENT_SESSION_KEY)
+      :sessionLeague;
+
 
   async function submitSession(){
     // effectiveSessionLeague, not sessionLeague. Practice and casual have

@@ -13,13 +13,14 @@ import { isContainerLeague } from "./domain/leagueMembership.js";
 import { anyMoneyGameShown, visibleStatsCardOrder, STATS_CARDS } from "./domain/preferences.js";
 import { visibleStatsCards, lockedStatsMessage, lockedStatsDetail } from "./domain/statsGating.js";
 import { statsByRackType } from "./domain/centers.js";
+import { patternHistory, patternVersusOverall } from "./domain/oilPatterns.js";
 import { compareSeasons, describeSeasonChange } from "./domain/seasons.js";
 
 export default function StatsView({
   centerStats,
   preferences,
   view, shots, sessions, bowlers, teams, leagues: allLeagues, arsenals, saved,
-  centers = [],
+  centers = [], lanePatterns = [],
   closedSeasons = [], leagueDates = {},
   statsBowler, setStatsBowler, compareBowler, setCompareBowler,
   compareFriendId, setCompareFriendId, friends=[], onLoadFriendData, onOpenFriends, compareSessions, displayName="",
@@ -38,6 +39,7 @@ export default function StatsView({
   viewedLeftHanded=false,
 }) {
   const [showLocked, setShowLocked] = useState(false);
+  const [expandedPattern, setExpandedPattern] = useState(null);
   // Practice and Just Bowling are containers, not teams -- nobody plays
   // FOR them, so "compare me to Practice" is a comparison against a
   // filing cabinet. Filtered once here rather than at each of the five
@@ -423,6 +425,52 @@ showTeamCompare&&(()=>{
                         {row("Score spread",c.current.spread,c.previous.spread,c.changes.spread,true)}
                         {row("Games",c.current.games,c.previous.games,c.changes.games)}
                       </StatRows>
+                    </div>
+                  );
+                })();
+
+                byId["patternHistory"] = (()=>{
+                  const who=statsBowler||displayName;
+                  const hist=patternHistory(sessions,lanePatterns,who);
+                  if(!hist.length)return null;
+                  // Against the bowler's own overall, because 172 alone
+                  // says nothing -- "17 below your average" is the
+                  // sentence they can act on before Thursday.
+                  const withDiff=patternVersusOverall(hist,bStats?.average??null);
+                  const diffFor=n=>withDiff.find(x=>x.name===n)?.versusOverall??null;
+                  return(
+                    <div style={S.card}>
+                      <div style={S.label}>By oil pattern</div>
+                      {hist.map(p=>{
+                        const d=diffFor(p.name);
+                        const open=expandedPattern===p.name;
+                        return(
+                          <div key={p.name} style={{marginBottom:"10px"}}>
+                            <StatRow label={p.name}
+                              value={p.average===null?"—":String(p.average)}
+                              sub={`${p.games} game${p.games===1?"":"s"} over ${p.nights} night${p.nights===1?"":"s"}`}
+                              badge={d===null||d===0?null:`${d>0?"+":""}${d}`}
+                              color={d===null||d===0?undefined:(d>0?C.strike:C.miss)}/>
+                            {(p.hasNotes||p.entries.length>1)&&(
+                              <button style={{background:"none",border:"none",padding:"2px 0",cursor:"pointer",
+                                color:C.accent,fontSize:"11px"}}
+                                onClick={()=>setExpandedPattern(open?null:p.name)}>
+                                {open?"Hide nights":(p.hasNotes?"Notes and nights":"Nights")}
+                              </button>
+                            )}
+                            {open&&p.entries.map((e,i)=>(
+                              <div key={i} style={{fontSize:"11px",color:C.textMuted,lineHeight:1.5,
+                                paddingLeft:"8px",borderLeft:`2px solid ${C.border}`,marginTop:"4px"}}>
+                                <div>{e.date}{e.series!==null?` · ${e.series} series`:""}</div>
+                                {/* The note is the point. An average says a
+                                    pattern is hard; the note says what to do
+                                    about it next time. */}
+                                {e.notes&&<div style={{marginTop:"2px",fontStyle:"italic"}}>{e.notes}</div>}
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })}
                     </div>
                   );
                 })();
