@@ -39,7 +39,7 @@ export default function Settings({
   leagueDates, setLeagueDates, renameLeague,
   leagueFormats = {}, setLeagueFormat,
   updateCenter,
-  tournaments = [],
+  tournaments = [], deleteNight,
   hiddenLeagues, leagueIds, toggleLeagueHidden, teams, activeBowler, leaveTeam, onCreateTeam,
   shots, leftHandedForBowler,
 }) {
@@ -214,6 +214,7 @@ export default function Settings({
             <CalendarView
               sessions={sessions || []}
               tournaments={tournaments || []}
+              onDeleteNight={deleteNight ? n => deleteNight(statsBowler || activeBowler, n.league, n.date) : undefined}
               bowler={statsBowler || activeBowler}
               league={statsLeague || ""} />
           )}

@@ -3254,6 +3254,61 @@ export default function BowlingTracker(){
       }
     }
   }
+  // Delete a whole night: the session, its shots, and its typed scores.
+  //
+  // All three, because a night lives in three places. Removing the
+  // session alone leaves the shots behind, and they rebuild the night on
+  // the next load -- the bowler deletes it, it comes back, and now they
+  // do not trust the button.
+  //
+  // saveShots and saveSessions each diff against what they had and issue
+  // their own cloud deletes, so this goes through them rather than
+  // deleting rows by hand. Manual scores are keyed by
+  // bowler|league|date|game, so the night's keys are prefix-matched.
+  //
+  // Returns what it removed, so the caller can say so rather than
+  // claiming success blindly.
+  async function deleteNight(bowler,league,date){
+    if(!bowler||!league||!date)return {sessions:0,shots:0,scores:0};
+
+    const isNight=r=>r&&r.bowler===bowler&&r.league===league&&String(r.date)===String(date);
+
+    const keptSessions=(sessions||[]).filter(r=>!isNight(r));
+    const keptShots=(shots||[]).filter(r=>!isNight(r));
+    const removed={
+      sessions:(sessions||[]).length-keptSessions.length,
+      shots:(shots||[]).length-keptShots.length,
+      scores:0,
+    };
+
+    const prefix=`${bowler}|${league}|${date}|`;
+    const keptScores={};
+    for(const[k,v]of Object.entries(manualScores||{})){
+      if(k.startsWith(prefix)){removed.scores+=1;continue;}
+      keptScores[k]=v;
+    }
+
+    if(removed.shots)await saveShots(keptShots);
+    if(removed.sessions)await saveSessions(keptSessions);
+    if(removed.scores){
+      setManualScores(keptScores);
+      try{window.storage.set(MANUAL_SCORES_KEY,JSON.stringify(keptScores));}catch{}
+      // The cloud rows go too, or the next load restores them. Matched
+      // on the same columns setManualScore deletes by -- there is no id
+      // on these rows, they are keyed by who/where/when/which game.
+      const leagueId=leagueIdsRef.current?.[league]||null;
+      if(leagueId){
+        for(const k of Object.keys(manualScores||{})){
+          if(!k.startsWith(prefix))continue;
+          const game=k.slice(prefix.length);
+          await cloudDelete("manual_scores",{bowler_name:bowler,league_id:leagueId,date,game});
+        }
+      }
+
+    }
+    return removed;
+  }
+
   async function saveShots(u){
     const prev=shots;
     setShots(u);
@@ -6035,6 +6090,8 @@ export default function BowlingTracker(){
             activeBowlerLeftHanded={activeBowlerLeftHanded}
             ballLayouts={ballLayouts} setBallLayout={setBallLayout}
             tournamentSaveMessage={tournamentSaveMessage}
+
+            deleteNight={deleteNight}
             activeTournament={activeTournament} updateTournament={updateTournament} saveTournament={saveTournament} tournamentSaved={tournamentSaved}
             manualScores={manualScores} updateManualScore={updateManualScore}
             ownerName={ownerName} scoringForOthers={scoringForOthers} setScoringForOthers={setScoringForOthers}

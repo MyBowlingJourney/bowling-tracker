@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { C, S } from "./ui.jsx";
+import { C, S, Chip } from "./ui.jsx";
 import {
   monthGrid, monthsWithSessions, monthLabel, weekdayLabels, shiftMonth,
   tournamentNights, cellModes,
@@ -38,6 +38,7 @@ const MODE_LABELS = {
 
 export default function CalendarView({
   sessions = [], tournaments = [], bowler = "", league = "", weekStart = 0,
+  onDeleteNight,
 }) {
   // Tournament days are folded in as nights, because they are nights the
   // bowler bowled -- they just live in a different table. Without this a
@@ -53,6 +54,10 @@ export default function CalendarView({
 
   const [monthIdx, setMonthIdx] = useState(0);
   const [openDate, setOpenDate] = useState(null);
+  // Which night is one tap from being deleted. Cleared by paging
+  // months or opening another night, so a primed Delete cannot sit
+  // waiting on a screen the bowler has moved on from.
+  const [armed, setArmed] = useState(null);
 
   if (!months.length) {
     return (
@@ -79,6 +84,7 @@ export default function CalendarView({
     if (next < 0 || next >= months.length) return;
     setMonthIdx(next);
     setOpenDate(null);
+    setArmed(null);
   };
 
   // Solid for one kind of night, a horizontal split for two.
@@ -147,7 +153,7 @@ export default function CalendarView({
               <button
                 key={i}
                 disabled={!bowled}
-                onClick={() => setOpenDate(selected ? null : cell.date)}
+                onClick={() => { setArmed(null); setOpenDate(selected ? null : cell.date); }}
                 style={{
                   aspectRatio: "1", border: selected ? `1.5px solid ${C.accent}` : "1px solid transparent",
                   borderRadius: "6px",
@@ -212,6 +218,37 @@ export default function CalendarView({
           <div style={{ fontSize: "11px", color: C.textMuted }}>
             {night.series} series · {night.average} average · {night.high} high
           </div>
+
+          {/* Delete, behind a second tap.
+
+              This removes a night's scores AND its frames -- work that
+              cannot be got back, on a screen a bowler is browsing rather
+              than editing. One tap is too easy next to a date cell.
+
+              The second tap says what will go, with counts, so "are you
+              sure" is answerable rather than rhetorical. */}
+          {onDeleteNight && (
+            armed === `${night.date}|${night.league}` ? (
+              <div style={{ marginTop: "8px", paddingTop: "8px", borderTop: `1px solid ${C.border}` }}>
+                <div style={{ fontSize: "12px", color: C.miss, marginBottom: "6px", lineHeight: 1.5 }}>
+                  Delete this night? {night.games} game{night.games === 1 ? "" : "s"} and every
+                  frame logged with them. This cannot be undone.
+                </div>
+                <div style={S.chips}>
+                  <Chip label="Yes, delete it" dense color={C.miss}
+                    onToggle={() => { setArmed(null); setOpenDate(null); onDeleteNight(night); }} />
+                  <Chip label="Keep it" dense onToggle={() => setArmed(null)} />
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setArmed(`${night.date}|${night.league}`)}
+                style={{ background: "none", border: "none", padding: "6px 0 0", cursor: "pointer",
+                  color: C.textMuted, fontSize: "11px" }}>
+                Delete this night
+              </button>
+            )
+          )}
         </div>
       ))}
     </>
