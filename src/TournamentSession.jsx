@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { PLACEMENTS } from "./domain/achievements.js";
 import { C, S, Chip, CollapsibleCard } from "./ui.jsx";
 import {
@@ -657,6 +657,36 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
   // an event needs to see the fields, and collapsing is for getting them
   // out of the way afterwards, not for hiding them on arrival.
   const [open, setOpen] = useState({});
+
+  // The review sticks around; `saved` does not.
+  //
+  // `saved` is the button's "✓ Saved" flash and clears itself after a
+  // second and a half. Hanging the review off it meant the summary
+  // appeared and then vanished while the bowler was still reading it.
+  //
+  // Cleared when the id changes -- a different event gets a fresh card,
+  // and starting a new tournament should not open on the last one's
+  // summary.
+  // A plain flag, not keyed on the id.
+  //
+  // A new tournament has no id until saveTournament assigns one, so
+  // requiring one made the review depend on whether the id landed in the
+  // same render as the saved flag. It usually does; "usually" is not a
+  // reason to hide a summary.
+  //
+  // Cleared when the id changes to a DIFFERENT non-empty id -- a new
+  // event should not open on the last one's summary, but the blank-to-
+  // assigned transition of the first save is not that.
+  const [showReview, setShowReview] = useState(false);
+  useEffect(() => { if (saved) setShowReview(true); }, [saved]);
+  const seenId = useRef(tournament?.id || "");
+  useEffect(() => {
+    const id = tournament?.id || "";
+    if (id && seenId.current && id !== seenId.current) setShowReview(false);
+    if (id) seenId.current = id;
+  }, [tournament?.id]);
+
+
   const isOpen = k => open[k] !== false;
   const toggle = k => setOpen(o => ({ ...o, [k]: o[k] === false }));
   // The handicap total is what the tournament used, so it is what a
@@ -958,7 +988,7 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
 
           Only after saving -- a summary of a half-entered event is a
           summary of nothing. */}
-      {saved && (
+      {showReview && (
         <div style={{ ...S.card, border: `1.5px solid ${C.accent}`, marginTop: "12px" }}>
           <div style={{ ...S.label, color: C.accent }}>{tournament.name || "Tournament"}</div>
           {(describeTournamentFormat(tournament) || tournament.center) && (

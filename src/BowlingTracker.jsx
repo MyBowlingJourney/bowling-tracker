@@ -1392,6 +1392,24 @@ export default function BowlingTracker(){
           if(ts)setTournaments(ts.map(normalizeTournament).filter(Boolean));
         }
 
+        // The tournament in progress.
+        //
+        // TOURNAMENT_KEY was written on every edit and never read back,
+        // so a refresh dropped the whole thing -- name, block details,
+        // format, everything -- and the bowler started from an empty
+        // card. The saved LIST loaded fine, which made it look like
+        // saving worked and only the current one was broken.
+        //
+        // Restored after the list, so a tournament that was saved and is
+        // still being edited comes back as the edited version.
+        {
+          const active=await readCached(TOURNAMENT_KEY,"object");
+          if(active&&typeof active==="object"){
+            const restored=normalizeTournament(active);
+            if(restored)setActiveTournament(restored);
+          }
+        }
+
                 if(leagueCentersRes.online&&leagueCentersRes.data){
           const map={};
           const dateMap={};

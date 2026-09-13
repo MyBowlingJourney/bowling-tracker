@@ -177,6 +177,27 @@ export default function LogView({
   // the button is below the fold on a phone -- so every shot needed a
   // scroll the app could have done itself. Between frames that is a
   // hundred scrolls a night.
+  // How many games the stepper will go to.
+  //
+  // Three everywhere else, which is right for a league night. A
+  // tournament block is whatever the bowler made it -- five-game
+  // qualifying, eight-game blocks -- so the cap comes from the block
+  // itself rather than a second setting to keep in step.
+  //
+  // The block for tonight if one matches the session date, otherwise the
+  // longest block in the event: a bowler stepping through games before
+  // filling in dates should not hit a wall at three.
+  const maxGames=(()=>{
+    if(env!=="tournament")return 3;
+    const days=activeTournament?.days||[];
+    if(!days.length)return 3;
+    const today=days.find(d=>d&&String(d.date)===String(sessionDate));
+    const count=today
+      ?(today.games||[]).length
+      :Math.max(...days.map(d=>(d?.games||[]).length),0);
+    return Math.max(3,count);
+  })();
+
   const saveShotRef=useRef(null);
   const scrollToSave=()=>requestAnimationFrame(()=>
     saveShotRef.current?.scrollIntoView({behavior:"smooth",block:"center"}));
@@ -769,7 +790,7 @@ export default function LogView({
                     }}>−</button>
                     <div style={{flex:1,textAlign:"center",fontSize:"22px",fontWeight:700}}>{form.game||1}</div>
                     <button style={S.btn("sm")} onClick={()=>{
-                      const v=String(Math.min(3,(parseInt(form.game)||1)+1));
+                      const v=String(Math.min(maxGames,(parseInt(form.game)||1)+1));
                       const line=!editingId?autoFillLine(form.ball,v,form.frame):{startingBoard:form.startingBoard,targetArrows:form.targetArrows};
                       setForm(p=>({...p,game:v,startingBoard:line.startingBoard,targetArrows:line.targetArrows}));
                     }}>+</button>
@@ -2220,8 +2241,14 @@ export default function LogView({
               shows in every mode -- left where it was, the last card in
               game-tracking and on the drills tab would sit underneath
               it. */}
-          {!editingId&&activeBowler&&effectiveSessionLeague&&env!=="tournament"&&(
-            <div style={{height:`${footerHeight}px`}}/>
+            {/* Clears whatever is fixed at the bottom.
+
+                In a tournament there is no sticky bar, but the nav is
+                still fixed at bottom:0 -- so gating this out with the
+                bar left the Save Tournament button tucked under it.
+                The nav needs clearing either way. */}
+          {!editingId&&activeBowler&&effectiveSessionLeague&&(
+            <div style={{height:env==="tournament"?"76px":`${footerHeight}px`}}/>
           )}
           </>
           {/* The sticky bar is the SESSION button now, in every mode.
