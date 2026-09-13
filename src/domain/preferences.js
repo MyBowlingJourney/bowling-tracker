@@ -66,6 +66,21 @@ export const STATS_CARDS = [
   { id: "headToHead", label: "Head-to-Head" },
   { id: "teamRecords", label: "Team Records" },
   { id: "seasonRecord", label: "Season Record" },
+  // Season over season. Placed next to seasonRecord because a bowler
+  // reading one wants the other.
+  { id: "seasonCompare", label: "This Season vs Last" },
+
+
+  // Oil pattern history. The bowler about to pick a ball for Thursday is
+  // exactly the person who needs to know they average 172 on Scorpion.
+  { id: "patternHistory", label: "By Oil Pattern" },
+
+
+  // Free fall vs string. Only appears once at least one bowled-on centre
+
+  // has a rack type recorded -- see the gating in StatsView.
+
+  { id: "rackType", label: "Free Fall vs String" },
   { id: "weeklyPoints", label: "Weekly Points" },
   { id: "handicapImpact", label: "Handicap Impact" },
   { id: "teamLeaderboard", label: "Team Leaderboard" },
