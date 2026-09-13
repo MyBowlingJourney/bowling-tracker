@@ -1,3 +1,4 @@
+import { leagueFormat } from "./leagueSeasons.js";
 // Tournament sessions.
 //
 // A tournament night is shaped differently enough from a league night that
@@ -44,6 +45,53 @@ export function emptyTournamentDay(dayNumber = 1) {
   };
 }
 
+// Tournament formats.
+//
+// Metadata, not scoring. Tournament games are entered as final scores --
+// the house scorer has already applied no-tap by the time the bowler
+// types the number -- so none of this changes how anything is
+// calculated. It changes what the number MEANS.
+//
+// Which matters: a 250 in a 9-pin no-tap squad is not a 250 in a scratch
+// event, and averaging them together quietly inflates a bowler's record.
+// Stored so that comparison can be made honestly later, and so a bowler
+// looking back in two years knows what they actually bowled.
+export const TOURNAMENT_FORMATS = [
+  { id: "scratch",  label: "Scratch",  blurb: "No handicap." },
+  { id: "handicap", label: "Handicap", blurb: "Scratch scores plus your handicap." },
+  { id: "baker",    label: "Baker",    blurb: "Team-mates alternate frames; one score for the team." },
+];
+
+// Scoring format is a SEPARATE field from event format, and shares the
+// league vocabulary rather than inventing its own.
+//
+// They are different axes. Scratch, handicap and Baker describe how the
+// event is run; 10 pin and 9-pin no-tap describe what a frame is worth.
+// A Baker squad can be no-tap, and a scratch squad can be no-tap, so one
+// field could not carry both without a combinatorial list -- which is
+// what the earlier version was drifting into with "baker-no-tap".
+//
+// It matters more here than it used to. Tournament games can be
+// frame-tracked, so the app scores them itself and no-tap genuinely
+// changes the number.
+export { LEAGUE_FORMATS as TOURNAMENT_SCORING_FORMATS } from "./leagueSeasons.js";
+
+export const TOURNAMENT_FORMAT_IDS = TOURNAMENT_FORMATS.map(f => f.id);
+
+export function formatLabel(id) {
+  return TOURNAMENT_FORMATS.find(f => f.id === id)?.label || "";
+}
+
+// Is this a format whose scores should NOT be pooled with scratch play?
+//
+// No-tap inflates scores substantially and Baker is a team score rather
+// than an individual one. Both belong in a bowler's history and neither
+// belongs in their scratch average.
+export function isNonScratchFormat(id) {
+  return id === "no-tap-9" || id === "no-tap-8"
+    || id === "baker" || id === "baker-no-tap";
+}
+
 export function emptyTournament() {
   return {
     // Recorded, not computed -- scores alone cannot show a win.
@@ -53,6 +101,11 @@ export function emptyTournament() {
     bowler: "",
     name: "",
     center: "",
+    // Blank means unrecorded rather than scratch. An old tournament
+    // logged before this field existed should not silently claim to have
+    // been a scratch event.
+    format: "",
+    scoringFormat: "",
     days: [emptyTournamentDay(1)],
     buyIn: "",
     winnings: "",
@@ -93,6 +146,10 @@ export function normalizeTournament(raw) {
     bowler: raw.bowler || "",
     name: raw.name || "",
     center: raw.center || "",
+    // Validated against the known list rather than trusted: a format
+    // nobody can interpret is worse than none recorded.
+    format: TOURNAMENT_FORMAT_IDS.includes(raw.format) ? raw.format : "",
+    scoringFormat: leagueFormat(raw.scoringFormat),
     // Listed here as well as in emptyTournament: this function rebuilds
     // the object field by field, so anything missing HERE is dropped on
     // every save.
@@ -198,45 +255,77 @@ export function updateDay(tournament, dayNumber, updater) {
 // Only games with an entered score count. A blank game is one not yet
 // bowled, not a zero -- treating it as zero would make a running total
 // during a block look catastrophic.
-export function dayTotal(day) {
-  const scores = (day?.games || []).map(g => gameScore(g.score)).filter(v => v !== null);
+// A game's score: what the bowler typed, or what their frames add up to.
+//
+// The same rule league play already uses in resolveGameScore -- a typed
+// score wins, and frames fill the gap. Without it a bowler frame-tracking
+// a tournament had to log every shot AND type the total, which is the
+// same number entered twice and two chances to disagree.
+//
+// The typed score wins deliberately. The house scorer is what decides
+// whether you cashed, and if a frame was mis-tapped the bowler needs a
+// way to say "no, it was 212" that the app does not argue with.
+//
+// `shotScores` is a map of game number to shot-derived score, supplied by
+// the caller because this module has no access to shots. Absent, this
+// behaves exactly as it did before -- which is what every existing caller
+// and test relies on.
+export function resolveTournamentGameScore(game, shotScores) {
+  const typed = gameScore(game?.score);
+  if (typed !== null) return typed;
+  const map = (shotScores && typeof shotScores === "object") ? shotScores : null;
+  if (!map) return null;
+  const derived = map[String(game?.gameNumber)];
+  const n = Number(derived);
+  return Number.isFinite(n) && n >= 0 && n <= 300 ? n : null;
+}
+
+export function dayTotal(day, shotScores) {
+  const scores = (day?.games || [])
+    .map(g => resolveTournamentGameScore(g, shotScores))
+    .filter(v => v !== null);
   if (!scores.length) return null;
   return scores.reduce((a, b) => a + b, 0);
 }
 
-export function dayGamesEntered(day) {
-  return (day?.games || []).filter(g => gameScore(g.score) !== null).length;
+export function dayGamesEntered(day, shotScores) {
+  return (day?.games || [])
+    .filter(g => resolveTournamentGameScore(g, shotScores) !== null).length;
 }
 
-export function dayAverage(day) {
-  const total = dayTotal(day);
-  const n = dayGamesEntered(day);
+export function dayAverage(day, shotScores) {
+  const total = dayTotal(day, shotScores);
+  const n = dayGamesEntered(day, shotScores);
   return total === null || n === 0 ? null : total / n;
 }
 
 // Margin against the day's cut line. Positive = above the cut.
 // Returns null when either side is unknown, so the UI can stay quiet
 // rather than implying a standing that isn't real yet.
-export function cutMargin(day) {
-  const total = dayTotal(day);
+export function cutMargin(day, shotScores) {
+  const total = dayTotal(day, shotScores);
   const cut = num(day?.cutLine);
   if (total === null || cut === null) return null;
   return total - cut;
 }
 
-export function tournamentTotal(tournament) {
-  const totals = (tournament?.days || []).map(dayTotal).filter(v => v !== null);
+export function tournamentTotal(tournament, shotScores) {
+  // .map(d => dayTotal(d, shotScores)), NOT .map(dayTotal) -- passing the
+  // function directly hands Array.map's index as the second argument, so
+  // day 1 would look up shot scores in the number 1.
+  const totals = (tournament?.days || [])
+    .map(d => dayTotal(d, shotScores)).filter(v => v !== null);
   if (!totals.length) return null;
   return totals.reduce((a, b) => a + b, 0);
 }
 
-export function tournamentGamesEntered(tournament) {
-  return (tournament?.days || []).reduce((a, d) => a + dayGamesEntered(d), 0);
+export function tournamentGamesEntered(tournament, shotScores) {
+  return (tournament?.days || []).reduce((a, d) => a + dayGamesEntered(d, shotScores), 0);
 }
 
-export function tournamentAverage(tournament) {
-  const total = tournamentTotal(tournament);
-  const n = tournamentGamesEntered(tournament);
+export function tournamentAverage(tournament, shotScores) {
+  const total = tournamentTotal(tournament, shotScores);
+  const n = tournamentGamesEntered(tournament, shotScores);
   return total === null || n === 0 ? null : total / n;
 }
 
@@ -279,6 +368,8 @@ export function tournamentToRow(t, userId) {
     bowler_name: t.bowler,
     name: t.name,
     center: t.center || null,
+    format: t.format || null,
+    scoring_format: leagueFormat(t.scoringFormat),
     days: t.days || [],
     buy_in: num(t.buyIn),
     winnings: num(t.winnings),
@@ -295,6 +386,8 @@ export function tournamentFromRow(row) {
     bowler: row.bowler_name || "",
     name: row.name || "",
     center: row.center || "",
+    format: row.format || "",
+    scoringFormat: leagueFormat(row.scoring_format),
     days: row.days || [],
     buyIn: row.buy_in == null ? "" : String(row.buy_in),
     winnings: row.winnings == null ? "" : String(row.winnings),
