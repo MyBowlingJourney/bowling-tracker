@@ -573,7 +573,7 @@ export default function BowlingTracker(){
     // null; sending undefined would fail the NOT NULL constraint rather
     // than fall back to anything sensible.
     if(user?.id){
-      await cloudInsert("team_members",{team_id:id,user_id:user.id,lineup_position:0});
+      await cloudInsert("team_members",{team_id:id,user_id:user.id,lineup_position:0},{idempotent:true});
     }
 
 
@@ -2523,6 +2523,10 @@ export default function BowlingTracker(){
     // compile to ON CONFLICT DO UPDATE over every column in the payload,
     // including bowler_user_id and date, which are no longer updatable --
     // so a retry after a slow-but-successful write would fail forever.
+    // NOT idempotent: these rows carry fresh ids, so a 23505 here is a
+    // genuine collision rather than "already imported" -- and the import
+    // dedup upstream is what prevents the same night being submitted
+    // twice. Swallowing it would hide a real conflict.
     for(const row of rows)await cloudInsert("imported_scores",row);
   }
 

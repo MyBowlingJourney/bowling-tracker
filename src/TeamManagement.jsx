@@ -458,7 +458,11 @@ export default function TeamManagement({
     // DO UPDATE SET team_id=..., user_id=..., and those columns are no
     // longer updatable. A duplicate means they are already on the roster,
     // which cloudInsert treats as success.
-    cloudInsert("team_members", { team_id: teamId, user_id: profile.id, lineup_position: team.members.length });
+    // idempotent: the constraint is (team_id, user_id), so a duplicate
+    // means this membership already exists -- which is what the caller
+    // wanted. Declared here rather than assumed inside cloudInsert,
+    // because only the call site knows what the constraint means.
+    cloudInsert("team_members", { team_id: teamId, user_id: profile.id, lineup_position: team.members.length }, { idempotent: true });
   }
 
   function removeMember(teamId, userId) {

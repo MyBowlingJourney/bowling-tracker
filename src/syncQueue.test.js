@@ -328,12 +328,32 @@ describe('cloudInsert never upserts', () => {
     expect(seen).toEqual([['insert', 'team_members']]);
   });
 
-  // Adding someone already on the roster means the roster is correct.
-  it('treats a duplicate key as success rather than queueing forever', async () => {
+  // Adding someone already on the roster means the roster is correct --
+  // but only the call site knows the constraint means that, so it has to
+  // say so.
+  it('treats a duplicate as success when the caller declares it idempotent', async () => {
     supabaseState.insert = async () => ({ error: { code: '23505', message: 'duplicate key' } });
-    const res = await cloudInsert('team_members', { team_id: 't', user_id: 'u' });
+    const res = await cloudInsert('team_members', { team_id: 't', user_id: 'u' }, { idempotent: true });
     expect(res.synced).toBe(true);
     expect(res.queued).toBe(false);
+  });
+
+  // A unique violation can mean a genuinely different object collided on
+  // a unique field. Reporting that as success would hide a real conflict.
+  it('reports an undeclared duplicate as a failure', async () => {
+    supabaseState.insert = async () => ({ error: { code: '23505', message: 'duplicate key' } });
+    const res = await cloudInsert('leagues', { name: 'Tuesday' });
+    expect(res.synced).toBe(false);
+    expect(res.duplicate).toBe(true);
+  });
+
+  // And it must not queue: retrying hits the same constraint forever,
+  // which is the doomed-write loop this queue already learned about.
+  it('does not queue an undeclared duplicate', async () => {
+    supabaseState.insert = async () => ({ error: { code: '23505', message: 'duplicate key' } });
+    const before = await getPendingCount();
+    await cloudInsert('leagues', { name: 'Tuesday' });
+    expect(await getPendingCount()).toBe(before);
   });
 
   // A genuine failure still has to survive to be retried.

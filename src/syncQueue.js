@@ -211,7 +211,7 @@ function payloadColumns(payload) {
   } catch { return ''; }
 }
 
-async function queueWrite(table, operation, payload, reason, onConflict, errorCode = "") {
+async function queueWrite(table, operation, payload, reason, onConflict, errorCode = "", idempotent = false) {
   const db = await getDb();
   // onConflict is stored with the item so the retry resolves against the
   // same column as the original attempt -- replaying without it would hit
@@ -246,7 +246,10 @@ async function queueWrite(table, operation, payload, reason, onConflict, errorCo
     kind: 'write-failed', where: `${table}.${operation}`, code: errorCode || '',
     message: `${reason || ''}${payloadColumns(payload)}`,
   });
-  await db.add(STORE_NAME, { table, operation, payload, reason, errorCode, onConflict, userId, createdAt: Date.now() });
+  // idempotent travels with the item for the same reason onConflict does:
+  // the replay has to resolve the duplicate the way the original call
+  // meant it, and it has no other way to know.
+  await db.add(STORE_NAME, { table, operation, payload, reason, errorCode, onConflict, idempotent, userId, createdAt: Date.now() });
   notifyListeners(await getPendingCount());
 }
 
@@ -314,7 +317,20 @@ export async function adoptLegacyQueueItems(userId) {
 // A duplicate is already success here: adding someone who is on the
 // roster means the roster is correct. 23505 is treated exactly as
 // cloudWrite treats it.
-export async function cloudInsert(table, record, { timeoutMs = 6000 } = {}) {
+//
+// `idempotent` is opt-in, not the default.
+//
+// Treating every 23505 as success is only right when the duplicate means
+// "the row you wanted already exists". For add-member that is exactly
+// true: the constraint is (team_id, user_id), so a duplicate says the
+// membership is already there and the caller's intent is satisfied.
+//
+// It is wrong in general. A unique violation can mean a genuinely
+// different object collided on a unique field -- two leagues sharing a
+// name, say -- and silently reporting success would hide a real
+// conflict from the user. So the caller has to say it means the safe
+// thing, at the call site, where the constraint is known.
+export async function cloudInsert(table, record, { timeoutMs = 6000, idempotent = false } = {}) {
   try {
     const { error } = await withTimeout(
       supabase.from(table).insert(record),
@@ -323,11 +339,18 @@ export async function cloudInsert(table, record, { timeoutMs = 6000 } = {}) {
     if (error) throw error;
     return { synced: true, queued: false };
   } catch (err) {
-    // The row is already there, which is the state we wanted.
-    if (err?.code === '23505') {
+    // The row is already there, and this caller has said that is the
+    // state it wanted.
+    if (err?.code === '23505' && idempotent) {
       return { synced: true, queued: false, duplicate: true };
     }
-    await queueWrite(table, 'insert', record, formatError(err), null, err?.code || '');
+    // A duplicate the caller did NOT declare safe is a real failure. It
+    // is not queued: retrying will hit the same constraint forever, which
+    // is the doomed-write loop this queue already learned about once.
+    if (err?.code === '23505') {
+      return { synced: false, queued: false, duplicate: true, reason: formatError(err) };
+    }
+    await queueWrite(table, 'insert', record, formatError(err), null, err?.code || '', idempotent);
     return { synced: false, queued: true, reason: formatError(err) };
   }
 }
@@ -542,8 +565,10 @@ export async function flushPendingQueue() {
         // exact path most likely to hit a conflict -- a replay happens
         // BECAUSE the first attempt may already have landed.
         ({ error } = await supabase.from(item.table).insert(item.payload));
-        // Already there is the state we wanted.
-        if (error?.code === '23505') error = null;
+        // Only swallowed when the original call declared it safe. A
+        // replay cannot know the constraint's meaning any better than the
+        // call site did, so it defers to the same flag.
+        if (error?.code === '23505' && item.idempotent) error = null;
       } else {
         ({ error } = item.onConflict
           ? await supabase.from(item.table).upsert(item.payload, { onConflict: item.onConflict })
