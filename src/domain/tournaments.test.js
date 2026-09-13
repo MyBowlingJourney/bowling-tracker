@@ -4,6 +4,7 @@ import {
   TOURNAMENT_FORMATS, TOURNAMENT_FORMAT_IDS, TOURNAMENT_SCORING_FORMATS, formatLabel, isNonScratchFormat,
   resolveTournamentGameScore, dayTotal, dayGamesEntered, tournamentGamesEntered,
   tournamentTotal, tournamentAverage,
+  tournamentTotalWithHandicap,
 } from './tournaments.js';
 describe('tournament format', () => {
   // Metadata, not scoring. Tournament games are entered as final scores,
@@ -131,6 +132,35 @@ describe('a tournament game score comes from frames when none is typed', () => {
       expect(() => resolveTournamentGameScore(j, j)).not.toThrow();
       expect(() => dayTotal(day, j)).not.toThrow();
       expect(() => tournamentTotal({ days: [day] }, j)).not.toThrow();
+    }
+  });
+});
+
+describe('handicap reaches the total', () => {
+  const day = { games: [
+    { gameNumber: 1, score: '180' }, { gameNumber: 2, score: '190' }, { gameNumber: 3, score: '200' },
+  ] };
+
+  // The number the tournament used, which is what decides the cut.
+  it('adds the handicap once per game', () => {
+    expect(tournamentTotalWithHandicap({ format: 'handicap', handicap: '40', days: [day] })).toBe(690);
+  });
+
+  it('leaves a scratch event alone even with a handicap stored', () => {
+    expect(tournamentTotalWithHandicap({ format: 'scratch', handicap: '40', days: [day] })).toBe(570);
+  });
+
+  it('leaves Baker alone', () => {
+    expect(tournamentTotalWithHandicap({ format: 'baker', handicap: '40', days: [day] })).toBe(570);
+  });
+
+  it('gives nothing when nothing was bowled', () => {
+    expect(tournamentTotalWithHandicap({ format: 'handicap', handicap: '40', days: [{ games: [] }] })).toBe(null);
+  });
+
+  it('survives junk', () => {
+    for (const j of [null, undefined, 'x', 42, {}]) {
+      expect(() => tournamentTotalWithHandicap(j, j)).not.toThrow();
     }
   });
 });

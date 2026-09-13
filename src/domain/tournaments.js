@@ -1,4 +1,5 @@
 import { leagueFormat } from "./leagueSeasons.js";
+import { handicapPins } from "./tournamentFormats.js";
 // Tournament sessions.
 //
 // A tournament night is shaped differently enough from a league night that
@@ -106,6 +107,13 @@ export function emptyTournament() {
     // been a scratch event.
     format: "",
     scoringFormat: "",
+    // Handicap pins, added to EVERY game when the format is handicap.
+    // Kept when the format changes so switching away and back does not
+    // lose what the bowler typed.
+    handicap: "",
+    // Baker: who you are bowling with, and who throws frame 1.
+    bakerPartner: "",
+    bakerStarter: "me",
     days: [emptyTournamentDay(1)],
     buyIn: "",
     winnings: "",
@@ -150,6 +158,9 @@ export function normalizeTournament(raw) {
     // nobody can interpret is worse than none recorded.
     format: TOURNAMENT_FORMAT_IDS.includes(raw.format) ? raw.format : "",
     scoringFormat: leagueFormat(raw.scoringFormat),
+    handicap: raw.handicap ?? "",
+    bakerPartner: raw.bakerPartner || "",
+    bakerStarter: raw.bakerStarter === "partner" ? "partner" : "me",
     // Listed here as well as in emptyTournament: this function rebuilds
     // the object field by field, so anything missing HERE is dropped on
     // every save.
@@ -309,6 +320,18 @@ export function cutMargin(day, shotScores) {
   return total - cut;
 }
 
+// The total that decides where a bowler finished.
+//
+// Handicap included, because that is the number the tournament used --
+// a bowler checking the cut line needs what was on the sheet, not their
+// scratch pins. Scratch and Baker events add nothing, so this is the
+// same figure as before for them.
+export function tournamentTotalWithHandicap(tournament, shotScores) {
+  const scratch = tournamentTotal(tournament, shotScores);
+  if (scratch === null) return null;
+  return scratch + handicapPins(tournament, tournamentGamesEntered(tournament, shotScores));
+}
+
 export function tournamentTotal(tournament, shotScores) {
   // .map(d => dayTotal(d, shotScores)), NOT .map(dayTotal) -- passing the
   // function directly hands Array.map's index as the second argument, so
@@ -370,6 +393,9 @@ export function tournamentToRow(t, userId) {
     center: t.center || null,
     format: t.format || null,
     scoring_format: leagueFormat(t.scoringFormat),
+    handicap: num(t.handicap),
+    baker_partner: t.bakerPartner || null,
+    baker_starter: t.bakerStarter === "partner" ? "partner" : "me",
     days: t.days || [],
     buy_in: num(t.buyIn),
     winnings: num(t.winnings),
@@ -388,6 +414,9 @@ export function tournamentFromRow(row) {
     center: row.center || "",
     format: row.format || "",
     scoringFormat: leagueFormat(row.scoring_format),
+    handicap: row.handicap == null ? "" : String(row.handicap),
+    bakerPartner: row.baker_partner || "",
+    bakerStarter: row.baker_starter === "partner" ? "partner" : "me",
     days: row.days || [],
     buyIn: row.buy_in == null ? "" : String(row.buy_in),
     winnings: row.winnings == null ? "" : String(row.winnings),
