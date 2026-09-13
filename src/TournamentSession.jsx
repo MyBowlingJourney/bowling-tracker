@@ -665,7 +665,30 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
   // Totals span every block, so they need each block's own scores. The
   // domain functions take one flat map, so this walks the days and adds
   // them up with each day's slice.
-  const dayScores = d => (shotScoresByDate || {})[String(d?.date || "")] || null;
+  // Which frames belong to this block.
+  //
+  // By the block's own date when it has one -- that is what keeps a
+  // Saturday block's frames out of Sunday's games.
+  //
+  // A block with NO date set is the common case, though: the field is
+  // optional and most bowlers never fill it in. Keying strictly on date
+  // meant looking up byDate[""], which matches nothing, so frame
+  // tracking appeared broken for everyone who skipped it.
+  //
+  // Undated single block: take whatever frames exist. There is only one
+  // block, so there is nothing to confuse them with. Undated block
+  // alongside dated ones: nothing, because guessing which night those
+  // frames belong to is how scores bleed between blocks.
+  const dated = (tournament.days || []).filter(d => d && d.date);
+  const dayScores = d => {
+    const byDate = shotScoresByDate || {};
+    const key = String(d?.date || "");
+    if (key) return byDate[key] || null;
+    if (dated.length) return null;
+    const only = Object.values(byDate);
+    return only.length === 1 ? only[0] : null;
+  };
+
   const scratchTotal = (tournament.days || []).reduce((a, d) => {
     const v = dayTotal(d, dayScores(d));
     return v === null ? a : (a === null ? v : a + v);
@@ -1005,7 +1028,7 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
       {tab === "scoring" && (<>
       {(tournament.days || []).map(day => (
         <DayScoring key={day.dayNumber}
-          shotScores={(shotScoresByDate || {})[String(day.date || "")] || null}
+          shotScores={dayScores(day)}
           tournament={tournament}
           day={day}
           multiDay={multiDay}
