@@ -3510,7 +3510,14 @@ export default function BowlingTracker(){
   //
   // First ball only, and one pin only. Nine down across two balls is a
   // spare, and it always was.
-  const noTapLeague=isNoTapLeague(leagueFormats?.[effectiveSessionLeague]);
+  // In a tournament the format lives on the tournament, not on a league
+  // the bowler configured -- but tournament shots already sit under a
+  // per-event container league, so the detection below needs no special
+  // case beyond reading the format from the right place.
+  const activeScoringFormat=preferences.environment==="tournament"
+    ?activeTournament?.scoringFormat
+    :leagueFormats?.[effectiveSessionLeague];
+  const noTapLeague=isNoTapLeague(activeScoringFormat);
   const isFirstBall=!form.ballNum||Number(form.ballNum)===1;
   const pinsLeft=(form.otherLeave||[]).length;
   const isNoTap=noTapLeague&&isFirstBall&&form.result!=="Strike"&&(

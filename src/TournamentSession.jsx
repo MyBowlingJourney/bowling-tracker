@@ -5,8 +5,10 @@ import {
   addGame, removeGame, setGameField, addDay, removeDay, setDayField, updateDay,
   dayTotal, dayAverage, dayGamesEntered, cutMargin,
   tournamentTotal, tournamentAverage, tournamentMoney,
+  TOURNAMENT_FORMATS, TOURNAMENT_SCORING_FORMATS,
 } from "./domain/tournaments.js";
 import { patternDisplayName, searchPatterns, describePattern, patternStats } from "./domain/oilPatterns.js";
+import { leagueFormat, isNoTapLeague } from "./domain/leagueSeasons.js";
 import {
   SIDE_POT_TYPES, addSidePot, removeSidePot, setSidePotField, sidePotMoney, sidePotTotals,
 } from "./domain/sidePots.js";
@@ -182,11 +184,11 @@ function OilPatternField({ value, onChange, patterns, onSubmitPattern, tournamen
   );
 }
 
-function DayBlock({ tournament, day, onChange, canRemoveDay, onRemoveDay, multiDay, oilPatterns, submitOilPattern, tournaments }) {
-  const total = dayTotal(day);
+function DayBlock({ tournament, day, onChange, canRemoveDay, onRemoveDay, multiDay, oilPatterns, submitOilPattern, tournaments, shotScores }) {
+  const total = dayTotal(day, shotScores);
   const avg = dayAverage(day);
   const entered = dayGamesEntered(day);
-  const margin = cutMargin(day);
+  const margin = cutMargin(day, shotScores);
 
   function update(next) { onChange(next); }
 
@@ -566,9 +568,9 @@ function MatchPlay({ tournament, onChange }) {
   );
 }
 
-export default function TournamentSession({ tournament, onChange, onSave, saved, oilPatterns, submitOilPattern, tournaments }) {
-  const total = tournamentTotal(tournament);
-  const avg = tournamentAverage(tournament);
+export default function TournamentSession({ tournament, onChange, onSave, saved, oilPatterns, submitOilPattern, tournaments, shotScores = null }) {
+  const total = tournamentTotal(tournament, shotScores);
+  const avg = tournamentAverage(tournament, shotScores);
   const money = tournamentMoney(tournament);
   const multiDay = (tournament.days || []).length > 1;
 
@@ -588,8 +590,63 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
         </div>
       </div>
 
+      {/* Format. Metadata rather than scoring -- the scores entered here
+          are final scores the house scorer already produced, so no-tap is
+          baked in by the time they are typed.
+
+          Recorded because a 250 in a no-tap squad is not a 250 in a
+          scratch event, and a Baker score is not an individual score at
+          all. Blank stays blank: an unrecorded format should not claim
+          to have been scratch. */}
+      <div style={{ marginBottom: "12px" }}>
+        {fieldLabel("Format")}
+        <select style={S.sel} value={tournament.format || ""}
+          onChange={e => onChange({ ...tournament, format: e.target.value })}>
+          <option value="">Not recorded</option>
+          {TOURNAMENT_FORMATS.map(f => (
+            <option key={f.id} value={f.id}>{f.label}</option>
+          ))}
+        </select>
+        {tournament.format && (
+          <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "4px", lineHeight: 1.5 }}>
+            {TOURNAMENT_FORMATS.find(f => f.id === tournament.format)?.blurb}
+          </div>
+        )}
+      </div>
+
+      {/* Scoring, separate from the event format above.
+
+          Different axes: scratch and Baker describe how the event runs,
+          10 pin and no-tap describe what a frame is worth. A Baker squad
+          can be no-tap and a scratch squad can be no-tap, so folding
+          them into one field would need a combinatorial list.
+
+          This one is not metadata. Tournament games can be frame-tracked,
+          so the app scores them itself and no-tap changes the number.
+
+          10 pin is selected unless the bowler says otherwise -- an event
+          recorded before this existed was a 10-pin event, and quietly
+          rescoring it would be worse than not offering the option. */}
+      <div style={{ marginBottom: "12px" }}>
+        {fieldLabel("Scoring")}
+        <div style={S.chips}>
+          {TOURNAMENT_SCORING_FORMATS.map(f => (
+            <Chip key={f.id} label={f.label} dense
+              selected={leagueFormat(tournament.scoringFormat) === f.id}
+              onToggle={() => onChange({ ...tournament, scoringFormat: f.id })} />
+          ))}
+        </div>
+        {isNoTapLeague(tournament.scoringFormat) && (
+          <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "4px", lineHeight: 1.5 }}>
+            Nine on the first ball counts as a strike. Kept out of your regular strike
+            percentage, but still counted toward how your ball carries.
+          </div>
+        )}
+      </div>
+
       {(tournament.days || []).map(day => (
         <DayBlock key={day.dayNumber}
+          shotScores={shotScores}
           tournament={tournament}
           day={day}
           multiDay={multiDay}
