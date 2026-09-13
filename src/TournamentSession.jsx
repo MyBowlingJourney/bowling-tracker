@@ -317,6 +317,7 @@ function DayScoring({ tournament, day, onChange, multiDay, shotScores, expanded 
   const avg = dayAverage(day, shotScores);
   const entered = dayGamesEntered(day, shotScores);
   const margin = cutMargin(day, shotScores);
+  const derived = g => shotScores ? (Number.isFinite(Number(shotScores[String(g.gameNumber)])) ? Number(shotScores[String(g.gameNumber)]) : null) : null;
   function update(next) { onChange(next); }
 
   return (
@@ -341,8 +342,20 @@ function DayScoring({ tournament, day, onChange, multiDay, shotScores, expanded 
       {(day.games || []).map(g => (
         <div key={g.gameNumber} style={{ display: "flex", gap: "6px", alignItems: "center", marginBottom: "6px" }}>
           <div style={{ fontSize: "12px", color: C.textMuted, width: "28px" }}>G{g.gameNumber}</div>
-          <input style={{ ...S.input, flex: 1, fontSize: "13px", padding: "6px 10px" }}
-            type="number" inputMode="numeric" placeholder="Score"
+          {/* Shows the frames when nothing has been typed.
+
+              A bowler frame-tracking a tournament should not have to
+              copy their own score into this box -- the app already knows
+              it. Shown as a placeholder rather than written into the
+              field, so it stays derived: type over it and the typed
+              number wins, clear the box and the frames come back.
+
+              resolveTournamentGameScore applies the same rule to every
+              total, so what shows here is what the cut line uses. */}
+          <input style={{ ...S.input, flex: 1, fontSize: "13px", padding: "6px 10px",
+              color: g.score === "" && derived(g) !== null ? C.textMuted : undefined }}
+            type="number" inputMode="numeric"
+            placeholder={derived(g) !== null ? String(derived(g)) : "Score"}
             value={g.score} onChange={e => update(setGameField(day, g.gameNumber, "score", e.target.value))} />
           <input style={{ ...S.input, flex: 1, fontSize: "13px", padding: "6px 10px" }}
             placeholder="Pair" value={g.lanePair}
@@ -395,6 +408,9 @@ function SidePots({ tournament, onChange }) {
           </div>
         )}
       </div>
+      {/* The toggle flipped `open` and nothing read it, so this card
+          never actually collapsed. */}
+      {open && (<>
       <div style={{ fontSize: "11px", color: C.textMuted, marginBottom: "10px" }}>
         Tracked separately from the main entry, so you can see which of these actually pay for themselves.
       </div>
@@ -470,6 +486,7 @@ function SidePots({ tournament, onChange }) {
           </button>
         ))}
       </div>
+      </>)}
     </div>
   );
 }
@@ -781,7 +798,6 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
           mixing it into scoring made both harder to read. */}
       {tab === "brackets" && (<>
       <SidePots tournament={tournament} onChange={onChange} />
-      <MatchPlay tournament={tournament} onChange={onChange} />
       </>)}
 
       {/* Results: what the tournament itself cost and paid.
@@ -790,12 +806,27 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
           side action, and adding them to this total would answer a
           different question than "did the tournament pay". */}
       {tab === "results" && (<>
-      <div style={S.card}>
-        <div style={{ ...S.label, marginBottom: 0, cursor: "pointer" }}
-          onClick={() => toggle("money")}>
-          {isOpen("money") ? "\u25be" : "\u25b8"} Entry &amp; Winnings
+      <CollapsibleCard title="How did it finish?" expanded={isOpen("finish")} onToggle={() => toggle("finish")}>
+
+        <div style={S.chips}>
+          {PLACEMENTS.map(p => (
+            <Chip key={p.id} label={p.emoji ? `${p.emoji} ${p.label}` : p.label}
+              selected={tournament.placement === p.id}
+              color={p.id === "won" ? C.strike : undefined}
+              onToggle={() => onChange({
+                ...tournament,
+                placement: tournament.placement === p.id ? "" : p.id,
+              })} />
+          ))}
         </div>
-        {isOpen("money") && (<>
+        {tournament.placement && tournament.placement !== "none" && (
+          <input style={{ ...S.input, marginTop: "8px" }}
+            placeholder="Anything worth remembering about it?"
+            value={tournament.placementNote || ""}
+            onChange={e => onChange({ ...tournament, placementNote: e.target.value })} />
+        )}
+      </CollapsibleCard>
+      <CollapsibleCard title="Entry &amp; Winnings" expanded={isOpen("money")} onToggle={() => toggle("money")}>
         <div style={S.row}>
           <div style={{ flex: 1 }}>
             {fieldLabel("Buy-in $")}
@@ -857,44 +888,17 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
             </div>
           </div>
         )}
-      <div style={S.card}>
-        <div style={S.label}>How did it finish?</div>
-        <div style={S.chips}>
-          {PLACEMENTS.map(p => (
-            <Chip key={p.id} label={p.emoji ? `${p.emoji} ${p.label}` : p.label}
-              selected={tournament.placement === p.id}
-              color={p.id === "won" ? C.strike : undefined}
-              onToggle={() => onChange({
-                ...tournament,
-                placement: tournament.placement === p.id ? "" : p.id,
-              })} />
-          ))}
-        </div>
-        {tournament.placement && tournament.placement !== "none" && (
-          <input style={{ ...S.input, marginTop: "8px" }}
-            placeholder="Anything worth remembering about it?"
-            value={tournament.placementNote || ""}
-            onChange={e => onChange({ ...tournament, placementNote: e.target.value })} />
-        )}
-      </div>
+      </CollapsibleCard>
 
-      <div style={S.card}>
-        <div style={{ ...S.label, marginBottom: 0, cursor: "pointer" }}
-          onClick={() => toggle("notes")}>
-          {isOpen("notes") ? "\u25be" : "\u25b8"} Tournament Notes
-        </div>
-        {isOpen("notes") && (<>
+      <CollapsibleCard title="Tournament Notes" expanded={isOpen("notes")} onToggle={() => toggle("notes")}>
         <textarea style={{ ...S.input, minHeight: "60px", resize: "vertical" }}
           placeholder="Overall takeaways…"
           value={tournament.notes} onChange={e => onChange({ ...tournament, notes: e.target.value })} />
-        </>)}
-      </div>
+      </CollapsibleCard>
 
       <button style={S.btn("primary")} onClick={onSave}>
         {saved ? "✓ Tournament Saved" : "Save Tournament"}
       </button>
-        </>)}
-      </div>
       </>)}
 
       {tab === "scoring" && (<>
@@ -947,6 +951,7 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
           middling weekend. Sits right before Save because it's the last
           thing you know. */}
       <div style={{ height: "24px" }} />
+      <MatchPlay tournament={tournament} onChange={onChange} />
       </>)}
     </div>
   );

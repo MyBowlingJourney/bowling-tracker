@@ -149,12 +149,18 @@ export function PinDeck({selected,onToggle}){
 export function CollapsibleCard({title,summary,expanded,onToggle,children,cardStyle}){
   return (
     <div style={cardStyle||S.card}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",WebkitTapHighlightColor:"transparent"}} onClick={onToggle}>
+      {/* The chevron sits on the LEFT, before the title.
+
+          It used to be flush right -- a phone-width away from the words
+          it belongs to, which made a column of cards read as two
+          unrelated columns. On the left it is one control: marker, then
+          name. */}
+      <div style={{display:"flex",alignItems:"center",gap:"6px",cursor:"pointer",WebkitTapHighlightColor:"transparent"}} onClick={onToggle}>
+        <span style={{color:C.textMuted,fontSize:"11px",lineHeight:1}}>{expanded?"\u25be":"\u25b8"}</span>
         <div style={{...S.label,marginBottom:0}}>
           {title}
           {summary&&<span style={{color:C.textMuted,fontWeight:400,textTransform:"none",letterSpacing:"normal"}}> · {summary}</span>}
         </div>
-        <span style={{color:C.textMuted,fontSize:"12px",transform:expanded?"rotate(180deg)":"none",transition:"transform 0.15s",flexShrink:0,marginLeft:"8px"}}>▾</span>
       </div>
       {expanded&&<div style={{marginTop:"12px"}}>{children}</div>}
     </div>
