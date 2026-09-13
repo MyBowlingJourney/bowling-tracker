@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "./AuthProvider.jsx";
-import { cloudUpdate, cloudRead, cloudWrite, cloudDelete } from "./syncQueue.js";
+import { cloudUpdate, cloudRead, cloudWrite, cloudInsert, cloudDelete } from "./syncQueue.js";
 import { generateSignupCode } from "./domain/signupCodes.js";
 
 // Pure roster-management functions, extracted so they're testable without
@@ -454,7 +454,11 @@ export default function TeamManagement({
     if (!team || team.members.some(m => m.userId === profile.id)) return;
     setTeams(prev => addTeamMember(prev, teamId, profile));
     setSearchState(prev => ({ ...prev, [teamId]: { term: "", results: [], searching: false } }));
-    cloudWrite("team_members", { team_id: teamId, user_id: profile.id, lineup_position: team.members.length });
+    // cloudInsert, not cloudWrite: an upsert here compiles to ON CONFLICT
+    // DO UPDATE SET team_id=..., user_id=..., and those columns are no
+    // longer updatable. A duplicate means they are already on the roster,
+    // which cloudInsert treats as success.
+    cloudInsert("team_members", { team_id: teamId, user_id: profile.id, lineup_position: team.members.length });
   }
 
   function removeMember(teamId, userId) {

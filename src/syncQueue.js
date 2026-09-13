@@ -293,6 +293,45 @@ export async function adoptLegacyQueueItems(userId) {
 // a plain INSERT, and that collides with unique(user_id). The first write
 // succeeds and every subsequent one fails: settings appear to save once
 // and then freeze.
+// A plain INSERT, for rows that are only ever created.
+//
+// WHY THIS EXISTS SEPARATELY FROM cloudWrite.
+//
+// cloudWrite always upserts, which PostgREST compiles to
+//
+//   INSERT ... ON CONFLICT DO UPDATE SET <every column in the payload>
+//
+// including the key columns. That is harmless while a role may UPDATE
+// every column, and breaks the moment column privileges are narrowed:
+// team_members now grants UPDATE only on lineup_position, left_handed
+// and is_sub, so an upsert that hits an existing row tries to SET
+// team_id and user_id and is refused.
+//
+// The refusal is not rare. cloudWrite times out at six seconds and
+// queues for retry -- so a write that actually succeeded, slowly, gets
+// replayed, hits the conflict, and would fail forever.
+//
+// A duplicate is already success here: adding someone who is on the
+// roster means the roster is correct. 23505 is treated exactly as
+// cloudWrite treats it.
+export async function cloudInsert(table, record, { timeoutMs = 6000 } = {}) {
+  try {
+    const { error } = await withTimeout(
+      supabase.from(table).insert(record),
+      timeoutMs,
+    );
+    if (error) throw error;
+    return { synced: true, queued: false };
+  } catch (err) {
+    // The row is already there, which is the state we wanted.
+    if (err?.code === '23505') {
+      return { synced: true, queued: false, duplicate: true };
+    }
+    await queueWrite(table, 'insert', record, formatError(err), null, err?.code || '');
+    return { synced: false, queued: true, reason: formatError(err) };
+  }
+}
+
 export async function cloudWrite(table, record, { timeoutMs = 6000, onConflict } = {}) {
   try {
     const { error } = await withTimeout(
@@ -455,7 +494,13 @@ export async function cloudReadDelta(table, sinceIso, { timeoutMs = 6000 } = {})
 // while offline would be invisible until the queue actually flushes.
 export async function getQueuedRecordsForTable(table) {
   const all = await myItems();
-  return all.filter((item) => item.table === table && item.operation === 'upsert').map((item) => item.payload);
+  // Inserts count too. No caller uses cloudInsert on these tables today,
+  // so filtering to 'upsert' alone is harmless right now -- and it would
+  // silently drop pending rows the moment one did, which is the kind of
+  // quiet wrong answer this codebase has already been bitten by.
+  return all.filter((item) => item.table === table
+      && (item.operation === 'upsert' || item.operation === 'insert'))
+    .map((item) => item.payload);
 }
 
 // Flushes the queue in the order items were added. Stops at the first
@@ -487,6 +532,18 @@ export async function flushPendingQueue() {
         let query = supabase.from(item.table).update(item.payload.changes);
         Object.entries(item.payload.match).forEach(([k, v]) => { query = query.eq(k, v); });
         ({ error } = await query);
+      } else if (item.operation === 'insert') {
+        // Replayed as a plain INSERT, not folded into the upsert branch
+        // below.
+        //
+        // The whole point of cloudInsert is avoiding ON CONFLICT DO
+        // UPDATE on a table whose UPDATE privileges are narrowed. Letting
+        // the retry upsert instead would reintroduce the failure on the
+        // exact path most likely to hit a conflict -- a replay happens
+        // BECAUSE the first attempt may already have landed.
+        ({ error } = await supabase.from(item.table).insert(item.payload));
+        // Already there is the state we wanted.
+        if (error?.code === '23505') error = null;
       } else {
         ({ error } = item.onConflict
           ? await supabase.from(item.table).upsert(item.payload, { onConflict: item.onConflict })

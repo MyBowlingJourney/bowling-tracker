@@ -40,6 +40,7 @@ vi.mock('idb', () => ({
 // given up on, not merely stop waiting for it.
 const supabaseState = vi.hoisted(() => ({
   upsert: async () => ({ error: null }),
+  insert: async () => ({ error: null }),
   delete: async () => ({ error: null }),
   update: async () => ({ error: null }),
   select: async () => ({ data: [], error: null }),
@@ -70,6 +71,7 @@ vi.mock('./supabaseClient.js', () => ({
   supabase: {
     from: (table) => ({
       upsert: (record) => fakeQuery(() => supabaseState.upsert(table, record)),
+      insert: (record) => fakeQuery(() => supabaseState.insert(table, record)),
       delete: () => fakeQuery((filters) => supabaseState.delete(table, filters)),
       update: (changes) => fakeQuery((filters) => supabaseState.update(table, filters, changes)),
       select: () => fakeQuery((filters) => supabaseState.select(table, filters)),
@@ -77,7 +79,7 @@ vi.mock('./supabaseClient.js', () => ({
   },
 }));
 
-const { cloudWrite, cloudDelete, cloudUpdate, flushPendingQueue, getPendingCount } = await import('./syncQueue.js');
+const { cloudWrite, cloudInsert, cloudDelete, cloudUpdate, flushPendingQueue, getPendingCount } = await import('./syncQueue.js');
 const { setActiveUserId } = await import('./domain/userScope.js');
 
 function resetDb() { dbState.store = []; dbState.nextId = 1; }
@@ -305,5 +307,39 @@ describe('user scoping', () => {
     expect(await getPendingCount()).toBe(1);
     setActiveUserId('bowler-a');
     expect(await getPendingCount()).toBe(2);
+  });
+});
+
+describe('cloudInsert never upserts', () => {
+  // An upsert compiles to ON CONFLICT DO UPDATE SET over every column in
+  // the payload, key columns included. Harmless while a role may update
+  // every column, and broken the moment column privileges are narrowed --
+  // team_members now grants UPDATE on three columns only, so an upsert
+  // that hits an existing row is refused.
+  //
+  // The refusal is not rare: cloudWrite times out at six seconds and
+  // queues for retry, so a write that succeeded slowly gets replayed,
+  // hits the conflict, and would fail forever.
+  it('sends an insert and never an upsert', async () => {
+    const seen = [];
+    supabaseState.insert = async (t) => { seen.push(['insert', t]); return { error: null }; };
+    supabaseState.upsert = async (t) => { seen.push(['upsert', t]); return { error: null }; };
+    await cloudInsert('team_members', { team_id: 't', user_id: 'u', lineup_position: 0 });
+    expect(seen).toEqual([['insert', 'team_members']]);
+  });
+
+  // Adding someone already on the roster means the roster is correct.
+  it('treats a duplicate key as success rather than queueing forever', async () => {
+    supabaseState.insert = async () => ({ error: { code: '23505', message: 'duplicate key' } });
+    const res = await cloudInsert('team_members', { team_id: 't', user_id: 'u' });
+    expect(res.synced).toBe(true);
+    expect(res.queued).toBe(false);
+  });
+
+  // A genuine failure still has to survive to be retried.
+  it('queues anything else', async () => {
+    supabaseState.insert = async () => ({ error: { code: '42501', message: 'permission denied' } });
+    const res = await cloudInsert('team_members', { team_id: 't', user_id: 'u' });
+    expect(res.queued).toBe(true);
   });
 });

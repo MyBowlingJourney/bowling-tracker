@@ -26,7 +26,7 @@ import { pendingTeamInvites, buildInbox, inboxCount as countInbox } from "./doma
 import DrillSession from "./DrillSession.jsx";
 import { useAuth } from "./AuthProvider.jsx";
 import { supabase } from "./supabaseClient.js";
-import { classifySyncError, cloudRead, cloudReadDelta, cloudWrite, cloudUpdate, cloudDelete, getQueuedRecordsForTable, getPendingCount, onPendingCountChange, inspectPendingQueue, clearPendingQueue, discardQueuedTable, flushPendingQueue } from "./syncQueue.js";
+import { classifySyncError, cloudRead, cloudReadDelta, cloudWrite, cloudInsert, cloudUpdate, cloudDelete, getQueuedRecordsForTable, getPendingCount, onPendingCountChange, inspectPendingQueue, clearPendingQueue, discardQueuedTable, flushPendingQueue } from "./syncQueue.js";
 import { mergeDelta, nextCursor } from "./domain/deltaSync.js";
 import { normalizeSignupCode, isValidSignupCode } from "./domain/signupCodes.js";
 import { shouldOfferShotByShot } from "./domain/trackingPrompt.js";
@@ -573,7 +573,7 @@ export default function BowlingTracker(){
     // null; sending undefined would fail the NOT NULL constraint rather
     // than fall back to anything sensible.
     if(user?.id){
-      await cloudWrite("team_members",{team_id:id,user_id:user.id,lineup_position:0});
+      await cloudInsert("team_members",{team_id:id,user_id:user.id,lineup_position:0});
     }
 
 
@@ -2519,7 +2519,11 @@ export default function BowlingTracker(){
       importedShots:e.importedShots||[],
       status:"pending",
     })).filter(Boolean)]);
-    for(const row of rows)await cloudWrite("imported_scores",row);
+    // cloudInsert: these rows are only ever created here. An upsert would
+    // compile to ON CONFLICT DO UPDATE over every column in the payload,
+    // including bowler_user_id and date, which are no longer updatable --
+    // so a retry after a slow-but-successful write would fail forever.
+    for(const row of rows)await cloudInsert("imported_scores",row);
   }
 
   function replaceImportRecord(next){
@@ -5902,6 +5906,7 @@ export default function BowlingTracker(){
         {view==="data"&&dataTab==="stats"&&(
           <StatsView
             centerStats={centerStats}
+            lanePatterns={lanePatterns}
             view={view} shots={shots} sessions={sessions} bowlers={bowlers} teams={teams} leagues={leagues} arsenals={arsenals} saved={saved}
             statsBowler={statsBowler} setStatsBowler={chooseStatsBowler} compareBowler={compareBowler} setCompareBowler={setCompareBowler}
             compareFriendId={compareFriendId} setCompareFriendId={setCompareFriendId}
