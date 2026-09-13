@@ -70,6 +70,8 @@ column,bowler_names,id,uuid NOT NULL
 column,bowler_names,left_handed,boolean NOT NULL
 column,bowler_names,name,text
 column,bowler_profiles,aliases,jsonb
+column,bowler_profiles,all_time_high_game,integer
+column,bowler_profiles,all_time_high_series,integer
 column,bowler_profiles,book_average,numeric
 column,bowler_profiles,book_average_as_of,date
 column,bowler_profiles,book_games,integer
@@ -95,7 +97,15 @@ column,bowling_centers,lat,numeric
 column,bowling_centers,lng,numeric
 column,bowling_centers,name,text NOT NULL
 column,bowling_centers,postal_code,text
+column,bowling_centers,rack_type,text
 column,bowling_centers,state,text
+column,closed_seasons,closed_at,timestamp with time zone NOT NULL
+column,closed_seasons,created_at,timestamp with time zone NOT NULL
+column,closed_seasons,end_date,date NOT NULL
+column,closed_seasons,id,uuid NOT NULL
+column,closed_seasons,league,text NOT NULL
+column,closed_seasons,start_date,date NOT NULL
+column,closed_seasons,user_id,uuid NOT NULL
 column,coaching_notes,author_id,uuid NOT NULL
 column,coaching_notes,body,text NOT NULL
 column,coaching_notes,created_at,timestamp with time zone NOT NULL
@@ -169,6 +179,7 @@ column,lane_patterns,id,uuid NOT NULL
 column,lane_patterns,lane,text NOT NULL
 column,lane_patterns,league_id,uuid
 column,lane_patterns,length,text NOT NULL
+column,lane_patterns,notes,text
 column,lane_patterns,pattern_name,text NOT NULL
 column,lane_patterns,pattern_type,text NOT NULL
 column,lane_patterns,ratio,text NOT NULL
@@ -367,6 +378,8 @@ constraint,bowler_goals,bowler_goals_created_by_bowler_name_key,"UNIQUE (created
 constraint,bowler_goals,bowler_goals_created_by_fkey,FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE CASCADE
 constraint,bowler_goals,bowler_goals_pkey,PRIMARY KEY (id)
 constraint,bowler_names,bowler_names_pkey,PRIMARY KEY (id)
+constraint,bowler_profiles,bowler_profiles_all_time_high_game_check,CHECK (((all_time_high_game IS NULL) OR ((all_time_high_game >= 0) AND (all_time_high_game <= 300))))
+constraint,bowler_profiles,bowler_profiles_all_time_high_series_check,CHECK (((all_time_high_series IS NULL) OR ((all_time_high_series >= 0) AND (all_time_high_series <= 900))))
 constraint,bowler_profiles,bowler_profiles_created_by_bowler_name_key,"UNIQUE (created_by, bowler_name)"
 constraint,bowler_profiles,bowler_profiles_created_by_fkey,FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE CASCADE
 constraint,bowler_profiles,bowler_profiles_owner_name_key,"UNIQUE (created_by, bowler_name)"
@@ -374,6 +387,10 @@ constraint,bowler_profiles,bowler_profiles_pkey,PRIMARY KEY (id)
 constraint,bowling_centers,bowling_centers_created_by_fkey,FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL
 constraint,bowling_centers,bowling_centers_here_id_key,UNIQUE (here_id)
 constraint,bowling_centers,bowling_centers_pkey,PRIMARY KEY (id)
+constraint,closed_seasons,closed_seasons_check,CHECK ((end_date >= start_date))
+constraint,closed_seasons,closed_seasons_pkey,PRIMARY KEY (id)
+constraint,closed_seasons,closed_seasons_user_id_fkey,FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+constraint,closed_seasons,closed_seasons_user_id_league_end_date_key,"UNIQUE (user_id, league, end_date)"
 constraint,coaching_notes,coaching_notes_author_id_fkey,FOREIGN KEY (author_id) REFERENCES auth.users(id) ON DELETE CASCADE
 constraint,coaching_notes,coaching_notes_pkey,PRIMARY KEY (id)
 constraint,coaching_notes,coaching_notes_relationship_id_fkey,FOREIGN KEY (relationship_id) REFERENCES coaching_relationships(id) ON DELETE CASCADE
@@ -498,14 +515,15 @@ grant,bowler_names,INSERT,"created_at, created_by, id, left_handed, name"
 grant,bowler_names,REFERENCES,"created_at, created_by, id, left_handed, name"
 grant,bowler_names,SELECT,"created_at, created_by, id, left_handed, name"
 grant,bowler_names,UPDATE,"created_at, created_by, id, left_handed, name"
-grant,bowler_profiles,INSERT,"aliases, book_average, book_average_as_of, book_games, book_season, bowler_name, created_at, created_by, home_centers, id, is_coach, left_handed, notes, two_handed, updated_at"
-grant,bowler_profiles,REFERENCES,"aliases, book_average, book_average_as_of, book_games, book_season, bowler_name, created_at, created_by, home_centers, id, is_coach, left_handed, notes, two_handed, updated_at"
-grant,bowler_profiles,SELECT,"aliases, book_average, book_average_as_of, book_games, book_season, bowler_name, created_at, created_by, home_centers, id, is_coach, left_handed, notes, two_handed, updated_at"
-grant,bowler_profiles,UPDATE,"aliases, book_average, book_average_as_of, book_games, book_season, bowler_name, created_at, created_by, home_centers, id, is_coach, left_handed, notes, two_handed, updated_at"
-grant,bowling_centers,INSERT,"address, city, country, created_at, created_by, here_id, id, lat, lng, name, postal_code, state"
-grant,bowling_centers,REFERENCES,"address, city, country, created_at, created_by, here_id, id, lat, lng, name, postal_code, state"
-grant,bowling_centers,SELECT,"address, city, country, created_at, created_by, here_id, id, lat, lng, name, postal_code, state"
-grant,bowling_centers,UPDATE,"address, city, country, created_at, created_by, here_id, id, lat, lng, name, postal_code, state"
+grant,bowler_profiles,INSERT,"aliases, all_time_high_game, all_time_high_series, book_average, book_average_as_of, book_games, book_season, bowler_name, created_at, created_by, home_centers, id, is_coach, left_handed, notes, two_handed, updated_at"
+grant,bowler_profiles,REFERENCES,"aliases, all_time_high_game, all_time_high_series, book_average, book_average_as_of, book_games, book_season, bowler_name, created_at, created_by, home_centers, id, is_coach, left_handed, notes, two_handed, updated_at"
+grant,bowler_profiles,SELECT,"aliases, all_time_high_game, all_time_high_series, book_average, book_average_as_of, book_games, book_season, bowler_name, created_at, created_by, home_centers, id, is_coach, left_handed, notes, two_handed, updated_at"
+grant,bowler_profiles,UPDATE,"aliases, all_time_high_game, all_time_high_series, book_average, book_average_as_of, book_games, book_season, bowler_name, created_at, created_by, home_centers, id, is_coach, left_handed, notes, two_handed, updated_at"
+grant,bowling_centers,INSERT,"address, city, country, created_at, created_by, here_id, id, lat, lng, name, postal_code, rack_type, state"
+grant,bowling_centers,REFERENCES,"address, city, country, created_at, created_by, here_id, id, lat, lng, name, postal_code, rack_type, state"
+grant,bowling_centers,SELECT,"address, city, country, created_at, created_by, here_id, id, lat, lng, name, postal_code, rack_type, state"
+grant,bowling_centers,UPDATE,"address, city, country, created_at, created_by, here_id, id, lat, lng, name, postal_code, rack_type, state"
+grant,closed_seasons,REFERENCES,"closed_at, created_at, end_date, id, league, start_date, user_id"
 grant,coaching_notes,INSERT,"author_id, body, created_at, id, relationship_id"
 grant,coaching_notes,REFERENCES,"author_id, body, created_at, id, relationship_id"
 grant,coaching_notes,SELECT,"author_id, body, created_at, id, relationship_id"
@@ -534,10 +552,10 @@ grant,imported_scores,INSERT,"bowler_name, bowler_user_id, corrected_by, correct
 grant,imported_scores,REFERENCES,"bowler_name, bowler_user_id, corrected_by, corrected_scores, corrected_shots, created_at, date, id, imported_scores, imported_shots, league_id, note, responded_at, status, team_id, updated_at, uploaded_by"
 grant,imported_scores,SELECT,"bowler_name, bowler_user_id, corrected_by, corrected_scores, corrected_shots, created_at, date, id, imported_scores, imported_shots, league_id, note, responded_at, status, team_id, updated_at, uploaded_by"
 grant,imported_scores,UPDATE,"corrected_by, corrected_scores, corrected_shots, note, responded_at, status"
-grant,lane_patterns,INSERT,"created_at, date, id, lane, league_id, length, pattern_name, pattern_type, ratio, team_id, updated_at, volume"
-grant,lane_patterns,REFERENCES,"created_at, date, id, lane, league_id, length, pattern_name, pattern_type, ratio, team_id, updated_at, volume"
-grant,lane_patterns,SELECT,"created_at, date, id, lane, league_id, length, pattern_name, pattern_type, ratio, team_id, updated_at, volume"
-grant,lane_patterns,UPDATE,"created_at, date, id, lane, league_id, length, pattern_name, pattern_type, ratio, team_id, updated_at, volume"
+grant,lane_patterns,INSERT,"created_at, date, id, lane, league_id, length, notes, pattern_name, pattern_type, ratio, team_id, updated_at, volume"
+grant,lane_patterns,REFERENCES,"created_at, date, id, lane, league_id, length, notes, pattern_name, pattern_type, ratio, team_id, updated_at, volume"
+grant,lane_patterns,SELECT,"created_at, date, id, lane, league_id, length, notes, pattern_name, pattern_type, ratio, team_id, updated_at, volume"
+grant,lane_patterns,UPDATE,"created_at, date, id, lane, league_id, length, notes, pattern_name, pattern_type, ratio, team_id, updated_at, volume"
 grant,leagues,INSERT,"center_id, created_at, created_by, end_date, id, name, start_date"
 grant,leagues,REFERENCES,"center_id, created_at, created_by, end_date, id, name, start_date"
 grant,leagues,SELECT,"center_id, created_at, created_by, end_date, id, name, start_date"
@@ -615,6 +633,9 @@ index,bowler_profiles,bowler_profiles_pkey,CREATE UNIQUE INDEX bowler_profiles_p
 index,bowling_centers,bowling_centers_here_id_key,CREATE UNIQUE INDEX bowling_centers_here_id_key ON public.bowling_centers USING btree (here_id)
 index,bowling_centers,bowling_centers_name_idx,CREATE INDEX bowling_centers_name_idx ON public.bowling_centers USING btree (lower(name))
 index,bowling_centers,bowling_centers_pkey,CREATE UNIQUE INDEX bowling_centers_pkey ON public.bowling_centers USING btree (id)
+index,closed_seasons,closed_seasons_pkey,CREATE UNIQUE INDEX closed_seasons_pkey ON public.closed_seasons USING btree (id)
+index,closed_seasons,closed_seasons_user_id_league_end_date_key,"CREATE UNIQUE INDEX closed_seasons_user_id_league_end_date_key ON public.closed_seasons USING btree (user_id, league, end_date)"
+index,closed_seasons,closed_seasons_user_league_idx,"CREATE INDEX closed_seasons_user_league_idx ON public.closed_seasons USING btree (user_id, league, end_date DESC)"
 index,coaching_notes,coaching_notes_pkey,CREATE UNIQUE INDEX coaching_notes_pkey ON public.coaching_notes USING btree (id)
 index,coaching_notes,coaching_notes_relationship_idx,CREATE INDEX coaching_notes_relationship_idx ON public.coaching_notes USING btree (relationship_id)
 index,coaching_relationships,coaching_relationships_coach_id_bowler_id_key,"CREATE UNIQUE INDEX coaching_relationships_coach_id_bowler_id_key ON public.coaching_relationships USING btree (coach_id, bowler_id)"
@@ -739,6 +760,9 @@ policy,bowler_profiles,users can view their own bowler profiles,SELECT :: using 
 policy,bowling_centers,anyone can read bowling centers,SELECT :: using (auth.uid() IS NOT NULL) :: check none :: to authenticated
 policy,bowling_centers,creators can correct their own hand-entered centers,UPDATE :: using ((created_by = auth.uid()) AND (here_id IS NULL)) :: check ((created_by = auth.uid()) AND (here_id IS NULL)) :: to authenticated
 policy,bowling_centers,signed-in users can add centers,INSERT :: no using :: check (auth.uid() IS NOT NULL) :: to authenticated
+policy,closed_seasons,own closed seasons: delete,DELETE :: using (user_id = auth.uid()) :: check none :: to authenticated
+policy,closed_seasons,own closed seasons: insert,INSERT :: no using :: check (user_id = auth.uid()) :: to authenticated
+policy,closed_seasons,own closed seasons: select,SELECT :: using (user_id = auth.uid()) :: check none :: to authenticated
 policy,coaching_notes,authors can delete their own notes,DELETE :: using (author_id = auth.uid()) :: check none :: to authenticated
 policy,coaching_notes,authors can edit their own notes,UPDATE :: using (author_id = auth.uid()) :: check (author_id = auth.uid()) :: to authenticated
 policy,coaching_notes,both sides can view notes,"SELECT :: using (EXISTS ( SELECT 1
@@ -863,6 +887,7 @@ rls,bowler_goals,enabled,""
 rls,bowler_names,enabled,""
 rls,bowler_profiles,enabled,""
 rls,bowling_centers,enabled,""
+rls,closed_seasons,enabled,""
 rls,coaching_notes,enabled,""
 rls,coaching_relationships,enabled,""
 rls,coaching_tasks,enabled,""
