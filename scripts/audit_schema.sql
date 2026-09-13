@@ -80,6 +80,24 @@ COPY (
     JOIN pg_proc      p ON p.oid = t.tgfoid
     WHERE n.nspname = 'public' AND NOT t.tgisinternal
 
+    UNION ALL
+    -- NEW. Column-level privileges were never captured, and they are now
+    -- a load-bearing security control: team_members and imported_scores
+    -- rely on narrowed UPDATE grants rather than on policies alone.
+    --
+    -- Without this, a migration that re-granted UPDATE on the whole table
+    -- would reopen the exposure and no audit would notice -- the policies
+    -- would still look correct, because the policies never changed.
+    --
+    -- Recorded as one row per table+privilege, with the columns rolled up,
+    -- so drift is visible as a changed line rather than as thirty rows
+    -- appearing and disappearing.
+    SELECT 'grant', table_name, privilege_type,
+           string_agg(column_name, ', ' ORDER BY column_name)
+    FROM information_schema.column_privileges
+    WHERE table_schema = 'public' AND grantee = 'authenticated'
+    GROUP BY table_name, privilege_type
+
   ) s
   ORDER BY kind, object_name, detail
 ) TO STDOUT WITH CSV HEADER;
