@@ -3,6 +3,7 @@ import { C, S, Chip, CollapsibleCard } from "./ui.jsx";
 import { THEMES, DARK_THEME_IDS, LIGHT_THEME_IDS } from "./domain/themes.js";
 import { useAuth } from "./AuthProvider.jsx";
 import HistoryView from "./HistoryView.jsx";
+import CalendarView from "./CalendarView.jsx";
 import { availableTours } from "./domain/tour.js";
 import SessionHistory from "./SessionHistory.jsx";
 import CenterPicker from "./CenterPicker.jsx";
@@ -196,8 +197,21 @@ export default function Settings({
               <Chip label="Sessions" selected={historyTab === "sessions"} onToggle={() => setHistoryTab("sessions")} />
               <Chip label="Shots" selected={historyTab === "shots"} onToggle={() => setHistoryTab("shots")} />
               <Chip label="Season" selected={historyTab === "season"} onToggle={() => setHistoryTab("season")} />
+              <Chip label="Calendar" selected={historyTab === "calendar"} onToggle={() => setHistoryTab("calendar")} />
             </div>
           </div>
+          {/* A month grid rather than another list.
+
+              Sessions answers "what did I shoot"; this answers "when do
+              I bowl, and what does a month look like". The gaps carry as
+              much as the entries -- three weeks missed is obvious here
+              and invisible in a list. */}
+          {historyTab === "calendar" && (
+            <CalendarView
+              sessions={sessions || []}
+              bowler={statsBowler || activeBowler}
+              league={statsLeague || ""} />
+          )}
           {historyTab === "sessions" && (
             <SessionHistory
               sessions={sessions || []} bowlers={bowlers || []} leagues={leagues || []} teams={teams || []} displayName={displayName}
@@ -519,6 +533,7 @@ export default function Settings({
                   leagueName={league.replace(" House Shot", "")}
                   currentCenter={center}
                   onSelect={candidate => setLeagueCenter(league, candidate)}
+                  onSetRackType={(c, rackType) => setLeagueCenter(league, { ...c, rackType })}
                   onSearch={searchCenters} />
 
                 {/* Season dates, editable here in case they were skipped

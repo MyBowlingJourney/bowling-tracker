@@ -13,12 +13,14 @@ import { isContainerLeague } from "./domain/leagueMembership.js";
 import { anyMoneyGameShown, visibleStatsCardOrder, STATS_CARDS } from "./domain/preferences.js";
 import { visibleStatsCards, lockedStatsMessage, lockedStatsDetail } from "./domain/statsGating.js";
 import { statsByRackType } from "./domain/centers.js";
+import { compareSeasons, describeSeasonChange } from "./domain/seasons.js";
 
 export default function StatsView({
   centerStats,
   preferences,
   view, shots, sessions, bowlers, teams, leagues: allLeagues, arsenals, saved,
   centers = [],
+  closedSeasons = [], leagueDates = {},
   statsBowler, setStatsBowler, compareBowler, setCompareBowler,
   compareFriendId, setCompareFriendId, friends=[], onLoadFriendData, onOpenFriends, compareSessions, displayName="",
   statsLeague, setStatsLeague,
@@ -384,6 +386,47 @@ showTeamCompare&&(()=>{
                   );
                 })()
                 );
+                byId["seasonCompare"] = (()=>{
+                  // Needs a league in view: seasons belong to a league,
+                  // and averaging across two leagues' seasons would
+                  // compare things that were never comparable.
+                  if(!statsLeague)return null;
+                  const c=compareSeasons(statsLeague,sessions,closedSeasons,
+                    leagueDates?.[statsLeague],statsBowler||displayName);
+                  if(!c)return null;
+                  const row=(label,now,then,change,lowerBetter)=>{
+                    if(now===null||now===undefined)return null;
+                    const better=change===null||change===0?null:(lowerBetter?change<0:change>0);
+                    const sign=change>0?"+":"";
+                    return(
+                      <StatRow key={label} label={label}
+                        value={String(now)}
+                        sub={then===null||then===undefined?"":`was ${then}`}
+                        badge={change===null||change===0?null:`${sign}${change}`}
+                        color={better===null?undefined:(better?C.strike:C.miss)}/>
+                    );
+                  };
+                  return(
+                    <div style={S.card}>
+                      <div style={S.label}>{c.current.label} vs {c.previous.label}</div>
+                      <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"10px",lineHeight:1.5}}>
+                        {describeSeasonChange(c)}
+                      </div>
+                      <StatRows>
+                        {row("Average",c.current.average,c.previous.average,c.changes.average)}
+                        {row("High game",c.current.highGame,c.previous.highGame,c.changes.highGame)}
+                        {row("High series",c.current.highSeries,c.previous.highSeries,c.changes.highSeries)}
+                        {row("200 games",c.current.over200,c.previous.over200,c.changes.over200)}
+                        {/* Lower spread is steadier, so a drop is the
+                            improvement -- flagged so the colour cannot
+                            show getting streakier as a gain. */}
+                        {row("Score spread",c.current.spread,c.previous.spread,c.changes.spread,true)}
+                        {row("Games",c.current.games,c.previous.games,c.changes.games)}
+                      </StatRows>
+                    </div>
+                  );
+                })();
+
                 byId["rackType"] = (()=>{
                   const who=statsBowler||displayName;
                   const rows=statsByRackType(sessions,shots,allLeagues,centers,who);

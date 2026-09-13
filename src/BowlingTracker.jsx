@@ -58,6 +58,7 @@ import { ballKey, catalogState, bestEntry, rejectedBallsFor, clearedSpecsAfterRe
 import { normalizeCenter, centerToRow, centerFromRow, findExistingCenter, statsByCenter } from "./domain/centers.js";
 import { normalizePattern, patternFromRow, patternToRow, patternAverages, allVerifiedPbaPatterns } from "./domain/oilPatterns.js";
 import { normalizeLeagueDates, needsBookAverageUpdate } from "./domain/leagueSeasons.js";
+import { archiveOnNewStart, compareSeasons, describeSeasonChange } from "./domain/seasons.js";
 import { emptyDrill, normalizeDrill, drillToRow, drillFromRow } from "./domain/drills.js";
 import { scorekeepingOptions, allowsOtherBowlers, normalizeGuests, addGuest, removeGuest } from "./domain/scorekeeping.js";
 import { visibleLeagues, isLeagueHidden, teamsInLeague, describeLeaveImpact, leaveConfirmationText } from "./domain/leagueMembership.js";
@@ -73,6 +74,7 @@ import { PLASTIC_BALL, DEFAULT_ARSENAL, MISSES, DEFAULT_LEAGUES, localDateString
 import { validTeamId,
   shotToSupabaseRow, shotFromSupabaseRow, sessionToSupabaseRow, sessionFromSupabaseRow,
   matchToSupabaseRow, matchFromSupabaseRow, lanePatternToSupabaseRow, lanePatternFromSupabaseRow,
+  closedSeasonToRow, closedSeasonFromRow,
 } from "./domain/supabaseMapping.js";
 
 // Screens behind a tab or icon are loaded ON DEMAND, not at startup.
@@ -165,6 +167,8 @@ const LEAGUE_CENTERS_KEY = "bowling-league-centers-v1";
 // domain/money.js.
 const LEAGUE_BUY_INS_KEY = "bowling-league-buy-ins-v1";
 const LEAGUE_DATES_KEY = "bowling-league-dates-v1";
+
+const CLOSED_SEASONS_KEY = "bowling-closed-seasons-v1";
 const HIDDEN_LEAGUES_KEY = "bowling-hidden-leagues-v1";
 const DRILLS_KEY = "bowling-drills-v1";
 // Signature of what was analysable last time Insights was evaluated, so a
@@ -720,6 +724,9 @@ export default function BowlingTracker(){
   // Shared across everyone in the league (like center), unlike per-bowler
   // book-average tracking which lives on the profile.
   const[leagueDates,setLeagueDates]=useState({});
+  // Archived season ranges, one row per season that has ended. Written
+  // when a new start date would otherwise overwrite the old range.
+  const[closedSeasons,setClosedSeasons]=useState([]);
   // Leagues this user has hidden. Personal and reversible -- hidden
   // leagues drop out of pickers but their sessions stay in history and
   // keep counting toward averages.
@@ -1384,6 +1391,20 @@ export default function BowlingTracker(){
           if(ld)setLeagueDates(ld);
         }
 
+        // Archived seasons. Cloud first, local cache when offline --
+        // the same shape as everything else here.
+        {
+          const csRes=await cloudRead("closed_seasons",q=>q.select("*"));
+          if(csRes.online&&Array.isArray(csRes.data)){
+            const list=csRes.data.map(closedSeasonFromRow).filter(Boolean);
+            setClosedSeasons(list);
+            try{await window.storage.set(CLOSED_SEASONS_KEY,JSON.stringify(list));}catch{}
+          }else{
+            const cached=await readCached(CLOSED_SEASONS_KEY,"array");
+            if(cached)setClosedSeasons(cached);
+          }
+        }
+
                         if(subsRes.online&&subsRes.data){
           const tally={};
           (votesRes.data||[]).forEach(v=>{
@@ -1911,7 +1932,30 @@ export default function BowlingTracker(){
 
   async function saveLeagueDates(name,startDate,endDate){
     const normalized=normalizeLeagueDates({startDate,endDate});
+
+    // Archive the season this replaces, if it replaces one.
+    //
+    // leagues.start_date and end_date describe ONE season, so this edit
+    // is the moment last season's boundaries would be lost. No button
+    // and no schedule -- the archive happens at the only point the data
+    // would otherwise go.
+    //
+    // Returns null for a correction inside the current range, so fixing
+    // a typo in the start date does not mint a phantom season.
+    const toArchive=archiveOnNewStart(name,leagueDates?.[name],normalized.startDate);
+    if(toArchive){
+      const row={...toArchive,id:crypto.randomUUID()};
+      const nextClosed=[...closedSeasons,row];
+      setClosedSeasons(nextClosed);
+      try{window.storage.set(CLOSED_SEASONS_KEY,JSON.stringify(nextClosed));}catch{}
+      // cloudInsert, not cloudWrite: these rows are only ever created.
+      // The (user_id, league, end_date) unique constraint means a double
+      // save is the same season, which is why it is idempotent.
+      await cloudInsert("closed_seasons",closedSeasonToRow(row,user?.id||null),{idempotent:true});
+    }
+
     const updated={...leagueDates,[name]:normalized};
+
     setLeagueDates(updated);
     try{window.storage.set(LEAGUE_DATES_KEY,JSON.stringify(updated));}catch{}
     const leagueId=leagueIdsRef.current[name];
@@ -5912,6 +5956,8 @@ export default function BowlingTracker(){
             centerStats={centerStats}
             lanePatterns={lanePatterns}
             centers={centers}
+
+            closedSeasons={closedSeasons} leagueDates={leagueDates}
             view={view} shots={shots} sessions={sessions} bowlers={bowlers} teams={teams} leagues={leagues} arsenals={arsenals} saved={saved}
             statsBowler={statsBowler} setStatsBowler={chooseStatsBowler} compareBowler={compareBowler} setCompareBowler={setCompareBowler}
             compareFriendId={compareFriendId} setCompareFriendId={setCompareFriendId}
