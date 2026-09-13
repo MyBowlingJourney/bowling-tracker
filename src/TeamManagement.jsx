@@ -519,14 +519,20 @@ export default function TeamManagement({
       ...t,
       members: t.members.map(m => m.userId === userId ? { ...m, leftHanded } : m),
     }));
-    cloudWrite("team_members", { team_id: teamId, user_id: userId, left_handed: leftHanded });
+    // cloudUpdate, not cloudWrite, for the same reason as the rename
+    // above -- and for a second one: an upsert compiles to ON CONFLICT DO
+    // UPDATE SET team_id=..., user_id=..., left_handed=..., so it writes
+    // the key columns even though only handedness changed. That blocks
+    // revoking UPDATE on team_id and user_id, which is what stops a
+    // teammate rewriting whose roster row is whose.
+    cloudUpdate("team_members", { team_id: teamId, user_id: userId }, { left_handed: leftHanded });
   }
   function setMemberIsSub(teamId, userId, isSub) {
     setTeams(prev => prev.map(t => t.id !== teamId ? t : {
       ...t,
       members: t.members.map(m => m.userId === userId ? { ...m, isSub } : m),
     }));
-    cloudWrite("team_members", { team_id: teamId, user_id: userId, is_sub: isSub });
+    cloudUpdate("team_members", { team_id: teamId, user_id: userId }, { is_sub: isSub });
   }
 
   // Same, for a placeholder.
@@ -571,8 +577,8 @@ export default function TeamManagement({
     setTeams(newTeams);
     const movedTeam = newTeams.find(t => t.id === teamId);
     const newIndex = index + direction;
-    cloudWrite("team_members", { team_id: teamId, user_id: movedTeam.members[index].userId, lineup_position: movedTeam.members[index].lineupPosition });
-    cloudWrite("team_members", { team_id: teamId, user_id: movedTeam.members[newIndex].userId, lineup_position: movedTeam.members[newIndex].lineupPosition });
+    cloudUpdate("team_members", { team_id: teamId, user_id: movedTeam.members[index].userId }, { lineup_position: movedTeam.members[index].lineupPosition });
+    cloudUpdate("team_members", { team_id: teamId, user_id: movedTeam.members[newIndex].userId }, { lineup_position: movedTeam.members[newIndex].lineupPosition });
   }
 
   return (
