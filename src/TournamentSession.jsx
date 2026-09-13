@@ -857,6 +857,42 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
             </div>
           </div>
         )}
+      <div style={S.card}>
+        <div style={S.label}>How did it finish?</div>
+        <div style={S.chips}>
+          {PLACEMENTS.map(p => (
+            <Chip key={p.id} label={p.emoji ? `${p.emoji} ${p.label}` : p.label}
+              selected={tournament.placement === p.id}
+              color={p.id === "won" ? C.strike : undefined}
+              onToggle={() => onChange({
+                ...tournament,
+                placement: tournament.placement === p.id ? "" : p.id,
+              })} />
+          ))}
+        </div>
+        {tournament.placement && tournament.placement !== "none" && (
+          <input style={{ ...S.input, marginTop: "8px" }}
+            placeholder="Anything worth remembering about it?"
+            value={tournament.placementNote || ""}
+            onChange={e => onChange({ ...tournament, placementNote: e.target.value })} />
+        )}
+      </div>
+
+      <div style={S.card}>
+        <div style={{ ...S.label, marginBottom: 0, cursor: "pointer" }}
+          onClick={() => toggle("notes")}>
+          {isOpen("notes") ? "\u25be" : "\u25b8"} Tournament Notes
+        </div>
+        {isOpen("notes") && (<>
+        <textarea style={{ ...S.input, minHeight: "60px", resize: "vertical" }}
+          placeholder="Overall takeaways…"
+          value={tournament.notes} onChange={e => onChange({ ...tournament, notes: e.target.value })} />
+        </>)}
+      </div>
+
+      <button style={S.btn("primary")} onClick={onSave}>
+        {saved ? "✓ Tournament Saved" : "Save Tournament"}
+      </button>
         </>)}
       </div>
       </>)}
@@ -910,42 +946,6 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
           idea what anyone else shot, so it can't tell a win from a
           middling weekend. Sits right before Save because it's the last
           thing you know. */}
-      <div style={S.card}>
-        <div style={S.label}>How did it finish?</div>
-        <div style={S.chips}>
-          {PLACEMENTS.map(p => (
-            <Chip key={p.id} label={p.emoji ? `${p.emoji} ${p.label}` : p.label}
-              selected={tournament.placement === p.id}
-              color={p.id === "won" ? C.strike : undefined}
-              onToggle={() => onChange({
-                ...tournament,
-                placement: tournament.placement === p.id ? "" : p.id,
-              })} />
-          ))}
-        </div>
-        {tournament.placement && tournament.placement !== "none" && (
-          <input style={{ ...S.input, marginTop: "8px" }}
-            placeholder="Anything worth remembering about it?"
-            value={tournament.placementNote || ""}
-            onChange={e => onChange({ ...tournament, placementNote: e.target.value })} />
-        )}
-      </div>
-
-      <div style={S.card}>
-        <div style={{ ...S.label, marginBottom: 0, cursor: "pointer" }}
-          onClick={() => toggle("notes")}>
-          {isOpen("notes") ? "\u25be" : "\u25b8"} Tournament Notes
-        </div>
-        {isOpen("notes") && (<>
-        <textarea style={{ ...S.input, minHeight: "60px", resize: "vertical" }}
-          placeholder="Overall takeaways…"
-          value={tournament.notes} onChange={e => onChange({ ...tournament, notes: e.target.value })} />
-        </>)}
-      </div>
-
-      <button style={S.btn("primary")} onClick={onSave}>
-        {saved ? "✓ Tournament Saved" : "Save Tournament"}
-      </button>
       <div style={{ height: "24px" }} />
       </>)}
     </div>
