@@ -80,7 +80,24 @@ for (const r of [...get('constraint'), ...get('index')]) {
 
 // 3. Security definer functions -- not wrong, but each one bypasses RLS
 //    and deserves to be a deliberate choice rather than a surprise.
-const definers = get('function').filter(f => f.extra === 'security definer');
+//
+//    This tested `extra === 'security definer'` against a field holding
+//    the RETURN TYPE, so it matched nothing and reported all clear
+//    forever. The snapshot now appends the prosecdef flag to that field,
+//    and this looks for it rather than demanding the whole field be it.
+const definers = get('function').filter(f => /security definer/.test(f.extra || ''));
+
+//    Fail loudly if the snapshot predates the fix, rather than quietly
+//    going back to reporting zero. A snapshot where NO function says
+//    either way cannot answer the question, and its silence means
+//    nothing -- which is exactly how this check went unnoticed.
+const definerFlagged = get('function').filter(f => /security (definer|invoker)/.test(f.extra || ''));
+if (get('function').length && !definerFlagged.length) {
+  findings.push(
+    'AUDIT BLIND: the snapshot records no security-definer flag on any function. '
+    + 'Regenerate it with the current scripts/audit_schema.sql -- until then this '
+    + 'check cannot see definers and its silence means nothing.');
+}
 
 // 4. Tables with RLS on but no policy at all.
 const policied = new Set(get('policy').map(p => p.object));
@@ -97,16 +114,42 @@ for (const r of get('rls')) {
 // Tables in the database that no migration in this repo creates. Not a
 // vulnerability, but every file-based audit is blind to them -- which is
 // how a global unique on leagues.name passed several "all clear" reviews.
+//
+// This read every .sql at the repo root -- including schema.sql, which is
+// GENERATED FROM THE LIVE DATABASE. A file listing every live table means
+// no table can ever look undocumented, so the check reported all clear by
+// construction. It was treating a snapshot of production as if it were
+// migration history.
+//
+// It now reads supabase/migrations/ only: files somebody wrote, not files
+// exported from the thing being audited.
 {
-  const sqlText = fs.readdirSync('.').filter(f => f.endsWith('.sql'))
-    .map(f => fs.readFileSync(f, 'utf8')).join('\n');
-  const inRepo = new Set([...sqlText.matchAll(/create table if not exists public\.(\w+)/g)].map(m => m[1]));
-  const undocumented = get('rls').map(r => r.object).filter(t => !inRepo.has(t)).sort();
-  if (undocumented.length) {
-    console.log(`${undocumented.length} table(s) exist in the database but in NO migration here.`);
-    console.log('This repo cannot rebuild them, and file-based audits cannot see them:');
-    console.log('   ' + undocumented.join(', '));
+  const MIGRATIONS = 'supabase/migrations';
+  let files = [];
+  try {
+    files = fs.readdirSync(MIGRATIONS).filter(f => f.endsWith('.sql'))
+      .map(f => `${MIGRATIONS}/${f}`);
+  } catch { files = []; }
+
+  if (!files.length) {
+    // Saying nothing here would repeat the original bug in a new form:
+    // an empty migrations directory produces an empty "in repo" set,
+    // every table looks undocumented, and the wall of output would be
+    // read as noise and ignored.
+    console.log(`No migrations in ${MIGRATIONS}/ -- this repo cannot rebuild the database`);
+    console.log('from source, and this check has nothing to compare against.');
+    console.log(`The live schema has ${get('rls').length} tables; none of them are covered.`);
     console.log();
+  } else {
+    const sqlText = files.map(f => fs.readFileSync(f, 'utf8')).join('\n');
+    const inRepo = new Set([...sqlText.matchAll(/create table if not exists public\.(\w+)/gi)].map(m => m[1]));
+    const undocumented = get('rls').map(r => r.object).filter(t => !inRepo.has(t)).sort();
+    if (undocumented.length) {
+      console.log(`${undocumented.length} table(s) exist in the database but in NO migration here.`);
+      console.log('This repo cannot rebuild them, and file-based audits cannot see them:');
+      console.log('   ' + undocumented.join(', '));
+      console.log();
+    }
   }
 }
 
