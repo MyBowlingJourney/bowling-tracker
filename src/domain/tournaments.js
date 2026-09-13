@@ -24,7 +24,9 @@ import { normalizeSidePots, sidePotTotals } from "./sidePots.js";
 import { normalizeMatchPlay, emptyMatchPlay, matchPlayTotals } from "./matchPlay.js";
 
 export function emptyTournamentGame(gameNumber = 1) {
-  return { gameNumber, score: "", lanePair: "" };
+  // scoreAuto: this score came from frame tracking and should keep
+  // following the frames until the bowler types over it.
+  return { gameNumber, score: "", lanePair: "", scoreAuto: false };
 }
 
 export function emptyTournamentDay(dayNumber = 1) {
@@ -189,6 +191,7 @@ export function normalizeTournamentDay(raw, dayNumber = 1) {
         gameNumber: i + 1,
         score: g?.score ?? "",
         lanePair: g?.lanePair ?? "",
+        scoreAuto: g?.scoreAuto === true,
       }))
     : base.games;
   return {
