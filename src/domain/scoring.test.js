@@ -3,6 +3,7 @@ import { nextState, tenthFrameStatus, strictPartial, frameQualityScore, makeTheo
   maxPossibleScore,
   frameScoresheet,
   isStk, isCleanStrike,
+  tenthBall3Earned,
 } from './scoring.js';
 
 describe('tenthFrameStatus', () => {
@@ -706,5 +707,43 @@ describe('9-pin no-tap', () => {
       expect(() => isCleanStrike(j)).not.toThrow();
     }
     expect(isStk(null)).toBe(false);
+  });
+});
+
+describe('a fill ball has to be earned', () => {
+  const X = { result: 'Strike' };
+  const nine = { result: 'Other Leave', spareMade: 'No', pinCount: '9' };
+  const spare = { result: 'Other Leave', spareMade: 'Yes', pinCount: '1' };
+  const miss = { result: 'Other Leave', spareMade: 'No', pinCount: '0' };
+
+  it('is earned by a strike on ball 1', () => {
+    expect(tenthBall3Earned(X, X)).toBe(true);
+    expect(tenthBall3Earned(X, nine)).toBe(true);
+  });
+
+  it('is earned by a spare across the two balls', () => {
+    expect(tenthBall3Earned(nine, spare)).toBe(true);
+  });
+
+  // Three strikes in the 10th, then ball 1 edited to an open, left the
+  // fill ball behind -- "9 miss, strike", a frame that cannot happen.
+  it('is NOT earned by two open balls', () => {
+    expect(tenthBall3Earned(nine, miss)).toBe(false);
+  });
+
+  it('is not earned before ball 2 is known', () => {
+    expect(tenthBall3Earned(nine, null)).toBe(false);
+  });
+
+  it('falls back to pin arithmetic when spareMade is absent', () => {
+    expect(tenthBall3Earned({ pinCount: '7', result: 'Other Leave' },
+                            { pinCount: '3', result: 'Other Leave' })).toBe(true);
+  });
+
+  it('survives junk', () => {
+    for (const j of [null, undefined, 'x', 42, {}]) {
+      expect(() => tenthBall3Earned(j, j)).not.toThrow();
+    }
+    expect(tenthBall3Earned(null, null)).toBe(false);
   });
 });

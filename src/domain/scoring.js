@@ -60,6 +60,33 @@ export function tenthBall3Available(f10b1,f10b2){
   return b2Knocked===null?null:10-b2Knocked;
 }
 
+// Is a third ball in the 10th EARNED?
+//
+// Distinct from tenthBall3Available, which says how many pins a third
+// ball would face and assumes it exists. Nothing said whether it should
+// exist at all.
+//
+// The rule: ball 1 a strike, or ball 1 and ball 2 together a spare.
+// Anything else and the frame is over after two.
+//
+// This matters on EDIT. Bowl three strikes in the 10th, then go back and
+// change ball 1 to an open, and ball 3 is still sitting there -- a fill
+// ball nobody earned, giving "9 miss, strike" and a score that cannot
+// happen. The entry path never allowed it; only editing could produce
+// it, so only editing had to be taught the rule.
+export function tenthBall3Earned(f10b1,f10b2){
+  if(!f10b1)return false;
+  if(isStk(f10b1))return true;
+  if(!f10b2)return false;
+  // A spare across the two balls. spareMade is the app's own record of
+  // it; the pin arithmetic is the fallback for shots that predate it.
+  if(f10b2.spareMade==="Yes")return true;
+  const a=firstBallOf(f10b1);
+  const b=firstBallOf(f10b2);
+  if(a===null||b===null)return false;
+  return a+b>=10;
+}
+
 export function tenthBall3Pins(f10b1,f10b2,f10b3){
   if(!f10b3)return null;
   const available=tenthBall3Available(f10b1,f10b2);
