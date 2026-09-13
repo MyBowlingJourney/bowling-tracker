@@ -173,6 +173,55 @@ const NARROWED = {
   }
 }
 
+// 3c. Columns the app WRITES that the database does not have.
+//
+//     This is the failure that has no symptom until a bowler notices
+//     their edits do not stick. PostgREST rejects the write with
+//     PGRST204, the sync queue retries it, and a schema mismatch is
+//     deterministic -- so it retries forever, silently, while the
+//     bowler's profile changes never leave the device.
+//
+//     bowler_profiles.all_time_high_game shipped like this: two inputs
+//     on the Profile screen, read by the session recap, and no column
+//     behind them.
+//
+//     Read from the *ToRow mappers, which are the single place the app
+//     names database columns.
+{
+  const TO_ROW = {
+    shotToSupabaseRow: 'shots', sessionToSupabaseRow: 'sessions',
+    matchToSupabaseRow: 'matches', lanePatternToSupabaseRow: 'lane_patterns',
+    profileToRow: 'bowler_profiles', goalsToRow: 'bowler_goals',
+    centerToRow: 'bowling_centers', patternToRow: 'oil_patterns',
+    tournamentToRow: 'tournaments', closedSeasonToRow: 'closed_seasons',
+  };
+  const byTable = {};
+  for (const c of get('column')) (byTable[c.object] = byTable[c.object] || new Set()).add(c.detail);
+
+  let src = '';
+  const walk = dir => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = `${dir}/${e.name}`;
+      if (e.isDirectory()) walk(full);
+      else if (/\.jsx?$/.test(e.name) && !/\.test\./.test(e.name)) src += fs.readFileSync(full, 'utf8') + '\n';
+    }
+  };
+  try { walk('src'); } catch { /* no src, nothing to check */ }
+
+  for (const [fn, table] of Object.entries(TO_ROW)) {
+    const known = byTable[table];
+    if (!known || !src) continue;
+    const m = new RegExp('export function ' + fn + '\\([^)]*\\)\\s*\\{([\\s\\S]*?)\\n\\}').exec(src);
+    if (!m) continue;
+    for (const col of new Set([...m[1].matchAll(/^\s{2,6}([a-z][a-z0-9_]*)\s*:/gm)].map(x => x[1]))) {
+      if (!known.has(col)) {
+        findings.push(`${table}.${col} is written by ${fn} but does not exist. `
+          + `Every write to that table fails with PGRST204 and retries forever.`);
+      }
+    }
+  }
+}
+
 // 4. Tables with RLS on but no policy at all.
 const policied = new Set(get('policy').map(p => p.object));
 for (const r of get('rls')) {
