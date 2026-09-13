@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { PLACEMENTS } from "./domain/achievements.js";
-import { C, S, Chip } from "./ui.jsx";
+import { C, S, Chip, CollapsibleCard } from "./ui.jsx";
 import {
   addGame, removeGame, setGameField, addDay, removeDay, setDayField, updateDay,
   dayTotal, dayAverage, dayGamesEntered, cutMargin,
   tournamentTotal, tournamentTotalWithHandicap, tournamentAverage, tournamentMoney,
   SCORING_BASES, PIN_FORMATS, PLAY_STYLES,
-  scoringBasis, pinFormat, playStyle,
+  scoringBasis, pinFormat, playStyle, cutTarget,
 } from "./domain/tournaments.js";
 import { patternDisplayName, searchPatterns, describePattern, patternStats } from "./domain/oilPatterns.js";
 import { leagueFormat, isNoTapLeague } from "./domain/leagueSeasons.js";
@@ -186,8 +186,15 @@ function OilPatternField({ value, onChange, patterns, onSubmitPattern, tournamen
   );
 }
 
-function DayDetails({ tournament, day, onChange, canRemoveDay, onRemoveDay, multiDay, oilPatterns, submitOilPattern, tournaments }) {
+function DayDetails({ tournament, day, onChange, canRemoveDay, onRemoveDay, multiDay, oilPatterns, submitOilPattern, tournaments, expanded = true, onToggleExpanded }) {
   function update(next) { onChange(next); }
+
+  // The cut line lives here, with the block details, so the margin has
+  // to be worked out here too -- it moved over from DayScoring with the
+  // rest of the card. No shot scores: this is the posted cut against
+  // what is entered, and a half-finished frame-tracked game should not
+  // move the margin around while the bowler is still bowling it.
+  const margin = cutMargin(day);
 
   // Block details only -- date, time, squad, block number.
   //
@@ -198,13 +205,19 @@ function DayDetails({ tournament, day, onChange, canRemoveDay, onRemoveDay, mult
   return (
     <div style={{ ...S.card, border: `1px solid ${C.border}` }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-        <div style={S.label}>{multiDay ? `Day ${day.dayNumber}` : "Block Details"}</div>
+        {/* The title toggles; Remove Day stays a separate control so
+            a tap meant to collapse a day cannot delete it. */}
+        <div style={{ ...S.label, marginBottom: 0, cursor: "pointer", flex: 1 }}
+          onClick={onToggleExpanded}>
+          {expanded ? "\u25be" : "\u25b8"} {multiDay ? `Day ${day.dayNumber}` : "Block Details"}
+        </div>
         {canRemoveDay && (
           <button style={{ ...S.btn(), padding: "4px 10px", fontSize: "11px" }} onClick={onRemoveDay}>
             Remove Day
           </button>
         )}
       </div>
+      {expanded && (<>
 
       <div style={S.row}>
         <div style={{ flex: 1 }}>
@@ -244,11 +257,62 @@ function DayDetails({ tournament, day, onChange, canRemoveDay, onRemoveDay, mult
         </div>
       </div>
 
+      <div style={S.divider} />
+
+      <div style={S.label}>Cut Line</div>
+      <div style={{ fontSize: "11px", color: C.textMuted, marginBottom: "8px" }}>
+        {/* Focus group Finding 5: 9 of 50 stalled here because the cut
+            is usually not announced until after qualifying. Leaving it
+            blank already worked -- nothing said so, and an empty
+            numeric field on a setup screen reads as something you are
+            required to know. Not labelled "optional", which implies it
+            does not matter; it does, just not yet. */}
+        Pins over or under a 200 average. A cut posted as +150 after eight games means 1750.
+      </div>
+      <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+        {/* The sign, before the number, because that is how a cut is
+            read out: "plus one fifty", not "one fifty, over". */}
+        <div style={S.chips}>
+          {["+", "-"].map(sign => (
+            <Chip key={sign} label={sign} dense
+              selected={(day.cutSign || "+") === sign}
+              onToggle={() => update({ ...day, cutSign: sign })} />
+          ))}
+        </div>
+        <input style={{ ...S.input, flex: 1 }} type="number" inputMode="numeric"
+          placeholder="Add it when it's posted"
+          value={day.cutLine} onChange={e => update({ ...day, cutLine: e.target.value })} />
+      </div>
+      {day.cutLine !== "" && cutTarget(day) !== null && (
+        <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "4px" }}>
+          That's {cutTarget(day)} across {dayGamesEntered(day)} game{dayGamesEntered(day) === 1 ? "" : "s"}.
+        </div>
+      )}
+
+      {margin !== null && (
+        <div style={{ textAlign: "center", marginTop: "8px", fontSize: "13px", fontWeight: 700, color: margin >= 0 ? C.strike : C.miss }}>
+          {margin >= 0 ? `▲ +${margin} above the cut` : `▼ ${margin} below the cut`}
+        </div>
+      )}
+
+      <div style={{ ...S.label, marginTop: "10px" }}>Made the Cut?</div>
+      <div style={S.chips}>
+        <Chip label="Yes" selected={day.madeCut === true} color={C.strike}
+          onToggle={() => update({ ...day, madeCut: day.madeCut === true ? null : true })} />
+        <Chip label="No" selected={day.madeCut === false} color={C.miss}
+          onToggle={() => update({ ...day, madeCut: day.madeCut === false ? null : false })} />
+      </div>
+      {day.madeCut === null && (
+        <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "4px" }}>
+          Usually not known until the squad finishes — leave blank until then.
+        </div>
+      )}
+      </>)}
     </div>
   );
 }
 
-function DayScoring({ tournament, day, onChange, multiDay, shotScores }) {
+function DayScoring({ tournament, day, onChange, multiDay, shotScores, expanded = true, onToggleExpanded }) {
   const total = dayTotal(day, shotScores);
   const avg = dayAverage(day, shotScores);
   const entered = dayGamesEntered(day, shotScores);
@@ -257,7 +321,13 @@ function DayScoring({ tournament, day, onChange, multiDay, shotScores }) {
 
   return (
     <div style={{ ...S.card, border: `1px solid ${C.border}` }}>
-      {multiDay && <div style={{ ...S.label, marginBottom: "8px" }}>Day {day.dayNumber}</div>}
+      {/* A finished block is worth folding away -- a four-day event
+          is four of these and only the current one matters. */}
+      <div style={{ ...S.label, marginBottom: expanded ? "8px" : 0, cursor: "pointer" }}
+        onClick={onToggleExpanded}>
+        {expanded ? "\u25be" : "\u25b8"} {multiDay ? `Day ${day.dayNumber}` : "Games"}
+      </div>
+      {expanded && (<>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
         <div style={S.label}>Games</div>
         <button style={{ ...S.btn(), padding: "4px 12px", fontSize: "12px" }} onClick={() => update(addGame(day))}>
@@ -297,44 +367,11 @@ function DayScoring({ tournament, day, onChange, multiDay, shotScores }) {
         </div>
       )}
 
-      <div style={S.divider} />
-
-      <div style={S.label}>Cut Line</div>
-      <div style={{ fontSize: "11px", color: C.textMuted, marginBottom: "8px" }}>
-        {/* Focus group Finding 5: 9 of 50 stalled here because the cut
-            is usually not announced until after qualifying. Leaving it
-            blank already worked -- nothing said so, and an empty
-            numeric field on a setup screen reads as something you are
-            required to know. Not labelled "optional", which implies it
-            does not matter; it does, just not yet. */}
-        The total to beat. Above the line is good. Enter it when it is posted — or now, if you already know it.
-      </div>
-      <input style={S.input} type="number" inputMode="numeric" placeholder="Add it when it’s posted"
-        value={day.cutLine} onChange={e => update({ ...day, cutLine: e.target.value })} />
-
-      {margin !== null && (
-        <div style={{ textAlign: "center", marginTop: "8px", fontSize: "13px", fontWeight: 700, color: margin >= 0 ? C.strike : C.miss }}>
-          {margin >= 0 ? `▲ +${margin} above the cut` : `▼ ${margin} below the cut`}
-        </div>
-      )}
-
-      <div style={{ ...S.label, marginTop: "10px" }}>Made the Cut?</div>
-      <div style={S.chips}>
-        <Chip label="Yes" selected={day.madeCut === true} color={C.strike}
-          onToggle={() => update({ ...day, madeCut: day.madeCut === true ? null : true })} />
-        <Chip label="No" selected={day.madeCut === false} color={C.miss}
-          onToggle={() => update({ ...day, madeCut: day.madeCut === false ? null : false })} />
-      </div>
-      {day.madeCut === null && (
-        <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "4px" }}>
-          Usually not known until the squad finishes — leave blank until then.
-        </div>
-      )}
-
       <div style={{ ...S.label, marginTop: "10px" }}>Day Notes</div>
       <textarea style={{ ...S.input, minHeight: "50px", resize: "vertical" }}
         placeholder="Transition, ball reaction, what worked…"
         value={day.notes} onChange={e => update({ ...day, notes: e.target.value })} />
+      </>)}
     </div>
   );
 }
@@ -342,13 +379,16 @@ function DayScoring({ tournament, day, onChange, multiDay, shotScores }) {
 // Itemised side action. Each row is one purchase -- four brackets at $5
 // is one row with entries=4, not four rows.
 function SidePots({ tournament, onChange }) {
+  const [open, setOpen] = useState(true);
   const pots = tournament.sidePots || [];
   const totals = sidePotTotals(pots);
 
   return (
     <div style={S.card}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "4px" }}>
-        <div style={S.label}>Brackets &amp; Side Pots</div>
+        <div style={{ ...S.label, marginBottom: 0, cursor: "pointer" }} onClick={() => setOpen(o => !o)}>
+          {open ? "\u25be" : "\u25b8"} Brackets &amp; Side Pots
+        </div>
         {totals.count > 0 && (
           <div style={{ fontSize: "12px", fontWeight: 700, color: totals.net >= 0 ? C.strike : C.miss }}>
             {totals.net < 0 ? "\u2212" : ""}${Math.abs(totals.net).toFixed(2)}
@@ -436,6 +476,7 @@ function SidePots({ tournament, onChange }) {
 
 // Match play: the head-to-head block after the cut.
 function MatchPlay({ tournament, onChange }) {
+  const [open, setOpen] = useState(true);
   const mp = tournament.matchPlay || {};
   const matches = mp.matches || [];
   const totals = matchPlayTotals(mp);
@@ -446,7 +487,10 @@ function MatchPlay({ tournament, onChange }) {
 
   return (
     <div style={S.card}>
-      <div style={S.label}>Match Play</div>
+      <div style={{ ...S.label, marginBottom: 0, cursor: "pointer" }} onClick={() => setOpen(o => !o)}>
+        {open ? "\u25be" : "\u25b8"} Match Play
+      </div>
+      {open && (<>
       <div style={{ fontSize: "11px", color: C.textMuted, marginBottom: "10px" }}>
         The head-to-head block after the cut. Bonus pins vary by tournament — set them to whatever this event uses.
       </div>
@@ -574,12 +618,19 @@ function MatchPlay({ tournament, onChange }) {
           )}
         </>
       )}
+      </>)}
     </div>
   );
 }
 
 export default function TournamentSession({ tournament, onChange, onSave, saved, oilPatterns, submitOilPattern, tournaments, shotScores = null }) {
   const [tab, setTab] = useState("setup");
+  // Which cards are open. Everything starts open -- a bowler setting up
+  // an event needs to see the fields, and collapsing is for getting them
+  // out of the way afterwards, not for hiding them on arrival.
+  const [open, setOpen] = useState({});
+  const isOpen = k => open[k] !== false;
+  const toggle = k => setOpen(o => ({ ...o, [k]: o[k] === false }));
   // The handicap total is what the tournament used, so it is what a
   // bowler needs to see. Scratch is kept alongside rather than replaced
   // -- it is the number that says how they actually bowled.
@@ -601,12 +652,15 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
         <div style={S.chips}>
           <Chip label="Set up" selected={tab === "setup"} onToggle={() => setTab("setup")} />
           <Chip label="Scoring" selected={tab === "scoring"} onToggle={() => setTab("scoring")} />
+          <Chip label="Brackets" selected={tab === "brackets"} onToggle={() => setTab("brackets")} />
+          <Chip label="Results" selected={tab === "results"} onToggle={() => setTab("results")} />
         </div>
       </div>
 
       {tab === "setup" && (<>
-      <div style={S.card}>
-        <div style={S.label}>Tournament</div>
+      <CollapsibleCard title="Tournament"
+        summary={tournament.name || ""}
+        expanded={isOpen("tournament")} onToggle={() => toggle("tournament")}>
         <div style={{ marginBottom: "8px" }}>
           {fieldLabel("Name")}
           <input style={S.input} placeholder="e.g. Spring Masters"
@@ -696,7 +750,7 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
           </div>
         )}
         </div>
-      </div>
+      </CollapsibleCard>
 
 
       {/* Block details -- date, time, squad, block number.
@@ -712,11 +766,99 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
           canRemoveDay={(tournament.days || []).length > 1}
           onRemoveDay={() => onChange(removeDay(tournament, day.dayNumber))}
           onChange={next => onChange(updateDay(tournament, day.dayNumber, () => next))}
+          expanded={isOpen(`day${day.dayNumber}`)}
+          onToggleExpanded={() => toggle(`day${day.dayNumber}`)}
           oilPatterns={oilPatterns}
           submitOilPattern={submitOilPattern}
           tournaments={tournaments} />
       ))}
 
+      </>)}
+
+      {/* Brackets and side pots: money staked against other bowlers,
+          separate from the tournament entry itself. Its own tab
+          because it is a different pot with different maths, and
+          mixing it into scoring made both harder to read. */}
+      {tab === "brackets" && (<>
+      <SidePots tournament={tournament} onChange={onChange} />
+      <MatchPlay tournament={tournament} onChange={onChange} />
+      </>)}
+
+      {/* Results: what the tournament itself cost and paid.
+
+          Brackets and side pots are deliberately NOT here -- those are
+          side action, and adding them to this total would answer a
+          different question than "did the tournament pay". */}
+      {tab === "results" && (<>
+      <div style={S.card}>
+        <div style={{ ...S.label, marginBottom: 0, cursor: "pointer" }}
+          onClick={() => toggle("money")}>
+          {isOpen("money") ? "\u25be" : "\u25b8"} Entry &amp; Winnings
+        </div>
+        {isOpen("money") && (<>
+        <div style={S.row}>
+          <div style={{ flex: 1 }}>
+            {fieldLabel("Buy-in $")}
+            <input style={S.input} type="number" inputMode="decimal" placeholder="0"
+              value={tournament.buyIn} onChange={e => onChange({ ...tournament, buyIn: e.target.value })} />
+          </div>
+          <div style={{ flex: 1 }}>
+            {fieldLabel("Tournament winnings $")}
+            <input style={S.input} type="number" inputMode="decimal" placeholder="0"
+              value={tournament.winnings} onChange={e => onChange({ ...tournament, winnings: e.target.value })} />
+          </div>
+        </div>
+        {/* Said outright, because "Winnings" alone reads as everything
+            won today -- and a bowler who cashed a bracket would enter it
+            here as well as on the Brackets tab and count it twice. */}
+        <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "4px", lineHeight: 1.5 }}>
+          The tournament payout only. Bracket and side pot winnings go on the Brackets tab.
+        </div>
+        {(money.buyIn !== 0 || money.winnings !== 0 || money.side.count > 0) && (
+          <div style={{ marginTop: "8px" }}>
+            {/* Buy-in and winnings shown SEPARATELY, in their own
+                colours, before the net.
+                
+                They used to be blended into one line called "Entry",
+                which answered neither of the questions a bowler actually
+                has: what did this cost me, and what did it pay. A single
+                "-$45" hides a $120 entry that paid $75.
+                
+                Red for money out, green for money in -- the same colours
+                the rest of the app uses for a miss and a strike. */}
+            <div style={{ fontSize: "12px", marginBottom: "6px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: C.textMuted }}>Buy-in</span>
+                <span style={{ color: C.miss, fontWeight: 600 }}>
+                  −${Math.abs(money.buyIn || 0).toFixed(2)}
+                </span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: "2px" }}>
+                <span style={{ color: C.textMuted }}>Winnings</span>
+                <span style={{ color: C.strike, fontWeight: 600 }}>
+                  +${Math.abs(money.winnings || 0).toFixed(2)}
+                </span>
+              </div>
+              {/* Side action stays on its own line -- it is a different
+                  pot, and the Brackets tab is where it is entered. */}
+              {money.side.count > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: "2px" }}>
+                  <span style={{ color: C.textMuted }}>Brackets &amp; side pots</span>
+                  <span style={{ color: money.side.net >= 0 ? C.strike : C.miss }}>
+                    {money.side.net < 0 ? "−" : "+"}${Math.abs(money.side.net).toFixed(2)}
+                  </span>
+                </div>
+              )}
+            </div>
+            <div style={{ textAlign: "center", fontSize: "13px", fontWeight: 700,
+              color: money.net >= 0 ? C.strike : C.miss,
+              borderTop: `1px solid ${C.border}`, paddingTop: "6px" }}>
+              {money.net < 0 ? "−" : ""}${Math.abs(money.net).toFixed(2)} net
+            </div>
+          </div>
+        )}
+        </>)}
+      </div>
       </>)}
 
       {tab === "scoring" && (<>
@@ -726,6 +868,8 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
           tournament={tournament}
           day={day}
           multiDay={multiDay}
+          expanded={isOpen(`score${day.dayNumber}`)}
+          onToggleExpanded={() => toggle(`score${day.dayNumber}`)}
           onChange={next => onChange(updateDay(tournament, day.dayNumber, () => next))} />
       ))}
 
@@ -757,52 +901,8 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
         </div>
       )}
 
-      <div style={S.card}>
-        <div style={S.label}>Entry &amp; Winnings</div>
-        <div style={S.row}>
-          <div style={{ flex: 1 }}>
-            {fieldLabel("Buy-in $")}
-            <input style={S.input} type="number" inputMode="decimal" placeholder="0"
-              value={tournament.buyIn} onChange={e => onChange({ ...tournament, buyIn: e.target.value })} />
-          </div>
-          <div style={{ flex: 1 }}>
-            {fieldLabel("Winnings $")}
-            <input style={S.input} type="number" inputMode="decimal" placeholder="0"
-              value={tournament.winnings} onChange={e => onChange({ ...tournament, winnings: e.target.value })} />
-          </div>
-        </div>
-        {(money.buyIn !== 0 || money.winnings !== 0 || money.side.count > 0) && (
-          <div style={{ marginTop: "8px" }}>
-            {/* Entry and side action shown apart before the combined
-                figure: a bowler who cashes the main event every week and
-                gives it back in brackets should be able to see that,
-                which one blended number would hide. */}
-            {money.side.count > 0 && (
-              <div style={{ fontSize: "11px", color: C.textMuted, marginBottom: "6px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span>Entry</span>
-                  <span style={{ color: money.entryNet >= 0 ? C.strike : C.miss }}>
-                    {money.entryNet < 0 ? "−" : "+"}${Math.abs(money.entryNet).toFixed(2)}
-                  </span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span>Side action</span>
-                  <span style={{ color: money.side.net >= 0 ? C.strike : C.miss }}>
-                    {money.side.net < 0 ? "−" : "+"}${Math.abs(money.side.net).toFixed(2)}
-                  </span>
-                </div>
-              </div>
-            )}
-            <div style={{ textAlign: "center", fontSize: "13px", fontWeight: 700, color: money.net >= 0 ? C.strike : C.miss }}>
-              {money.net < 0 ? "−" : ""}${Math.abs(money.net).toFixed(2)} net
-            </div>
-          </div>
-        )}
-      </div>
 
-      <SidePots tournament={tournament} onChange={onChange} />
 
-      <MatchPlay tournament={tournament} onChange={onChange} />
 
       {/* How it finished.
       
@@ -832,10 +932,15 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
       </div>
 
       <div style={S.card}>
-        <div style={S.label}>Tournament Notes</div>
+        <div style={{ ...S.label, marginBottom: 0, cursor: "pointer" }}
+          onClick={() => toggle("notes")}>
+          {isOpen("notes") ? "\u25be" : "\u25b8"} Tournament Notes
+        </div>
+        {isOpen("notes") && (<>
         <textarea style={{ ...S.input, minHeight: "60px", resize: "vertical" }}
           placeholder="Overall takeaways…"
           value={tournament.notes} onChange={e => onChange({ ...tournament, notes: e.target.value })} />
+        </>)}
       </div>
 
       <button style={S.btn("primary")} onClick={onSave}>

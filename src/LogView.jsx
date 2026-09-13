@@ -1235,7 +1235,7 @@ export default function LogView({
               );
             })()}
 
-            {!editingId&&activeBowler&&effectiveSessionLeague&&preferences.environment!=="casual"&&!(preferences.environment==="practice"&&practiceMode==="drill")&&(()=>{
+            {!editingId&&activeBowler&&effectiveSessionLeague&&preferences.environment!=="casual"&&preferences.environment!=="tournament"&&!(preferences.environment==="practice"&&practiceMode==="drill")&&(()=>{
               // How many game rows to show.
               //
               // Was hardcoded to 3, which is right for a league night and
