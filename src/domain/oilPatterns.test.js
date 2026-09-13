@@ -4,6 +4,8 @@ import { normalizePattern, describePattern, searchPatterns, patternToRow, patter
   allVerifiedPbaPatterns,
   pbaPatternsForYear,
   patternDisplayName,
+  patternHistory,
+  patternVersusOverall,
 } from './oilPatterns.js';
 
 const patterns = [
@@ -203,5 +205,91 @@ describe('PBA pattern specs by year', () => {
       expect(p.volumeMl).toBeGreaterThan(0);
       expect(p.ratio).toMatch(/:1$/);
     }
+  });
+});
+
+describe('pattern history, results and notes', () => {
+  const sessions = [
+    { bowler: 'Ryan', league: 'Tue', date: '2026-09-04', scores: [180, 190, 200] },
+    { bowler: 'Ryan', league: 'Tue', date: '2026-09-11', scores: [210, 205, 195] },
+    { bowler: 'Dave', league: 'Tue', date: '2026-09-04', scores: [120, 130, 140] },
+  ];
+  const lanePatterns = [
+    { league: 'Tue', date: '2026-09-04', patternName: 'Main Street', patternType: 'house',
+      notes: 'played 2nd arrow, ball rolled out late' },
+    { league: 'Tue', date: '2026-09-11', patternName: 'Main Street', patternType: 'house' },
+    { league: 'Tue', date: '2026-09-18', patternName: 'Scorpion', patternType: 'sport' },
+  ];
+
+  it('groups a bowler’s nights by pattern', () => {
+    const h = patternHistory(sessions, lanePatterns, 'Ryan');
+    expect(h[0].name).toBe('Main Street');
+    expect(h[0].nights).toBe(2);
+    expect(h[0].games).toBe(6);
+  });
+
+  it('reports average, best and worst on each', () => {
+    const [main] = patternHistory(sessions, lanePatterns, 'Ryan');
+    expect(main.average).toBe(197);
+    expect(main.best).toBe(210);
+    expect(main.worst).toBe(180);
+  });
+
+  // What happened last time is what a bowler wants before bowling on it
+  // again.
+  it('lists nights newest first', () => {
+    const [main] = patternHistory(sessions, lanePatterns, 'Ryan');
+    expect(main.entries[0].date).toBe('2026-09-11');
+  });
+
+  it('carries the notes through', () => {
+    const [main] = patternHistory(sessions, lanePatterns, 'Ryan');
+    expect(main.hasNotes).toBe(true);
+    expect(main.entries[1].notes).toContain('2nd arrow');
+  });
+
+  it('keeps one bowler out of another’s history', () => {
+    const [main] = patternHistory(sessions, lanePatterns, 'Ryan');
+    expect(main.games).toBe(6);   // not Dave's nine
+  });
+
+  // A pattern recorded for a night nobody bowled is not history.
+  it('skips a pattern with no games and no notes', () => {
+    const names = patternHistory(sessions, lanePatterns, 'Ryan').map(h => h.name);
+    expect(names).not.toContain('Scorpion');
+  });
+
+  it('keeps a pattern with no games when a note was left', () => {
+    const withNote = [...lanePatterns.slice(0, 2),
+      { league: 'Tue', date: '2026-09-18', patternName: 'Scorpion', notes: 'walked it, too dry' }];
+    const names = patternHistory(sessions, withNote, 'Ryan').map(h => h.name);
+    expect(names).toContain('Scorpion');
+  });
+
+  it('puts the most-bowled pattern first', () => {
+    const extra = [...lanePatterns,
+      { league: 'Tue', date: '2026-10-02', patternName: 'Scorpion' }];
+    const more = [...sessions, { bowler: 'Ryan', league: 'Tue', date: '2026-10-02', scores: [150] }];
+    expect(patternHistory(more, extra, 'Ryan')[0].name).toBe('Main Street');
+  });
+
+  // An average of 172 means nothing alone. "17 below your overall" is
+  // the sentence a bowler can act on.
+  it('compares each pattern with the bowler’s overall average', () => {
+    const h = patternHistory(sessions, lanePatterns, 'Ryan');
+    expect(patternVersusOverall(h, 190)[0].versusOverall).toBe(7);
+    expect(patternVersusOverall(h, 210)[0].versusOverall).toBe(-13);
+  });
+
+  it('says nothing about comparison without an overall average', () => {
+    expect(patternVersusOverall(patternHistory(sessions, lanePatterns, 'Ryan'), null)).toEqual([]);
+  });
+
+  it('survives junk', () => {
+    for (const junk of [null, undefined, 'x', 42, {}, [null], [{}]]) {
+      expect(() => patternHistory(junk, junk, junk)).not.toThrow();
+      expect(() => patternVersusOverall(junk, junk)).not.toThrow();
+    }
+    expect(patternHistory(null, null, 'Ryan')).toEqual([]);
   });
 });

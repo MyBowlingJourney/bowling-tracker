@@ -321,6 +321,103 @@ export function loggedPatternSummaries(tournaments) {
 // Two sources, because a pattern is recorded differently in each:
 //   - League nights: lanePatterns rows keyed by (league, date).
 //   - Tournaments: the pattern is on the tournament day itself.
+// A bowler's history on each oil pattern: every night, what they shot,
+// and what they wrote down afterwards.
+//
+// patternAverages already gives a name and an average, and that feeds the
+// AI snapshot -- but nothing has ever shown a bowler their own pattern
+// history. Which is the wrong way round: the person who most needs to
+// know they average 172 on Scorpion and 201 on the house shot is the
+// bowler about to pick a ball for Thursday.
+//
+// NOTES ARE THE POINT, not a decoration. An average tells you a pattern
+// is hard; "played 4th arrow, ball rolled out, should have moved right"
+// tells you what to do about it next time. That is the thing bowlers
+// keep in their phone notes app today, and the reason to keep it here is
+// that here it sits next to the score it belongs to.
+export function patternHistory(sessions, lanePatterns, bowler) {
+  const nights = (Array.isArray(lanePatterns) ? lanePatterns : [])
+    .filter(p => p && typeof p === "object" && p.patternName);
+
+  // One entry per night the bowler actually bowled on a named pattern.
+  const byPattern = new Map();
+
+  for (const p of nights) {
+    const name = String(p.patternName).trim();
+    if (!name) continue;
+
+    const mine = (Array.isArray(sessions) ? sessions : []).filter(s =>
+      s && typeof s === "object"
+      && (!bowler || s.bowler === bowler)
+      && s.league === p.league && String(s.date) === String(p.date));
+
+    const scores = mine
+      .flatMap(s => Array.isArray(s.scores) ? s.scores : [])
+      .map(v => Number(v))
+      .filter(v => Number.isFinite(v));
+
+    // A pattern recorded for a night nobody bowled is not history. It
+    // still counts as a note the bowler left, though, so it is kept when
+    // there is one.
+    if (!scores.length && !String(p.notes || "").trim()) continue;
+
+    if (!byPattern.has(name)) byPattern.set(name, []);
+    byPattern.get(name).push({
+      date: p.date || "",
+      league: p.league || "",
+      lane: p.lane || "",
+      scores,
+      series: scores.length ? scores.reduce((a, b) => a + b, 0) : null,
+      notes: String(p.notes || "").trim(),
+      type: p.patternType || "",
+      length: p.length ?? null,
+      ratio: p.ratio ?? null,
+      volume: p.volume ?? null,
+    });
+  }
+
+  return [...byPattern.entries()]
+    .map(([name, entries]) => {
+      const all = entries.flatMap(e => e.scores);
+      const sorted = entries.slice()
+        .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+      return {
+        name,
+        nights: entries.length,
+        games: all.length,
+        average: all.length ? Math.round(all.reduce((a, b) => a + b, 0) / all.length) : null,
+        best: all.length ? Math.max(...all) : null,
+        worst: all.length ? Math.min(...all) : null,
+        // Newest first: what happened last time is what a bowler wants
+        // before bowling on it again.
+        entries: sorted,
+        // Whether there is anything written down worth reading.
+        hasNotes: entries.some(e => e.notes),
+        type: sorted.find(e => e.type)?.type || "",
+      };
+    })
+    // Most-bowled first, so a pattern seen once does not sit above the
+    // house shot.
+    .sort((a, b) => b.games - a.games || String(a.name).localeCompare(String(b.name)));
+}
+
+// How a pattern compares with everything else this bowler has bowled.
+//
+// An average of 172 means nothing on its own. "17 below your overall"
+// is the sentence a bowler can act on.
+export function patternVersusOverall(history, overallAverage) {
+  // Number(null) is 0 and 0 is finite, so the obvious check passed with
+  // no average at all -- and every pattern came back "+197 versus your
+  // overall", comparing against zero. Same trap as badgeContext; it is
+  // the most repeated bug in this codebase.
+  if (overallAverage === null || overallAverage === undefined || overallAverage === "") return [];
+  const overall = Number(overallAverage);
+  if (!Number.isFinite(overall)) return [];
+  return (Array.isArray(history) ? history : [])
+    .filter(h => h && Number.isFinite(Number(h.average)))
+    .map(h => ({ ...h, versusOverall: Math.round(Number(h.average) - overall) }));
+}
+
 export function patternAverages(sessions, lanePatterns, tournaments, bowler) {
   const byPattern = new Map();
 

@@ -39,7 +39,14 @@ export function isContainerLeague(name) {
   // The stored key stays "Just Bowling" -- see CASUAL_SESSION_KEY in
   // constants.js. This is about recognising both names, not renaming
   // anything.
-  return name === "Practice" || name === "Just Bowling" || name === "Casual";
+  // Tournament containers too. One per event, so they are matched by
+  // prefix rather than by name -- and they must be containers or every
+  // tournament would appear in the league picker as somewhere to bowl a
+  // league night.
+  if (typeof name === "string" && name.startsWith("Tournament\u00b7")) return true;
+  return name === "Practice" || name === "Just Bowling" || name === "Casual"
+    || name === "Tournament";
+
 }
 
 export function visibleLeagues(leagues, hiddenIds, leagueIdsByName) {
