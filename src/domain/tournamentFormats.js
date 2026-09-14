@@ -23,6 +23,8 @@
 import { leagueFormat } from "./leagueSeasons.js";
 import { isTournamentLeagueName, tournamentLeagueEventName } from "../constants.js";
 
+
+import { isContainerLeague } from "./leagueMembership.js";
 // The stored value is "shot" and the label is "Frame tracking" -- that
 // mismatch predates this and is left alone deliberately. Changing the
 // stored value would rewrite every existing preference for a wording
@@ -205,9 +207,26 @@ export function bakerScoreNote(tournament) {
 // bowler threw those balls whatever the event was called.
 export function sessionsForFigures(sessions, tournaments) {
   const rows = (Array.isArray(sessions) ? sessions : []).filter(s => s && typeof s === "object");
+  // CONTAINER leagues never count toward figures.
+  //
+  // This used to drop only Baker and no-tap events, on the reasoning
+  // that a scratch tournament score is a real scratch score. True in
+  // isolation, and wrong as a default: it meant a tournament bowled on
+  // league night landed in the league's average, high game and every
+  // stat beside it, with no way to tell the two apart.
+  //
+  // Practice and open bowling were folding in the same way -- a
+  // nine-pin-no-tap practice night moving a book average is worse than
+  // the tournament case, and nobody had noticed.
+  //
+  // Figures mean "the leagues I bowl in". Tournaments keep their own
+  // totals in the tournament card; practice keeps its own.
+  const withoutContainers = rows.filter(s => !isContainerLeague(s.league));
+
   const events = (Array.isArray(tournaments) ? tournaments : [])
     .filter(t => t && typeof t === "object");
-  if (!events.length) return rows;
+  if (!events.length) return withoutContainers;
+
 
   // Event name -> whether its scores are comparable.
   const excluded = new Set();
@@ -216,9 +235,9 @@ export function sessionsForFigures(sessions, tournaments) {
     if (!name) continue;
     if (playStyle(t) === "baker" || pinFormat(t) === "notap9") excluded.add(name);
   }
-  if (!excluded.size) return rows;
+  if (!excluded.size) return withoutContainers;
 
-  return rows.filter(s => {
+  return withoutContainers.filter(s => {
     const league = String(s.league || "");
     if (!isTournamentLeagueName(league)) return true;
     return !excluded.has(tournamentLeagueEventName(league));

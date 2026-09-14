@@ -162,9 +162,14 @@ describe('which sessions reach the bowler’s figures', () => {
 
   // The pins underneath are entirely the bowler's and entirely
   // comparable; only the total on the sheet differs.
-  it('keeps a handicap event', () => {
+  // REVERSED. Handicap events used to reach figures on the reasoning
+  // that a scratch score is a scratch score. In practice it meant a
+  // tournament bowled on league night landed in the league's average and
+  // high game with no way to tell them apart. Tournaments keep their own
+  // totals in the tournament card instead.
+  it('drops a handicap event like any other tournament', () => {
     const kept = sessionsForFigures(sessions, [{ name: 'Masters', scoringBasis: 'handicap' }]);
-    expect(kept).toHaveLength(3);
+    expect(kept.every(k => !k.league.startsWith('Tournament'))).toBe(true);
   });
 
   it('never drops an ordinary league night', () => {
@@ -172,8 +177,13 @@ describe('which sessions reach the bowler’s figures', () => {
     expect(kept.map(s => s.league)).toContain('Tuesday Night');
   });
 
-  it('keeps everything when there are no tournaments', () => {
-    expect(sessionsForFigures(sessions, [])).toHaveLength(3);
+  // Container leagues are dropped whether or not any tournament rows
+  // exist -- practice and open bowling were folding into figures too,
+  // which nobody had noticed.
+  it('keeps only real leagues when there are no tournaments', () => {
+    const kept = sessionsForFigures(sessions, []);
+    expect(kept.map(s => s.league)).toContain('Tuesday Night');
+    expect(kept.every(k => !k.league.startsWith('Tournament'))).toBe(true);
   });
 
   it('survives junk', () => {
