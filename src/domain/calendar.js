@@ -118,6 +118,45 @@ export function shotNights(shots, sessions) {
   return [...seen.values()];
 }
 
+// Drill sessions, as nights.
+//
+// A drill is its own record type -- it has no league and no game scores,
+// so it never reached the calendar and a practice night spent shooting
+// spares left no mark on the month. For a bowler whose practice IS
+// drills, that is most of their practice missing.
+//
+// Counted as practice, because that is what a drill is.
+export function drillNights(drills, existing) {
+  const already = new Set(
+    rows(existing).map(n => `${clean(n.bowler)}|${clean(n.date)}`));
+
+  const seen = new Map();
+  for (const d of rows(drills)) {
+    const date = clean(d.date);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+    const key = `${clean(d.bowler)}|${date}`;
+    // A night already on the calendar keeps its own entry rather than
+    // gaining a second one: a bowler who drilled AND bowled games logged
+    // one night, not two.
+    if (already.has(key)) continue;
+    const prev = seen.get(key);
+    const made = Number(d.made) || 0;
+    const missed = Number(d.missed) || 0;
+    if (prev) { prev.drillAttempts += made + missed; continue; }
+    seen.set(key, {
+      bowler: d.bowler,
+      league: "",
+      date,
+      scores: [],
+      mode: "practice",
+      inProgress: true,
+      isDrill: true,
+      drillAttempts: made + missed,
+    });
+  }
+  return [...seen.values()];
+}
+
 export function monthsWithSessions(sessions, bowler, league) {
   const keys = new Set();
   for (const s of rows(sessions)) {

@@ -1,7 +1,18 @@
 import { describe, it, expect } from 'vitest';
 import {
-  parseMonthKey, monthKey, monthsWithSessions, nightSummary,
-  monthGrid, monthLabel, weekdayLabels, shiftMonth, cellModes, tournamentNights, sessionMode,
+  parseMonthKey,
+  monthKey,
+  monthsWithSessions,
+  nightSummary,
+  monthGrid,
+  monthLabel,
+  weekdayLabels,
+  shiftMonth,
+  cellModes,
+  tournamentNights,
+  sessionMode,
+  shotNights,
+  drillNights,
 } from './calendar.js';
 
 const n = (date, scores, league = 'Tue', bowler = 'Ryan') => ({ bowler, league, date, scores });
@@ -225,5 +236,68 @@ describe('tournament nights', () => {
       expect(() => tournamentNights(j, 'Ryan')).not.toThrow();
     }
     expect(tournamentNights(null, 'Ryan')).toEqual([]);
+  });
+});
+
+describe('nights the calendar used to miss', () => {
+  const B = 'Ryan';
+  const sh = (lg, d) => ({ bowler: B, league: lg, date: d, frame: '1', result: 'Strike' });
+
+  // A session row is only written by "End session". A bowler who logs a
+  // night's frames and closes the app had no row, so a month of real
+  // bowling read "Nothing logged yet".
+  it('counts a night that has frames but no session row', () => {
+    expect(shotNights([sh('Tuesday', '2026-09-05')], [])).toHaveLength(1);
+  });
+
+  it('does not double a night that already has a session row', () => {
+    const sessions = [{ bowler: B, league: 'Tuesday', date: '2026-09-05', scores: [180] }];
+    expect(shotNights([sh('Tuesday', '2026-09-05')], sessions)).toHaveLength(0);
+  });
+
+  it('keeps each mode distinct', () => {
+    const nights = shotNights([
+      sh('Tuesday', '2026-09-01'),
+      sh('Practice\u00b7u1', '2026-09-02'),
+      sh('Tournament\u00b7T5\u00b7u1', '2026-09-03'),
+      sh('Just Bowling\u00b7u1', '2026-09-04'),
+    ], []);
+    expect(nights.map(n => n.mode).sort())
+      .toEqual(['casual', 'league', 'practice', 'tournament']);
+  });
+
+  // A drill has no league and no game scores, so it never reached the
+  // calendar -- and for a bowler whose practice IS drills, that was most
+  // of their practice missing.
+  it('counts a drill night as practice', () => {
+    const nights = drillNights([{ bowler: B, date: '2026-09-06', made: 7, missed: 3 }], []);
+    expect(nights).toHaveLength(1);
+    expect(nights[0].mode).toBe('practice');
+  });
+
+  it('merges several drills on one date into one night', () => {
+    const nights = drillNights([
+      { bowler: B, date: '2026-09-06', made: 7, missed: 3 },
+      { bowler: B, date: '2026-09-06', made: 5, missed: 5 },
+    ], []);
+    expect(nights).toHaveLength(1);
+    expect(nights[0].drillAttempts).toBe(20);
+  });
+
+  it('does not double a drill night that already bowled games', () => {
+    const existing = [{ bowler: B, league: 'Tuesday', date: '2026-09-01', scores: [180] }];
+    expect(drillNights([{ bowler: B, date: '2026-09-01', made: 4, missed: 1 }], existing))
+      .toHaveLength(0);
+  });
+
+  // The scoreless guard is right for a session ROW and wrong for a night
+  // built from frames.
+  it('keeps a scoreless night that came from frames', () => {
+    expect(nightSummary({ bowler: B, league: 'T', date: '2026-09-05', scores: [], inProgress: true }))
+      .not.toBe(null);
+  });
+
+  it('still drops an empty session row', () => {
+    expect(nightSummary({ bowler: B, league: 'T', date: '2026-09-05', scores: [] })).toBe(null);
   });
 });
