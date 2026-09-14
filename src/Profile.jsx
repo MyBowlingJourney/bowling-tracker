@@ -39,7 +39,7 @@ export default function Profile({
   bowlers, activeBowler, selectBowler,
   profiles, setProfile, teams,
   arsenals, ballLayouts, setBallLayout, removeBall,
-  newBallName, setNewBallName, addBall,
+  newBallName, setNewBallName, addBall, ballAddMessage = "",
   bags, ballBags, saveBag, deleteBag, toggleBallBag,
   centers, ensureCenter, searchCenters,
   ballSpecs, setBallSpec, ballGroups, saveBallGroup, deleteBallGroup, seedDefaultGroups,
@@ -101,6 +101,13 @@ export default function Profile({
   // profile screen editing THEIR handedness, aliases and book average.
   // The switcher made that visible but didn't make it right: a
   // teammate's profile isn't yours to edit from your own profile screen.
+  // The bowler whose arsenal is ON SCREEN.
+  //
+  // balls is arsenals[profileBowler], and ArsenalList/BagManager used to
+  // receive activeBowler -- so add, remove, specs and layouts all acted
+  // on a different bowler's arsenal whenever a display name was set.
+  // Adding a ball put it somewhere invisible; removing one appeared to
+  // do nothing.
   const profileBowler = displayName || activeBowler;
   const profile = normalizeProfile(profiles[profileBowler], profileBowler) || emptyProfile(profileBowler);
   const membership = membershipFor(profileBowler, teams);
@@ -395,7 +402,7 @@ export default function Profile({
         )}
 
         <ArsenalList
-          activeBowler={activeBowler}
+          activeBowler={profileBowler}
           balls={balls}
           ballLayouts={ballLayouts || {}}
           setBallLayout={setBallLayout}
@@ -411,6 +418,12 @@ export default function Profile({
           publishBallSpecs={publishBallSpecs}
           voteOnEntry={voteOnEntry}
           acknowledgeRejection={acknowledgeRejection} />
+        {/* Why an add was refused, where the bowler is looking. */}
+        {ballAddMessage && (
+          <div style={{ fontSize: "12px", color: C.miss, marginBottom: "6px" }}>
+            {ballAddMessage}
+          </div>
+        )}
         <BallNameInput
           value={newBallName}
           onChange={setNewBallName}
@@ -425,7 +438,7 @@ export default function Profile({
         summary={`${bowlerBagCount} bag${bowlerBagCount === 1 ? "" : "s"}`}
         expanded={expanded.bags} onToggle={() => toggle("bags")}>
         <BagManager
-          activeBowler={activeBowler}
+          activeBowler={profileBowler}
           bags={bags || []}
           balls={balls}
           ballBags={ballBags || {}}
