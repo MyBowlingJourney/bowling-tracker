@@ -3,7 +3,6 @@ import { useState, useEffect, useRef, Suspense } from "react";
 // replaces every content-hashed chunk, and a page already loaded asks
 // for names that no longer exist. See src/lazyScreen.js.
 import { lazyScreen } from "./lazyScreen.js";
-import HistoryView from "./HistoryView.jsx";
 import LogView from "./LogView.jsx";
 import SessionStart from "./SessionStart.jsx";
 import Onboarding from "./Onboarding.jsx";

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { C, S, Chip } from "./ui.jsx";
-import { formatDate } from "./constants.js";
+import { formatDate, practiceLeagueDisplayName } from "./constants.js";
 
 const PAGE_SIZE = 15;
 
@@ -45,7 +45,9 @@ export default function SessionHistory({ sessions, bowlers, leagues, teams = [],
   // s.league.replace below.
   const teamOptions = (Array.isArray(leagues) ? leagues : []).filter(l => l != null).map(l => {
     const team = (teams || []).find(t => t.league === l);
-    return { league: l, name: team?.name || String(l).replace(" House Shot", "") };
+    // The DISPLAY name: a container league's stored name carries the user
+    // id, so a filter chip read "Tournament·Tourny 5·c3e40233-...".
+    return { league: l, name: team?.name || practiceLeagueDisplayName(l).replace(" House Shot", "") };
   });
 
   return (
@@ -95,7 +97,7 @@ export default function SessionHistory({ sessions, bowlers, leagues, teams = [],
               <div key={s.id} style={{ borderBottom: `1px solid ${C.border}`, paddingBottom: "10px", marginBottom: "10px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
                   <span style={{ fontSize: "12px", fontWeight: 600 }}>
-                    {!statsBowler && s.bowler ? `${s.bowler} · ` : ""}{String(s.league||"").replace(" House Shot", "")}
+                    {!statsBowler && s.bowler ? `${s.bowler} · ` : ""}{practiceLeagueDisplayName(s.league).replace(" House Shot", "")}
                   </span>
                   <span style={{ fontSize: "11px", color: C.textMuted }}>{formatDate(s.date)}</span>
                 </div>

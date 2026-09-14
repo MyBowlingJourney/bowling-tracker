@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { C, S, Chip, CollapsibleCard } from "./ui.jsx";
 import { THEMES, DARK_THEME_IDS, LIGHT_THEME_IDS } from "./domain/themes.js";
 import { useAuth } from "./AuthProvider.jsx";
-import HistoryView from "./HistoryView.jsx";
 import CalendarView from "./CalendarView.jsx";
 import { LEAGUE_FORMATS, leagueFormat, isNoTapLeague } from "./domain/leagueSeasons.js";
 import { availableTours } from "./domain/tour.js";
@@ -199,7 +198,6 @@ export default function Settings({
           <div style={{ ...S.card, padding: "10px 12px" }}>
             <div style={S.chips}>
               <Chip label="Sessions" selected={historyTab === "sessions"} onToggle={() => setHistoryTab("sessions")} />
-              <Chip label="Shots" selected={historyTab === "shots"} onToggle={() => setHistoryTab("shots")} />
               <Chip label="Season" selected={historyTab === "season"} onToggle={() => setHistoryTab("season")} />
               <Chip label="Calendar" selected={historyTab === "calendar"} onToggle={() => setHistoryTab("calendar")} />
             </div>
@@ -325,16 +323,6 @@ export default function Settings({
               </>
             );
           })()}
-          {historyTab === "shots" && (
-            <HistoryView
-              bowlers={bowlers || []} leagues={leagues || []} teams={teams || []}
-              filterBowler={filterBowler} setFilterBowler={setFilterBowler}
-              filterBall={filterBall} setFilterBall={setFilterBall}
-              filterResult={filterResult} setFilterResult={setFilterResult}
-              filtered={filtered || []} ballUniverse={ballUniverse}
-              startEdit={startEdit} deleteShot={deleteShot}
-              leftHandedForBowler={leftHandedForBowler} />
-          )}
         </>
       )}
 
