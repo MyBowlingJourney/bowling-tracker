@@ -213,9 +213,35 @@ export function searchCatalog(query, entriesByKey, limit = 6) {
     const best = bestEntry(entries);
     if (!best) continue;
     const key = ballKey(best.ballName);
-    const idx = key.indexOf(q);
-    if (idx === -1) continue;
-    out.push({ entry: best, isPrefix: idx === 0 });
+    const brandKey = ballKey(best.brand || "");
+
+    // Match on TOKENS across name and brand, not one substring of the
+    // name.
+    //
+    // Bowlers type the ball either way -- "Phaze II" or "Storm Phaze II"
+    // -- and the second found nothing, because the whole query had to
+    // appear inside the name and the brand is not in the name. A bowler
+    // who types the brand they see on the ball got no results at all.
+    //
+    // Every token must land somewhere: "storm zen" should not return the
+    // Storm Phaze II just because "storm" matched.
+    const tokens = String(query).toLowerCase().split(/\s+/).map(ballKey).filter(t => t);
+    if (!tokens.length) continue;
+    const hits = tokens.map(t => {
+      const inName = key.indexOf(t);
+      if (inName !== -1) return { where: "name", idx: inName };
+      const inBrand = brandKey.indexOf(t);
+      if (inBrand !== -1) return { where: "brand", idx: inBrand };
+      return null;
+    });
+    if (hits.some(h => !h)) continue;
+
+    // A name match ranks above a brand-only match, and a name match at
+    // the start ranks above one in the middle: typing "phaze" should put
+    // the Phaze II first, not a ball with "phaze" buried in it.
+    const nameHit = hits.find(h => h.where === "name");
+    out.push({ entry: best, isPrefix: !!nameHit && nameHit.idx === 0 });
+
   }
 
   return out

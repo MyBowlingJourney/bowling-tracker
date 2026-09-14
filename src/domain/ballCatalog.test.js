@@ -231,3 +231,41 @@ describe('official (manufacturer-sourced) entries', () => {
     expect(bestEntry([a, b]).approvals).toBe(3);
   });
 });
+
+describe('finding a ball by brand or name', () => {
+  // Bowlers type the ball either way -- "Phaze II" or "Storm Phaze II".
+  // The second found nothing, because the whole query had to appear
+  // inside the name and the brand is not in the name.
+  const byKey = {
+    phazeii: [{ ballName: 'Phaze II', brand: 'Storm', status: 'approved', votes: 5 }],
+    zen: [{ ballName: 'Zen', brand: '900 Global', status: 'approved', votes: 5 }],
+    hyroad: [{ ballName: 'Hy-Road', brand: 'Storm', status: 'approved', votes: 5 }],
+  };
+  const names = q => searchCatalog(q, byKey).map(e => e.ballName);
+
+  it('finds a ball by name alone', () => {
+    expect(names('Phaze II')).toContain('Phaze II');
+  });
+
+  it('finds the same ball with the brand in front', () => {
+    expect(names('Storm Phaze II')).toContain('Phaze II');
+  });
+
+  it('finds a two-word brand', () => {
+    expect(names('900 Global Zen')).toContain('Zen');
+  });
+
+  it('lists a brand on its own', () => {
+    expect(names('storm').sort()).toEqual(['Hy-Road', 'Phaze II']);
+  });
+
+  // Every token must land somewhere, or "storm zen" returns the Storm
+  // Phaze II just because "storm" matched.
+  it('does not match when only some tokens hit', () => {
+    expect(names('storm zen')).toEqual([]);
+  });
+
+  it('returns nothing for nonsense', () => {
+    expect(names('qqqqzz')).toEqual([]);
+  });
+});
