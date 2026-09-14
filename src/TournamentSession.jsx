@@ -759,7 +759,7 @@ function MatchPlay({ tournament, onChange }) {
   );
 }
 
-export default function TournamentSession({ tournament, onChange, onSave, saved, oilPatterns, submitOilPattern, tournaments, shotScoresByDate = null, tab: controlledTab, onTabChange, saveMessage = "", onUseDate }) {
+export default function TournamentSession({ tournament, onChange, onSave, saved, oilPatterns, submitOilPattern, tournaments, shotScoresByDate = null, tab: controlledTab, onTabChange, saveMessage = "", onUseDate, onCloseTournament }) {
   // The tab is owned by the caller.
   //
   // LogView renders Shot Context alongside this card, and it only makes
@@ -795,6 +795,7 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
   // event should not open on the last one's summary, but the blank-to-
   // assigned transition of the first save is not that.
   const [showReview, setShowReview] = useState(false);
+  const [closing, setClosing] = useState(false);
   useEffect(() => { if (saved) setShowReview(true); }, [saved]);
   const seenId = useRef(tournament?.id || "");
   useEffect(() => {
@@ -1175,7 +1176,34 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
 
           Only after saving -- a summary of a half-entered event is a
           summary of nothing. */}
+      {/* Done with this event.
+          
+          Saving keeps it in history; this clears the card so the next
+          event starts clean. Two taps, because a tournament is a lot of
+          entry to lose to a mis-tap -- and it only appears once the
+          event is saved, so there is nothing to lose by then. */}
+      {showReview && onCloseTournament && (
+        closing ? (
+          <div style={{ ...S.card, border: `1px solid ${C.miss}` }}>
+            <div style={{ fontSize: "12px", color: C.miss, marginBottom: "8px", lineHeight: 1.5 }}>
+              Close this tournament and start a new one? It stays in your history.
+            </div>
+            <div style={S.chips}>
+              <Chip label="Yes, close it" dense color={C.miss}
+                onToggle={() => { setClosing(false); onCloseTournament(); }} />
+              <Chip label="Keep working on it" dense onToggle={() => setClosing(false)} />
+            </div>
+          </div>
+        ) : (
+          <button style={{ ...S.btn(), width: "100%", marginTop: "10px" }}
+            onClick={() => setClosing(true)}>
+            Close tournament
+          </button>
+        )
+      )}
+
       {showReview && (
+
         <div style={{ ...S.card, border: `1.5px solid ${C.accent}`, marginTop: "12px" }}>
           <div style={{ ...S.label, color: C.accent }}>{tournament.name || "Tournament"}</div>
           {(describeTournamentFormat(tournament) || tournament.center) && (

@@ -54,7 +54,7 @@ export default function LogView({
   stepPinCount, strictPartial, submitSession, submitShot, theoreticalScoreForGame, maxScoreThisGame, toggle, toggleMulti, toggleSection,
   preferences, setSessionMoneyArray, setSessionMoneyValue, activeBowlerLeftHanded,
   ballLayouts, setBallLayout,
-  activeTournament, updateTournament, saveTournament, tournamentSaved,
+  activeTournament, updateTournament, saveTournament, closeTournament, tournamentSaved,
   manualScores, updateManualScore,
   showSessionStart, dismissSessionStart, updatePreferences, sessionEnvChosen, onSessionEnvChosen, routineNote,
   goalsPanel, practiceMode, setPracticeMode, gameEquipment, updateGameEquipment, practiceTracking, setPracticeTracking, activeDrill, setActiveDrill, startDrill, startAnotherDrill, saveDrill, drillSaved, drills, leftHandedForBowler,
@@ -501,6 +501,8 @@ export default function LogView({
                 onUseDate={setSessionDate}
 
                 saveMessage={tournamentSaveMessage}
+
+                onCloseTournament={closeTournament}
                 shotScoresByDate={tournamentShotScoresByDate?.scores||null}
                 tournament={activeTournament}
                 onChange={updateTournament}

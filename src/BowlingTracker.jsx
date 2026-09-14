@@ -953,7 +953,34 @@ export default function BowlingTracker(){
   function changeSessionDate(next){
     setSessionDate(next);
     setForm(f=>({...f,date:next,game:"1",frame:"1",ballNum:null}));
+
+    // A date outside the saved tournament starts a fresh one.
+    //
+    // Otherwise the bowler arrives at a new event and finds the last
+    // one's name, centre, squads and scores waiting -- and either bowls
+    // into it by mistake or clears it by hand.
+    //
+    // Three conditions, all required:
+    //
+    //   SAVED -- it has an id and is in the saved list, so switching away
+    //     loses nothing. An unsaved tournament is still being entered and
+    //     must not be swept aside by a date change.
+    //   DATED -- at least one squad has a date. With none there is no way
+    //     to tell whether this date belongs to it.
+    //   NOT THIS DATE -- no squad carries the date being moved to.
+    if(preferences.environment!=="tournament")return;
+    const t=activeTournament;
+    if(!t||!t.id)return;
+    if(!(tournaments||[]).some(x=>x&&x.id===t.id))return;
+    const dates=(t.days||[]).map(d=>String(d?.date||"")).filter(Boolean);
+    if(!dates.length)return;
+    if(dates.includes(String(next)))return;
+
+    const fresh=normalizeTournament({...emptyTournament(),bowler:activeBowler});
+    setActiveTournament(fresh);
+    try{window.storage.set(TOURNAMENT_KEY,JSON.stringify(fresh));}catch{}
   }
+
   const[startingLane,setStartingLane]=useState(savedContext?.lane||"");
   const[showSummary,setShowSummary]=useState(false);
   const[confirmClear,setConfirmClear]=useState(false);
@@ -3090,6 +3117,14 @@ export default function BowlingTracker(){
     try{window.storage.set(TOURNAMENT_KEY,JSON.stringify(normalized));}catch{}
   }
 
+  // Clear the card for a new event. The saved one stays in history.
+  function closeTournament(){
+    const fresh=normalizeTournament({...emptyTournament(),bowler:activeBowler});
+    setActiveTournament(fresh);
+    try{window.storage.set(TOURNAMENT_KEY,JSON.stringify(fresh));}catch{}
+    setTournamentSaveMessage("");
+  }
+
   async function saveTournament(){
     // A silent return: tapping Save Tournament with no name did
     // nothing at all -- no save, no error, no clue which field was
@@ -3763,10 +3798,19 @@ export default function BowlingTracker(){
       const already=shots.filter(sh=>sh
         &&sh.bowler===form.bowler&&sh.league===shotLeague&&sh.date===shotDate
         &&String(sh.game)===String(form.game)&&parseInt(sh.frame)===10).length;
-      // Respect an explicit choice when it lines up with what is there;
-      // otherwise take the next slot.
+      // An EMPTY tenth always gets ball 1. That is the only case that
+      // was wrong: diagnostics showed a tenth whose only shot was
+      // numbered 2, so the frame had no first ball and could never
+      // close.
+      //
+      // Once there IS a first ball, the form's number is trusted --
+      // nextState knows the tenth's sequence better than a count does.
+      // A spare on the first ball earns a FILL ball, which is ball 3,
+      // not ball 2; forcing sequential numbering renumbered it to 2 and
+      // broke the frame a different way.
+      if(!already)return 1;
       const asked=Number(form.ballNum)||0;
-      return (asked>=1&&asked<=3&&asked===already+1)?asked:Math.min(3,already+1);
+      return (asked>=1&&asked<=3)?asked:Math.min(3,already+1);
     })();
 
 
@@ -6289,7 +6333,7 @@ export default function BowlingTracker(){
             tournamentSaveMessage={tournamentSaveMessage}
 
             deleteNight={deleteNight}
-            activeTournament={activeTournament} updateTournament={updateTournament} saveTournament={saveTournament} tournamentSaved={tournamentSaved}
+            activeTournament={activeTournament} updateTournament={updateTournament} saveTournament={saveTournament} closeTournament={closeTournament} tournamentSaved={tournamentSaved}
             manualScores={manualScores} updateManualScore={updateManualScore}
             ownerName={ownerName} scoringForOthers={scoringForOthers} setScoringForOthers={setScoringForOthers}
             oilPatterns={pickerPatterns} submitOilPattern={submitOilPattern} tournaments={tournaments} practicePriorAverage={practicePriorAverage}
