@@ -2269,7 +2269,27 @@ export default function BowlingTracker(){
     const updated=next.find(c=>c&&c.id===centerId);
     // cloudUpdate, not cloudWrite: an upsert would resend every column
     // and blank anything not in `changes`.
-    if(updated)cloudUpdate("bowling_centers",{id:centerId},centerToRow(updated,user?.id||null));
+    // Update, then fall back to a write if the row was not there.
+    //
+    // cloudUpdate matched 0 rows in the wild -- "no-rows on id", four
+    // times. A centre can exist locally and not in the cloud: it was
+    // created before this table synced, or its original write failed and
+    // the queue dropped it. The update then did nothing, silently, so
+    // rack type looked saved and came back empty on another device.
+    //
+    // The upsert is safe here. bowling_centers has no narrowed column
+    // grants -- unlike team_members and imported_scores -- so sending
+    // the whole row cannot be refused for touching a column it should
+    // not.
+    if(updated){
+      (async()=>{
+        const res=await cloudUpdate("bowling_centers",{id:centerId},centerToRow(updated,user?.id||null));
+        if(res&&res.synced&&res.affected===0){
+          await cloudWrite("bowling_centers",centerToRow(updated,user?.id||null));
+        }
+      })();
+    }
+
   }
 
   function setLeagueCenter(leagueName,candidate){
