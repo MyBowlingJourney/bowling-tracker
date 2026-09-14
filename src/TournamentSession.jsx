@@ -189,7 +189,7 @@ function OilPatternField({ value, onChange, patterns, onSubmitPattern, tournamen
   );
 }
 
-function DayDetails({ tournament, day, onChange, canRemoveDay, onRemoveDay, multiDay, oilPatterns, submitOilPattern, tournaments, expanded = true, onToggleExpanded, onUseDate }) {
+function DayDetails({ tournament, day, onChange, canRemoveDay, onRemoveDay, multiDay, oilPatterns, submitOilPattern, tournaments, expanded = true, onToggleExpanded, onUseDate, onGoToScoring }) {
   function update(next) { onChange(next); }
 
   // The cut line lives here, with the block details, so the margin has
@@ -324,32 +324,41 @@ function DayDetails({ tournament, day, onChange, canRemoveDay, onRemoveDay, mult
           Usually not known until the squad finishes — leave blank until then.
         </div>
       )}
+      {/* Straight to this squad's games.
+          
+          Without it the bowler sets a squad up, switches to Scoring, and
+          has to work out which card is the one they just made -- which
+          gets worse with every squad added. */}
+      {onGoToScoring && (
+        <button style={{ ...S.btn(), width: "100%", marginTop: "10px" }}
+          onClick={() => onGoToScoring(day)}>
+          Go to scoring{day.date ? ` — ${day.date}` : ""}
+        </button>
+      )}
       </>)}
     </div>
   );
 }
 
-function DayScoring({ tournament, day, onChange, multiDay, shotScores, shotsForGame, shotScoresByDate, expanded = true, onToggleExpanded }) {
+function DayScoring({ tournament, day, onChange, multiDay, shotScores, shotScoresByDate, expanded = true, onToggleExpanded }) {
   const total = dayTotal(day, shotScores);
   const avg = dayAverage(day, shotScores);
   const entered = dayGamesEntered(day, shotScores);
   const margin = cutMargin(day, shotScores);
-  // Has the tenth been bowled out?
+  // Score and completeness come from ONE entry per game.
   //
-  // strictPartial happily scores a part-bowled game, which is right for
-  // a live scoresheet and wrong for filling a score box. The tenth is
-  // done when it has a second ball and, if one was earned, a third.
-  const gameComplete = g => {
-    const gs = (shotsForGame || {})[String(g.gameNumber)] || [];
-    const tenth = gs.filter(s => parseInt(s.frame) === 10);
-    const b1 = tenth.find(s => !s.ballNum || Number(s.ballNum) === 1) || null;
-    const b2 = tenth.find(s => Number(s.ballNum) === 2) || null;
-    if (!b1 || !b2) return false;
-    if (!tenthBall3Earned(b1, b2)) return true;
-    return !!tenth.find(s => Number(s.ballNum) === 3);
+  // They used to be two props -- the score map and a separate map of raw
+  // shots -- and when the second arrived empty every game read as
+  // unfinished: scores present, nothing filled, no way to tell that from
+  // a genuinely half-bowled block.
+  const entry = g => {
+    const e = shotScores ? shotScores[String(g.gameNumber)] : null;
+    if (e === null || e === undefined) return null;
+    // A bare number is an older shape; treat it as finished.
+    return typeof e === "number" ? { score: e, complete: true } : e;
   };
-
-  const derived = g => shotScores ? (Number.isFinite(Number(shotScores[String(g.gameNumber)])) ? Number(shotScores[String(g.gameNumber)]) : null) : null;
+  const derived = g => { const e = entry(g); return e && Number.isFinite(Number(e.score)) ? Number(e.score) : null; };
+  const gameComplete = g => !!entry(g)?.complete;
 
   // Frame-tracked scores are WRITTEN into the games, not just shown
   // behind them.
@@ -750,7 +759,7 @@ function MatchPlay({ tournament, onChange }) {
   );
 }
 
-export default function TournamentSession({ tournament, onChange, onSave, saved, oilPatterns, submitOilPattern, tournaments, shotScoresByDate = null, tab: controlledTab, onTabChange, saveMessage = "", shotsByDate = null, onUseDate }) {
+export default function TournamentSession({ tournament, onChange, onSave, saved, oilPatterns, submitOilPattern, tournaments, shotScoresByDate = null, tab: controlledTab, onTabChange, saveMessage = "", onUseDate }) {
   // The tab is owned by the caller.
   //
   // LogView renders Shot Context alongside this card, and it only makes
@@ -825,7 +834,6 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
   // the first squad's, and its games filled in with the wrong day's
   // scores. Any fallback that picks "some other day" is wrong here; the
   // only safe default is nothing.
-  const dayShots = d => pickForDay(shotsByDate, d);
 
   // Scores arrived. Recorded here, in the always-mounted parent, because
   // the fill effect lives in DayScoring -- which only mounts on the
@@ -860,6 +868,20 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
     const v = dayTotal(d, dayScores(d));
     return v === null ? a : (a === null ? v : a + v);
   }, null);
+  // Match play record for the summary, counted with the same helper the
+  // Match tab uses rather than a second reading of the data.
+  const matchRecord = (() => {
+    const ms = tournament?.matchPlay?.matches || [];
+    if (!ms.length) return "";
+    let w = 0, l = 0, t = 0;
+    for (const m of ms) {
+      const r = matchResult(m);
+      if (r === "win") w++; else if (r === "loss") l++; else if (r === "tie") t++;
+    }
+    if (!w && !l && !t) return "";
+    return t ? `${w}-${l}-${t}` : `${w}-${l}`;
+  })();
+
   const gamesAll = (tournament.days || []).reduce((a, d) => a + dayGamesEntered(d, dayScores(d)), 0);
   const total = scratchTotal === null ? null
     : scratchTotal + handicapPins(tournament, gamesAll);
@@ -1000,12 +1022,27 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
           onRemoveDay={() => onChange(removeDay(tournament, day.dayNumber))}
           onChange={next => onChange(updateDay(tournament, day.dayNumber, () => next))}
           onUseDate={onUseDate}
+          onGoToScoring={d => {
+            // Jump to Scoring AND make sure that squad's card is open, so
+            // the bowler lands on the games they asked for rather than on
+            // whichever squad happened to be expanded.
+            setOpen(o => ({ ...o, [`score${d.dayNumber}`]: true }));
+            if (d.date && onUseDate) onUseDate(d.date);
+            setTab("scoring");
+          }}
           expanded={isOpen(`day${day.dayNumber}`)}
           onToggleExpanded={() => toggle(`day${day.dayNumber}`)}
           oilPatterns={oilPatterns}
           submitOilPattern={submitOilPattern}
           tournaments={tournaments} />
       ))}
+
+      {/* Adding a squad lives with the squad details, not with the
+          scores. A new squad is something you set up -- give it a date
+          and a squad number -- before there is anything to score. */}
+      <button style={{ ...S.btn(), width: "100%", marginBottom: "12px" }} onClick={() => onChange(addDay(tournament))}>
+        + Add Another Day
+      </button>
 
       </>)}
 
@@ -1180,6 +1217,31 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
             );
           })}
 
+          {/* Brackets and side pots, if any were played. Their own
+              line, because they are a separate pot from the entry. */}
+          {money.side.count > 0 && (
+            <div style={{ marginTop: "10px", paddingTop: "8px", borderTop: `1px solid ${C.border}` }}>
+              <div style={{ fontSize: "11px", color: C.textMuted, marginBottom: "4px" }}>Brackets and side pots</div>
+              {(money.side.byType || []).map((b, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", padding: "2px 0" }}>
+                  <span style={{ color: C.textMuted }}>{b.type || "Side pot"}</span>
+                  <span style={{ color: (b.net ?? 0) >= 0 ? C.strike : C.miss }}>
+                    {(b.net ?? 0) < 0 ? "−" : "+"}${Math.abs(b.net ?? 0).toFixed(2)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Match play, if it was played. */}
+          {matchRecord && (
+            <div style={{ marginTop: "10px", paddingTop: "8px", borderTop: `1px solid ${C.border}`,
+              display: "flex", justifyContent: "space-between", fontSize: "12px" }}>
+              <span style={{ color: C.textMuted }}>Match play</span>
+              <span>{matchRecord}</span>
+            </div>
+          )}
+
           {(money.buyIn !== 0 || money.winnings !== 0 || money.side.count > 0) && (
             <div style={{ marginTop: "10px", paddingTop: "8px", borderTop: `1px solid ${C.border}`,
               display: "flex", justifyContent: "space-between", fontSize: "12px" }}>
@@ -1210,7 +1272,6 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
         <DayScoring key={day.dayNumber}
           shotScores={dayScores(day)}
           shotScoresByDate={shotScoresByDate}
-          shotsForGame={dayShots(day)}
           tournament={tournament}
           day={day}
           multiDay={multiDay}
@@ -1218,10 +1279,6 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
           onToggleExpanded={() => toggle(`score${day.dayNumber}`)}
           onChange={next => onChange(updateDay(tournament, day.dayNumber, () => next))} />
       ))}
-
-      <button style={{ ...S.btn(), width: "100%", marginBottom: "12px" }} onClick={() => onChange(addDay(tournament))}>
-        + Add Another Day
-      </button>
 
       {multiDay && total !== null && (
         <div style={{ ...S.card, border: `1px solid ${C.accent}44` }}>

@@ -22,6 +22,8 @@ import { plasticLast } from "./domain/bags.js";
 
 
 import { recordError } from "./errorLogStore.js";
+
+import { tenthBall3Earned } from "./domain/scoring.js";
 export default function LogView({
   // Was used free at the night-achievements block below and never
   // declared anywhere, so rendering a completed session threw
@@ -172,7 +174,19 @@ export default function LogView({
       const scores={};
       for(const[game,gs]of Object.entries(games)){
         const v=strictPartial(gs);
-        if(typeof v==="number")scores[game]=v;
+        if(typeof v!=="number")continue;
+        // Completeness travels WITH the score, in one map.
+        //
+        // It used to need a second prop carrying the raw shots, and when
+        // that arrived empty every game read as unfinished -- scores
+        // present, nothing filled, and no way to tell the two apart.
+        // One map cannot half-arrive.
+        const tenth=gs.filter(sh=>parseInt(sh.frame)===10);
+        const b1=tenth.find(sh=>!sh.ballNum||Number(sh.ballNum)===1)||null;
+        const b2=tenth.find(sh=>Number(sh.ballNum)===2)||null;
+        const b3=tenth.find(sh=>Number(sh.ballNum)===3)||null;
+        const done=!!b1&&!!b2&&(!tenthBall3Earned(b1,b2)||!!b3);
+        scores[game]={score:v,complete:done};
       }
       if(Object.keys(scores).length)out[date]=scores;
     }
@@ -264,7 +278,6 @@ export default function LogView({
     : 3;
 
   const saveShotRef=useRef(null);
-  const leaveRef=useRef(null);
 
   // Scroll the MINIMUM needed to bring a section fully into view above
   // the bottom nav.
@@ -469,7 +482,6 @@ export default function LogView({
 
                 saveMessage={tournamentSaveMessage}
                 shotScoresByDate={tournamentShotScoresByDate?.scores||null}
-                shotsByDate={tournamentShotScoresByDate?.shots||null}
                 tournament={activeTournament}
                 onChange={updateTournament}
                 onSave={saveTournament}
@@ -1166,20 +1178,20 @@ export default function LogView({
 // Any result scrolls. With block:"end" the pin grid opens
                         // below without hiding the scoresheet, so there is no
                         // longer a reason to hold Other Leave back.
-                        // Where to scroll depends on what the result reveals.
+// Every result scrolls to the save button.
                         //
-                        //   Strike       -> description + save button
-                        //   Weak/Ringing -> spare made + save button
-                        //     Both are short, so landing on the button
-                        //     leaves them visible above it.
+                        //   Strike       -> description + button
+                        //   Weak/Ringing -> spare made + button
+                        //   Other Leave  -> spare made + button, with the
+                        //     pins above. Answering "Yes" needs no second
+                        //     scroll because the button is already there;
+                        //     "No" reveals the pin count and scrolls on.
                         //
-                        //   Other Leave  -> the pin grid, spare made and
-                        //     the button together are taller than a phone.
-                        //     Landing on the button would push the pins off
-                        //     the top, and the pins are the next thing to
-                        //     answer -- so this lands on the leave section.
-                        //     Answering "No" scrolls on to the button.
-                        if(newResult)scrollTo(newResult==="Other Leave"?leaveRef:saveShotRef);
+                        // Landing on the button rather than the pins is
+                        // deliberate: the pins are tall, and what the
+                        // bowler needs in view is the next question and
+                        // the way to finish.
+                        if(newResult)scrollToSave();
 
 
 
@@ -1221,7 +1233,7 @@ export default function LogView({
                   {/* Scroll target for Other Leave: the pins are the next
                       thing to answer, so this is what has to come into
                       view -- not the save button below it. */}
-                  <div ref={leaveRef} style={S.label}>Pins Standing</div>
+                  <div style={S.label}>Pins Standing</div>
                   <div style={S.chips}>
                     {/* Gutter — a one-tap shortcut for all 10 pins standing,
                         rather than tapping each pin chip individually. Not a
