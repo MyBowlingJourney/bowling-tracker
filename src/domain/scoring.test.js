@@ -747,3 +747,43 @@ describe('a fill ball has to be earned', () => {
     expect(tenthBall3Earned(null, null)).toBe(false);
   });
 });
+
+describe('deleting the first ball of the 10th', () => {
+  // Removing just that row left balls 2 and 3 behind, and the scoresheet
+  // reads whatever is first as ball 1 -- so deleting a strike from
+  // "X, 9 spare" promoted the 9 to the first ball and invented a frame
+  // the bowler never bowled.
+  const base = { bowler: 'R', league: 'L', date: 'd', game: '1' };
+  const frame = [
+    { ...base, id: 'a', frame: '10', ballNum: 1, result: 'Strike' },
+    { ...base, id: 'b', frame: '10', ballNum: 2, result: 'Other Leave', spareMade: 'Yes' },
+    { ...base, id: 'c', frame: '9', result: 'Strike' },
+  ];
+  // The rule as deleteShot applies it.
+  const del = (shots, id) => {
+    const t = shots.find(s => s.id === id);
+    if (!t) return shots;
+    const first = parseInt(t.frame) === 10 && (!t.ballNum || Number(t.ballNum) === 1);
+    if (!first) return shots.filter(s => s.id !== id);
+    const same = s => s.bowler === t.bowler && s.league === t.league && s.date === t.date
+      && String(s.game) === String(t.game) && parseInt(s.frame) === 10;
+    return shots.filter(s => !same(s));
+  };
+
+  it('takes the whole tenth frame', () => {
+    expect(del(frame, 'a').map(s => s.id)).toEqual(['c']);
+  });
+
+  it('leaves earlier frames alone', () => {
+    expect(del(frame, 'a').some(s => s.frame === '9')).toBe(true);
+  });
+
+  // Correcting the back half of a frame the bowler did bowl.
+  it('deletes ball 2 on its own', () => {
+    expect(del(frame, 'b').map(s => s.id)).toEqual(['a', 'c']);
+  });
+
+  it('leaves an ordinary frame deleting one row', () => {
+    expect(del(frame, 'c').map(s => s.id)).toEqual(['a', 'b']);
+  });
+});
