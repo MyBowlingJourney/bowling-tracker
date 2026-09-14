@@ -1,3 +1,6 @@
+import { isStk } from "./scoring.js";
+
+import { isSplit } from "./splits.js";
 // My Journey: the milestones of a bowling life, in the order they come.
 //
 // A vertical path rather than a badge grid. The difference is that a path
@@ -112,40 +115,127 @@ function inReach(best, target) {
 // The low end matters as much as the high end. "First spare" is a real
 // moment for a new bowler, and an app that starts its history at 200
 // tells them their first season did not count.
+// Each step carries the average a bowler is ROUGHLY at when they reach
+// it. That is what the bands collapse on: a 200 bowler should not scroll
+// past "Broke 75" to find their own history.
+//
+// Nothing above 180 is banded -- from there up, every milestone is worth
+// its own line on anyone's timeline.
 const GAME_STEPS = [
-  [50, "Broke 50"],
-  [75, "Broke 75"],
-  [100, "First 100 game"],
-  [125, "Broke 125"],
-  [150, "First 150 game"],
-  [175, "Broke 175"],
-  [200, "First 200 game"],
-  [225, "Broke 225"],
-  [250, "First 250 game"],
-  [275, "Broke 275"],
-  [300, "Perfect game"],
+  [50, 100, "Broke 50"],
+  [75, 100, "Broke 75"],
+  [100, 100, "First 100 game"],
+  [125, 130, "Broke 125"],
+  [150, 150, "First 150 game"],
+  [175, 180, "Broke 175"],
+  [200, 180, "First 200 game"],
+  [225, null, "Broke 225"],
+  [250, null, "First 250 game"],
+  [275, null, "Broke 275"],
+  [300, null, "Perfect game"],
 ];
 
 const SERIES_STEPS = [
-  [200, "First 200 series"],
-  [300, "First 300 series"],
-  [400, "First 400 series"],
-  [500, "First 500 series"],
-  [600, "First 600 series"],
-  [700, "First 700 series"],
-  [800, "First 800 series"],
+  [200, 100, "First 200 series"],
+  [300, 100, "First 300 series"],
+  [400, 130, "First 400 series"],
+  [500, 150, "First 500 series"],
+  [600, 180, "First 600 series"],
+  [700, null, "First 700 series"],
+  [800, null, "First 800 series"],
 ];
 
 // Nights bowled. Turning up is a milestone, and it is the only one
 // available to a bowler having a bad season.
 const NIGHT_STEPS = [
-  [1, "First night logged"],
-  [5, "Five nights in"],
-  [10, "Ten nights in"],
-  [25, "Twenty-five nights"],
-  [50, "Fifty nights"],
-  [100, "A hundred nights"],
+  [1, 100, "First night logged"],
+  [5, 100, "Five nights in"],
+  [10, 130, "Ten nights in"],
+  [25, 150, "Twenty-five nights"],
+  [50, 180, "Fifty nights"],
+  [100, null, "A hundred nights"],
 ];
+
+// FRAME-LEVEL milestones, from shots rather than session totals.
+//
+// A first strike and a first spare are the two biggest moments a new
+// bowler has, and neither shows up in a score. A journey built only on
+// game totals skips the whole first month of learning to bowl.
+//
+// At the other end, a four-bagger and a converted big four are frame
+// events too -- they never appear as a distinct score.
+const FRAME_STEPS = [
+  { id: "first-strike", label: "First strike", band: 100,
+    hit: sh => isStk(sh) },
+  { id: "first-spare", label: "First spare", band: 100,
+    hit: sh => clean(sh.spareMade) === "Yes" },
+  { id: "first-double", label: "Two strikes in a row", band: 130,
+    run: 2 },
+  { id: "first-turkey", label: "First turkey", band: 150,
+    run: 3 },
+  { id: "first-four-bagger", label: "Four in a row", band: 180,
+    run: 4 },
+  { id: "first-five-bagger", label: "Five in a row", band: null,
+    run: 5 },
+  { id: "split-convert", label: "Converted a split", band: 150,
+    hit: sh => clean(sh.spareMade) === "Yes" && isSplit(sh.otherLeave) },
+  { id: "big-four", label: "Converted the big four", band: null,
+    hit: sh => clean(sh.spareMade) === "Yes" && bigFour(sh.otherLeave) },
+];
+
+// 4-6-7-10, the one every bowler knows by name.
+function bigFour(leave) {
+  const pins = (Array.isArray(leave) ? leave : []).map(p => String(p));
+  return ["4", "6", "7", "10"].every(p => pins.includes(p)) && pins.length === 4;
+}
+
+// The earliest date a shot satisfied `hit`.
+function dateOfFirstShot(shots, hit) {
+  let best = "";
+  for (const sh of rows(shots)) {
+    const d = clean(sh.date);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
+    let ok = false;
+    try { ok = !!hit(sh); } catch { ok = false; }
+    if (!ok) continue;
+    if (!best || d < best) best = d;
+  }
+  return best;
+}
+
+// The earliest date the bowler struck `run` times consecutively.
+//
+// Walked per game, in frame order, because a run does not cross games --
+// the tenth of one game and the first of the next are not consecutive
+// frames in any sense a bowler means.
+function dateOfStrikeRun(shots, run) {
+  const games = new Map();
+  for (const sh of rows(shots)) {
+    const d = clean(sh.date);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
+    const key = `${clean(sh.bowler)}|${clean(sh.league)}|${d}|${clean(sh.game)}`;
+    if (!games.has(key)) games.set(key, []);
+    games.get(key).push(sh);
+  }
+
+  let best = "";
+  for (const [key, list] of games) {
+    const date = key.split("|")[2];
+    const ordered = [...list].sort((a, b) =>
+      (parseInt(a.frame) - parseInt(b.frame))
+      || ((Number(a.ballNum) || 0) - (Number(b.ballNum) || 0)));
+    let streak = 0;
+    for (const sh of ordered) {
+      if (isStk(sh)) {
+        streak += 1;
+        if (streak >= run) { if (!best || date < best) best = date; break; }
+      } else {
+        streak = 0;
+      }
+    }
+  }
+  return best;
+}
 
 const clean = v => String(v ?? "").trim();
 
@@ -177,7 +267,7 @@ function dateOfFirstSeries(sessions, target) {
   return hit ? dateOf(hit.s) : "";
 }
 
-export function journeyMilestones(sessions, tournaments) {
+export function journeyMilestones(sessions, tournaments, shots) {
   const ss = rows(sessions);
   const events = rows(tournaments).filter(t => clean(t.name));
   const cashed = events.filter(t => (num(t.winnings) || 0) > 0);
@@ -186,27 +276,32 @@ export function journeyMilestones(sessions, tournaments) {
   const earliest = list => list.map(eventDate).filter(Boolean).sort()[0] || "";
 
   const all = [
-    ...NIGHT_STEPS.map(([n, label]) => ({
-      id: `nights-${n}`, label, kind: "count", target: n,
+    ...NIGHT_STEPS.map(([n, band, label]) => ({
+      id: `nights-${n}`, label, band, kind: "count", target: n,
       date: dateAtCount(ss, n),
       best: ss.length,
     })),
-    ...GAME_STEPS.map(([target, label]) => ({
-      id: `game-${target}`, label, kind: "game", target,
+    ...GAME_STEPS.map(([target, band, label]) => ({
+      id: `game-${target}`, label, band, kind: "game", target,
       date: dateOfFirstGame(ss, target),
       best: bests(ss).game,
     })),
-    ...SERIES_STEPS.map(([target, label]) => ({
-      id: `series-${target}`, label, kind: "series", target,
+    ...SERIES_STEPS.map(([target, band, label]) => ({
+      id: `series-${target}`, label, band, kind: "series", target,
       date: dateOfFirstSeries(ss, target),
       best: bests(ss).series,
     })),
+    ...FRAME_STEPS.map(f => ({
+      id: f.id, label: f.label, band: f.band, kind: "frame", target: 1,
+      date: f.run ? dateOfStrikeRun(shots, f.run) : dateOfFirstShot(shots, f.hit),
+      best: null,
+    })),
     {
-      id: "tourney-first", label: "First tournament", kind: "count", target: 1,
+      id: "tourney-first", label: "First tournament", band: 130, kind: "count", target: 1,
       date: earliest(events), best: events.length,
     },
     {
-      id: "tourney-cash", label: "First cash", kind: "count", target: 1,
+      id: "tourney-cash", label: "First cash", band: 180, kind: "count", target: 1,
       date: earliest(cashed), best: cashed.length,
     },
   ];
@@ -276,4 +371,62 @@ export function journeyProgress(milestones) {
 // The one step ahead, if there is one.
 export function nextMilestone(milestones) {
   return rows(milestones).find(m => m.state !== "earned") || null;
+}
+
+// BANDS: fold away the milestones a bowler is long past.
+//
+// A 200 average bowler has earned every step up to 180 and does not need
+// to scroll through "Broke 75" to reach their own history. But deleting
+// those entries would be worse -- they DID break 75, and on a date, and
+// that is the point of a timeline.
+//
+// So they collapse. One line at the foot of the road saying "Milestones
+// up to a 180 average", which opens to the next band down, and so on.
+//
+// A band folds only when the bowler is CLEARLY past it. Bowling at 182
+// does not fold the 180 band -- they are still living in it, and folding
+// the ground they are standing on is how a feature starts feeling like
+// it is hiding things.
+const BAND_CEILINGS = [100, 130, 150, 180];
+const BAND_CLEAR = 15;
+
+export function bandLabel(ceiling) {
+  return `Milestones up to a ${ceiling} average`;
+}
+
+// Split a timeline into what stays open and what folds away.
+//
+// Returns { open, bands } -- `open` in date order as before, `bands`
+// highest ceiling first, because the nearest history is the one most
+// likely to be opened.
+export function bandedJourney(milestones, average) {
+  const all = rows(milestones);
+  const avg = Number(average) || 0;
+
+  // No average yet, or not clearly past the lowest band: nothing folds.
+  // A new bowler should see their whole road.
+  if (!avg) return { open: all, bands: [] };
+
+  const folded = BAND_CEILINGS.filter(c => avg >= c + BAND_CLEAR);
+  if (!folded.length) return { open: all, bands: [] };
+
+  const highest = folded[folded.length - 1];
+
+  const open = [];
+  const byBand = new Map(folded.map(c => [c, []]));
+  for (const m of all) {
+    // Only EARNED milestones fold. The step ahead always stays in view;
+    // it is the one thing on this screen that is about what comes next.
+    const band = m.state === "earned" ? m.band : null;
+    if (band && folded.includes(band)) byBand.get(band).push(m);
+    else open.push(m);
+  }
+
+  const bands = folded
+    .slice()
+    .reverse()
+    .map(c => ({ ceiling: c, label: bandLabel(c), milestones: byBand.get(c) || [] }))
+    .filter(b => b.milestones.length);
+
+  return { open, bands, highest };
 }

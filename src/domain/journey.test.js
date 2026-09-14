@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
-  journeyMilestones, describeMilestone, journeyProgress, nextMilestone,
+  journeyMilestones,
+  describeMilestone,
+  journeyProgress,
+  nextMilestone,
+  bandedJourney,
 } from './journey.js';
 
 const night = (date, scores) => ({ bowler: 'R', league: 'T', date, scores });
@@ -94,6 +98,91 @@ describe('the journey is a timeline', () => {
       expect(() => journeyProgress(j)).not.toThrow();
       expect(() => nextMilestone(j)).not.toThrow();
       expect(() => describeMilestone(j)).not.toThrow();
+    }
+  });
+});
+
+describe('frame-level milestones', () => {
+  const sh = (date, game, frame, extra) =>
+    ({ bowler: 'R', league: 'T', date, game: String(game), frame: String(frame), ...extra });
+  const X = { result: 'Strike' };
+
+  // A first strike and a first spare are the two biggest moments a new
+  // bowler has, and neither shows up in a score.
+  it('finds a first strike and a first spare', () => {
+    const shots = [sh('2026-01-05', 1, 1, X),
+                   sh('2026-02-01', 1, 1, { result: 'Other Leave', spareMade: 'Yes' })];
+    const ms = journeyMilestones([night('2026-01-05', [120])], [], shots);
+    expect(ids(ms)).toContain('first-strike');
+    expect(ids(ms)).toContain('first-spare');
+  });
+
+  it('dates a turkey to the night it happened', () => {
+    const shots = [sh('2026-01-05', 1, 1, X), sh('2026-01-05', 1, 2, X), sh('2026-01-05', 1, 3, X)];
+    const ms = journeyMilestones([night('2026-01-05', [150])], [], shots);
+    const turkey = ms.find(m => m.id === 'first-turkey');
+    expect(turkey.date).toBe('2026-01-05');
+  });
+
+  // The tenth of one game and the first of the next are not consecutive
+  // frames in any sense a bowler means.
+  it('does not run a streak across games', () => {
+    const shots = [sh('2026-01-05', 1, 9, X), sh('2026-01-05', 1, 10, X),
+                   sh('2026-01-05', 2, 1, X)];
+    expect(ids(journeyMilestones([night('2026-01-05', [150])], [], shots)))
+      .not.toContain('first-turkey');
+  });
+
+  it('needs no shots to work', () => {
+    expect(() => journeyMilestones([night('2026-01-05', [150])], [], [])).not.toThrow();
+  });
+});
+
+describe('folding away milestones a bowler is past', () => {
+  const many = [];
+  for (let i = 0; i < 12; i++) many.push(night(`2025-0${(i % 9) + 1}-01`, [200, 205, 195]));
+  const ms = journeyMilestones(many, [], []);
+
+  // A new bowler should see their whole road.
+  it('folds nothing without an average', () => {
+    expect(bandedJourney(ms, 0).bands).toHaveLength(0);
+  });
+
+  it('folds nothing for a beginner', () => {
+    expect(bandedJourney(ms, 95).bands).toHaveLength(0);
+  });
+
+  it('folds the low bands for a 200 bowler', () => {
+    const { open, bands } = bandedJourney(ms, 200);
+    expect(bands.length).toBeGreaterThan(2);
+    expect(open.length).toBeLessThan(ms.length);
+  });
+
+  // Folding the ground they are standing on is how a feature starts
+  // feeling like it is hiding things.
+  it('does not fold the band a bowler is living in', () => {
+    expect(bandedJourney(ms, 182).bands.some(b => b.ceiling === 180)).toBe(false);
+  });
+
+  it('keeps the next step in view', () => {
+    const { open } = bandedJourney(ms, 200);
+    expect(open.some(m => m.state !== 'earned')).toBe(true);
+  });
+
+  it('loses nothing', () => {
+    const { open, bands } = bandedJourney(ms, 200);
+    const total = open.length + bands.reduce((n, b) => n + b.milestones.length, 0);
+    expect(total).toBe(ms.length);
+  });
+
+  it('orders bands nearest first', () => {
+    const ceilings = bandedJourney(ms, 200).bands.map(b => b.ceiling);
+    expect(ceilings).toEqual([...ceilings].sort((a, b) => b - a));
+  });
+
+  it('survives junk', () => {
+    for (const j of [null, undefined, 'x', 42, [null]]) {
+      expect(() => bandedJourney(j, j)).not.toThrow();
     }
   });
 });
