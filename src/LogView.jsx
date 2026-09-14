@@ -264,14 +264,27 @@ export default function LogView({
     : 3;
 
   const saveShotRef=useRef(null);
-  // The BOTTOM of the save button at the bottom of the screen.
+  // Put the bottom of the save button just above the bottom nav.
   //
-  // block:"center" put the button mid-screen, which pushed the
-  // scoresheet off the top -- the bowler lost the frames they were
-  // working from. "end" brings the button just into view and leaves
-  // everything above it where it was.
-  const scrollToSave=()=>requestAnimationFrame(()=>
-    saveShotRef.current?.scrollIntoView({behavior:"smooth",block:"end"}));
+  // scrollIntoView({block:"end"}) aligns to the bottom of the VIEWPORT,
+  // and the nav is fixed on top of that -- so the button scrolled itself
+  // neatly underneath the nav and out of sight.
+  //
+  // The nav is measured rather than assumed: its height changes with the
+  // phone's safe-area inset, and a hardcoded 64 is right on one device
+  // and wrong on the next.
+  const scrollToSave=()=>requestAnimationFrame(()=>{
+    const el=saveShotRef.current;
+    if(!el)return;
+    const nav=document.querySelector("nav");
+    const navHeight=nav?nav.getBoundingClientRect().height:64;
+    const rect=el.getBoundingClientRect();
+    // 8px of air so the button is not flush against the nav.
+    const wanted=window.innerHeight-navHeight-8;
+    const delta=rect.bottom-wanted;
+    if(Math.abs(delta)<2)return;
+    window.scrollBy({top:delta,behavior:"smooth"});
+  });
 
 
   // Shot Context (game/frame/lane) is meaningless without shots -- a
