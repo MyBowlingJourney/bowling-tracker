@@ -4861,7 +4861,16 @@ export default function BowlingTracker(){
 
     const ss=shots.filter(s=>s&&s.bowler===nightBowler
       &&s.league===nightLeague&&String(s.date)===String(nightDate));
-    if(!ss.length)return null;
+
+    // NOT gated on having bowled yet.
+    //
+    // Requiring frames kept Side games blank before the first ball --
+    // which is precisely when a bowler ticks the pots they are in and
+    // owes the buy-ins. The card has to be there first.
+    //
+    // A night needs only a bowler, a league and a date to exist. Without
+    // those there is no night to describe, and returning null is right.
+    if(!nightBowler||!nightLeague||!nightDate)return null;
 
     const scores=[1,2,3].map(g=>getGameStrict(nightBowler,nightLeague,nightDate,g))
       .filter(v=>v!=null);
