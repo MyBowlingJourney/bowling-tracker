@@ -208,7 +208,7 @@ function DayDetails({ tournament, day, onChange, canRemoveDay, onRemoveDay, mult
             a tap meant to collapse a day cannot delete it. */}
         <div style={{ ...S.label, marginBottom: 0, cursor: "pointer", flex: 1 }}
           onClick={onToggleExpanded}>
-          {expanded ? "\u25be" : "\u25b8"} {multiDay ? `Day ${day.dayNumber}` : "Block Details"}
+          {expanded ? "\u25be" : "\u25b8"} {multiDay ? `Day ${day.dayNumber}` : "Squad Details"}
         </div>
         {canRemoveDay && (
           <button style={{ ...S.btn(), padding: "4px 10px", fontSize: "11px" }} onClick={onRemoveDay}>
@@ -779,10 +779,15 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
           Set up is what you fill in once; Scoring is what you come back
           to between games. Same chip pattern as Stats and Trends. */}
       <div style={{ ...S.card, padding: "10px 12px" }}>
-        <div style={S.chips}>
+        {/* One line, always. Five chips wrap on a narrow phone and a
+            wrapped tab row reads as two rows of unrelated buttons, so
+            this scrolls sideways instead. */}
+        <div style={{ ...S.chips, flexWrap: "nowrap", overflowX: "auto",
+          WebkitOverflowScrolling: "touch", paddingBottom: "2px" }}>
           <Chip label="Set up" selected={tab === "setup"} onToggle={() => setTab("setup")} />
           <Chip label="Scoring" selected={tab === "scoring"} onToggle={() => setTab("scoring")} />
           <Chip label="Brackets" selected={tab === "brackets"} onToggle={() => setTab("brackets")} />
+          <Chip label="Match" selected={tab === "match"} onToggle={() => setTab("match")} />
           <Chip label="Results" selected={tab === "results"} onToggle={() => setTab("results")} />
         </div>
       </div>
@@ -918,6 +923,13 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
           Brackets and side pots are deliberately NOT here -- those are
           side action, and adding them to this total would answer a
           different question than "did the tournament pay". */}
+      {/* Match play: its own tab. It is a separate competition running
+          alongside the block -- head to head against one opponent, with
+          its own bonus pins -- and it was crowding the scoring tab. */}
+      {tab === "match" && (<>
+        <MatchPlay tournament={tournament} onChange={onChange} />
+      </>)}
+
       {tab === "results" && (<>
       <CollapsibleCard title="How did it finish?" expanded={isOpen("finish")} onToggle={() => toggle("finish")}>
 
@@ -1144,7 +1156,7 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
           middling weekend. Sits right before Save because it's the last
           thing you know. */}
       <div style={{ height: "24px" }} />
-      <MatchPlay tournament={tournament} onChange={onChange} />
+
       </>)}
     </div>
   );

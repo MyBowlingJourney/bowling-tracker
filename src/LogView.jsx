@@ -1,6 +1,6 @@
 import { useState, useRef, lazy, Suspense} from "react";
 import { C, S, F, Chip, PinDeck, CollapsibleCard, StatLead } from "./ui.jsx";
-import { PLASTIC_BALL, formatDate, localDateString, RESULTS, SURFACES, RELEASES, MISSES, BALL_CHANGE_REASONS, resultsForHandedness, storedResultFor, strikeDescriptionsForHand, storedStrikeDescriptionFor } from "./constants.js";
+import { PLASTIC_BALL, formatDate, localDateString, RESULTS, SURFACES, RELEASES, MISSES, BALL_CHANGE_REASONS, resultsForHandedness, storedResultFor, strikeDescriptionsForHand, storedStrikeDescriptionFor, practiceLeagueDisplayName } from "./constants.js";
 import { rAvg, cAvg, threeSixNineResults } from "./domain/stats.js";
 import { buyInsForLeague, costArraysFor, sessionMoney } from "./domain/money.js";
 import { anyMoneyGameShown, visibleMoneyGames } from "./domain/preferences.js";
@@ -749,7 +749,12 @@ export default function LogView({
                       doesn't exist in that mode. */}
                   {activeBowler||"No bowler selected"}
                   {effectiveSessionLeague
-                    ? ` — ${effectiveSessionLeague.replace(" House Shot","")}, ${formatDate(sessionDate)}`
+                    /* The DISPLAY name. A container league's stored name
+                       carries the user id -- "Tournament·Tourny Test
+                       1·c3e40233-c180-4d76-be28-36abd33f9c07" -- and the
+                       header was showing all of it. */
+                    ? ` — ${practiceLeagueDisplayName(effectiveSessionLeague).replace(" House Shot","")}, ${formatDate(sessionDate)}`
+
                     : preferences.environment==="league" ? " — pick a league above" : ` — ${formatDate(sessionDate)}`}
                 </div>
               )}
@@ -766,7 +771,14 @@ export default function LogView({
                   equal boxes made the total the same size as game 1 --
                   which is the size of everything else -- so nothing on
                   the page ever read as the thing you came for. */}
-              {!editingId&&sessionLeague&&(
+              {/* effectiveSessionLeague, not sessionLeague.
+                  
+                  sessionLeague is blank in practice, open bowling and
+                  tournaments -- they bowl under a container league -- so
+                  this gate hid the whole series-and-games summary in
+                  exactly the modes that were logging shots. */}
+              {!editingId&&effectiveSessionLeague&&(
+
                 <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",gap:"12px",marginBottom:"14px"}}>
                   <div>
                     <div className="num" style={{fontSize:"56px",lineHeight:0.9,fontWeight:700,fontFamily:F.num,letterSpacing:"-0.02em",color:sessionTotal!=null?C.text:C.textMuted}}>

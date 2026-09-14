@@ -3933,7 +3933,7 @@ export default function BowlingTracker(){
 
   function getSessionTotal(){
     if(!sessionLeague||!activeBowler)return null;
-    const scores=[1,2,3].map(g=>getGameStrict(activeBowler,sessionLeague,sessionDate,g));
+    const scores=[1,2,3].map(g=>getGameStrict(activeBowler,effectiveSessionLeague,sessionDate,g));
     const valid=scores.filter(s=>s!=null);
     return valid.length?valid.reduce((a,b)=>a+b,0):null;
   }
@@ -5188,11 +5188,11 @@ export default function BowlingTracker(){
       }
     }
     for(let n=4;n<=12;n++){
-      if(getGameStrict(activeBowler,sessionLeague,sessionDate,n)!=null)highest=Math.max(highest,n);
+      if(getGameStrict(activeBowler,effectiveSessionLeague,sessionDate,n)!=null)highest=Math.max(highest,n);
     }
     highest=Math.min(12,highest);
     return Array.from({length:highest},(_,i)=>
-      getGameStrict(activeBowler,sessionLeague,sessionDate,i+1));
+      getGameStrict(activeBowler,effectiveSessionLeague,sessionDate,i+1));
   })();
 
   const sessionTotal=getSessionTotal();
