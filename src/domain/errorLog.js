@@ -32,10 +32,6 @@ export const KINDS = [
   "crash", "render", "write-failed", "write-noop", "unhandled",
   "import-failed", "import-empty", "import-quality", "import-score-mismatch",
 
-  // Why a frame-tracked tournament game did not reach its score box.
-  // Six attempts at this bug were made reasoning from the outside; this
-  // reports what the app actually found so the next one does not have to.
-  "tournament-fill",
 ];
 
 // ── Redaction ───────────────────────────────────────────────────────────
