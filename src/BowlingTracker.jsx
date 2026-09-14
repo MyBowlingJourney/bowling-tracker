@@ -63,7 +63,7 @@ import { archiveOnNewStart, compareSeasons, describeSeasonChange } from "./domai
 import { sessionsForFigures } from "./domain/tournamentFormats.js";
 import { emptyDrill, normalizeDrill, drillToRow, drillFromRow } from "./domain/drills.js";
 import { scorekeepingOptions, allowsOtherBowlers, normalizeGuests, addGuest, removeGuest } from "./domain/scorekeeping.js";
-import { visibleLeagues, isLeagueHidden, teamsInLeague, describeLeaveImpact, leaveConfirmationText } from "./domain/leagueMembership.js";
+import { visibleLeagues, isLeagueHidden, teamsInLeague, describeLeaveImpact, leaveConfirmationText, isContainerLeague } from "./domain/leagueMembership.js";
 import { decodeShare } from "./domain/badgeShare.js";
 import { allCompetitiveBadges } from "./domain/badgeContext.js";
 import { buildGenieContext } from "./domain/genie.js";
@@ -939,7 +939,12 @@ export default function BowlingTracker(){
   const[compareFriendId,setCompareFriendId]=useState("");
   const[statsLeague,setStatsLeague]=useState("");
   const[compareLeague,setCompareLeague]=useState("");
-  const[sessionLeague,setSessionLeague]=useState(savedContext?.league||"");
+  // A container league in the saved context is corruption from the bug
+  // above, not a league the bowler picked. Dropping it here repairs a
+  // context already written that way -- otherwise every existing
+  // installation stays stuck on the tournament it last bowled.
+  const[sessionLeague,setSessionLeague]=useState(
+    isContainerLeague(savedContext?.league)?"":(savedContext?.league||""));
   const[sessionDate,setSessionDate]=useState(savedContext?.date||localDateString());
 
   // Changing the date starts a new night at game 1, frame 1.
@@ -4915,7 +4920,21 @@ export default function BowlingTracker(){
   useEffect(()=>{
     try{
       window.localStorage.setItem(SESSION_CONTEXT_KEY,JSON.stringify({
-        league:effectiveSessionLeague,date:sessionDate,lane:startingLane,
+        // sessionLeague, NOT effectiveSessionLeague.
+        //
+        // This is the bug that made league night show tournament data.
+        //
+        // effectiveSessionLeague is the CONTAINER in practice, open
+        // bowling and tournament modes. Saving it here wrote
+        // "Tournament\u00b7Tourny 5\u00b7<uid>" into the resume context, and
+        // sessionLeague is initialised from that on the next load -- so
+        // the tournament's container became the bowler's LEAGUE, for
+        // good. Every screen keyed on it then showed the tournament:
+        // shot context, scoresheet, side games, results.
+        //
+        // sessionLeague is the league the bowler actually picked. The
+        // container is derived from the mode and never needs storing.
+        league:sessionLeague,date:sessionDate,lane:startingLane,
         // Where they'd got to. Without this the form reset to game 1
         // frame 1 on refresh, and since saving matches on
         // (bowler, league, date, game, frame), the NEXT shot silently
