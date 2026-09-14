@@ -244,7 +244,26 @@ export default function LogView({
   //
   // Defaults to scoring, not setup -- a league bowler arriving mid-night
   // wants the scoresheet, and setup is a once-a-season job.
-  const [leagueTab,setLeagueTab]=useState("scoring");
+  // Scoring by default, EXCEPT when the night is not set up yet.
+  //
+  // The league picker lives on Set up. Defaulting to Scoring meant a
+  // bowler with no league chosen landed on a tab that cannot choose one
+  // -- and the only way forward was a tab they had no reason to open.
+  //
+  // Once a league is picked, arriving mid-night should land on the
+  // scoresheet, which is what a league bowler actually came for.
+  const [leagueTabChoice,setLeagueTabChoice]=useState("scoring");
+  // DERIVED, not just an initial value.
+  //
+  // A lazy initialiser runs once, and sessionLeague is empty on the
+  // first render while the saved context loads -- so the tab would latch
+  // to "setup" and stay there even after a league appeared.
+  //
+  // Forcing setup whenever no league is chosen also means the bowler
+  // cannot navigate away from the one tab that can fix that, which is
+  // the right constraint rather than an accident.
+  const leagueTab=sessionLeague?leagueTabChoice:"setup";
+  const setLeagueTab=setLeagueTabChoice;
   const leagueTabs=env==="league";
   const onTab=t=>!leagueTabs||leagueTab===t;
 
