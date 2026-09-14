@@ -10,6 +10,8 @@ import {
 import { patternDisplayName, searchPatterns, describePattern, patternStats } from "./domain/oilPatterns.js";
 import { leagueFormat, isNoTapLeague } from "./domain/leagueSeasons.js";
 import { isBaker, appliesHandicap, bakerFramesFor, BAKER_STARTERS, handicapPins, bakerScoreNote } from "./domain/tournamentFormats.js";
+
+import { tenthBall3Earned } from "./domain/scoring.js";
 import {
   SIDE_POT_TYPES, addSidePot, removeSidePot, setSidePotField, sidePotMoney, sidePotTotals,
 } from "./domain/sidePots.js";
@@ -311,11 +313,26 @@ function DayDetails({ tournament, day, onChange, canRemoveDay, onRemoveDay, mult
   );
 }
 
-function DayScoring({ tournament, day, onChange, multiDay, shotScores, expanded = true, onToggleExpanded }) {
+function DayScoring({ tournament, day, onChange, multiDay, shotScores, shotsForGame, expanded = true, onToggleExpanded }) {
   const total = dayTotal(day, shotScores);
   const avg = dayAverage(day, shotScores);
   const entered = dayGamesEntered(day, shotScores);
   const margin = cutMargin(day, shotScores);
+  // Has the tenth been bowled out?
+  //
+  // strictPartial happily scores a part-bowled game, which is right for
+  // a live scoresheet and wrong for filling a score box. The tenth is
+  // done when it has a second ball and, if one was earned, a third.
+  const gameComplete = g => {
+    const gs = (shotsForGame || {})[String(g.gameNumber)] || [];
+    const tenth = gs.filter(s => parseInt(s.frame) === 10);
+    const b1 = tenth.find(s => !s.ballNum || Number(s.ballNum) === 1) || null;
+    const b2 = tenth.find(s => Number(s.ballNum) === 2) || null;
+    if (!b1 || !b2) return false;
+    if (!tenthBall3Earned(b1, b2)) return true;
+    return !!tenth.find(s => Number(s.ballNum) === 3);
+  };
+
   const derived = g => shotScores ? (Number.isFinite(Number(shotScores[String(g.gameNumber)])) ? Number(shotScores[String(g.gameNumber)]) : null) : null;
 
   // Frame-tracked scores are WRITTEN into the games, not just shown
@@ -337,6 +354,14 @@ function DayScoring({ tournament, day, onChange, multiDay, shotScores, expanded 
     for (const g of day.games || []) {
       const v = derived(g);
       if (v === null) continue;
+      // Only once the game is FINISHED.
+      //
+      // A running total climbing in the score box during the game reads
+      // as a final score and invites the bowler to leave it, or to
+      // wonder why it keeps changing. The number appears when it is the
+      // number.
+      if (!gameComplete(g)) continue;
+
       const typedOver = g.score !== "" && !g.scoreAuto;
       if (typedOver) continue;
       if (String(g.score) === String(v) && g.scoreAuto) continue;
@@ -681,7 +706,7 @@ function MatchPlay({ tournament, onChange }) {
   );
 }
 
-export default function TournamentSession({ tournament, onChange, onSave, saved, oilPatterns, submitOilPattern, tournaments, shotScoresByDate = null, tab: controlledTab, onTabChange, saveMessage = "" }) {
+export default function TournamentSession({ tournament, onChange, onSave, saved, oilPatterns, submitOilPattern, tournaments, shotScoresByDate = null, tab: controlledTab, onTabChange, saveMessage = "", shotsByDate = null }) {
   // The tab is owned by the caller.
   //
   // LogView renders Shot Context alongside this card, and it only makes
@@ -1110,6 +1135,7 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
       {(tournament.days || []).map(day => (
         <DayScoring key={day.dayNumber}
           shotScores={dayScores(day)}
+          shotsForGame={(shotsByDate || {})[String(day.date || "")] || (Object.values(shotsByDate || {})[0] || null)}
           tournament={tournament}
           day={day}
           multiDay={multiDay}

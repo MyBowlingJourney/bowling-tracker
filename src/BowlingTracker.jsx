@@ -3707,6 +3707,21 @@ export default function BowlingTracker(){
     const shotLeague=editingId?form.league:effectiveSessionLeague;
     const shotDate=editingId?form.date:sessionDate;
 
+    // Frames 1-9 carry NO ball number. The 10th does.
+    //
+    // That is the shape the scoring engine reads: strictPartial finds
+    // frames 1-9 with `!s.ballNum`, so a 1 sitting on frame 3 makes the
+    // whole game invisible -- no score, no series, nothing filling in.
+    //
+    // The form is not trusted for this. It holds a ball number from
+    // whatever the bowler last did, and nothing cleared it on the way
+    // back from the tenth. Normalising here means the record is right
+    // regardless of what the form was carrying.
+    const shotBallNum=parseInt(form.frame)===10
+      ?(Number(form.ballNum)||1)
+      :null;
+
+
     // A no-tap strike is stored as the LEAVE, with noTap: true -- not as
     // result "Strike".
     //
@@ -3727,7 +3742,7 @@ export default function BowlingTracker(){
     const autoLane=calcLane(startingLane,form.game,form.frame,form.ballNum);
 
     if(editingId){
-      const shotData={...form,result:effectiveResult,noTap:noTapFlag,_displayResult:form.result,_displayLeave:[...(form.otherLeave||[])]};
+      const shotData={...form,ballNum:shotBallNum,result:effectiveResult,noTap:noTapFlag,_displayResult:form.result,_displayLeave:[...(form.otherLeave||[])]};
       let updated=shots.map(s=>s.id===editingId?{...shotData,id:editingId}:s);
 
       // Drop a fill ball the edit just un-earned.
@@ -3767,7 +3782,7 @@ export default function BowlingTracker(){
       // already-played 10th-frame ball), overwrite it rather than adding a
       // second shot for the same slot — a duplicate would corrupt frame lookups
       // in strictPartial, which expects exactly one shot per slot.
-      const existingSlot=findExistingShotSlot(shots,{...form,league:shotLeague,date:shotDate});
+      const existingSlot=findExistingShotSlot(shots,{...form,league:shotLeague,date:shotDate,ballNum:shotBallNum});
       const toSave={
         ...form,
         // league and date EXPLICITLY, after the spread.
@@ -3782,6 +3797,7 @@ export default function BowlingTracker(){
         // existed, under a league nothing was looking for.
         league:shotLeague,
         date:shotDate,
+        ballNum:shotBallNum,
         id:existingSlot?existingSlot.id:crypto.randomUUID(),
 
         // Stamped at log time so it survives the guest being removed from

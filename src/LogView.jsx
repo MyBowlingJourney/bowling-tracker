@@ -131,8 +131,14 @@ export default function LogView({
       (byDate[d]=byDate[d]||{});
       (byDate[d][String(sh.game)]=byDate[d][String(sh.game)]||[]).push(sh);
     }
+    // Two maps: the scores, and the shots they came from. Completeness
+    // is a question about the shots -- has the tenth been bowled out --
+    // and a score alone cannot answer it.
     const out={};
+    const raw={};
     for(const[date,games]of Object.entries(byDate)){
+      raw[date]=games;
+
       const scores={};
       for(const[game,gs]of Object.entries(games)){
         const v=strictPartial(gs);
@@ -140,7 +146,7 @@ export default function LogView({
       }
       if(Object.keys(scores).length)out[date]=scores;
     }
-    return Object.keys(out).length?out:null;
+    return Object.keys(out).length?{scores:out,shots:raw}:null;
   })();
 
 
@@ -383,7 +389,8 @@ export default function LogView({
                 tab={tournamentTab} onTabChange={setTournamentTab}
 
                 saveMessage={tournamentSaveMessage}
-                shotScoresByDate={tournamentShotScoresByDate}
+                shotScoresByDate={tournamentShotScoresByDate?.scores||null}
+                shotsByDate={tournamentShotScoresByDate?.shots||null}
                 tournament={activeTournament}
                 onChange={updateTournament}
                 onSave={saveTournament}
