@@ -223,6 +223,7 @@ export default function Settings({
           {historyTab === "journey" && (
             <JourneyView
               sessions={sessions || []}
+              shots={shots || []}
               tournaments={tournaments || []}
               bowler={statsBowler || activeBowler} />
           )}

@@ -3,8 +3,14 @@ import { C, S, Chip } from "./ui.jsx";
 
 import { practiceLeagueDisplayName } from "./constants.js";
 import {
-  monthGrid, monthsWithSessions, monthLabel, weekdayLabels, shiftMonth,
-  tournamentNights, cellModes,
+  monthGrid,
+  monthsWithSessions,
+  monthLabel,
+  weekdayLabels,
+  shiftMonth,
+  tournamentNights,
+  cellModes,
+  shotNights,
 } from "./domain/calendar.js";
 
 // A month of bowling nights.
@@ -48,7 +54,7 @@ const MODE_LABELS = {
 };
 
 export default function CalendarView({
-  sessions = [], tournaments = [], bowler = "", league = "", weekStart = 0,
+  sessions = [], shots = [], tournaments = [], bowler = "", league = "", weekStart = 0,
   onDeleteNight,
 }) {
   // Tournament days are folded in as nights, because they are nights the
@@ -58,8 +64,9 @@ export default function CalendarView({
   // Only when no league filter is on: a tournament is not part of a
   // league, so filtering to one and still showing them would be wrong.
   const allNights = league
-    ? sessions
-    : [...sessions, ...tournamentNights(tournaments, bowler)];
+    ? [...sessions, ...shotNights(shots, sessions)]
+    : [...sessions, ...shotNights(shots, sessions),
+       ...tournamentNights(tournaments, bowler)];
 
   const months = monthsWithSessions(allNights, bowler, league);
 

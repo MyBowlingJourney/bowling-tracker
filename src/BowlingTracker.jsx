@@ -94,6 +94,8 @@ const Friends = lazyScreen("Friends", () => import("./Friends.jsx"));
 import { categorizeFriendships } from "./Friends.jsx";
 
 import { retireBall, unretireBall, activeBalls, retiredBallNames, retiredBallSummary, describeRetirement, isRetired } from "./domain/retiredBalls.js";
+
+import { hasDuplicateIdentity, mergedBowlers, movedRecords, movedKeyedMap, handleFromEmail } from "./domain/bowlerIdentity.js";
 const StatsView = lazyScreen("StatsView", () => import("./StatsView.jsx"));
 const ImportScorecard = lazyScreen("ImportScorecard", () => import("./ImportScorecard.jsx"));
 const Settings = lazyScreen("Settings", () => import("./Settings.jsx"));
@@ -4918,14 +4920,55 @@ export default function BowlingTracker(){
   const nameSyncedRef=useRef("");
   useEffect(()=>{
     if(!displayName)return;
+
+    // The MERGE is checked before the once-per-name guard.
+    //
+    // That guard exists so the display name is not re-added on every
+    // render, and it returns early after the first run -- which would
+    // stop the merge the moment records arrive, because shots and
+    // sessions load after the profile does. The merge is idempotent:
+    // hasDuplicateIdentity is false once there is nothing left to
+    // merge, so checking it every time costs a comparison and nothing
+    // else.
+    if(hasDuplicateIdentity(bowlers,user?.email,displayName)){
+      const email=user?.email;
+      saveBowlers(mergedBowlers(bowlers,email,displayName));
+      const movedShots=movedRecords(shots,email,displayName);
+      if(movedShots!==shots)saveShots(movedShots);
+      const movedSessions=movedRecords(sessions,email,displayName);
+      if(movedSessions!==sessions)saveSessions(movedSessions);
+      const movedArsenals=movedKeyedMap(arsenals,email,displayName);
+      if(movedArsenals!==arsenals)saveArsenals(movedArsenals);
+      if(activeBowler===handleFromEmail(email))selectBowler(displayName);
+      return;
+    }
+
     if(nameSyncedRef.current===displayName)return;
     nameSyncedRef.current=displayName;
+
+    // MERGE the sign-in handle into the display name, do not add beside it.
+    //
+    // The handle (reverett290) is written to bowler_names on first sign
+    // in, before a profile exists. The display name (Ryan) arrives later
+    // from the profile, and adding it made the bowler appear TWICE --
+    // both offered when filing scores, which is a question with no right
+    // answer, and picking the wrong one files the night where the other
+    // cannot see it.
+    //
+    // Records move with the name. Hiding the handle instead would orphan
+    // every shot, session and arsenal already filed under it: the bowler
+    // would see their name once and their history not at all.
     if(!bowlers.includes(displayName)){
       saveBowlers([...bowlers,displayName]);
       if(!activeBowler)selectBowler(displayName);
     }
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[displayName,bowlers.length]);
+  // shots/sessions/arsenals are in the deps because the merge MOVES them.
+  // They load asynchronously, so an effect that ran only on displayName
+  // would merge the bowler list against records that had not arrived and
+  // leave the history behind under the old name.
+  },[displayName,bowlers.length,user?.email,shots.length,sessions.length]);
 
   // A new SESSION starts with no ball chosen. A new GAME does not.
   //
