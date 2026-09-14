@@ -3293,14 +3293,14 @@ export default function BowlingTracker(){
     // Resume this bowler at their own next unplayed frame for tonight's
     // league/date, instead of leaving them wherever the previous bowler was.
     if(sessionLeague){
-      const bShots=shots.filter(s=>s.bowler===name&&s.league===sessionLeague&&s.date===sessionDate&&(!s.ballNum||s.ballNum===1));
+      const bShots=shots.filter(s=>s.bowler===name&&s.league===effectiveSessionLeague&&s.date===sessionDate&&(!s.ballNum||s.ballNum===1));
       if(bShots.length){
         const last=[...bShots].sort((a,b)=>{
           const ga=parseInt(a.game),gb=parseInt(b.game);
           if(ga!==gb)return ga-gb;
           return parseInt(a.frame)-parseInt(b.frame);
         }).pop();
-        const allBShots=shots.filter(s=>s.bowler===name&&s.league===sessionLeague&&s.date===sessionDate);
+        const allBShots=shots.filter(s=>s.bowler===name&&s.league===effectiveSessionLeague&&s.date===sessionDate);
         const{game:ng,frame:nf,ballNum:nb}=nextState(allBShots,name,sessionLeague,sessionDate,last.game,last.frame,last.ballNum);
         setForm(f=>({...f,...resetFields,bowler:name,teamId,league:effectiveSessionLeague,date:sessionDate,game:ng,frame:nf,ballNum:nb}));
         return;
@@ -4132,7 +4132,15 @@ export default function BowlingTracker(){
   }
 
   function getSessionTotal(){
-    if(!sessionLeague||!activeBowler)return null;
+    // Guard on the SAME identity the line below computes with.
+    //
+    // sessionLeague is blank in practice, open bowling and tournaments --
+    // they bowl under a container league -- so this returned null before
+    // computing anything. The series sat empty next to a G1 box showing
+    // 246, because the guard and the computation disagreed about which
+    // night this is.
+    if(!nightLeague||!nightBowler)return null;
+
     const scores=[1,2,3].map(g=>getGameStrict(nightBowler,nightLeague,nightDate,g));
     const valid=scores.filter(s=>s!=null);
     return valid.length?valid.reduce((a,b)=>a+b,0):null;

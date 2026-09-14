@@ -875,7 +875,14 @@ export default function LogView({
                       pick, so keying off sessionLeague told a practice
                       bowler to "pick a league above" -- something that
                       doesn't exist in that mode. */}
-                  {activeBowler||"No bowler selected"}
+                  {/* The bowler the shots are filed under, not the
+                      account name. activeBowler can be the sign-in
+                      identity -- an email-derived handle -- while the
+                      shots belong to "Ryan", and showing the wrong one
+                      here made it look like the app was logging for
+                      somebody else. */}
+                  {form.bowler||activeBowler||"No bowler selected"}
+
                   {effectiveSessionLeague
                     /* The DISPLAY name. A container league's stored name
                        carries the user id -- "Tournament·Tourny Test
