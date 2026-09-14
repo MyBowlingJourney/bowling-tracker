@@ -122,7 +122,20 @@ export default function LogView({
   // those drift apart -- the shot form can still be on today while the
   // bowler is filling in tomorrow's block.
   const tournamentShotScoresByDate=(()=>{
-    if(env!=="tournament"||!activeBowler||!effectiveSessionLeague)return null;
+    // The early return logged nothing, so "no entry at all" was
+    // indistinguishable from "never ran". Say which.
+    if(env!=="tournament"||!activeBowler||!effectiveSessionLeague){
+      if(env==="tournament"&&(shots||[]).length){
+        recordError({
+          kind:"tournament-fill",
+          where:"tournament.frameScores",
+          message:`did not run: bowler=${activeBowler||"(none)"} `
+            +`league=${effectiveSessionLeague||"(none)"}`,
+        });
+      }
+      return null;
+    }
+
     const mine=(shots||[]).filter(sh=>sh&&sh.bowler===activeBowler
       &&sh.league===effectiveSessionLeague);
     if(!mine.length){
@@ -251,8 +264,14 @@ export default function LogView({
     : 3;
 
   const saveShotRef=useRef(null);
+  // The BOTTOM of the save button at the bottom of the screen.
+  //
+  // block:"center" put the button mid-screen, which pushed the
+  // scoresheet off the top -- the bowler lost the frames they were
+  // working from. "end" brings the button just into view and leaves
+  // everything above it where it was.
   const scrollToSave=()=>requestAnimationFrame(()=>
-    saveShotRef.current?.scrollIntoView({behavior:"smooth",block:"center"}));
+    saveShotRef.current?.scrollIntoView({behavior:"smooth",block:"end"}));
 
 
   // Shot Context (game/frame/lane) is meaningless without shots -- a
@@ -1123,14 +1142,10 @@ export default function LogView({
                         // picking a result can add the Spare Made row or
                         // the pin picker, and scrolling before those
                         // exist lands short.
-                        // Not for "Other Leave" -- the pin grid opens
-                        // underneath and scrolling the save button to
-                        // centre pushes the scoresheet off the top, so
-                        // the bowler loses the frames they are working
-                        // from. The scroll comes after the pins and
-                        // Spare Made are answered, when there is
-                        // actually something to reach.
-                        if(newResult&&newResult!=="Other Leave")scrollToSave();
+// Any result scrolls. With block:"end" the pin grid opens
+                        // below without hiding the scoresheet, so there is no
+                        // longer a reason to hold Other Leave back.
+                        if(newResult)scrollToSave();
 
 
 
@@ -1238,7 +1253,7 @@ export default function LogView({
                         scrolling by hand. */}
                     {["Yes","No"].map(s=>(
                       <Chip key={s} label={s} selected={form.spareMade===s}
-                        onToggle={()=>{handleSpareMadeToggle(s);scrollToSave();}}
+                        onToggle={()=>{handleSpareMadeToggle(s);if(s==="No")scrollToSave();}}
                         color={s==="Yes"?C.strike:C.miss}/>
                     ))}
                   </div>

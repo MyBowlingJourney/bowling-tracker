@@ -12,6 +12,8 @@ import { leagueFormat, isNoTapLeague } from "./domain/leagueSeasons.js";
 import { isBaker, appliesHandicap, bakerFramesFor, BAKER_STARTERS, handicapPins, bakerScoreNote } from "./domain/tournamentFormats.js";
 
 import { tenthBall3Earned } from "./domain/scoring.js";
+
+import { recordError } from "./errorLogStore.js";
 import {
   SIDE_POT_TYPES, addSidePot, removeSidePot, setSidePotField, sidePotMoney, sidePotTotals,
 } from "./domain/sidePots.js";
@@ -327,7 +329,7 @@ function DayDetails({ tournament, day, onChange, canRemoveDay, onRemoveDay, mult
   );
 }
 
-function DayScoring({ tournament, day, onChange, multiDay, shotScores, shotsForGame, expanded = true, onToggleExpanded }) {
+function DayScoring({ tournament, day, onChange, multiDay, shotScores, shotsForGame, shotScoresByDate, expanded = true, onToggleExpanded }) {
   const total = dayTotal(day, shotScores);
   const avg = dayAverage(day, shotScores);
   const entered = dayGamesEntered(day, shotScores);
@@ -362,7 +364,20 @@ function DayScoring({ tournament, day, onChange, multiDay, shotScores, shotsForG
   // bowler types over it the flag clears and the app stops touching it
   // -- the house scorer wins, and a mis-tapped frame stays correctable.
   useEffect(() => {
-    if (!shotScores) return;
+    // Scores arrived but this block got none, or none of its games
+    // matched. That is the half the LogView instrumentation cannot see.
+    if (!shotScores) {
+      if (shotScoresByDate && Object.keys(shotScoresByDate).length) {
+        recordError({
+          kind: "tournament-fill",
+          where: "tournament.fillGames",
+          message: `block "${day.date || "(undated)"}" got no scores. `
+            + `available dates=[${Object.keys(shotScoresByDate).join(",")}]`,
+        });
+      }
+      return;
+    }
+
     let next = day;
     let changed = false;
     for (const g of day.games || []) {
@@ -1163,6 +1178,7 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
       {(tournament.days || []).map(day => (
         <DayScoring key={day.dayNumber}
           shotScores={dayScores(day)}
+          shotScoresByDate={shotScoresByDate}
           shotsForGame={dayShots(day)}
           tournament={tournament}
           day={day}
