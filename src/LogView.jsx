@@ -20,6 +20,8 @@ import { formatLayout } from "./domain/layouts.js";
 import { otherBowlerSource, scorekeepingHelp } from "./domain/scorekeeping.js";
 import { plasticLast } from "./domain/bags.js";
 
+
+import { recordError } from "./errorLogStore.js";
 export default function LogView({
   // Was used free at the night-achievements block below and never
   // declared anywhere, so rendering a completed session threw
@@ -40,7 +42,7 @@ export default function LogView({
   sessionLeague, setSessionLeague, effectiveSessionLeague, sessionDate, setSessionDate,
   startingLane, setStartingLane, setShowSummary, expandedSections,
   ballNumLabel, curSession, currentLane, firstBallPins, gameScores = [],
-  hasLeave, inTenth, isNoTap, isStrike, needsSpareMade, sessionTotal, showPinCount,
+  hasLeave, inTenth, isNoTap, isStrike, needsSpareMade, needsPins, sessionTotal, showPinCount,
   standingPins, tenthOptions,
   addBall, addBowler, autoFillLine, calcLane, cancelEdit, cycleGameResult, cycleSeriesResult,
   getLanePattern, getMatch, handleBallChange, handleLeaveToggle, handleLineChange,
@@ -123,7 +125,22 @@ export default function LogView({
     if(env!=="tournament"||!activeBowler||!effectiveSessionLeague)return null;
     const mine=(shots||[]).filter(sh=>sh&&sh.bowler===activeBowler
       &&sh.league===effectiveSessionLeague);
-    if(!mine.length)return null;
+    if(!mine.length){
+      // Shots exist for this bowler somewhere, just not under this
+      // league -- the single most likely cause, and invisible until now.
+      const anywhere=(shots||[]).filter(sh=>sh&&sh.bowler===activeBowler);
+      if(anywhere.length){
+        recordError({
+          kind:"tournament-fill",
+          where:"tournament.frameScores",
+          message:`no shots under "${effectiveSessionLeague}". `
+            +`${anywhere.length} shot(s) exist for this bowler under: `
+            +`[${[...new Set(anywhere.map(sh=>sh.league||"(blank)"))].join(" | ")}]`,
+        });
+      }
+      return null;
+    }
+
     const byDate={};
     for(const sh of mine){
       const d=String(sh.date||"");
@@ -146,7 +163,27 @@ export default function LogView({
       }
       if(Object.keys(scores).length)out[date]=scores;
     }
+    // Nothing derived, but shots exist: say why, once.
+    //
+    // Every link here has been verified in isolation and the bug has
+    // survived six fixes, which means an assumption about the real data
+    // is wrong. This records what was actually found instead of guessing
+    // again -- bowler, league, dates and games seen, and what the scorer
+    // made of them.
+    if(!Object.keys(out).length&&mine.length){
+      const sample=mine.slice(0,3).map(sh=>
+        `f${sh.frame}${sh.ballNum?`b${sh.ballNum}`:""}:${sh.result||"?"}`).join(" ");
+      recordError({
+        kind:"tournament-fill",
+        where:"tournament.frameScores",
+        message:`${mine.length} shot(s) matched bowler+league but scored nothing. `
+          +`dates=[${Object.keys(byDate).join(",")}] `
+          +`games=[${[...new Set(mine.map(sh=>sh.game))].join(",")}] `
+          +`sample=${sample}`,
+      });
+    }
     return Object.keys(out).length?{scores:out,shots:raw}:null;
+
   })();
 
 
@@ -935,7 +972,7 @@ export default function LogView({
                   // Save Shot rather than silently discarding what was
                   // entered. Same condition the Save button uses -- if it
                   // wouldn't save on tap, it doesn't save here either.
-                  const canSave=form.result&&form.bowler&&!needsSpareMade;
+                  const canSave=form.result&&form.bowler&&!needsSpareMade&&!needsPins;
                   if(canSave&&submitShot){submitShot();return;}
 
                   goTo();
@@ -1086,7 +1123,15 @@ export default function LogView({
                         // picking a result can add the Spare Made row or
                         // the pin picker, and scrolling before those
                         // exist lands short.
-                        if(newResult)scrollToSave();
+                        // Not for "Other Leave" -- the pin grid opens
+                        // underneath and scrolling the save button to
+                        // centre pushes the scoresheet off the top, so
+                        // the bowler loses the frames they are working
+                        // from. The scroll comes after the pins and
+                        // Spare Made are answered, when there is
+                        // actually something to reach.
+                        if(newResult&&newResult!=="Other Leave")scrollToSave();
+
 
 
                         // Deselecting the result of a SAVED shot deletes
@@ -1240,12 +1285,20 @@ export default function LogView({
                  do, and it appeared on all four. */
               &&(env!=="tournament"||tournamentTab==="scoring")))&&(
               <div style={{marginBottom:"12px"}}>
-                <button style={S.btn("primary")} onClick={submitShot} disabled={!form.result||!form.bowler||needsSpareMade}>
+                <button style={S.btn("primary")} onClick={submitShot} disabled={!form.result||!form.bowler||needsSpareMade||needsPins}>
                   {saved?(editingId?"\u2713 Shot Updated":"\u2713 Shot Saved"):(editingId?"Update Shot":"Save Shot")}
                 </button>
-                {needsSpareMade&&(
+                {/* Why the button is disabled, next to the button.
+                    Pins first: it is the earlier question, and answering
+                    it is what makes Spare Made worth asking. */}
+                {needsPins?(
+                  <div style={{fontSize:"12px",color:C.spare,marginTop:"8px",textAlign:"center"}}>
+                    Tap the pins you left, or enter how many you knocked down.
+                  </div>
+                ):needsSpareMade&&(
                   <div style={{fontSize:"12px",color:C.spare,marginTop:"8px",textAlign:"center"}}>Answer "Spare Made" above to save.</div>
                 )}
+
               </div>
             )}
 

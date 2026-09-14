@@ -3668,6 +3668,21 @@ export default function BowlingTracker(){
   // last delivery, nothing left to convert).
   const needsSpareMade=hasLeave&&!(parseInt(form.frame)===10&&form.ballNum===3)&&!form.spareMade;
 
+  // "Other Leave" with nothing ticked is not a frame.
+  //
+  // The app let it save and moved on, so the frame existed with no pins
+  // and no count -- unscoreable, and a permanent blank in the scoresheet
+  // that nothing flagged. Weak 10 and Ringing 10 name their own pin, so
+  // only the open-ended option needs this.
+  //
+  // The 10th's third ball is exempt for the same reason it skips Spare
+  // Made: it is a fill ball, not a leave.
+  const needsPins=form.result==="Other Leave"
+    &&!(parseInt(form.frame)===10&&Number(form.ballNum)===3)
+    &&!(form.otherLeave||[]).length
+    &&!String(form.pinCount||"").trim();
+
+
   // Measures the fixed Save Shot footer so the page can reserve space for
   // it. Previously keyed only on `view`, which meant the effect never
   // re-ran when the footer appeared, vanished, or grew -- switching into
@@ -6239,7 +6254,7 @@ export default function BowlingTracker(){
             offerShotByShot={offerShotByShot} onTryShotByShot={tryShotByShot} onDismissShotByShot={dismissShotPrompt}
             promptForTeam={promptForTeam} onDismissTeamPrompt={dismissTeamPrompt}
             ballNumLabel={ballNumLabel} curSession={curSession} currentLane={currentLane} firstBallPins={firstBallPins} gameScores={gameScores}
-            hasLeave={hasLeave} inTenth={inTenth} isNoTap={isNoTap} isStrike={isStrike} needsSpareMade={needsSpareMade} sessionTotal={sessionTotal} showPinCount={showPinCount}
+            hasLeave={hasLeave} inTenth={inTenth} isNoTap={isNoTap} isStrike={isStrike} needsSpareMade={needsSpareMade} needsPins={needsPins} sessionTotal={sessionTotal} showPinCount={showPinCount}
             standingPins={standingPins} tenthOptions={tenthOptions}
             addBall={addBall} addBowler={addBowler} autoFillLine={autoFillLine} calcLane={calcLane} cancelEdit={cancelEdit} cycleGameResult={cycleGameResult} cycleSeriesResult={cycleSeriesResult}
             getLanePattern={getLanePattern} getMatch={getMatch} handleBallChange={handleBallChange} handleLeaveToggle={handleLeaveToggle} handleLineChange={handleLineChange}
