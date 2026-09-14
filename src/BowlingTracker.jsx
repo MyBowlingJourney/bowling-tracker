@@ -4344,10 +4344,42 @@ export default function BowlingTracker(){
   // every buy-in cost array. Same optimistic-then-debounced-sync shape as
   // setPokerWinnings -- factored to one function because these all behave
   // identically and only differ by which field they write.
+  // Create the session row if the night does not have one yet.
+  //
+  // curSession can be DERIVED from frames for a night in progress, and a
+  // derived one has no id. Writing money against it matched no row and
+  // vanished silently -- the bowler ticks a pot, the number disappears.
+  //
+  // Buy-ins are owed before the first ball, so this is the normal case
+  // for money, not an edge one.
+  function ensureSessionRow(){
+    const existing=sessions.find(s=>s.bowler===nightBowler
+      &&s.league===nightLeague&&s.date===nightDate);
+    if(existing)return existing.id;
+    if(!nightBowler||!nightLeague||!nightDate)return "";
+    const row={
+      id:crypto.randomUUID(),
+      bowler:nightBowler,league:nightLeague,date:nightDate,
+      scores:[],total:0,average:0,
+      pokerQuarter:[0,0,0],pokerDollar:[0,0,0],
+      threeSixNineWinnings:0,jackpotWinnings:0,
+      highGameWinnings:[0,0,0],
+      pokerQuarterCost:[0,0,0],pokerDollarCost:[0,0,0],
+      highGameCost:[0,0,0],threeSixNineCost:0,
+    };
+    const next=[...sessions,row];
+    setSessions(next);
+    try{window.storage.set(SESSIONS_KEY,JSON.stringify(next));}catch{}
+    return row.id;
+  }
+
   function setSessionMoneyArray(sessionId,field,gameIdx,amount){
+    const id=sessionId||ensureSessionRow();
+    if(!id)return;
     const prevSessions=sessions;
-    const updatedSessions=sessions.map(s=>{
-      if(s.id!==sessionId)return s;
+    const updatedSessions=(sessions.some(s=>s.id===id)?sessions:[...sessions])
+      .map(s=>{
+      if(s.id!==id)return s;
       const arr=[...(s[field]||[0,0,0])];
       arr[gameIdx]=amount;
       return{...s,[field]:arr};
@@ -4365,8 +4397,12 @@ export default function BowlingTracker(){
   // Single-value money entry (3-6-9's session-wide buy-in), as opposed to
   // the per-game arrays above.
   function setSessionMoneyValue(sessionId,field,amount){
+    // A night in progress has no session row yet; create it rather
+    // than writing into nothing. See ensureSessionRow.
+    const ensuredId=sessionId||ensureSessionRow();
+    if(!ensuredId)return;
     const prevSessions=sessions;
-    const updatedSessions=sessions.map(s=>s.id!==sessionId?s:{...s,[field]:amount});
+    const updatedSessions=sessions.map(s=>s.id!==ensuredId?s:{...s,[field]:amount});
     setSessions(updatedSessions);
     try{window.storage.set(SESSIONS_KEY,JSON.stringify(updatedSessions));}catch{}
 
@@ -4387,9 +4423,13 @@ export default function BowlingTracker(){
   // across games 1, 2, and 3), not something that happens per individual
   // game. type is "pot" for the regular win or "jackpot" for the bonus.
   function setThreeSixNineWinnings(sessionId,type,amount){
+    // A night in progress has no session row yet; create it rather
+    // than writing into nothing. See ensureSessionRow.
+    const ensuredId=sessionId||ensureSessionRow();
+    if(!ensuredId)return;
     const prevSessions=sessions;
     const key=type==="jackpot"?"jackpotWinnings":"threeSixNineWinnings";
-    const updatedSessions=sessions.map(s=>s.id!==sessionId?s:{...s,[key]:amount});
+    const updatedSessions=sessions.map(s=>s.id!==ensuredId?s:{...s,[key]:amount});
     setSessions(updatedSessions);
     try{window.storage.set(SESSIONS_KEY,JSON.stringify(updatedSessions));}catch{}
 
@@ -4801,7 +4841,48 @@ export default function BowlingTracker(){
     updatePreferences(prev=>setTrackingMode(prev,"shot"));
   }
 
-  const curSession=[...sessions].reverse().find(s=>s.bowler===activeBowler&&s.league===effectiveSessionLeague&&s.date===sessionDate);
+  // Tonight's session -- the saved row, or one derived from the frames.
+  //
+  // A session ROW is only written by "End session". Everything keyed off
+  // curSession therefore showed nothing until the bowler tapped it:
+  // the Side games card was blank in the middle of a league night, and
+  // the Results tab with it.
+  //
+  // Money is the sharpest case. Buy-ins are owed the moment the night
+  // starts, and the bowler ticks the pots they are in BEFORE bowling --
+  // so requiring a finished session to show that card is backwards.
+  //
+  // computeSessionStats is the same function endSession uses, so the
+  // in-progress view and the saved one cannot disagree.
+  const curSession=(()=>{
+    const saved=[...sessions].reverse().find(s=>s.bowler===nightBowler
+      &&s.league===nightLeague&&s.date===nightDate);
+    if(saved)return saved;
+
+    const ss=shots.filter(s=>s&&s.bowler===nightBowler
+      &&s.league===nightLeague&&String(s.date)===String(nightDate));
+    if(!ss.length)return null;
+
+    const scores=[1,2,3].map(g=>getGameStrict(nightBowler,nightLeague,nightDate,g))
+      .filter(v=>v!=null);
+    return {
+      // No id: this is NOT a row and must never be saved as one. Anything
+      // that writes reads the real session or creates it through
+      // endSession.
+      id:"",
+      bowler:nightBowler,league:nightLeague,date:nightDate,
+      scores,
+      total:scores.reduce((a,b)=>a+b,0),
+      average:scores.length?Math.round(scores.reduce((a,b)=>a+b,0)/scores.length):0,
+      pokerQuarter:[0,0,0],pokerDollar:[0,0,0],
+      threeSixNineWinnings:0,jackpotWinnings:0,
+      highGameWinnings:[0,0,0],
+      pokerQuarterCost:[0,0,0],pokerDollarCost:[0,0,0],
+      highGameCost:[0,0,0],threeSixNineCost:0,
+      inProgress:true,
+      ...computeSessionStats(ss),
+    };
+  })();
 
   // Money games need a session row to attach winnings to, and that row
   // was only created by "End session". So poker and bracket winnings --
