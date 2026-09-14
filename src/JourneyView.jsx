@@ -2,7 +2,6 @@ import { useState } from "react";
 import { C, S } from "./ui.jsx";
 import {
   journeyMilestones,
-  nextMilestone,
   journeyProgress,
   describeMilestone,
   bandedJourney,
@@ -46,11 +45,25 @@ export default function JourneyView({ sessions = [], tournaments = [], bowler = 
     : 0;
   const { open: openMilestones, bands } = bandedJourney(milestones, average);
   const [openBands, setOpenBands] = useState({});
-  const next = nextMilestone(milestones);
   const { earned, total } = journeyProgress(milestones);
 
   // Bottom of the list is the FIRST milestone, so reverse for drawing.
   const drawn = [...openMilestones].reverse();
+  // Nothing yet. An empty map with one node and no path reads as a
+  // broken screen; this reads as a beginning.
+  if (!drawn.length) {
+    return (
+      <div style={{ ...S.card, textAlign: "center", padding: "24px 16px" }}>
+        <div style={{ fontSize: "14px", fontWeight: 600, color: C.text }}>My journey</div>
+        <div style={{ fontSize: "12px", color: C.textMuted, marginTop: "8px", lineHeight: 1.6 }}>
+          Log a night and your journey starts here. Every first — first
+          strike, first spare, first 100 — lands on the map with the date
+          you did it.
+        </div>
+      </div>
+    );
+  }
+
   const height = TOP_PAD + (drawn.length - 1) * STEP + BOTTOM_PAD;
   const pos = i => ({ x: X[(drawn.length - 1 - i) % 2], y: TOP_PAD + i * STEP });
 
@@ -74,7 +87,6 @@ export default function JourneyView({ sessions = [], tournaments = [], bowler = 
               not done. The timeline only lists what was earned plus one
               step, so the honest number is simply how many. */}
           {earned} milestone{earned === 1 ? "" : "s"}
-          {next ? ` \u00b7 next: ${next.label}` : " \u00b7 every one of them"}
         </div>
       </div>
 
@@ -116,9 +128,9 @@ export default function JourneyView({ sessions = [], tournaments = [], bowler = 
 
       <div style={{ display: "flex", justifyContent: "center", gap: "14px",
         marginTop: "8px", fontSize: "10px", color: C.textMuted }}>
-        <span>Earned</span>
-        <span>In reach</span>
-        <span>Locked</span>
+        {/* Only "earned" can appear now, so the legend would be three
+            labels for one colour. Replaced by the line below. */}
+        <span>Keep bowling to see what's next on your journey</span>
       </div>
 
       {/* Folded history, nearest first.
