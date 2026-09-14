@@ -225,6 +225,7 @@ export default function Settings({
             <JourneyView
               sessions={sessions || []}
               shots={shots || []}
+              shots={shots || []}
 
               drills={drills || []}
               tournaments={tournaments || []}

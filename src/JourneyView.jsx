@@ -1,6 +1,11 @@
+import { useState } from "react";
 import { C, S } from "./ui.jsx";
 import {
-  journeyMilestones, nextMilestone, journeyProgress, describeMilestone,
+  journeyMilestones,
+  nextMilestone,
+  journeyProgress,
+  describeMilestone,
+  bandedJourney,
 } from "./domain/journey.js";
 
 // My Journey: a winding path of milestones, newest at the bottom.
@@ -26,15 +31,26 @@ const STEP = 104;          // vertical gap between milestones
 const TOP_PAD = 52;
 const BOTTOM_PAD = 44;
 
-export default function JourneyView({ sessions = [], tournaments = [], bowler = "" }) {
+export default function JourneyView({ sessions = [], tournaments = [], bowler = "", shots = []}) {
   const mine = (Array.isArray(sessions) ? sessions : [])
     .filter(s => s && (!bowler || s.bowler === bowler));
-  const milestones = journeyMilestones(mine, tournaments);
+  const myShots = (Array.isArray(shots) ? shots : [])
+    .filter(sh => sh && (!bowler || sh.bowler === bowler));
+  const milestones = journeyMilestones(mine, tournaments, myShots);
+
+  // The bowler's average decides what folds away.
+  const allScores = mine.flatMap(s => Array.isArray(s.scores) ? s.scores : [])
+    .map(Number).filter(Number.isFinite);
+  const average = allScores.length
+    ? Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length)
+    : 0;
+  const { open: openMilestones, bands } = bandedJourney(milestones, average);
+  const [openBands, setOpenBands] = useState({});
   const next = nextMilestone(milestones);
   const { earned, total } = journeyProgress(milestones);
 
   // Bottom of the list is the FIRST milestone, so reverse for drawing.
-  const drawn = [...milestones].reverse();
+  const drawn = [...openMilestones].reverse();
   const height = TOP_PAD + (drawn.length - 1) * STEP + BOTTOM_PAD;
   const pos = i => ({ x: X[(drawn.length - 1 - i) % 2], y: TOP_PAD + i * STEP });
 
@@ -104,6 +120,41 @@ export default function JourneyView({ sessions = [], tournaments = [], bowler = 
         <span>In reach</span>
         <span>Locked</span>
       </div>
+
+      {/* Folded history, nearest first.
+          
+          A 200 average bowler has earned every step up to 180 and should
+          not scroll past "Broke 75" to reach their own road. Deleting
+          those would be worse -- they did break 75, on a date, and that
+          is the whole point of a timeline. So they fold instead. */}
+      {bands.map(band => {
+        const isOpen = !!openBands[band.ceiling];
+        return (
+          <div key={band.ceiling} style={{ marginTop: "8px",
+            borderTop: `1px solid ${C.border}`, paddingTop: "8px" }}>
+            <button
+              onClick={() => setOpenBands(o => ({ ...o, [band.ceiling]: !isOpen }))}
+              style={{ background: "none", border: "none", padding: 0, width: "100%",
+                textAlign: "left", cursor: "pointer", color: C.textMuted,
+                fontSize: "12px" }}>
+              {isOpen ? "\u25be" : "\u25b8"} {band.label}
+              {" \u00b7 "}{band.milestones.length}
+            </button>
+            {isOpen && (
+              <div style={{ marginTop: "6px" }}>
+                {band.milestones.map(m => (
+                  <div key={m.id} style={{ display: "flex",
+                    justifyContent: "space-between", padding: "3px 0",
+                    fontSize: "11px" }}>
+                    <span style={{ color: C.text }}>{m.label}</span>
+                    <span style={{ color: C.textMuted }}>{m.date}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
