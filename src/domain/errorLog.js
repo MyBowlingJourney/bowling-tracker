@@ -1,3 +1,4 @@
+import { APP_NAME } from "../constants.js";
 // What went wrong, kept locally, in a shape that is safe to read out.
 //
 // The bugs that hurt most in this app are the quiet ones. Deleting a team
@@ -30,6 +31,11 @@ export const MAX_ENTRIES = 50;
 export const KINDS = [
   "crash", "render", "write-failed", "write-noop", "unhandled",
   "import-failed", "import-empty", "import-quality", "import-score-mismatch",
+
+  // Why a frame-tracked tournament game did not reach its score box.
+  // Six attempts at this bug were made reasoning from the outside; this
+  // reports what the app actually found so the next one does not have to.
+  "tournament-fill",
 ];
 
 // ── Redaction ───────────────────────────────────────────────────────────
@@ -119,7 +125,7 @@ export function addEntry(entries, input, now = Date.now()) {
 export function formatForCopy(entries, meta = {}) {
   const list = Array.isArray(entries) ? entries.filter(e => e && typeof e === "object") : [];
   const head = [
-    "My Bowling Vault — diagnostics",
+    `${APP_NAME} — diagnostics`,
     meta.build ? `build: ${meta.build}` : "",
     meta.generated ? `generated: ${meta.generated}` : "",
     `entries: ${list.length}`,
