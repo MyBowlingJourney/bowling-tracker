@@ -24,9 +24,18 @@ import {
 // bowling colour everywhere else), spare-green for practice, strike for
 // tournament, muted for open bowling -- which is deliberately the
 // quietest, since it is the mode that strips everything back.
+// Four modes, four colours that are actually different.
+//
+// practice used to be c.spare, which in the default "lane" theme is the
+// SAME hex as c.accent -- so league and practice drew identically and
+// the calendar read as uncoloured. A palette token means a role
+// ("spare"), not a distinct hue, and two roles can share one.
+//
+// miss is the only remaining token that differs from accent in every
+// theme; checked across all eight.
 const MODE_COLORS = {
   league: c => c.accent,
-  practice: c => c.spare,
+  practice: c => c.miss,
   tournament: c => c.strike,
   casual: c => c.textMuted,
 };
