@@ -210,13 +210,21 @@ export default function Settings({
               I bowl, and what does a month look like". The gaps carry as
               much as the entries -- three weeks missed is obvious here
               and invisible in a list. */}
+          {/* NOT filtered by the Stats league picker.
+
+              It was, so selecting a league left every night the same mode
+              -- one colour, nothing to code -- and hid practice,
+              tournaments and open bowling from the month entirely.
+
+              The calendar answers "what did I bowl this month", across all
+              of it. The colours ARE the filter. */}
           {historyTab === "calendar" && (
             <CalendarView
               sessions={sessions || []}
               tournaments={tournaments || []}
               onDeleteNight={deleteNight ? n => deleteNight(statsBowler || activeBowler, n.league, n.date) : undefined}
               bowler={statsBowler || activeBowler}
-              league={statsLeague || ""} />
+              league="" />
           )}
           {historyTab === "sessions" && (
             <SessionHistory
