@@ -23,7 +23,7 @@ import { plasticLast } from "./domain/bags.js";
 
 import { recordError } from "./errorLogStore.js";
 
-import { tenthBall3Earned } from "./domain/scoring.js";
+import { tenthBall3Earned, maxPossibleScore } from "./domain/scoring.js";
 export default function LogView({
   // Was used free at the night-achievements block below and never
   // declared anywhere, so rendering a completed session threw
@@ -175,18 +175,38 @@ export default function LogView({
       for(const[game,gs]of Object.entries(games)){
         const v=strictPartial(gs);
         if(typeof v!=="number")continue;
-        // Completeness travels WITH the score, in one map.
+        // Completeness travels WITH the score, in one map, and is
+        // decided WITHOUT reading ball numbers.
         //
-        // It used to need a second prop carrying the raw shots, and when
-        // that arrived empty every game read as unfinished -- scores
-        // present, nothing filled, and no way to tell the two apart.
-        // One map cannot half-arrive.
-        const tenth=gs.filter(sh=>parseInt(sh.frame)===10);
-        const b1=tenth.find(sh=>!sh.ballNum||Number(sh.ballNum)===1)||null;
-        const b2=tenth.find(sh=>Number(sh.ballNum)===2)||null;
-        const b3=tenth.find(sh=>Number(sh.ballNum)===3)||null;
-        const done=!!b1&&!!b2&&(!tenthBall3Earned(b1,b2)||!!b3);
+        // The old rule looked for the tenth's ball 1 and ball 2 by
+        // number. That made filling depend on every shot carrying the
+        // right ballNum -- and a single wrong one anywhere in the tenth
+        // left the game permanently "in progress": score present,
+        // nothing filled, and nothing to show for it.
+        //
+        // maxPossibleScore returns null once no further ball can change
+        // the total. That IS finished, and it is derived from the same
+        // frame data the score is, so the two cannot disagree.
+        const done=maxPossibleScore(gs)===null;
         scores[game]={score:v,complete:done};
+        // Not finished: say what the tenth actually looks like.
+        //
+        // This is the one thing left that can stop a completed game
+        // filling, and it is invisible from the outside -- the score
+        // shows, the box stays empty, and nothing says which frame is
+        // unresolved.
+        if(!done){
+          const tenth=gs.filter(sh=>parseInt(sh.frame)===10)
+            .map(sh=>`b${sh.ballNum??"-"}:${sh.result||"?"}${sh.spareMade?"/"+sh.spareMade:""}${sh.pinCount?"("+sh.pinCount+")":""}`)
+            .join(" ")||"none";
+          recordError({
+            kind:"tournament-fill",
+            where:"tournament.gameOpen",
+            message:`g${game} scored ${v} but is not finished. `
+              +`frames=${gs.length} tenth=[${tenth}]`,
+          });
+        }
+
       }
       if(Object.keys(scores).length)out[date]=scores;
     }

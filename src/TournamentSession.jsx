@@ -330,9 +330,9 @@ function DayDetails({ tournament, day, onChange, canRemoveDay, onRemoveDay, mult
           has to work out which card is the one they just made -- which
           gets worse with every squad added. */}
       {onGoToScoring && (
-        <button style={{ ...S.btn(), width: "100%", marginTop: "10px" }}
+        <button style={{ ...S.btn("primary"), width: "100%", marginTop: "10px" }}
           onClick={() => onGoToScoring(day)}>
-          Go to scoring{day.date ? ` — ${day.date}` : ""}
+          Go to scoring{day.date ? ` — ${day.date}` : ""} {"\u2192"}
         </button>
       )}
       </>)}
