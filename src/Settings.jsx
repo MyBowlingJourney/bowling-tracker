@@ -451,8 +451,16 @@ export default function Settings({
           to make one -- and nothing anywhere else created a league
           either. addLeague() had existed in BowlingTracker with no
           caller. */}
+        {/* The count must match the list below it, which already filters
+            container leagues. Counting them made the card read "1 league"
+            for a bowler who had created none -- the tournament's own
+            container, which is not a league they joined. */}
       {showCard("leagues") && (
-        <CollapsibleCard title="Leagues" summary={`${leagues.length} league${leagues.length === 1 ? "" : "s"}`}
+        <CollapsibleCard title="Leagues"
+          summary={(() => {
+            const n = (leagues || []).filter(l => !isContainerLeague(l)).length;
+            return `${n} league${n === 1 ? "" : "s"}`;
+          })()}
           expanded={expanded.whereYouBowl} onToggle={() => toggle("whereYouBowl")}>
           <div style={{ fontSize: "12px", color: C.textMuted, marginBottom: "10px" }}>
             {(leagues || []).filter(l => !isContainerLeague(l)).length

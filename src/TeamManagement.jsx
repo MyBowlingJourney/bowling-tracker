@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAuth } from "./AuthProvider.jsx";
 import { cloudUpdate, cloudRead, cloudWrite, cloudInsert, cloudDelete } from "./syncQueue.js";
 import { generateSignupCode } from "./domain/signupCodes.js";
+import { APP_NAME } from "./constants.js";
 
 // Pure roster-management functions, extracted so they're testable without
 // rendering the component. Each takes the current `teams` array plus
@@ -205,6 +206,7 @@ export default function TeamManagement({
   const leagueIdsRef = useRef({});
   const[teams, setTeams] = useState([]);
   const[loading, setLoading] = useState(true);
+  const[loadError, setLoadError] = useState(false);
   const[editingTeamId, setEditingTeamId] = useState(null);
 
   // The team just created from the Leagues card above. Scrolled to on
@@ -274,6 +276,15 @@ export default function TeamManagement({
 
   async function loadAll() {
     setLoading(true);
+    // try/finally, because "Loading teams..." with no way out is worse
+    // than an empty list.
+    //
+    // setLoading(false) was the last statement and nothing caught a
+    // throw: one cloudRead rejecting -- offline, a dropped connection, a
+    // permissions error -- left the spinner up permanently with no
+    // message and no retry.
+    try {
+
     const leaguesRes = await cloudRead("leagues", q => q.select("id,name"));
     const leagueNameById = {};
     if (leaguesRes.online && leaguesRes.data) {
@@ -350,7 +361,13 @@ export default function TeamManagement({
         };
       }));
     }
-    setLoading(false);
+    } catch (err) {
+      // The list stays as it was. An empty Teams tab the bowler can act
+      // on beats a spinner that never resolves.
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -597,7 +614,18 @@ export default function TeamManagement({
         </div>
       )}
 
-      {!loading && teams.length===0 && (
+      {!loading && loadError && (
+        <div style={{...S.card, borderColor: C.miss}}>
+          <div style={{fontSize:"13px", color:C.miss, marginBottom:"8px"}}>
+            Couldn't load your teams. You may be offline.
+          </div>
+          <button style={S.button} onClick={() => { setLoadError(false); loadAll(); }}>
+            Try again
+          </button>
+        </div>
+      )}
+
+      {!loading && !loadError && teams.length===0 && (
         <div style={S.card}>
           <div style={{color:C.textMuted,textAlign:"center",padding:"12px 0"}}>
             No teams yet — add one under a league in the Leagues card above.
@@ -703,7 +731,7 @@ export default function TeamManagement({
                         }}>{invite.signupCode}</span>
                         <button
                           onClick={()=>{
-                            const msg=`Join our team on My Bowling Vault — sign up and enter code ${invite.signupCode}`;
+                            const msg=`Join our team on ${APP_NAME} — sign up and enter code ${invite.signupCode}`;
                             try{navigator.clipboard?.writeText(msg);}catch{}
                           }}
                           style={{...S.button,padding:"3px 8px",fontSize:"10px"}}>

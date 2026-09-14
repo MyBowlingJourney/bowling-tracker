@@ -135,7 +135,7 @@ export default function LogView({
     // activeBowler alone missed shots saved under the form's bowler --
     // a full game on the scoresheet, nothing in any score box.
     const nightBowler=form.bowler||activeBowler;
-    const nightLeague=effectiveSessionLeague||form.league;
+    const nightLeague=effectiveSessionLeague;
     const mine=(shots||[]).filter(sh=>sh&&sh.bowler===nightBowler
       &&sh.league===nightLeague);
 
@@ -353,29 +353,6 @@ export default function LogView({
                 tab, vertically centred between header and nav. Showing
                 eleven cards behind a question nobody has answered yet is
                 what made this screen overwhelming. */}
-            {/* League tabs.
-                
-                Set up    -- tonight's session, league and team setup
-                Scoring   -- shot context, scoresheet, the result form,
-                             typed game scores
-                Side games-- money games and pots
-                Results   -- session recap, goals, running averages
-                
-                Hidden while editing a shot: the edit form is a single
-                task and tabbing away from it mid-edit loses the thread. */}
-            {leagueTabs&&!editingId&&(
-              <div style={{...S.card,padding:"10px 12px"}}>
-                <div style={{...S.chips,flexWrap:"nowrap",overflowX:"auto",
-                  WebkitOverflowScrolling:"touch",paddingBottom:"2px"}}>
-                  {[["setup","Set up"],["scoring","Scoring"],
-                    ["side","Side games"],["results","Results"]].map(([id,label])=>(
-                    <Chip key={id} label={label} selected={leagueTab===id}
-                      onToggle={()=>setLeagueTab(id)} />
-                  ))}
-                </div>
-              </div>
-            )}
-
             {!editingId&&showSessionStart&&(
               <div style={{minHeight:"calc(100vh - 210px)",display:"flex",flexDirection:"column",justifyContent:"center"}}>
                 <SessionStart
@@ -402,6 +379,30 @@ export default function LogView({
                 envChosen
                 onEnvChosen={onSessionEnvChosen}/>
             )}
+
+            {/* League tabs.
+                
+                Set up    -- tonight's session, league and team setup
+                Scoring   -- shot context, scoresheet, the result form,
+                             typed game scores
+                Side games-- money games and pots
+                Results   -- session recap, goals, running averages
+                
+                Hidden while editing a shot: the edit form is a single
+                task and tabbing away from it mid-edit loses the thread. */}
+            {leagueTabs&&!editingId&&(
+              <div style={{...S.card,padding:"10px 12px"}}>
+                <div style={{...S.chips,flexWrap:"nowrap",overflowX:"auto",
+                  WebkitOverflowScrolling:"touch",paddingBottom:"2px"}}>
+                  {[["setup","Set up"],["scoring","Scoring"],
+                    ["side","Side games"],["results","Results"]].map(([id,label])=>(
+                    <Chip key={id} label={label} selected={leagueTab===id}
+                      onToggle={()=>setLeagueTab(id)} />
+                  ))}
+                </div>
+              </div>
+            )}
+
 
             {/* Everything below waits for the prompt to be answered. */}
             {!(!editingId&&showSessionStart)&&(<>
@@ -1058,8 +1059,8 @@ export default function LogView({
                   // below are the same ones the save path writes.
                   const eq=(a,b)=>String(a??"")===String(b??"");
                   return eq(sh.bowler,form.bowler||activeBowler)
-                    &&eq(sh.league,effectiveSessionLeague||form.league)
-                    &&eq(sh.date,sessionDate||form.date)
+                    &&eq(sh.league,effectiveSessionLeague)
+                    &&eq(sh.date,sessionDate)
                     &&eq(sh.game,form.game);
 
                 })}

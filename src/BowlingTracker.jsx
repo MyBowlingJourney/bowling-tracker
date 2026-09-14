@@ -3698,8 +3698,18 @@ export default function BowlingTracker(){
   //
   // form is the fallback, not the authority, for those two.
   const nightBowler=form.bowler||activeBowler;
-  const nightLeague=effectiveSessionLeague||form.league;
-  const nightDate=sessionDate||form.date;
+  // NO fallback to the form.
+  //
+  // With no league chosen, effectiveSessionLeague is blank and falling
+  // back handed the stale tournament container straight through -- so a
+  // bowler who had picked no league at all still saw the tournament's
+  // session, scores and recap.
+  //
+  // Blank is the correct answer here. It means "no night selected", and
+  // every lookup keyed on it should find nothing rather than find
+  // somebody else's night.
+  const nightLeague=effectiveSessionLeague;
+  const nightDate=sessionDate;
 
 
   // A no-tap strike, worked out rather than declared.

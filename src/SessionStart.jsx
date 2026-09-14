@@ -62,7 +62,21 @@ export default function SessionStart({ preferences, onApply, onDismiss, envChose
   return (
     <div style={{ ...S.card, border: `1px solid ${C.accent}44`, marginBottom: "12px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
-        <div style={{ ...S.label, color: C.accent, marginBottom: 0 }}>Bowling today?</div>
+        {/* Collapses from EITHER side.
+            
+            The only way to close this was the Done control on the right.
+            On a phone the left edge is where a thumb naturally lands, and
+            a card this tall pushed everything below it off screen -- so
+            the chevron here does the same job as Done, at the other end
+            of the row. */}
+        <button
+          onClick={() => { if (collapsed) setOpen(false); else onDismiss(); }}
+          aria-label="Collapse"
+          style={{ background: "none", border: "none", padding: "0 8px 0 0",
+            cursor: "pointer", color: C.accent, fontSize: "13px", lineHeight: 1 }}>
+          {"\u25be"}
+        </button>
+        <div style={{ ...S.label, color: C.accent, marginBottom: 0, flex: 1 }}>Bowling today?</div>
         {/* There has to be a way out, in BOTH states.
 
             This was fixed once for the collapsed summary -- tapping
