@@ -3664,6 +3664,20 @@ export default function BowlingTracker(){
           :TOURNAMENT_SESSION_KEY)
       :sessionLeague;
 
+  // Who and when the CURRENT night belongs to.
+  //
+  // The scoresheet resolved this as form.bowler || activeBowler, and the
+  // score lookups used activeBowler alone. When they differ -- an account
+  // display name as activeBowler, the bowler's own name on the shots --
+  // the scoresheet shows a full game while every score box and the whole
+  // series summary sit empty. That is exactly what the screenshots show.
+  //
+  // One identity, resolved once, used by both.
+  const nightBowler=form.bowler||activeBowler;
+  const nightLeague=form.league||effectiveSessionLeague;
+  const nightDate=form.date||sessionDate;
+
+
   // A no-tap strike, worked out rather than declared.
   //
   // In a 9-pin no-tap league a first ball that leaves ONE pin is a
@@ -4112,7 +4126,7 @@ export default function BowlingTracker(){
 
   function getSessionTotal(){
     if(!sessionLeague||!activeBowler)return null;
-    const scores=[1,2,3].map(g=>getGameStrict(activeBowler,effectiveSessionLeague,sessionDate,g));
+    const scores=[1,2,3].map(g=>getGameStrict(nightBowler,nightLeague,nightDate,g));
     const valid=scores.filter(s=>s!=null);
     return valid.length?valid.reduce((a,b)=>a+b,0):null;
   }
@@ -4124,7 +4138,7 @@ export default function BowlingTracker(){
     // immediately -- meaning neither environment could ever end a
     // session or produce a summary, however the button was wired.
     if(!effectiveSessionLeague||!activeBowler)return;
-    const scores=[1,2,3].map(g=>getGameStrict(activeBowler,effectiveSessionLeague,sessionDate,g)).filter(s=>s!=null);
+    const scores=[1,2,3].map(g=>getGameStrict(nightBowler,nightLeague,nightDate,g)).filter(s=>s!=null);
     if(!scores.length){
       // Previously silently did nothing here — no feedback at all, even
       // though this is a common, valid state (e.g. only the match points
@@ -4658,7 +4672,7 @@ export default function BowlingTracker(){
   // there while it's useful. submitSession updates this same row rather
   // than adding a second one, because it matches on the same
   // (bowler, league, date) key.
-  const anyScoreEntered=[1,2,3].some(g=>getGameStrict(activeBowler,effectiveSessionLeague,sessionDate,g)!=null);
+  const anyScoreEntered=[1,2,3].some(g=>getGameStrict(nightBowler,nightLeague,nightDate,g)!=null);
   const startedSessionRef=useRef("");
   useEffect(()=>{
     if(!preferences.showMoneyGames)return;
@@ -4667,7 +4681,7 @@ export default function BowlingTracker(){
     const key=`${activeBowler}|${effectiveSessionLeague}|${sessionDate}`;
     if(startedSessionRef.current===key)return;
     startedSessionRef.current=key;
-    const scores=[1,2,3].map(g=>getGameStrict(activeBowler,effectiveSessionLeague,sessionDate,g)).filter(v=>v!=null);
+    const scores=[1,2,3].map(g=>getGameStrict(nightBowler,nightLeague,nightDate,g)).filter(v=>v!=null);
     // computeSessionStats supplies misses, releases, shotCount, strikes,
     // spareAttempts and sparesMade. The Summary block calls
     // cs.misses.filter(...) and cs.releases.filter(...) directly, so a
@@ -5367,11 +5381,11 @@ export default function BowlingTracker(){
       }
     }
     for(let n=4;n<=12;n++){
-      if(getGameStrict(activeBowler,effectiveSessionLeague,sessionDate,n)!=null)highest=Math.max(highest,n);
+      if(getGameStrict(nightBowler,nightLeague,nightDate,n)!=null)highest=Math.max(highest,n);
     }
     highest=Math.min(12,highest);
     return Array.from({length:highest},(_,i)=>
-      getGameStrict(activeBowler,effectiveSessionLeague,sessionDate,i+1));
+      getGameStrict(nightBowler,nightLeague,nightDate,i+1));
   })();
 
   const sessionTotal=getSessionTotal();

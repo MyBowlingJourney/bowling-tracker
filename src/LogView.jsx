@@ -138,12 +138,18 @@ export default function LogView({
       return null;
     }
 
-    const mine=(shots||[]).filter(sh=>sh&&sh.bowler===activeBowler
-      &&sh.league===effectiveSessionLeague);
+    // Same identity the scoresheet resolves, so the two cannot disagree.
+    // activeBowler alone missed shots saved under the form's bowler --
+    // a full game on the scoresheet, nothing in any score box.
+    const nightBowler=form.bowler||activeBowler;
+    const nightLeague=form.league||effectiveSessionLeague;
+    const mine=(shots||[]).filter(sh=>sh&&sh.bowler===nightBowler
+      &&sh.league===nightLeague);
+
     if(!mine.length){
       // Shots exist for this bowler somewhere, just not under this
       // league -- the single most likely cause, and invisible until now.
-      const anywhere=(shots||[]).filter(sh=>sh&&sh.bowler===activeBowler);
+      const anywhere=(shots||[]).filter(sh=>sh&&sh.bowler===(form.bowler||activeBowler));
       if(anywhere.length){
         recordError({
           kind:"tournament-fill",
