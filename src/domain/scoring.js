@@ -212,9 +212,28 @@ export function strictPartial(shots){
   }
 
   const f10shots=shots.filter(s=>parseInt(s.frame)===10);
-  const f10b1=f10shots.find(s=>(!s.ballNum||s.ballNum===1))||null;
-  const f10b2=f10shots.find(s=>s.ballNum===2)||null;
-  const f10b3=f10shots.find(s=>s.ballNum===3)||null;
+  // The tenth's balls by number, falling back to position when the
+  // numbers are unusable.
+  //
+  // Real data turned up a tenth holding a single shot numbered ball 2,
+  // with no ball 1. By number there was no first ball, so the frame
+  // could never close and the game scored 210 instead of 259 --
+  // silently, with a plausible-looking total.
+  //
+  // The fallback is deliberately narrow: it applies ONLY when no ball 1
+  // can be found by number. Reading every tenth by position instead
+  // broke 3,010 oracle games, because a correctly numbered tenth is
+  // already right and reordering it is not.
+  let f10b1=f10shots.find(s=>(!s.ballNum||s.ballNum===1))||null;
+  let f10b2=f10shots.find(s=>s.ballNum===2)||null;
+  let f10b3=f10shots.find(s=>s.ballNum===3)||null;
+  if(!f10b1&&f10shots.length){
+    const ordered=[...f10shots].sort((a,b)=>
+      (Number(a?.ballNum)||0)-(Number(b?.ballNum)||0));
+    f10b1=ordered[0]||null;
+    f10b2=ordered[1]||null;
+    f10b3=ordered[2]||null;
+  }
 
   function nextFirst(f){
     if(f===9)return f10b1?firstBallOf(f10b1):null;
