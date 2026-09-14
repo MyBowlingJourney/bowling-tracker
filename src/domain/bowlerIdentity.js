@@ -72,13 +72,25 @@ export function mergedBowlers(bowlers, email, displayName) {
 // sessions, matches or anything else carrying a `.bowler` -- the caller
 // saves through whatever path it already uses, so this cannot bypass a
 // sync or a validation step.
+// Records use TWO field names for the same thing.
+//
+// shots, sessions, matches, drills and tournaments carry `.bowler`;
+// bags and ball groups carry `.bowlerName`. Moving only one of them
+// leaves half the bowler's history behind under the old name, which is
+// worse than not merging at all -- the list looks clean and the data is
+// split.
+const BOWLER_FIELDS = ["bowler", "bowlerName"];
+
 export function movedRecords(records, email, displayName) {
   const handle = handleFromEmail(email);
   const name = clean(displayName);
   if (!handle || !name || handle === name) return list(records);
   let touched = false;
   const out = list(records).map(r => {
-    if (r && clean(r.bowler) === handle) { touched = true; return { ...r, bowler: name }; }
+    if (!r) return r;
+    for (const f of BOWLER_FIELDS) {
+      if (f in r && clean(r[f]) === handle) { touched = true; return { ...r, [f]: name }; }
+    }
     return r;
   });
   // The same array back when nothing changed, so a caller can skip the

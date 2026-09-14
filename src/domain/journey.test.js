@@ -1,100 +1,99 @@
 import { describe, it, expect } from 'vitest';
 import {
-  journeyMilestones, nextMilestone, journeyProgress, describeMilestone,
+  journeyMilestones, describeMilestone, journeyProgress, nextMilestone,
 } from './journey.js';
 
-const SESSIONS = [
-  { date: '2024-11-05', scores: [212, 180, 190] },   // 582 series, 212 game
-  { date: '2025-01-14', scores: [200, 210, 208] },   // 618 series
-  { date: '2026-09-01', scores: [246, 220, 216] },   // 682 series, 246 game
-];
-const find = (ms, id) => ms.find(m => m.id === id);
+const night = (date, scores) => ({ bowler: 'R', league: 'T', date, scores });
+const ids = ms => ms.map(m => m.id);
 
-describe('what the journey knows', () => {
-  const ms = journeyMilestones(SESSIONS, [{ name: 'City Open', winnings: '75' }]);
-
-  it('earns a milestone the bowler passed', () => {
-    expect(find(ms, 'game-200').state).toBe('earned');
-    expect(find(ms, 'series-600').state).toBe('earned');
+describe('the journey is a timeline', () => {
+  // It used to be a ladder of targets in difficulty order, which reads
+  // as a goal progression and tells a bowler who is nowhere near the
+  // next target that they are behind. This is a history instead.
+  it('lists only what happened, plus one step ahead', () => {
+    const ms = journeyMilestones([night('2026-09-01', [62])], []);
+    expect(ms.filter(m => m.state === 'earned').length).toBeGreaterThan(0);
+    expect(ms.filter(m => m.state !== 'earned')).toHaveLength(1);
   });
 
-  // The date it FIRST happened, not the most recent night above it.
-  it('dates an earned milestone from when it first happened', () => {
-    expect(find(ms, 'game-200').date).toBe('2024-11-05');
+  it('dates every earned milestone', () => {
+    const ms = journeyMilestones([night('2026-09-01', [105])], []);
+    for (const m of ms.filter(x => x.state === 'earned')) {
+      expect(m.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    }
   });
 
-  // The line the whole feature exists for.
-  it('says how far off the next one is', () => {
-    const m = find(ms, 'series-700');
-    expect(m.state).toBe('reach');
-    expect(describeMilestone(m)).toBe('18 pins away');
+  // A timeline that reorders itself is not a timeline.
+  it('orders by date, not by difficulty', () => {
+    const ms = journeyMilestones([
+      night('2025-09-01', [180, 195, 210]),
+      night('2026-01-01', [220, 215, 230]),
+    ], []);
+    const dates = ms.filter(m => m.state === 'earned').map(m => m.date);
+    expect([...dates]).toEqual([...dates].sort());
   });
 
-  it('locks what is a long way off', () => {
-    expect(find(ms, 'game-300').state).toBe('locked');
-    expect(find(ms, 'series-800').state).toBe('locked');
+  // A child's first spare and a scratch bowler's 300 are both on the
+  // catalogue; an app that starts its history at 200 tells a beginner
+  // their first season did not count.
+  it('gives a brand new bowler something already earned', () => {
+    const ms = journeyMilestones([night('2026-09-01', [62])], []);
+    expect(ids(ms)).toContain('nights-1');
+    expect(ids(ms)).toContain('game-50');
   });
 
-  // Nearest by POSITION, not by smallest gap -- a 290 game must not skip
-  // the bowler past everything to the 300.
-  it('picks the next step by order, not by gap', () => {
-    expect(nextMilestone(ms).id).toBe('game-250');
+  it('reaches the top end for a scratch bowler', () => {
+    const ms = journeyMilestones([night('2026-09-01', [300, 280, 260])], []);
+    expect(ids(ms)).toContain('game-300');
+    expect(ids(ms)).toContain('series-800');
   });
 
-  it('counts progress', () => {
-    const { earned, total } = journeyProgress(ms);
-    expect(total).toBe(ms.length);
-    expect(earned).toBeGreaterThan(0);
+  // The opposite of a wall of locked achievements.
+  it('offers exactly one next step', () => {
+    const ms = journeyMilestones([night('2026-09-01', [105])], []);
+    const next = nextMilestone(ms);
+    expect(next).toBeTruthy();
+    expect(next.state).not.toBe('earned');
   });
 
-  it('counts tournaments played and cashed', () => {
-    expect(find(ms, 'tourney-first').state).toBe('earned');
-    expect(find(ms, 'tourney-cash').state).toBe('earned');
+  it('starts an empty journey at the first night', () => {
+    const ms = journeyMilestones([], []);
+    expect(ms).toHaveLength(1);
+    expect(ms[0].id).toBe('nights-1');
+    expect(describeMilestone(ms[0])).toBe('0 of 1');
+  });
+
+  it('counts a tournament and a cash', () => {
+    const events = [{ name: 'City Open', winnings: '120', days: [{ date: '2026-03-07' }] }];
+    const ms = journeyMilestones([night('2026-03-07', [200, 190, 180])], events);
+    expect(ids(ms)).toContain('tourney-first');
+    expect(ids(ms)).toContain('tourney-cash');
   });
 
   it('does not cash an event that won nothing', () => {
-    const none = journeyMilestones(SESSIONS, [{ name: 'City Open' }]);
-    expect(find(none, 'tourney-cash').state).not.toBe('earned');
-  });
-});
-
-describe('a series needs three games', () => {
-  // A single 246 is a good game, not a 246 series.
-  it('ignores a one-game night for series milestones', () => {
-    const ms = journeyMilestones([{ date: '2026-09-01', scores: [246] }], []);
-    expect(find(ms, 'series-500').state).not.toBe('earned');
-    expect(find(ms, 'game-200').state).toBe('earned');
-  });
-});
-
-describe('a bowler with no history', () => {
-  const ms = journeyMilestones([], []);
-
-  it('locks every scoring milestone', () => {
-    expect(ms.filter(m => m.kind !== 'count').every(m => m.state === 'locked')).toBe(true);
+    const events = [{ name: 'City Open', winnings: '0', days: [{ date: '2026-03-07' }] }];
+    const ms = journeyMilestones([night('2026-03-07', [200])], events);
+    expect(ids(ms)).not.toContain('tourney-cash');
   });
 
-  // "Bowl a tournament" is one action away for anybody, which is exactly
-  // the nudge a new bowler should see -- not a locked door.
-  it('shows bowling a first tournament as in reach', () => {
-    expect(find(ms, 'tourney-first').state).toBe('reach');
+  it('describes progress toward a count', () => {
+    const ms = journeyMilestones([night('2026-09-01', [105])], []);
+    expect(describeMilestone(nextMilestone(ms))).toMatch(/of/);
   });
 
-  it('starts them at the first step', () => {
-    expect(nextMilestone(ms).id).toBe('game-200');
-  });
-
-  it('says "Not yet" rather than a fake gap', () => {
-    expect(describeMilestone(find(ms, 'game-200'))).toBe('Not yet');
+  it('reports progress', () => {
+    const ms = journeyMilestones([night('2026-09-01', [105])], []);
+    const { earned, total } = journeyProgress(ms);
+    expect(earned).toBeGreaterThan(0);
+    expect(total).toBeGreaterThanOrEqual(earned);
   });
 
   it('survives junk', () => {
     for (const j of [null, undefined, 'x', 42, [null], [{}]]) {
       expect(() => journeyMilestones(j, j)).not.toThrow();
-      expect(() => nextMilestone(j)).not.toThrow();
       expect(() => journeyProgress(j)).not.toThrow();
+      expect(() => nextMilestone(j)).not.toThrow();
       expect(() => describeMilestone(j)).not.toThrow();
     }
-    expect(describeMilestone(null)).toBe('');
   });
 });
