@@ -43,9 +43,22 @@ export function isContainerLeague(name) {
   // prefix rather than by name -- and they must be containers or every
   // tournament would appear in the league picker as somewhere to bowl a
   // league night.
-  if (typeof name === "string" && name.startsWith("Tournament\u00b7")) return true;
-  return name === "Practice" || name === "Just Bowling" || name === "Casual"
-    || name === "Tournament";
+  if (typeof name !== "string") return false;
+
+  // The SUFFIXED forms as well as the bare ones.
+  //
+  // Practice and open bowling are stored per user -- "Practice\u00b7<uid>",
+  // "Just Bowling\u00b7<uid>" -- exactly as tournaments are. Only the
+  // tournament branch handled the suffix, so a real practice container
+  // was not recognised as one: it counted as a league the bowler joined
+  // and showed up in the Teams tab and the league picker.
+  //
+  // The bare names are kept because data written before the per-user
+  // naming still uses them.
+  const base = name.split("\u00b7")[0];
+  return base === "Practice" || base === "Just Bowling" || base === "Casual"
+    || base === "Tournament";
+
 
 }
 

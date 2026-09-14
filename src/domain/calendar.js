@@ -23,7 +23,7 @@
 // shift it a day either side of UTC, which would put a Tuesday night in
 // Monday's box.
 
-import { isPracticeLeagueName, isCasualLeagueName } from "../constants.js";
+import { isPracticeLeagueName, isCasualLeagueName, isTournamentLeagueName } from "../constants.js";
 
 const rows = v => (Array.isArray(v) ? v : []).filter(x => x && typeof x === "object");
 
@@ -42,7 +42,17 @@ export function sessionMode(session) {
   const league = String(session?.league || "");
   if (isPracticeLeagueName(league) || league === "Practice") return "practice";
   if (isCasualLeagueName(league) || league === "Just Bowling") return "casual";
+  // Tournaments were missing entirely, so every tournament night fell
+  // through to "league" and took the league colour -- the calendar
+  // looked uncoloured because three of the four modes were the same
+  // colour.
+  //
+  // tournamentNights() colours days folded from the tournaments table,
+  // but a tournament that was BOWLED has session rows too, and those
+  // came through here.
+  if (isTournamentLeagueName(league) || league === "Tournament") return "tournament";
   return "league";
+
 }
 
 const num = v => {
