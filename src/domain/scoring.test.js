@@ -787,3 +787,42 @@ describe('deleting the first ball of the 10th', () => {
     expect(del(frame, 'c').map(s => s.id)).toEqual(['a', 'b']);
   });
 });
+
+describe('a stale ball number on frames 1-9 does not hide the game', () => {
+  // Only the 10th numbers its balls in this model, so the lookup
+  // required !s.ballNum. A 1 left on frame 3 by the form made that frame
+  // read as unbowled: the game scored as nothing, and every score box
+  // and series total downstream sat empty with no error anywhere.
+  const build = withBallNum => {
+    const out = [];
+    for (let f = 1; f <= 9; f++) {
+      out.push({ frame: String(f), result: 'Strike', ...(withBallNum ? { ballNum: 1 } : {}) });
+    }
+    out.push({ frame: '10', ballNum: 1, result: 'Strike' },
+             { frame: '10', ballNum: 2, result: 'Strike' },
+             { frame: '10', ballNum: 3, result: 'Strike' });
+    return out;
+  };
+
+  it('scores the same either way', () => {
+    expect(strictPartial(build(true))).toBe(300);
+    expect(strictPartial(build(false))).toBe(300);
+  });
+
+  // Shots already saved this way must work without a migration.
+  it('scores a real game carrying ball numbers', () => {
+    const g = [
+      { frame: '1', ballNum: 1, result: 'Strike' },
+      { frame: '2', ballNum: 1, result: 'Other Leave', spareMade: 'Yes', pinCount: '9' },
+      { frame: '3', ballNum: 1, result: 'Other Leave', spareMade: 'No', pinCount: '8' },
+    ];
+    expect(strictPartial(g)).toBeGreaterThan(0);
+  });
+
+  // The scoresheet reads through the same lookup.
+  it('draws those frames on the scoresheet', () => {
+    const sheet = frameScoresheet(build(true));
+    expect(sheet.find(r => r.frame === 1).marks).toEqual(['X']);
+    expect(sheet.find(r => r.frame === 9).running).toBeGreaterThan(0);
+  });
+});

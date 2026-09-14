@@ -192,7 +192,25 @@ export function strictPartial(shots){
   // these three did not.
   shots = (Array.isArray(shots) ? shots : []).filter(s => s && typeof s === "object");
   const byFrame={};
-  for(let f=1;f<=9;f++) byFrame[f]=shots.find(s=>parseInt(s.frame)===f&&!s.ballNum)||null;
+  // Frames 1-9: take the shot whether or not it carries a ball number.
+  //
+  // This used to require `!s.ballNum`, which is the shape the app writes
+  // -- only the 10th numbers its balls. But a stale 1 from the form
+  // reached the record often enough, and a shot saved that way became
+  // INVISIBLE: the frame read as unbowled, the game scored as nothing,
+  // and every score box and series total downstream sat empty with no
+  // error anywhere.
+  //
+  // Accepting ball 1 as well costs nothing -- frames 1-9 have at most
+  // one shot each in this model, so there is no second candidate to
+  // confuse it with -- and it repairs every shot already saved that way
+  // rather than only the ones written from here on.
+  for(let f=1;f<=9;f++){
+    byFrame[f]=shots.find(s=>parseInt(s.frame)===f&&!s.ballNum)
+      ||shots.find(s=>parseInt(s.frame)===f&&Number(s.ballNum)===1)
+      ||null;
+  }
+
   const f10shots=shots.filter(s=>parseInt(s.frame)===10);
   const f10b1=f10shots.find(s=>(!s.ballNum||s.ballNum===1))||null;
   const f10b2=f10shots.find(s=>s.ballNum===2)||null;
@@ -451,7 +469,11 @@ export function maxPossibleScore(shots) {
   // Which frames already have a result.
   const byFrame = {};
   for (let f = 1; f <= 9; f++) {
-    byFrame[f] = played.find(s => parseInt(s.frame) === f && !s.ballNum) || null;
+    // Same tolerance as strictPartial: a stale ball number on frames
+    // 1-9 must not make the frame invisible.
+    byFrame[f] = played.find(s => parseInt(s.frame) === f && !s.ballNum)
+      || played.find(s => parseInt(s.frame) === f && Number(s.ballNum) === 1)
+      || null;
   }
   const f10 = played.filter(s => parseInt(s.frame) === 10);
   const f10b1 = f10.find(s => !s.ballNum || s.ballNum === 1) || null;
@@ -509,7 +531,11 @@ export function frameScoresheet(shots) {
 
   const byFrame = {};
   for (let f = 1; f <= 9; f++) {
-    byFrame[f] = played.find(s => parseInt(s.frame) === f && !s.ballNum) || null;
+    // Same tolerance as strictPartial: a stale ball number on frames
+    // 1-9 must not make the frame invisible.
+    byFrame[f] = played.find(s => parseInt(s.frame) === f && !s.ballNum)
+      || played.find(s => parseInt(s.frame) === f && Number(s.ballNum) === 1)
+      || null;
   }
   const f10 = played.filter(s => parseInt(s.frame) === 10);
   const f10b1 = f10.find(s => !s.ballNum || s.ballNum === 1) || null;
