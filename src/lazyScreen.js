@@ -48,7 +48,23 @@ export function lazyScreen(name, loader) {
     // signature that says "deploy, not bug".
     recordError({ kind: "unhandled", where: `chunk:${name}`, code: "stale-chunk", message: String(err?.message || err) });
 
-    try { window.location.reload(); } catch { /* nothing else to try */ }
+    // Reload in a way that CANNOT reuse the cached document.
+    //
+    // location.reload() re-reads the same cached index.html, which names
+    // the same missing chunks -- so the retry fails identically and the
+    // bowler is left on the previous build with no error they can act
+    // on. That is what "the fix didn't deploy" looked like.
+    //
+    // A cache-busting query on the document forces a fresh index.html,
+    // which names the chunks that actually exist. The parameter is
+    // stripped afterwards so it never ends up bookmarked or shared.
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set("rebuild", String(now));
+      window.location.replace(url.toString());
+    } catch {
+      try { window.location.reload(); } catch { /* nothing else to try */ }
+    }
 
     // Never resolves. React must not render a fallback or an error while
     // the page is being replaced -- a flash of "this screen hit a

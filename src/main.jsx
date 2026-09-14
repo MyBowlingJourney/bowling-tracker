@@ -6,6 +6,16 @@
 // knowing. Installing the scoped adapter first makes BowlingTracker's
 // own installer a no-op and removes the question.
 import './scopedStorage.js';
+
+// Strip the cache-busting parameter lazyScreen adds when it recovers
+// from a stale chunk, so it is never bookmarked, shared or repeated.
+try {
+  const u = new URL(window.location.href);
+  if (u.searchParams.has("rebuild")) {
+    u.searchParams.delete("rebuild");
+    window.history.replaceState(null, "", u.toString());
+  }
+} catch { /* older browsers: the parameter is harmless */ }
 import { installErrorHandlers } from './errorLogStore.js';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
