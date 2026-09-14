@@ -52,8 +52,13 @@ export default function JourneyView({ sessions = [], tournaments = [], bowler = 
       <div style={{ textAlign: "center", marginBottom: "10px" }}>
         <div style={{ fontSize: "14px", fontWeight: 600, color: C.text }}>My journey</div>
         <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "2px" }}>
-          {earned} of {total} reached
-          {next ? ` \u00b7 next: ${next.label}` : " \u00b7 all of them"}
+          {/* A count of what HAPPENED, not a score out of a total.
+              
+              "3 of 15 reached" is ladder language -- it names everything
+              not done. The timeline only lists what was earned plus one
+              step, so the honest number is simply how many. */}
+          {earned} milestone{earned === 1 ? "" : "s"}
+          {next ? ` \u00b7 next: ${next.label}` : " \u00b7 every one of them"}
         </div>
       </div>
 
