@@ -875,6 +875,7 @@ export default function BowlingTracker(){
     catch{return true;}
   });
   const[newBallName,setNewBallName]=useState("");
+  const[ballAddMessage,setBallAddMessage]=useState("");
   // Restored from the last session context, so a refresh mid-night lands
   // back where you were. Only restored when the saved date is TODAY --
   // reopening the app on a new day should start a new night, not resume
@@ -2151,11 +2152,27 @@ export default function BowlingTracker(){
   // ball and fills its specs in one step.
   async function addBall(presetName,presetSpecs){
     const name=(presetName??newBallName).trim();
-    if(!name||!activeBowler)return;
-    const current=arsenals[activeBowler]||[];
+
+    // The arsenal the PROFILE SCREEN is showing, not activeBowler.
+    //
+    // Profile lists arsenals[displayName || activeBowler] and this wrote
+    // to arsenals[activeBowler]. When those differ -- an account display
+    // name beside a bowler name, which is the normal case -- the ball was
+    // added to one arsenal and the list showed the other. It looked like
+    // nothing happened, and the ball still turned up in the shot picker
+    // because that reads the whole ball universe.
+    const owner=displayName||activeBowler;
+    if(!name||!owner){
+      // A silent return here is how this hid: no ball, no error, no clue.
+      setBallAddMessage(!owner?"Pick a bowler first.":"Give the ball a name.");
+      setTimeout(()=>setBallAddMessage(""),4000);
+      return;
+    }
+    const current=arsenals[owner]||[];
     if(current.includes(name)){setNewBallName("");return;}
-    await saveArsenals({...arsenals,[activeBowler]:[...current,name]});
-    if(presetSpecs)setBallSpec(activeBowler,name,presetSpecs);
+    await saveArsenals({...arsenals,[owner]:[...current,name]});
+    if(presetSpecs)setBallSpec(owner,name,presetSpecs);
+
     setNewBallName("");
   }
 
@@ -6226,7 +6243,7 @@ export default function BowlingTracker(){
             bowlers={bowlers} activeBowler={activeBowler} selectBowler={selectBowler}
             profiles={profiles} setProfile={setProfile} teams={teams}
             arsenals={arsenals} ballLayouts={ballLayouts} setBallLayout={setBallLayout} removeBall={removeBall}
-            newBallName={newBallName} setNewBallName={setNewBallName} addBall={addBall}
+            newBallName={newBallName} ballAddMessage={ballAddMessage} setNewBallName={setNewBallName} addBall={addBall}
             bags={bags} ballBags={ballBags} saveBag={saveBag} deleteBag={deleteBag} toggleBallBag={toggleBallBag}
             centers={centers} ensureCenter={ensureCenter} searchCenters={searchCenters}
             ballSpecs={ballSpecs} setBallSpec={setBallSpec} ballGroups={ballGroups}
