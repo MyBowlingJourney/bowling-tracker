@@ -3751,10 +3751,23 @@ export default function BowlingTracker(){
       // already-played 10th-frame ball), overwrite it rather than adding a
       // second shot for the same slot — a duplicate would corrupt frame lookups
       // in strictPartial, which expects exactly one shot per slot.
-      const existingSlot=findExistingShotSlot(shots,form);
+      const existingSlot=findExistingShotSlot(shots,{...form,league,date});
       const toSave={
         ...form,
+        // league and date EXPLICITLY, after the spread.
+        //
+        // ...form carried form.league, which is only refreshed when the
+        // bowler changes -- so entering a tournament with a bowler
+        // already selected saved every shot under whatever league was
+        // there before, usually blank. The computed values above were
+        // right and simply never reached the record.
+        //
+        // This is why frame-tracked scores never appeared: the shots
+        // existed, under a league nothing was looking for.
+        league,
+        date,
         id:existingSlot?existingSlot.id:crypto.randomUUID(),
+
         // Stamped at log time so it survives the guest being removed from
         // the list later -- the promise was that their scores stay on this
         // device, and that has to hold permanently.
