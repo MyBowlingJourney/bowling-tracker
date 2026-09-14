@@ -27,6 +27,19 @@ export function shotToSupabaseRow(shot,userId,leagueIdsMap){
     // rather than as result "Strike", so strike statistics stay clean
     // while carry statistics still see how the ball drove.
     no_tap:shot.noTap===true?true:null,
+    // The league by NAME as well as by id.
+    //
+    // Practice, open bowling and tournaments bowl under container
+    // leagues that are not rows in `leagues`, so league_id is null for
+    // all of them. The shots uniqueness index coalesces null to a fixed
+    // uuid, which made a practice shot, an open-bowling shot and a
+    // tournament shot on the same date/game/frame the SAME ROW -- the
+    // second one rejected with 23505 and never reaching the cloud.
+    //
+    // This is what the index widens on. For a real league it duplicates
+    // what league_id already says, harmlessly; for a container it is the
+    // only thing that distinguishes them.
+    league_name:shot.league||"",
     bowler_name:shot.bowler||"",
     date:shot.date,
     game:parseInt(shot.game)||1,
@@ -63,7 +76,12 @@ export function shotFromSupabaseRow(row,leagueNameById){
     id:row.id,
     bowler:row.bowler_name||"",
     teamId:row.team_id||"",
-    league:leagueNameById[row.league_id]||"",
+    // league_id first, then the stored name.
+    //
+    // A container league has no id, so resolving by id alone gave "" and
+    // the shot came back with no league at all -- orphaned from every
+    // stat on any device that loaded it from the cloud.
+    league:leagueNameById[row.league_id]||row.league_name||"",
     date:row.date,
     importedFrom:row.imported_from||null,
 

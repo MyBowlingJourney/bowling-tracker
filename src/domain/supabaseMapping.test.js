@@ -139,3 +139,45 @@ describe('team_id validation across every *ToSupabaseRow function', () => {
     expect(row.team_id).toBeNull();
   });
 });
+
+describe('container leagues keep their identity on a shot', () => {
+  // Practice, open bowling and tournaments have no row in `leagues`, so
+  // league_id is null for all of them. The uniqueness index coalesced
+  // null to one uuid, making a practice shot and a tournament shot on
+  // the same date/game/frame the same row -- the second rejected with
+  // 23505 and stranded on one device.
+  it('writes the league name alongside the id', () => {
+    const row = shotToSupabaseRow(
+      { id: '1', bowler: 'Ryan', league: 'Tournament\u00b7City Open\u00b7u1', date: 'd', game: '1', frame: '1' },
+      'u1', {});
+    expect(row.league_id).toBe(null);
+    expect(row.league_name).toBe('Tournament\u00b7City Open\u00b7u1');
+  });
+
+  it('still writes league_id for a real league', () => {
+    const row = shotToSupabaseRow(
+      { id: '1', bowler: 'Ryan', league: 'Tuesday', date: 'd', game: '1', frame: '1' },
+      'u1', { Tuesday: 'lg-1' });
+    expect(row.league_id).toBe('lg-1');
+  });
+
+  // Two containers on the same night are now distinguishable.
+  it('gives two containers different identities', () => {
+    const mk = lg => shotToSupabaseRow(
+      { id: 'x', bowler: 'Ryan', league: lg, date: 'd', game: '1', frame: '1' }, 'u1', {});
+    expect(mk('Practice\u00b7u1').league_name).not.toBe(mk('Just Bowling\u00b7u1').league_name);
+  });
+
+  // Without this a container shot came back with no league at all.
+  it('resolves the league from the name when there is no id', () => {
+    const row = shotToSupabaseRow(
+      { id: '1', bowler: 'Ryan', league: 'Practice\u00b7u1', date: 'd', game: '1', frame: '1' }, 'u1', {});
+    expect(shotFromSupabaseRow(row, {}).league).toBe('Practice\u00b7u1');
+  });
+
+  // A row written by an older build has no league_name.
+  it('still resolves an old row by its id', () => {
+    expect(shotFromSupabaseRow({ id: '3', league_id: 'lg-1', other_leave: [] },
+      { 'lg-1': 'Tuesday' }).league).toBe('Tuesday');
+  });
+});
