@@ -238,6 +238,16 @@ export default function LogView({
   // scores-only night has games, not frames. It had no gate at all.
   // Tournament tab, owned here so Shot Context can follow it.
   const [tournamentTab,setTournamentTab]=useState("setup");
+  // League tabs. Same treatment as the tournament card: a league night
+  // carries setup, scoring, side pots and a recap, and one scroll of all
+  // of it buries the part you came for.
+  //
+  // Defaults to scoring, not setup -- a league bowler arriving mid-night
+  // wants the scoresheet, and setup is a once-a-season job.
+  const [leagueTab,setLeagueTab]=useState("scoring");
+  const leagueTabs=env==="league";
+  const onTab=t=>!leagueTabs||leagueTab===t;
+
   const [tenthPick,setTenthPick]=useState(null);
   // Scroll target for Save Shot.
   //
@@ -324,6 +334,29 @@ export default function LogView({
                 tab, vertically centred between header and nav. Showing
                 eleven cards behind a question nobody has answered yet is
                 what made this screen overwhelming. */}
+            {/* League tabs.
+                
+                Set up    -- tonight's session, league and team setup
+                Scoring   -- shot context, scoresheet, the result form,
+                             typed game scores
+                Side games-- money games and pots
+                Results   -- session recap, goals, running averages
+                
+                Hidden while editing a shot: the edit form is a single
+                task and tabbing away from it mid-edit loses the thread. */}
+            {leagueTabs&&!editingId&&(
+              <div style={{...S.card,padding:"10px 12px"}}>
+                <div style={{...S.chips,flexWrap:"nowrap",overflowX:"auto",
+                  WebkitOverflowScrolling:"touch",paddingBottom:"2px"}}>
+                  {[["setup","Set up"],["scoring","Scoring"],
+                    ["side","Side games"],["results","Results"]].map(([id,label])=>(
+                    <Chip key={id} label={label} selected={leagueTab===id}
+                      onToggle={()=>setLeagueTab(id)} />
+                  ))}
+                </div>
+              </div>
+            )}
+
             {!editingId&&showSessionStart&&(
               <div style={{minHeight:"calc(100vh - 210px)",display:"flex",flexDirection:"column",justifyContent:"center"}}>
                 <SessionStart
@@ -495,7 +528,7 @@ export default function LogView({
                 match points. Practice has none of that, so it gets a plain
                 date header instead of a card promising things that aren't
                 there. */}
-            {!editingId&&activeBowler&&preferences.environment!=="tournament"&&preferences.environment!=="practice"&&preferences.environment!=="casual"&&(
+            {onTab("setup")&&!editingId&&activeBowler&&preferences.environment!=="tournament"&&preferences.environment!=="practice"&&preferences.environment!=="casual"&&(
               <CollapsibleCard
                 title="Tonight's Session"
                 summary={sessionLeague?`${sessionLeague.replace(" House Shot","")} · ${formatDate(sessionDate)}`:""}
@@ -735,7 +768,7 @@ export default function LogView({
                 a blank tab with no way forward. Needing to set up a
                 league is true whether or not a bowler chip is
                 highlighted. */}
-            {!editingId&&needsLeagueSetup({
+            {onTab("setup")&&!editingId&&needsLeagueSetup({
               environment:preferences.environment,leagues,teams,
             })&&(
               <div style={{...S.card,border:`1px solid ${C.accent}44`}}>
@@ -774,7 +807,7 @@ export default function LogView({
                 once a real night exists to attach it to, and dismissible
                 for good. A prompt people learn to swipe away is worse
                 than none. */}
-            {!editingId&&promptForTeam&&(
+            {onTab("setup")&&!editingId&&promptForTeam&&(
               <div style={{backgroundColor:C.accent+"11",border:`1px solid ${C.accent}44`,borderRadius:"10px",padding:"12px 14px",marginBottom:"12px"}}>
                 <div style={{fontSize:"14px",fontWeight:600,color:C.text,marginBottom:"4px"}}>
                   Want these to count for your team?
@@ -834,7 +867,7 @@ export default function LogView({
                 </div>
               )}
 
-            {showShotContext&&(
+            {onTab("scoring")&&showShotContext&&(
             <div style={S.card}>
               <div style={S.label}>
                 Shot Context
@@ -977,7 +1010,7 @@ export default function LogView({
                 result being entered below -- which is where a bowler
                 looks to check what they just did. Rebuilt from `shots`
                 every render, so a mark appears as soon as a shot saves. */}
-            {showShotContext&&(
+            {onTab("scoring")&&showShotContext&&(
               <Scoresheet
 
                 shots={(shots||[]).filter(sh=>{
@@ -1134,7 +1167,7 @@ export default function LogView({
                 belongs beside the frames rather than below the release
                 and line fields. The choice carries forward shot to shot
                 and game to game, and resets only for a new session. */}
-            {showShotContext&&logBalls.length>0&&(
+            {onTab("scoring")&&showShotContext&&logBalls.length>0&&(
               <div style={{...S.card,padding:"10px 12px",marginBottom:"8px",
                 display:"flex",alignItems:"center",gap:"10px"}}>
                 <div style={{...S.label,marginBottom:0,flexShrink:0}}>Ball</div>
@@ -1150,7 +1183,7 @@ export default function LogView({
               </div>
             )}
 
-            {showShotContext&&(
+            {onTab("scoring")&&showShotContext&&(
             <div style={S.card}>
               {/* The ceiling on the game in progress: strike out from here
                   and this is what you finish with.
@@ -1533,7 +1566,7 @@ export default function LogView({
               );
             })()}
 
-            {!editingId&&activeBowler&&effectiveSessionLeague&&preferences.environment!=="casual"&&preferences.environment!=="tournament"&&!(preferences.environment==="practice"&&practiceMode==="drill")&&(()=>{
+            {onTab("scoring")&&!editingId&&activeBowler&&effectiveSessionLeague&&preferences.environment!=="casual"&&preferences.environment!=="tournament"&&!(preferences.environment==="practice"&&practiceMode==="drill")&&(()=>{
               // How many game rows to show.
               //
               // Was hardcoded to 3, which is right for a league night and
@@ -1750,7 +1783,7 @@ export default function LogView({
                 drills tab had no way to finish a session at all. It is
                 now the sticky bar at the bottom, unconditional. */}
 
-            {!editingId&&(preferences.environment==="casual"||preferences.environment==="practice")&&effectiveSessionLeague&&(
+            {onTab("results")&&!editingId&&(preferences.environment==="casual"||preferences.environment==="practice")&&effectiveSessionLeague&&(
               <SessionRecap
                 environment={preferences.environment}
                 manualScores={manualScores}
@@ -1767,7 +1800,7 @@ export default function LogView({
                 when they have some -- an empty goals card while logging
                 is noise. Deliberately collapsed by default so it doesn't
                 push the shot form down the screen. */}
-            {!editingId&&showGoals&&goalsPanel&&(
+            {onTab("results")&&!editingId&&showGoals&&goalsPanel&&(
               <CollapsibleCard title="Goals"
                 expanded={expandedSections.logGoals}
                 onToggle={()=>toggleSection("logGoals")}>
@@ -1776,7 +1809,10 @@ export default function LogView({
             )}
 
             {/* Summary */}
-            {!editingId&&preferences.environment!=="casual"&&curSession&&(()=>{
+            {/* Renders for Results AND Side games: the money card lives
+                inside this block alongside the recap, and each child below
+                is gated to the tab it belongs on. */}
+            {(onTab("results")||onTab("side"))&&!editingId&&preferences.environment!=="casual"&&curSession&&(()=>{
               const cs=curSession;
               const sr=cs.shotCount?Math.round((cs.strikes/cs.shotCount)*100):0;
               const spr=cs.spareAttempts?Math.round((cs.sparesMade/cs.spareAttempts)*100):0;
@@ -1885,7 +1921,7 @@ export default function LogView({
                     );
                   })()}
 
-                  {anyMoneyGameShown(preferences)&&(
+                  {onTab("side")&&anyMoneyGameShown(preferences)&&(
                     <>
                       <div style={{marginBottom:"12px"}}>
                         <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"6px"}}>Poker Winnings ($)</div>
@@ -2075,7 +2111,7 @@ export default function LogView({
                     <div style={S.statBox}><div style={{...S.statNum,fontSize:"18px",color:C.spare}}>{spr}%</div><div style={S.statLbl}>Spare %</div></div>
                     <div style={S.statBox}><div style={{...S.statNum,fontSize:"18px",color:C.miss}}>{cs.tenPinLeaves??(cs.weakTens+cs.ringingTens)}</div><div style={S.statLbl}>10 Pins</div></div>
                   </div>
-                  {(cs.weakTens>0||cs.ringingTens>0||cs.tenPinLeaves>0)&&(
+                  {onTab("results")&&(cs.weakTens>0||cs.ringingTens>0||cs.tenPinLeaves>0)&&(
                     <div style={{display:"flex",gap:"6px",marginBottom:"12px"}}>
                       <div style={S.statBox}><div style={{...S.statNum,fontSize:"16px",color:C.miss}}>{cs.weakTens}</div><div style={S.statLbl}>Weak 10s</div></div>
                       <div style={S.statBox}><div style={{...S.statNum,fontSize:"16px",color:C.spare}}>{cs.ringingTens}</div><div style={S.statLbl}>Ringing 10s</div></div>
@@ -2084,14 +2120,14 @@ export default function LogView({
                       )}
                     </div>
                   )}
-                  {cs.splits>0&&(
+                  {onTab("results")&&cs.splits>0&&(
                     <div style={{display:"flex",gap:"6px",marginBottom:"12px"}}>
                       <div style={S.statBox}><div style={{...S.statNum,fontSize:"16px",color:C.miss}}>{cs.splits}</div><div style={S.statLbl}>Splits</div></div>
                       <div style={S.statBox}><div style={{...S.statNum,fontSize:"16px",color:C.strike}}>{Math.round((cs.splitsConverted/cs.splits)*100)}%</div><div style={S.statLbl}>Converted</div></div>
                     </div>
                   )}
-                  {(cs.ballsUsed||[]).length>0&&(<div style={{marginBottom:"10px"}}><div style={S.label}>Balls used</div><div style={{display:"flex",flexWrap:"wrap",gap:"6px"}}>{(cs.ballsUsed||[]).map(b=><span key={b} style={S.tag()}>{b}</span>)}</div></div>)}
-                  {rT>0&&(
+                  {onTab("results")&&(cs.ballsUsed||[]).length>0&&(<div style={{marginBottom:"10px"}}><div style={S.label}>Balls used</div><div style={{display:"flex",flexWrap:"wrap",gap:"6px"}}>{(cs.ballsUsed||[]).map(b=><span key={b} style={S.tag()}>{b}</span>)}</div></div>)}
+                  {onTab("results")&&rT>0&&(
                     <div style={{marginBottom:"10px"}}>
                       <div style={S.label}>Release Quality</div>
                       <div style={{display:"flex",gap:"6px"}}>
@@ -2100,7 +2136,7 @@ export default function LogView({
                       </div>
                     </div>
                   )}
-                  {mDist.length>0&&(<div style={{marginBottom:"12px"}}><div style={S.label}>Misses</div><div style={{display:"flex",flexWrap:"wrap",gap:"6px"}}>{mDist.map(x=><span key={x.m} style={S.tag(C.miss)}>{x.m}: {x.c}</span>)}</div></div>)}
+                  {onTab("results")&&mDist.length>0&&(<div style={{marginBottom:"12px"}}><div style={S.label}>Misses</div><div style={{display:"flex",flexWrap:"wrap",gap:"6px"}}>{mDist.map(x=><span key={x.m} style={S.tag(C.miss)}>{x.m}: {x.c}</span>)}</div></div>)}
                   <div style={S.divider}/>
                   <div style={S.label}>Running Averages</div>
                   <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
