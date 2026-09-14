@@ -3691,6 +3691,22 @@ export default function BowlingTracker(){
 
   async function submitShot(){
     if(!form.result||!form.bowler)return;
+
+    // Declared HERE, in submitShot.
+    //
+    // The previous version referenced `league` and `date` without
+    // declaring them in this function -- they resolved to identically
+    // named consts inside previousShotBall(), several hundred lines
+    // away, which is a different shot entirely. No error, no warning:
+    // just every saved shot carrying the wrong league.
+    //
+    // Editing keeps the shot's own league and date; a new shot takes the
+    // session's. form.league is not trusted for a new shot because it is
+    // only refreshed when the bowler changes, so entering a tournament
+    // with a bowler already selected leaves it stale.
+    const shotLeague=editingId?form.league:effectiveSessionLeague;
+    const shotDate=editingId?form.date:sessionDate;
+
     // A no-tap strike is stored as the LEAVE, with noTap: true -- not as
     // result "Strike".
     //
@@ -3751,7 +3767,7 @@ export default function BowlingTracker(){
       // already-played 10th-frame ball), overwrite it rather than adding a
       // second shot for the same slot — a duplicate would corrupt frame lookups
       // in strictPartial, which expects exactly one shot per slot.
-      const existingSlot=findExistingShotSlot(shots,{...form,league,date});
+      const existingSlot=findExistingShotSlot(shots,{...form,league:shotLeague,date:shotDate});
       const toSave={
         ...form,
         // league and date EXPLICITLY, after the spread.
@@ -3764,8 +3780,8 @@ export default function BowlingTracker(){
         //
         // This is why frame-tracked scores never appeared: the shots
         // existed, under a league nothing was looking for.
-        league,
-        date,
+        league:shotLeague,
+        date:shotDate,
         id:existingSlot?existingSlot.id:crypto.randomUUID(),
 
         // Stamped at log time so it survives the guest being removed from
