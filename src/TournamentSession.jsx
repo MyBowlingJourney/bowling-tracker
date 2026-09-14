@@ -13,7 +13,6 @@ import { isBaker, appliesHandicap, bakerFramesFor, BAKER_STARTERS, handicapPins,
 
 import { tenthBall3Earned } from "./domain/scoring.js";
 
-import { recordError } from "./errorLogStore.js";
 import {
   SIDE_POT_TYPES, addSidePot, removeSidePot, setSidePotField, sidePotMoney, sidePotTotals,
 } from "./domain/sidePots.js";
@@ -377,12 +376,6 @@ function DayScoring({ tournament, day, onChange, multiDay, shotScores, shotScore
     // matched. That is the half the LogView instrumentation cannot see.
     if (!shotScores) {
       if (shotScoresByDate && Object.keys(shotScoresByDate).length) {
-        recordError({
-          kind: "tournament-fill",
-          where: "tournament.fillGames",
-          message: `block "${day.date || "(undated)"}" got no scores. `
-            + `available dates=[${Object.keys(shotScoresByDate).join(",")}]`,
-        });
       }
       return;
     }
@@ -416,11 +409,6 @@ function DayScoring({ tournament, day, onChange, multiDay, shotScores, shotScore
     }
     if (changed) update(next);
     else if (skipped.length) {
-      recordError({
-        kind: "tournament-fill",
-        where: "tournament.fillGames",
-        message: `block "${day.date || "(undated)"}" filled nothing: ${skipped.join(" ")}`,
-      });
     }
 
     // day.games is the dependency that matters; shotScores changes as
@@ -844,11 +832,6 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
     const blocks = (tournament.days || [])
       .map(d => `${d.date || "(undated)"}->${pickForDay(shotScoresByDate, d) ? "matched" : "none"}`)
       .join(" ");
-    recordError({
-      kind: "tournament-fill",
-      where: "tournament.scoresArrived",
-      message: `dates=[${Object.keys(shotScoresByDate).join(",")}] blocks: ${blocks}`,
-    });
   }, [shotScoresByDate, tournament.days]);
 
 

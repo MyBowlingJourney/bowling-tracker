@@ -21,7 +21,6 @@ import { otherBowlerSource, scorekeepingHelp } from "./domain/scorekeeping.js";
 import { plasticLast } from "./domain/bags.js";
 
 
-import { recordError } from "./errorLogStore.js";
 
 import { tenthBall3Earned, maxPossibleScore } from "./domain/scoring.js";
 export default function LogView({
@@ -128,12 +127,6 @@ export default function LogView({
     // indistinguishable from "never ran". Say which.
     if(env!=="tournament"||!activeBowler||!effectiveSessionLeague){
       if(env==="tournament"&&(shots||[]).length){
-        recordError({
-          kind:"tournament-fill",
-          where:"tournament.frameScores",
-          message:`did not run: bowler=${activeBowler||"(none)"} `
-            +`league=${effectiveSessionLeague||"(none)"}`,
-        });
       }
       return null;
     }
@@ -151,13 +144,6 @@ export default function LogView({
       // league -- the single most likely cause, and invisible until now.
       const anywhere=(shots||[]).filter(sh=>sh&&sh.bowler===(form.bowler||activeBowler));
       if(anywhere.length){
-        recordError({
-          kind:"tournament-fill",
-          where:"tournament.frameScores",
-          message:`no shots under "${effectiveSessionLeague}". `
-            +`${anywhere.length} shot(s) exist for this bowler under: `
-            +`[${[...new Set(anywhere.map(sh=>sh.league||"(blank)"))].join(" | ")}]`,
-        });
       }
       return null;
     }
@@ -205,12 +191,6 @@ export default function LogView({
           const tenth=gs.filter(sh=>parseInt(sh.frame)===10)
             .map(sh=>`b${sh.ballNum??"-"}:${sh.result||"?"}${sh.spareMade?"/"+sh.spareMade:""}${sh.pinCount?"("+sh.pinCount+")":""}`)
             .join(" ")||"none";
-          recordError({
-            kind:"tournament-fill",
-            where:"tournament.gameOpen",
-            message:`g${game} scored ${v} but is not finished. `
-              +`frames=${gs.length} tenth=[${tenth}]`,
-          });
         }
 
       }
@@ -226,14 +206,6 @@ export default function LogView({
     if(!Object.keys(out).length&&mine.length){
       const sample=mine.slice(0,3).map(sh=>
         `f${sh.frame}${sh.ballNum?`b${sh.ballNum}`:""}:${sh.result||"?"}`).join(" ");
-      recordError({
-        kind:"tournament-fill",
-        where:"tournament.frameScores",
-        message:`${mine.length} shot(s) matched bowler+league but scored nothing. `
-          +`dates=[${Object.keys(byDate).join(",")}] `
-          +`games=[${[...new Set(mine.map(sh=>sh.game))].join(",")}] `
-          +`sample=${sample}`,
-      });
     }
     return Object.keys(out).length?{scores:out,shots:raw}:null;
 

@@ -952,7 +952,27 @@ export default function BowlingTracker(){
   // If they are genuinely resuming one, the frame stepper moves.
   function changeSessionDate(next){
     setSessionDate(next);
-    setForm(f=>({...f,date:next,game:"1",frame:"1",ballNum:null}));
+
+    // Resume where that date left off, if it has shots.
+    //
+    // Resetting to game 1 frame 1 unconditionally was right for a new
+    // night and wrong for a correction: a league bowler fixing a typo
+    // mid-session lost their place and would have overwritten frame 1.
+    //
+    // nextState is the same function the save path uses to advance, so
+    // resuming lands exactly where logging stopped.
+    const who=form.bowler||activeBowler;
+    const lg=form.league||effectiveSessionLeague;
+    const existing=(shots||[]).filter(sh=>sh&&sh.bowler===who
+      &&sh.league===lg&&String(sh.date)===String(next));
+    if(existing.length){
+      const last=existing[existing.length-1];
+      const{game:g,frame:f,ballNum:b}=nextState(existing,who,lg,next,last.game,last.frame,last.ballNum);
+      setForm(fm=>({...fm,date:next,game:g,frame:f,ballNum:b}));
+    } else {
+      setForm(fm=>({...fm,date:next,game:"1",frame:"1",ballNum:null}));
+    }
+
 
     // A date outside the saved tournament starts a fresh one.
     //
