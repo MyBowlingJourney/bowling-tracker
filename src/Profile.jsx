@@ -40,6 +40,7 @@ export default function Profile({
   profiles, setProfile, teams,
   arsenals, ballLayouts, setBallLayout, removeBall,
   newBallName, setNewBallName, addBall, ballAddMessage = "",
+  retiredBalls = {}, setBallRetired, shots = [],
   bags, ballBags, saveBag, deleteBag, toggleBallBag,
   centers, ensureCenter, searchCenters,
   ballSpecs, setBallSpec, ballGroups, saveBallGroup, deleteBallGroup, seedDefaultGroups,
@@ -403,6 +404,8 @@ export default function Profile({
 
         <ArsenalList
           activeBowler={profileBowler}
+          retired={(retiredBalls || {})[profileBowler] || {}}
+          setBallRetired={setBallRetired} shots={shots || []}
           balls={balls}
           ballLayouts={ballLayouts || {}}
           setBallLayout={setBallLayout}
@@ -439,6 +442,8 @@ export default function Profile({
         expanded={expanded.bags} onToggle={() => toggle("bags")}>
         <BagManager
           activeBowler={profileBowler}
+          retired={(retiredBalls || {})[profileBowler] || {}}
+          setBallRetired={setBallRetired} shots={shots || []}
           bags={bags || []}
           balls={balls}
           ballBags={ballBags || {}}

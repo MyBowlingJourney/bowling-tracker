@@ -92,6 +92,8 @@ import { validTeamId,
 const TeamManagement = lazyScreen("TeamManagement", () => import("./TeamManagement.jsx"));
 const Friends = lazyScreen("Friends", () => import("./Friends.jsx"));
 import { categorizeFriendships } from "./Friends.jsx";
+
+import { retireBall, unretireBall, activeBalls, retiredBallNames, retiredBallSummary, describeRetirement, isRetired } from "./domain/retiredBalls.js";
 const StatsView = lazyScreen("StatsView", () => import("./StatsView.jsx"));
 const ImportScorecard = lazyScreen("ImportScorecard", () => import("./ImportScorecard.jsx"));
 const Settings = lazyScreen("Settings", () => import("./Settings.jsx"));
@@ -142,6 +144,13 @@ const SESSION_CONTEXT_KEY = "bowling-session-context-v1";
 const SESSIONS_KEY = "bowling-sessions-v2";
 const BOWLERS_KEY = "bowling-bowlers-v1";
 const ARSENALS_KEY = "bowling-arsenals-v1";
+// Retired balls, per bowler: { "Ryan": { "Zen": "2026-03-01" } }.
+//
+// Beside the arsenal rather than inside it: an arsenal is an array of
+// ball NAMES, read in a dozen places and threaded through bags, the ball
+// picker and every stat. Changing that shape to carry a date is a
+// migration with far more surface than this feature is worth.
+const RETIRED_BALLS_KEY = "bowling-retired-balls-v1";
 const LAYOUTS_KEY = "bowling-ball-layouts-v1";
 const PROFILES_KEY = "bowling-bowler-profiles-v1";
 // Dismissal of the shot-by-shot offer. Device-level and permanent:
@@ -874,6 +883,7 @@ export default function BowlingTracker(){
     catch{return true;}
   });
   const[newBallName,setNewBallName]=useState("");
+  const[retiredBalls,setRetiredBalls]=useState({});
   const[ballAddMessage,setBallAddMessage]=useState("");
   // Restored from the last session context, so a refresh mid-night lands
   // back where you were. Only restored when the saved date is TODAY --
@@ -1324,6 +1334,12 @@ export default function BowlingTracker(){
           try{await window.storage.set(LAYOUTS_KEY,JSON.stringify(rebuiltLayouts));}catch{}
         }else{
           const a=await window.storage.get(ARSENALS_KEY);
+
+          try{
+            const r=await window.storage.get(RETIRED_BALLS_KEY);
+            const parsed=r?JSON.parse(typeof r==="string"?r:r.value??"{}"):null;
+            if(parsed&&typeof parsed==="object")setRetiredBalls(parsed);
+          }catch{}
           if(a){const v=JSON.parse(a.value);if(v&&typeof v==="object"&&!Array.isArray(v))setArsenals(v);}
           const bl=await window.storage.get(LAYOUTS_KEY);
           if(bl){const v=JSON.parse(bl.value);if(v&&typeof v==="object"&&!Array.isArray(v))setBallLayouts(v);}
@@ -2154,6 +2170,32 @@ export default function BowlingTracker(){
   // Called with no arguments from the text field, or with a name and specs
   // when someone picks a community catalog suggestion -- which adds the
   // ball and fills its specs in one step.
+  // Retire a ball, or bring it back.
+  //
+  // Not a delete. A ball with two thousand shots behind it still answers
+  // "was the Phaze better on this pattern" -- the one question an old
+  // ball is good for. Retiring takes it out of the arsenal and every
+  // bag; the shots stay exactly where they are.
+  async function setBallRetired(ballName,retire){
+    const owner=displayName||activeBowler;
+    if(!owner||!ballName)return;
+    const mine=retiredBalls[owner]||{};
+    const next=retire
+      ?retireBall(mine,ballName,localDateString())
+      :unretireBall(mine,ballName);
+    const all={...retiredBalls,[owner]:next};
+    setRetiredBalls(all);
+    try{window.storage.set(RETIRED_BALLS_KEY,JSON.stringify(all));}catch{}
+
+    // Bag memberships are left ALONE on purpose.
+    //
+    // A retired ball disappears from bags because the bag screens read
+    // the active arsenal, not because its membership rows were deleted.
+    // That means un-retiring a ball puts it back in the bags it was in,
+    // which is what a bowler who rebuys a ball expects -- and it cannot
+    // lose data the way a cascade delete can.
+  }
+
   async function addBall(presetName,presetSpecs){
     const name=(presetName??newBallName).trim();
 
@@ -6261,7 +6303,7 @@ export default function BowlingTracker(){
             bowlers={bowlers} activeBowler={activeBowler} selectBowler={selectBowler}
             profiles={profiles} setProfile={setProfile} teams={teams}
             arsenals={arsenals} ballLayouts={ballLayouts} setBallLayout={setBallLayout} removeBall={removeBall}
-            newBallName={newBallName} ballAddMessage={ballAddMessage} setNewBallName={setNewBallName} addBall={addBall}
+            newBallName={newBallName} ballAddMessage={ballAddMessage} retiredBalls={retiredBalls} setBallRetired={setBallRetired} setNewBallName={setNewBallName} addBall={addBall}
             bags={bags} ballBags={ballBags} saveBag={saveBag} deleteBag={deleteBag} toggleBallBag={toggleBallBag}
             centers={centers} ensureCenter={ensureCenter} searchCenters={searchCenters}
             ballSpecs={ballSpecs} setBallSpec={setBallSpec} ballGroups={ballGroups}

@@ -7,6 +7,8 @@ import {
 } from "./domain/layouts.js";
 import BallCatalogPanel from "./BallCatalogPanel.jsx";
 import { rejectedBallsFor, ballKey } from "./domain/ballCatalog.js";
+
+import { activeBalls, retiredBallNames, retiredBallSummary, describeRetirement, isRetired } from "./domain/retiredBalls.js";
 import {
   COVERSTOCKS, CORE_TYPES, COVERSTOCK_LABELS, CORE_TYPE_LABELS,
   GROUP_MODES, GROUP_MODE_LABELS, normalizeBallSpecs,
@@ -123,6 +125,7 @@ function LayoutEditor({ layout, onChange }) {
 // ball itself deletes it", which is easy to do by accident on a phone.
 export default function ArsenalList({
   activeBowler, balls, ballLayouts, setBallLayout, removeBall,
+  retired = {}, setBallRetired, shots = [],
   ballSpecs, setBallSpec, ballGroups, seedDefaultGroups, saveBallGroup, deleteBallGroup,
   catalogEntries, catalogAck, userId, publishBallSpecs, voteOnEntry, acknowledgeRejection,
 }) {
@@ -134,6 +137,17 @@ export default function ArsenalList({
   const [confirmRemove, setConfirmRemove] = useState(null);
   const [groupMode, setGroupMode] = useState("none");
   const [newGroupName, setNewGroupName] = useState("");
+
+  // Active and archived are two lists, not one list with a flag.
+  //
+  // A bowler scanning their bag wants the balls they throw. The archive
+  // is a different question -- "what did the Zen do on this pattern" --
+  // asked rarely and deliberately, so it gets its own chip rather than
+  // greyed-out rows cluttering the arsenal.
+  const [gearTab, setGearTab] = useState("active");
+  const active = activeBalls(balls, retired);
+  const archived = retiredBallNames(balls, retired);
+  const shown = gearTab === "archive" ? archived : active;
 
   const groups = (ballGroups || []).filter(g => g.bowlerName === activeBowler);
   const specsByBall = {};
@@ -148,7 +162,20 @@ export default function ArsenalList({
     );
   }
 
-  const sections = groupBalls(groupMode, balls, specsByBall, groups);
+  const sections = groupBalls(groupMode, shown, specsByBall, groups);
+
+  const gearChips = (
+    <div style={{ ...S.chips, marginBottom: "10px" }}>
+      <Chip label={`Active \u00b7 ${active.length}`} selected={gearTab === "active"}
+        onToggle={() => setGearTab("active")} />
+      {/* Only once something is IN it. An empty Archive chip is a
+          question the bowler has no reason to ask. */}
+      {archived.length > 0 && (
+        <Chip label={`Archive \u00b7 ${archived.length}`} selected={gearTab === "archive"}
+          onToggle={() => setGearTab("archive")} />
+      )}
+    </div>
+  );
 
   function renderBall(ball) {
     const key = `${activeBowler}|${ball}`;
@@ -209,6 +236,41 @@ export default function ArsenalList({
               <LayoutEditor layout={ballLayouts?.[key]}
                 onChange={next => setBallLayout(activeBowler, ball, next)} />
             )}
+
+            {/* Retire, at the bottom of the ball's own details.
+                
+                Sold, cracked, or just not thrown any more. Deleting is
+                the only other option and it takes the shots with it --
+                and a ball with two thousand shots behind it is still the
+                answer to "was the Phaze better on this pattern".
+                
+                The summary says what the archive would preserve, so the
+                bowler can see it is worth keeping before they decide. */}
+            {setBallRetired && (
+              <div style={{ marginTop: "10px", paddingTop: "8px",
+                borderTop: `1px solid ${C.border}` }}>
+                {isRetired(retired, ball) ? (
+                  <>
+                    <div style={{ fontSize: "11px", color: C.textMuted, marginBottom: "6px" }}>
+                      {describeRetirement(retiredBallSummary(ball, retired, shots))}
+                    </div>
+                    <button style={S.btn("sm")} onClick={() => setBallRetired(ball, false)}>
+                      Throwing it again
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ fontSize: "11px", color: C.textMuted, marginBottom: "6px", lineHeight: 1.5 }}>
+                      No longer throwing this ball? Archiving takes it out of your
+                      arsenal and bags and keeps every shot you logged with it.
+                    </div>
+                    <button style={S.btn("sm")} onClick={() => setBallRetired(ball, true)}>
+                      Archive this ball
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
           </>
         )}
       </div>
@@ -219,6 +281,7 @@ export default function ArsenalList({
 
   return (
     <div style={{ marginBottom: "10px" }}>
+      {gearChips}
       {/* Community specs for a ball this bowler owns were disputed and
           removed. The ball itself stays -- they know they own it; only the
           numbers were in question. */}
