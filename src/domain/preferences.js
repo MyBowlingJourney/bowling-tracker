@@ -225,7 +225,7 @@ export const ENVIRONMENT_PRESETS = {
     showMoneyGames: true,
   },
   tournament: {
-    trackedFields: { surface: false, line: false, release: false, miss: false, ballSpeed: false, shoes: true, revRate: false, axisRotation: false },
+    trackedFields: { surface: false, line: false, release: false, miss: false, ballSpeed: false, shoes: false, revRate: false, axisRotation: false },
     showMoneyGames: false,
   },
   casual: {

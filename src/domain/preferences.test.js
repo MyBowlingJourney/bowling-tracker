@@ -61,13 +61,15 @@ describe('defaultPreferences', () => {
     expect(p.showMoneyGames).toBe(false);
   });
 
-  it('tournament keeps logging simple but tracks shoes and hides money games', () => {
-    // Shoes are ON here even though everything else is off: interchangeable
-    // soles get swapped for approach conditions, which matters most at an
-    // unfamiliar house. Money games are league side-pot conventions that
-    // don't apply in tournament play.
+  it('tournament keeps logging simple and hides money games', () => {
+    // Shoes used to be ON here on the reasoning that interchangeable soles
+    // get swapped for approach conditions at an unfamiliar house. True, but
+    // the bowler asked for it off: one accessory field switched on while
+    // every other is off reads as a mistake, and anyone who wants it can
+    // turn it on. Money games are league side-pot conventions that don't
+    // apply in tournament play.
     const p = defaultPreferences('tournament');
-    expect(p.trackedFields).toEqual({ surface: false, line: false, release: false, miss: false, ballSpeed: false, shoes: true, revRate: false, axisRotation: false });
+    expect(p.trackedFields).toEqual({ surface: false, line: false, release: false, miss: false, ballSpeed: false, shoes: false, revRate: false, axisRotation: false });
     expect(p.showMoneyGames).toBe(false);
   });
 
