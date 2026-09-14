@@ -55,6 +55,8 @@ export function sessionMode(session) {
 
 }
 
+const clean = v => String(v ?? "").trim();
+
 const num = v => {
   if (v === null || v === undefined || v === "") return null;
   const n = Number(v);
@@ -80,6 +82,42 @@ export function monthKey(year, month) {
 // Only months with something in them. An empty January between two busy
 // months is worth seeing INSIDE a month grid; an empty month in the
 // month picker is just a dead option.
+// Nights derived from SHOTS, for the calendar.
+//
+// A session row is only written by "End session". A bowler who logs a
+// night's frames and closes the app has no row -- so a month of real
+// bowling showed "Nothing logged yet", which is both wrong and the most
+// discouraging thing the screen could say.
+//
+// Frames are proof a night happened. These carry no scores, because a
+// part-bowled game has no final score worth showing; they exist so the
+// day is on the map and coloured by its mode.
+export function shotNights(shots, sessions) {
+  const haveSession = new Set(
+    rows(sessions).map(s => `${clean(s.bowler)}|${clean(s.league)}|${clean(s.date)}`));
+
+  const seen = new Map();
+  for (const sh of rows(shots)) {
+    const key = `${clean(sh.bowler)}|${clean(sh.league)}|${clean(sh.date)}`;
+    // A night with a session row is already on the calendar, with its
+    // real scores. Adding it again would double it.
+    if (haveSession.has(key)) continue;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(clean(sh.date))) continue;
+    if (seen.has(key)) continue;
+    seen.set(key, {
+      bowler: sh.bowler,
+      league: sh.league,
+      date: clean(sh.date),
+      scores: [],
+      mode: sessionMode(sh),
+      // So the detail panel can say why there are no scores rather than
+      // showing a night that looks empty.
+      inProgress: true,
+    });
+  }
+  return [...seen.values()];
+}
+
 export function monthsWithSessions(sessions, bowler, league) {
   const keys = new Set();
   for (const s of rows(sessions)) {
@@ -100,7 +138,16 @@ export function nightSummary(session) {
   const s = (session && typeof session === "object") ? session : null;
   if (!s) return null;
   const scores = (Array.isArray(s.scores) ? s.scores : []).map(num).filter(v => v !== null);
-  if (!scores.length) return null;
+
+  // A night with no scores is still a night, IF it was derived from
+  // frames.
+  //
+  // Returning null here dropped every shot-derived night from the grid,
+  // so a bowler who logs frames without tapping "End session" saw an
+  // empty month. The scoreless guard is right for a session ROW -- an
+  // empty row is a stub, not a night -- and wrong for one built from
+  // shots, which exist precisely because the bowler bowled.
+  if (!scores.length && !s.inProgress) return null;
   return {
     date: String(s.date || ""),
     league: s.league || "",
