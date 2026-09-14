@@ -264,27 +264,35 @@ export default function LogView({
     : 3;
 
   const saveShotRef=useRef(null);
-  // Put the bottom of the save button just above the bottom nav.
+  const leaveRef=useRef(null);
+
+  // Scroll the MINIMUM needed to bring a section fully into view above
+  // the bottom nav.
   //
-  // scrollIntoView({block:"end"}) aligns to the bottom of the VIEWPORT,
-  // and the nav is fixed on top of that -- so the button scrolled itself
-  // neatly underneath the nav and out of sight.
+  // Three things this gets right that the previous version did not:
   //
-  // The nav is measured rather than assumed: its height changes with the
-  // phone's safe-area inset, and a hardcoded 64 is right on one device
-  // and wrong on the next.
-  const scrollToSave=()=>requestAnimationFrame(()=>{
-    const el=saveShotRef.current;
+  //   The ref wraps the button itself, not an empty div above it.
+  //   Measuring a zero-height marker meant aligning the button's TOP to
+  //   the nav, which put the button underneath it -- the exact symptom.
+  //
+  //   It only ever scrolls DOWN. Scrolling up to "centre" something
+  //   throws away context the bowler was reading.
+  //
+  //   It does nothing when the target is already visible, so tapping a
+  //   second chip does not jog the page.
+  //
+  // The nav is measured rather than assumed: its height moves with the
+  // phone's safe-area inset.
+  const scrollTo=ref=>requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    const el=ref.current;
     if(!el)return;
     const nav=document.querySelector("nav");
-    const navHeight=nav?nav.getBoundingClientRect().height:64;
-    const rect=el.getBoundingClientRect();
-    // 8px of air so the button is not flush against the nav.
-    const wanted=window.innerHeight-navHeight-8;
-    const delta=rect.bottom-wanted;
-    if(Math.abs(delta)<2)return;
-    window.scrollBy({top:delta,behavior:"smooth"});
-  });
+    const navTop=window.innerHeight-(nav?nav.getBoundingClientRect().height:64);
+    const delta=el.getBoundingClientRect().bottom-(navTop-8);
+    if(delta>2)window.scrollBy({top:delta,behavior:"smooth"});
+  }));
+
+  const scrollToSave=()=>scrollTo(saveShotRef);
 
 
   // Shot Context (game/frame/lane) is meaningless without shots -- a
@@ -1158,7 +1166,20 @@ export default function LogView({
 // Any result scrolls. With block:"end" the pin grid opens
                         // below without hiding the scoresheet, so there is no
                         // longer a reason to hold Other Leave back.
-                        if(newResult)scrollToSave();
+                        // Where to scroll depends on what the result reveals.
+                        //
+                        //   Strike       -> description + save button
+                        //   Weak/Ringing -> spare made + save button
+                        //     Both are short, so landing on the button
+                        //     leaves them visible above it.
+                        //
+                        //   Other Leave  -> the pin grid, spare made and
+                        //     the button together are taller than a phone.
+                        //     Landing on the button would push the pins off
+                        //     the top, and the pins are the next thing to
+                        //     answer -- so this lands on the leave section.
+                        //     Answering "No" scrolls on to the button.
+                        if(newResult)scrollTo(newResult==="Other Leave"?leaveRef:saveShotRef);
 
 
 
@@ -1197,7 +1218,10 @@ export default function LogView({
 
               {form.result==="Other Leave"&&(
                 <>
-                  <div style={S.label}>Pins Standing</div>
+                  {/* Scroll target for Other Leave: the pins are the next
+                      thing to answer, so this is what has to come into
+                      view -- not the save button below it. */}
+                  <div ref={leaveRef} style={S.label}>Pins Standing</div>
                   <div style={S.chips}>
                     {/* Gutter — a one-tap shortcut for all 10 pins standing,
                         rather than tapping each pin chip individually. Not a
@@ -1305,14 +1329,14 @@ export default function LogView({
                 why the button is disabled, and separating them left the
                 bowler tapping a dead button with the reason somewhere
                 off-screen. */}
-            <div ref={saveShotRef} />
+
             {(editingId||(leagueReady&&preferences.trackingMode==="shot"
               &&!(preferences.environment==="practice"&&practiceMode==="drill")
               /* Tournament: Scoring tab only. Saving a shot from the
                  Brackets or Results tab is not a thing a bowler means to
                  do, and it appeared on all four. */
               &&(env!=="tournament"||tournamentTab==="scoring")))&&(
-              <div style={{marginBottom:"12px"}}>
+              <div ref={saveShotRef} style={{marginBottom:"12px"}}>
                 <button style={S.btn("primary")} onClick={submitShot} disabled={!form.result||!form.bowler||needsSpareMade||needsPins}>
                   {saved?(editingId?"\u2713 Shot Updated":"\u2713 Shot Saved"):(editingId?"Update Shot":"Save Shot")}
                 </button>

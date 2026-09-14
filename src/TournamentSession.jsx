@@ -380,25 +380,40 @@ function DayScoring({ tournament, day, onChange, multiDay, shotScores, shotsForG
 
     let next = day;
     let changed = false;
+    // Why each game was skipped. Every branch below is a silent
+    // `continue`, so a fill that does nothing produced no evidence at
+    // all -- which is exactly what happened.
+    const skipped = [];
+
     for (const g of day.games || []) {
       const v = derived(g);
-      if (v === null) continue;
+      if (v === null) { skipped.push(`g${g.gameNumber}:no-score`); continue; }
+
       // Only once the game is FINISHED.
       //
       // A running total climbing in the score box during the game reads
       // as a final score and invites the bowler to leave it, or to
       // wonder why it keeps changing. The number appears when it is the
       // number.
-      if (!gameComplete(g)) continue;
+      if (!gameComplete(g)) { skipped.push(`g${g.gameNumber}:incomplete(${v})`); continue; }
 
       const typedOver = g.score !== "" && !g.scoreAuto;
-      if (typedOver) continue;
-      if (String(g.score) === String(v) && g.scoreAuto) continue;
+      if (typedOver) { skipped.push(`g${g.gameNumber}:typed(${g.score})`); continue; }
+      if (String(g.score) === String(v) && g.scoreAuto) { skipped.push(`g${g.gameNumber}:already`); continue; }
+
       next = setGameField(next, g.gameNumber, "score", String(v));
       next = setGameField(next, g.gameNumber, "scoreAuto", true);
       changed = true;
     }
     if (changed) update(next);
+    else if (skipped.length) {
+      recordError({
+        kind: "tournament-fill",
+        where: "tournament.fillGames",
+        message: `block "${day.date || "(undated)"}" filled nothing: ${skipped.join(" ")}`,
+      });
+    }
+
     // day.games is the dependency that matters; shotScores changes as
     // frames land.
   }, [shotScores, day]);
@@ -811,6 +826,22 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
   // scores. Any fallback that picks "some other day" is wrong here; the
   // only safe default is nothing.
   const dayShots = d => pickForDay(shotsByDate, d);
+
+  // Scores arrived. Recorded here, in the always-mounted parent, because
+  // the fill effect lives in DayScoring -- which only mounts on the
+  // Scoring tab, so it cannot report that it never ran.
+  useEffect(() => {
+    if (!shotScoresByDate || !Object.keys(shotScoresByDate).length) return;
+    const blocks = (tournament.days || [])
+      .map(d => `${d.date || "(undated)"}->${pickForDay(shotScoresByDate, d) ? "matched" : "none"}`)
+      .join(" ");
+    recordError({
+      kind: "tournament-fill",
+      where: "tournament.scoresArrived",
+      message: `dates=[${Object.keys(shotScoresByDate).join(",")}] blocks: ${blocks}`,
+    });
+  }, [shotScoresByDate, tournament.days]);
+
 
   const pickForDay = (map, d) => {
     const byDate = map || {};
