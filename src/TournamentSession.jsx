@@ -759,7 +759,7 @@ function MatchPlay({ tournament, onChange }) {
   );
 }
 
-export default function TournamentSession({ tournament, onChange, onSave, saved, oilPatterns, submitOilPattern, tournaments, shotScoresByDate = null, tab: controlledTab, onTabChange, saveMessage = "", onUseDate, onCloseTournament }) {
+export default function TournamentSession({ tournament, onChange, onSave, saved, oilPatterns, submitOilPattern, tournaments, shotScoresByDate = null, tab: controlledTab, onTabChange, saveMessage = "", onUseDate, onCloseTournament, sessionDate = "" }) {
   // The tab is owned by the caller.
   //
   // LogView renders Shot Context alongside this card, and it only makes
@@ -856,11 +856,16 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
     const byDate = map || {};
     const key = String(d?.date || "");
     if (key) return byDate[key] || null;
-    // Undated block: only safe when it is the ONLY block. With dated
-    // siblings there is no way to tell which night the frames belong to.
+    // An UNDATED block means "the night being bowled", which is the
+    // session date -- not "whichever single date happens to be in the
+    // map".
+    //
+    // That fallback put a finished game from an earlier date into an
+    // undated block: G1 showed 277 from Saturday while the scoresheet
+    // showed Sunday's 211. Two different games, both presented as this
+    // one.
     if (dated.length) return null;
-    const only = Object.values(byDate);
-    return only.length === 1 ? only[0] : null;
+    return sessionDate ? (byDate[String(sessionDate)] || null) : null;
   };
 
   const dayScores = d => pickForDay(shotScoresByDate, d);

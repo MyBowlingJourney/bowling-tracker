@@ -510,6 +510,8 @@ export default function LogView({
 
                 onCloseTournament={closeTournament}
                 shotScoresByDate={tournamentShotScoresByDate?.scores||null}
+
+                sessionDate={sessionDate}
                 tournament={activeTournament}
                 onChange={updateTournament}
                 onSave={saveTournament}

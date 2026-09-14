@@ -4071,7 +4071,14 @@ export default function BowlingTracker(){
   // Strict running score: only frames with fully resolved bonus balls
 
   function getGameStrict(bowler,league,date,game){
-    const gs=shots.filter(s=>s.bowler===bowler&&s.league===league&&s.date===date&&s.game===String(game));
+    // String() on BOTH sides of every comparison.
+    //
+    // s.game===String(game) failed for a shot whose game is the number 1
+    // -- 1 === "1" is false. The scoresheet compares String to String
+    // and matched, so it drew a full game while this returned nothing:
+    // the series summary blank next to a scoresheet showing 211.
+    const gs=shots.filter(s=>s.bowler===bowler&&s.league===league
+      &&String(s.date)===String(date)&&String(s.game)===String(game));
     // A manually-entered score wins over the shot-derived one. Every score
     // path in the app funnels through here, so overriding at this single
     // point covers live scores, session totals, averages, and stats alike.
