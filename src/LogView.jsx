@@ -388,6 +388,8 @@ export default function LogView({
               <TournamentSession
                 tab={tournamentTab} onTabChange={setTournamentTab}
 
+                onUseDate={setSessionDate}
+
                 saveMessage={tournamentSaveMessage}
                 shotScoresByDate={tournamentShotScoresByDate?.scores||null}
                 shotsByDate={tournamentShotScoresByDate?.shots||null}

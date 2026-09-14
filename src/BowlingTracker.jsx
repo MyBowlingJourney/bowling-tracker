@@ -940,6 +940,20 @@ export default function BowlingTracker(){
   const[compareLeague,setCompareLeague]=useState("");
   const[sessionLeague,setSessionLeague]=useState(savedContext?.league||"");
   const[sessionDate,setSessionDate]=useState(savedContext?.date||localDateString());
+
+  // Changing the date starts a new night at game 1, frame 1.
+  //
+  // setSessionDate alone left the form on whatever game and frame the
+  // last night ended on -- so a second tournament squad began at "game
+  // 3, frame 7", and those shots filed under game 3 of a block that had
+  // never bowled games 1 or 2.
+  //
+  // The bowler is always at the start of a night they have just dated.
+  // If they are genuinely resuming one, the frame stepper moves.
+  function changeSessionDate(next){
+    setSessionDate(next);
+    setForm(f=>({...f,date:next,game:"1",frame:"1",ballNum:null}));
+  }
   const[startingLane,setStartingLane]=useState(savedContext?.lane||"");
   const[showSummary,setShowSummary]=useState(false);
   const[confirmClear,setConfirmClear]=useState(false);
@@ -6209,7 +6223,7 @@ export default function BowlingTracker(){
           <ImportScorecard
             bowlers={bowlers} activeBowler={activeBowler} profiles={profiles} leagues={leagues} teams={teams} tournaments={tournaments} shots={shots} saveShots={saveShots} onSubmitTeammateScores={submitTeammateScores}
             updateManualScore={updateManualScore}
-            setSessionLeague={setSessionLeague} setSessionDate={setSessionDate} selectBowler={selectBowler}
+            setSessionLeague={setSessionLeague} setSessionDate={changeSessionDate} selectBowler={selectBowler}
             setView={setView} setSessionSaveMessage={setSessionSaveMessage}
           />
         )}
@@ -6220,7 +6234,7 @@ export default function BowlingTracker(){
             shots={shots} sessions={sessions} bowlers={bowlers} footerHeight={footerHeight} footerRef={footerRef} teams={teams} leagues={activeLeagues} startEdit={startEdit} deleteShot={deleteShot}
             activeBowler={activeBowler} newBowlerName={newBowlerName} setNewBowlerName={setNewBowlerName} arsenals={arsenals} newBallName={newBallName} setNewBallName={setNewBallName}
             form={form} setForm={setForm} editingId={editingId} saved={saved} sessionSaved={sessionSaved} sessionSaveMessage={sessionSaveMessage}
-            sessionLeague={sessionLeague} setSessionLeague={setSessionLeague} effectiveSessionLeague={effectiveSessionLeague} sessionDate={sessionDate} setSessionDate={setSessionDate}
+            sessionLeague={sessionLeague} setSessionLeague={setSessionLeague} effectiveSessionLeague={effectiveSessionLeague} sessionDate={sessionDate} setSessionDate={changeSessionDate}
             startingLane={startingLane} setStartingLane={setStartingLane} setShowSummary={setShowSummary} expandedSections={expandedSections}
             offerShotByShot={offerShotByShot} onTryShotByShot={tryShotByShot} onDismissShotByShot={dismissShotPrompt}
             promptForTeam={promptForTeam} onDismissTeamPrompt={dismissTeamPrompt}

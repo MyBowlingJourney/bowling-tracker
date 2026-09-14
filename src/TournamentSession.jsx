@@ -187,7 +187,7 @@ function OilPatternField({ value, onChange, patterns, onSubmitPattern, tournamen
   );
 }
 
-function DayDetails({ tournament, day, onChange, canRemoveDay, onRemoveDay, multiDay, oilPatterns, submitOilPattern, tournaments, expanded = true, onToggleExpanded }) {
+function DayDetails({ tournament, day, onChange, canRemoveDay, onRemoveDay, multiDay, oilPatterns, submitOilPattern, tournaments, expanded = true, onToggleExpanded, onUseDate }) {
   function update(next) { onChange(next); }
 
   // The cut line lives here, with the block details, so the margin has
@@ -224,7 +224,21 @@ function DayDetails({ tournament, day, onChange, canRemoveDay, onRemoveDay, mult
         <div style={{ flex: 1 }}>
           {fieldLabel("Date")}
           <input style={S.input} type="date" value={day.date}
-            onChange={e => update({ ...day, date: e.target.value })} />
+            onChange={e => {
+              update({ ...day, date: e.target.value });
+              // Bring the shot context to this squad's date.
+              //
+              // The block date and the shot-context date were
+              // independent, so dating a second squad and then bowling
+              // filed those frames under the FIRST squad's date -- they
+              // showed up in the wrong block and the new one stayed
+              // empty.
+              //
+              // Only when the bowler is about to log against this block.
+              // Back-filling a date on a block already scored should not
+              // move where the next shot goes.
+              if (onUseDate && e.target.value) onUseDate(e.target.value);
+            }} />
         </div>
         <div style={{ flex: 1 }}>
           {fieldLabel("Start Time")}
@@ -706,7 +720,7 @@ function MatchPlay({ tournament, onChange }) {
   );
 }
 
-export default function TournamentSession({ tournament, onChange, onSave, saved, oilPatterns, submitOilPattern, tournaments, shotScoresByDate = null, tab: controlledTab, onTabChange, saveMessage = "", shotsByDate = null }) {
+export default function TournamentSession({ tournament, onChange, onSave, saved, oilPatterns, submitOilPattern, tournaments, shotScoresByDate = null, tab: controlledTab, onTabChange, saveMessage = "", shotsByDate = null, onUseDate }) {
   // The tab is owned by the caller.
   //
   // LogView renders Shot Context alongside this card, and it only makes
@@ -774,14 +788,27 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
   // alongside dated ones: nothing, because guessing which night those
   // frames belong to is how scores bleed between blocks.
   const dated = (tournament.days || []).filter(d => d && d.date);
-  const dayScores = d => {
-    const byDate = shotScoresByDate || {};
+  // Shots for a block, by the SAME rule as its scores.
+  //
+  // This used to fall back to Object.values(...)[0] -- the first date in
+  // the map -- so a second squad with no frames of its own was handed
+  // the first squad's, and its games filled in with the wrong day's
+  // scores. Any fallback that picks "some other day" is wrong here; the
+  // only safe default is nothing.
+  const dayShots = d => pickForDay(shotsByDate, d);
+
+  const pickForDay = (map, d) => {
+    const byDate = map || {};
     const key = String(d?.date || "");
     if (key) return byDate[key] || null;
+    // Undated block: only safe when it is the ONLY block. With dated
+    // siblings there is no way to tell which night the frames belong to.
     if (dated.length) return null;
     const only = Object.values(byDate);
     return only.length === 1 ? only[0] : null;
   };
+
+  const dayScores = d => pickForDay(shotScoresByDate, d);
 
   const scratchTotal = (tournament.days || []).reduce((a, d) => {
     const v = dayTotal(d, dayScores(d));
@@ -926,6 +953,7 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
           canRemoveDay={(tournament.days || []).length > 1}
           onRemoveDay={() => onChange(removeDay(tournament, day.dayNumber))}
           onChange={next => onChange(updateDay(tournament, day.dayNumber, () => next))}
+          onUseDate={onUseDate}
           expanded={isOpen(`day${day.dayNumber}`)}
           onToggleExpanded={() => toggle(`day${day.dayNumber}`)}
           oilPatterns={oilPatterns}
@@ -1135,7 +1163,7 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
       {(tournament.days || []).map(day => (
         <DayScoring key={day.dayNumber}
           shotScores={dayScores(day)}
-          shotsForGame={(shotsByDate || {})[String(day.date || "")] || (Object.values(shotsByDate || {})[0] || null)}
+          shotsForGame={dayShots(day)}
           tournament={tournament}
           day={day}
           multiDay={multiDay}
