@@ -15,6 +15,7 @@ column,arsenals,id,uuid NOT NULL
 column,arsenals,int_diff,numeric
 column,arsenals,layout_system,text
 column,arsenals,layout_values,jsonb
+column,arsenals,retired_on,date
 column,arsenals,rg,numeric
 column,arsenals,weight,numeric
 column,bags,bag_type,text NOT NULL
@@ -495,10 +496,10 @@ function,prune_sync_tombstones,"",integer security definer
 function,record_tombstone,"",trigger security definer
 function,set_updated_at,"",trigger security invoker
 function,teammate_bowler_profiles,"","TABLE(bowler_name text, left_handed boolean, two_handed boolean, aliases jsonb) security definer"
-grant,arsenals,INSERT,"ball, bowler_name, core_type, coverstock, created_at, created_by, diff, group_id, id, int_diff, layout_system, layout_values, rg, weight"
-grant,arsenals,REFERENCES,"ball, bowler_name, core_type, coverstock, created_at, created_by, diff, group_id, id, int_diff, layout_system, layout_values, rg, weight"
-grant,arsenals,SELECT,"ball, bowler_name, core_type, coverstock, created_at, created_by, diff, group_id, id, int_diff, layout_system, layout_values, rg, weight"
-grant,arsenals,UPDATE,"ball, bowler_name, core_type, coverstock, created_at, created_by, diff, group_id, id, int_diff, layout_system, layout_values, rg, weight"
+grant,arsenals,INSERT,"ball, bowler_name, core_type, coverstock, created_at, created_by, diff, group_id, id, int_diff, layout_system, layout_values, retired_on, rg, weight"
+grant,arsenals,REFERENCES,"ball, bowler_name, core_type, coverstock, created_at, created_by, diff, group_id, id, int_diff, layout_system, layout_values, retired_on, rg, weight"
+grant,arsenals,SELECT,"ball, bowler_name, core_type, coverstock, created_at, created_by, diff, group_id, id, int_diff, layout_system, layout_values, retired_on, rg, weight"
+grant,arsenals,UPDATE,"ball, bowler_name, core_type, coverstock, created_at, created_by, diff, group_id, id, int_diff, layout_system, layout_values, retired_on, rg, weight"
 grant,bags,INSERT,"bag_type, ball_limit, bowler_name, created_at, created_by, id, includes_plastic, name"
 grant,bags,REFERENCES,"bag_type, ball_limit, bowler_name, created_at, created_by, id, includes_plastic, name"
 grant,bags,SELECT,"bag_type, ball_limit, bowler_name, created_at, created_by, id, includes_plastic, name"
