@@ -3797,7 +3797,33 @@ export default function BowlingTracker(){
     ?activeTournament?.pinFormat
     :leagueFormats?.[effectiveSessionLeague];
   const noTapLeague=isNoTapLeague(activeScoringFormat);
-  const isFirstBall=!form.ballNum||Number(form.ballNum)===1;
+  // A ball thrown at a FULL RACK, which is what no-tap applies to.
+  //
+  // Frames 1-9: only the first ball. The tenth is different -- a strike
+  // or a spare resets the pins, so ball 2 after a strike and ball 3
+  // after a strike or spare are also full-rack balls.
+  //
+  // Treating only ballNum 1 as a fresh rack meant a ringing 10 on the
+  // tenth's second ball, after a strike, was offered as a SPARE -- and
+  // scored 289 in a nine-pin no-tap game, which cannot happen.
+  const isFirstBall=(()=>{
+    if(!form.ballNum||Number(form.ballNum)===1)return true;
+    if(parseInt(form.frame)!==10)return false;
+    const tenth=(shots||[]).filter(sh=>sh
+      &&sh.bowler===(form.bowler||activeBowler)
+      &&sh.league===effectiveSessionLeague
+      &&String(sh.date)===String(sessionDate)
+      &&String(sh.game)===String(form.game)
+      &&parseInt(sh.frame)===10);
+    const ball=n=>tenth.find(sh=>Number(sh.ballNum)===n)||null;
+    if(Number(form.ballNum)===2)return isStk(ball(1));
+    if(Number(form.ballNum)===3){
+      const b1=ball(1),b2=ball(2);
+      // Ball 3 faces a full rack after two strikes, or after a spare.
+      return isStk(b2)||(!!b1&&!!b2&&b2.spareMade==="Yes");
+    }
+    return false;
+  })();
   const pinsLeft=(form.otherLeave||[]).length;
   const isNoTap=noTapLeague&&isFirstBall&&form.result!=="Strike"&&(
     // A named corner-pin leave is one pin by definition; anything else
@@ -4918,6 +4944,7 @@ export default function BowlingTracker(){
   // removes an existing bowler, since guests and teammates live in the
   // same list.
   const nameSyncedRef=useRef("");
+  const clean=v=>String(v??"").trim();
   useEffect(()=>{
     if(!displayName)return;
 
@@ -4939,6 +4966,31 @@ export default function BowlingTracker(){
       if(movedSessions!==sessions)saveSessions(movedSessions);
       const movedArsenals=movedKeyedMap(arsenals,email,displayName);
       if(movedArsenals!==arsenals)saveArsenals(movedArsenals);
+
+      // Tournaments, drills and bags carry the bowler too. Moving only
+      // shots and sessions would leave half the history under the old
+      // name -- the list looks clean and the data is split, which is
+      // worse than not merging.
+      //
+      // The tournament one is what said "This tournament is
+      // reverett290's. Switch bowler to save it." about the bowler's own
+      // event.
+      const movedTournaments=movedRecords(tournaments,email,displayName);
+      if(movedTournaments!==tournaments){
+        setTournaments(movedTournaments);
+        try{window.storage.set(TOURNAMENTS_KEY,JSON.stringify(movedTournaments));}catch{}
+        if(activeTournament&&clean(activeTournament.bowler)===handleFromEmail(email)){
+          setActiveTournament({...activeTournament,bowler:displayName});
+        }
+      }
+      const movedDrills=movedRecords(drills,email,displayName);
+      if(movedDrills!==drills){
+        setDrills(movedDrills);
+        try{window.storage.set(DRILLS_KEY,JSON.stringify(movedDrills));}catch{}
+      }
+      const movedBags=movedRecords(bags,email,displayName);
+      if(movedBags!==bags)setBags(movedBags);
+
       if(activeBowler===handleFromEmail(email))selectBowler(displayName);
       return;
     }
@@ -4968,7 +5020,7 @@ export default function BowlingTracker(){
   // They load asynchronously, so an effect that ran only on displayName
   // would merge the bowler list against records that had not arrived and
   // leave the history behind under the old name.
-  },[displayName,bowlers.length,user?.email,shots.length,sessions.length]);
+  },[displayName,bowlers.length,user?.email,shots.length,sessions.length,tournaments.length,drills.length,bags.length]);
 
   // A new SESSION starts with no ball chosen. A new GAME does not.
   //
@@ -6433,6 +6485,8 @@ export default function BowlingTracker(){
         {(view==="settings"||view==="history")&&(
           <Settings
             mode={view==="history"?"history":"settings"}
+
+            drills={drills}
             restartOnboarding={restartOnboarding} replayTour={replayTour} isCoach={showCoachingTab}
             showBackup={showBackup} setShowBackup={setShowBackup}
             backupStatus={backupStatus} setBackupStatus={setBackupStatus}

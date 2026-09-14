@@ -25,6 +25,7 @@ const CARD_LABEL_BY_ID = Object.fromEntries(MOVABLE_STATS_CARDS.map(c => [c.id, 
 
 export default function Settings({
   onAddLeague,
+  drills = [],
   mode = "both",
   restartOnboarding, replayTour, isCoach = false,
   showBackup, setShowBackup, backupStatus, setBackupStatus,
@@ -224,6 +225,8 @@ export default function Settings({
             <JourneyView
               sessions={sessions || []}
               shots={shots || []}
+
+              drills={drills || []}
               tournaments={tournaments || []}
               bowler={statsBowler || activeBowler} />
           )}

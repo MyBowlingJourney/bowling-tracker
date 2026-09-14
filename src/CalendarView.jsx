@@ -11,6 +11,7 @@ import {
   tournamentNights,
   cellModes,
   shotNights,
+  drillNights,
 } from "./domain/calendar.js";
 
 // A month of bowling nights.
@@ -54,7 +55,7 @@ const MODE_LABELS = {
 };
 
 export default function CalendarView({
-  sessions = [], shots = [], tournaments = [], bowler = "", league = "", weekStart = 0,
+  sessions = [], shots = [], drills = [], tournaments = [], bowler = "", league = "", weekStart = 0,
   onDeleteNight,
 }) {
   // Tournament days are folded in as nights, because they are nights the
@@ -64,9 +65,15 @@ export default function CalendarView({
   // Only when no league filter is on: a tournament is not part of a
   // league, so filtering to one and still showing them would be wrong.
   const allNights = league
-    ? [...sessions, ...shotNights(shots, sessions)]
-    : [...sessions, ...shotNights(shots, sessions),
-       ...tournamentNights(tournaments, bowler)];
+    ? (() => {
+        const base = [...sessions, ...shotNights(shots, sessions)];
+        return [...base, ...drillNights(drills, base)];
+      })()
+    : (() => {
+        const base = [...sessions, ...shotNights(shots, sessions)];
+        return [...base, ...drillNights(drills, base),
+                ...tournamentNights(tournaments, bowler)];
+      })();
 
   const months = monthsWithSessions(allNights, bowler, league);
 
