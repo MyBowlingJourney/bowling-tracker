@@ -3798,7 +3798,15 @@ export default function BowlingTracker(){
       await saveShots(updated);
 
       // Determine next frame/game/ballNum
-      const{game:ng,frame:nf,ballNum:nb}=nextState(updated,form.bowler,form.league,form.date,form.game,form.frame,form.ballNum);
+      // shotLeague/shotDate, not form.league/form.date.
+      //
+      // This is what made Save Shot look dead. The shot saved fine, but
+      // nextState then searched for it under the stale form values,
+      // found nothing, and returned "game 1, frame 1" -- so the form
+      // reset to the start of the game instead of advancing. Nothing
+      // visibly happened, and the next shot overwrote frame 1.
+      const{game:ng,frame:nf,ballNum:nb}=nextState(updated,form.bowler,shotLeague,shotDate,form.game,form.frame,form.ballNum);
+
 
       // Auto-fill line for next shot
       let line={startingBoard:"",targetArrows:""};
@@ -3813,8 +3821,10 @@ export default function BowlingTracker(){
       setForm({
         ...emptyShot(),
         bowler:form.bowler,
-        league:form.league,
-        date:form.date,
+        // The league this shot was actually filed under, so the next one
+        // starts from the same place rather than the stale value.
+        league:shotLeague,
+        date:shotDate,
         game:ng,
         frame:nf,
         ballNum:nb,
@@ -3842,7 +3852,39 @@ export default function BowlingTracker(){
     setPreEditForm(null);
   }
 
-  async function deleteShot(id){await saveShots(shots.filter(s=>s.id!==id));}
+  // Deleting the FIRST ball of the 10th takes the whole frame.
+  //
+  // Removing just that row left balls 2 and 3 behind, and the scoresheet
+  // reads whatever is first as ball 1 -- so deleting a strike from
+  // "X, 9 spare" promoted the 9 to the first ball and invented a frame
+  // the bowler never bowled.
+  //
+  // Balls 2 and 3 only exist because ball 1 earned them. Take away what
+  // earned them and they are not a partial frame, they are orphans.
+  //
+  // Deleting ball 2 or 3 on its own is left alone: that is a bowler
+  // correcting the back half of a frame they did bowl.
+  async function deleteShot(id){
+    const target=shots.find(s=>s.id===id);
+    if(!target)return;
+
+    const isFirstOfTenth=parseInt(target.frame)===10
+      &&(!target.ballNum||Number(target.ballNum)===1);
+    if(!isFirstOfTenth){
+      await saveShots(shots.filter(s=>s.id!==id));
+      return;
+    }
+
+    const sameFrame=s=>s&&s.bowler===target.bowler&&s.league===target.league
+      &&s.date===target.date&&String(s.game)===String(target.game)
+      &&parseInt(s.frame)===10;
+    const doomed=shots.filter(sameFrame);
+    await saveShots(shots.filter(s=>!sameFrame(s)));
+    // saveShots diffs and issues its own cloud deletes, so the rows go
+    // with it -- no separate cloudDelete needed here.
+    void doomed;
+  }
+
 
   async function clearAllData(){
     await saveShots([]);
