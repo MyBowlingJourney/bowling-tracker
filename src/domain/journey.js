@@ -315,15 +315,17 @@ export function journeyMilestones(sessions, tournaments, shots) {
   earned.sort((a, b) =>
     a.date.localeCompare(b.date) || rank.get(a.id) - rank.get(b.id));
 
-  // One step ahead: the first unearned milestone in catalogue order.
-  // A wall of locked achievements is a list of everything you have not
-  // done, which is the opposite of what this screen is for.
-  const next = all.find(m => !m.date);
-  const ahead = next
-    ? [{ ...next, state: reachState(next), gap: gapFor(next) }]
-    : [];
-
-  return [...earned, ...ahead];
+  // EARNED ONLY. Nothing that has not happened yet.
+  //
+  // Showing the next target turned the timeline back into a ladder: it
+  // put a locked node at the top of the road with a number attached, and
+  // a bowler who is nowhere near it reads that as how far behind they
+  // are.
+  //
+  // A timeline of a life does not end with what you have not done. The
+  // view says "keep bowling" instead, which is true, encouraging, and
+  // makes no claim about what should come next.
+  return earned;
 }
 
 // Close enough to be worth naming a number, rather than a wall to stare
@@ -412,12 +414,23 @@ export function bandedJourney(milestones, average) {
 
   const highest = folded[folded.length - 1];
 
+  // The most recent milestones ALWAYS stay open, whatever band they are
+  // in.
+  //
+  // Without this a bowler whose every milestone falls in a folded band --
+  // a 200 average with no 225 game yet -- opens their journey to an
+  // empty map and a row of folded drawers. The recent history is the
+  // part anyone actually wants to see.
+  const KEEP_OPEN = 3;
+  const earnedIds = all.filter(m => m.state === "earned").map(m => m.id);
+  const alwaysOpen = new Set(earnedIds.slice(-KEEP_OPEN));
+
   const open = [];
   const byBand = new Map(folded.map(c => [c, []]));
   for (const m of all) {
     // Only EARNED milestones fold. The step ahead always stays in view;
     // it is the one thing on this screen that is about what comes next.
-    const band = m.state === "earned" ? m.band : null;
+    const band = (m.state === "earned" && !alwaysOpen.has(m.id)) ? m.band : null;
     if (band && folded.includes(band)) byBand.get(band).push(m);
     else open.push(m);
   }
