@@ -3686,16 +3686,20 @@ export default function BowlingTracker(){
 
   // Who and when the CURRENT night belongs to.
   //
-  // The scoresheet resolved this as form.bowler || activeBowler, and the
-  // score lookups used activeBowler alone. When they differ -- an account
-  // display name as activeBowler, the bowler's own name on the shots --
-  // the scoresheet shows a full game while every score box and the whole
-  // series summary sit empty. That is exactly what the screenshots show.
+  // WHO can vary per shot -- a bowler keeps score for a teammate, so
+  // form.bowler is meaningful and leads. This is what fixed the summary
+  // reading "reverett290" while the shots were filed under "Ryan".
   //
-  // One identity, resolved once, used by both.
+  // WHERE and WHEN cannot. They are properties of the session, and the
+  // session knows them: submitShot writes exactly these values. Letting
+  // form lead meant a stale form.league survived the switch out of a
+  // tournament, so league night showed the tournament's session, scores
+  // and recap -- "Tournament·Tourny 5·<uuid>" under a League header.
+  //
+  // form is the fallback, not the authority, for those two.
   const nightBowler=form.bowler||activeBowler;
-  const nightLeague=form.league||effectiveSessionLeague;
-  const nightDate=form.date||sessionDate;
+  const nightLeague=effectiveSessionLeague||form.league;
+  const nightDate=sessionDate||form.date;
 
 
   // A no-tap strike, worked out rather than declared.

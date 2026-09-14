@@ -135,7 +135,7 @@ export default function LogView({
     // activeBowler alone missed shots saved under the form's bowler --
     // a full game on the scoresheet, nothing in any score box.
     const nightBowler=form.bowler||activeBowler;
-    const nightLeague=form.league||effectiveSessionLeague;
+    const nightLeague=effectiveSessionLeague||form.league;
     const mine=(shots||[]).filter(sh=>sh&&sh.bowler===nightBowler
       &&sh.league===nightLeague);
 
@@ -1045,11 +1045,23 @@ export default function LogView({
                   //
                   // An empty field on either side means "unset", not
                   // "different", so it doesn't exclude the shot.
-                  const same=(a,b)=>!a||!b||a===b;
-                  return same(sh.bowler,form.bowler||activeBowler)
-                    &&same(sh.league,form.league||effectiveSessionLeague)
-                    &&same(sh.date,form.date||sessionDate)
-                    &&String(sh.game)===String(form.game);
+                  // EXACT, not permissive.
+                  //
+                  // This matched when either side was blank, so a blank
+                  // form.league matched every league -- and a tournament
+                  // bowled the same day as league night showed its games
+                  // on the league scoresheet. Two different nights
+                  // presented as one.
+                  //
+                  // The permissive version existed because the form used
+                  // to drift; it no longer does, and the resolved values
+                  // below are the same ones the save path writes.
+                  const eq=(a,b)=>String(a??"")===String(b??"");
+                  return eq(sh.bowler,form.bowler||activeBowler)
+                    &&eq(sh.league,effectiveSessionLeague||form.league)
+                    &&eq(sh.date,sessionDate||form.date)
+                    &&eq(sh.game,form.game);
+
                 })}
                 currentFrame={form.frame}
                 currentBall={form.ballNum}
@@ -1103,7 +1115,7 @@ export default function LogView({
                 bowling first is asking for a setting that has nowhere to
                 apply. It puts two cards of setup in front of someone who
                 came to enter a score. */}
-            {!editingId&&preferences.environment!=="tournament"&&preferences.environment!=="casual"
+            {onTab("scoring")&&!editingId&&preferences.environment!=="tournament"&&preferences.environment!=="casual"
               &&(preferences.environment!=="league"||!!effectiveSessionLeague)&&(
               <div style={{...S.card,padding:"10px 12px"}}>
                 {/* Below Shot Context and kept short: this is a setting
@@ -1403,7 +1415,7 @@ export default function LogView({
                 bowler tapping a dead button with the reason somewhere
                 off-screen. */}
 
-            {(editingId||(leagueReady&&preferences.trackingMode==="shot"
+            {onTab("scoring")&&(editingId||(leagueReady&&preferences.trackingMode==="shot"
               &&!(preferences.environment==="practice"&&practiceMode==="drill")
               /* Tournament: Scoring tab only. Saving a shot from the
                  Brackets or Results tab is not a thing a bowler means to
@@ -1877,7 +1889,11 @@ export default function LogView({
                 <div style={{...S.card,border:`1px solid ${C.accent}44`}}>
                   <div style={{...S.label}}>
                     {cs.bowler?`${cs.bowler}'s night`:"Tonight"}
-                    <span style={{fontWeight:400,color:C.textMuted}}> — {cs.league.replace(" House Shot","")}, {formatDate(cs.date)}</span>
+                    {/* The DISPLAY name. A container league's stored name
+                        carries the user id -- "Tournament·Tourny 5·c3e40233-
+                        c180-4d76-be28-36abd33f9c07" -- and the recap header
+                        was printing the whole thing. */}
+                    <span style={{fontWeight:400,color:C.textMuted}}> — {practiceLeagueDisplayName(cs.league).replace(" House Shot","")}, {formatDate(cs.date)}</span>
                   </div>
                   <div style={{display:"flex",gap:"6px",marginBottom:"12px"}}>
                     {cs.scores.map((s,i)=>(<div key={i} style={S.statBox}><div style={{...S.statNum,fontSize:"20px"}}>{s}</div><div style={S.statLbl}>G{i+1}</div></div>))}
@@ -2213,7 +2229,13 @@ export default function LogView({
                 tracking mode -- including scores-only, where there is no
                 per-shot result to record. */}
 
-            {showEquipment&&(<>
+            {/* The equipment strip -- ball, surface, line, speed, shoes --
+                is part of logging a shot, so it belongs with the shot
+                form and nowhere else. It was appearing under Set up,
+                Side games and Results, where there is no shot to attach
+                it to. */}
+            {onTab("scoring")&&showEquipment&&(<>
+
             {/* Ball — collapsible. Once a bowler settles on a ball they may
                 throw it for a dozen frames, so a permanently-expanded grid
                 of every ball in the bag is wasted screen. */}
@@ -2305,7 +2327,7 @@ export default function LogView({
                 above -- showing both would imply you need to do both.
                 Editing an existing shot always shows the form, since
                 that's how a logged shot gets corrected. */}
-            {(editingId||(leagueReady&&preferences.trackingMode==="shot"&&!(preferences.environment==="practice"&&practiceMode==="drill")))&&(<>
+            {onTab("scoring")&&(editingId||(leagueReady&&preferences.trackingMode==="shot"&&!(preferences.environment==="practice"&&practiceMode==="drill")))&&(<>
             </>)}
 
             {/* Line */}
@@ -2433,7 +2455,7 @@ export default function LogView({
                 carries its own day notes and overall notes. Two notes
                 fields on one screen is a question about which one to
                 use. */}
-            {env!=="tournament"&&(
+            {onTab("scoring")&&env!=="tournament"&&(
             <CollapsibleCard
               title="Notes"
               summary={form.notes?"✓":""}

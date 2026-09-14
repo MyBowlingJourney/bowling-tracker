@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { C, S, Chip } from "./ui.jsx";
+
+import { practiceLeagueDisplayName } from "./constants.js";
 import {
   monthGrid, monthsWithSessions, monthLabel, weekdayLabels, shiftMonth,
   tournamentNights, cellModes,
@@ -208,7 +210,9 @@ export default function CalendarView({
         <div key={i} style={S.card}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "6px" }}>
             <div style={{ fontSize: "13px", fontWeight: 600, color: (MODE_COLORS[night.mode]||MODE_COLORS.league)(C) }}>
-              {night.league || "Bowling"}
+              {/* Display name: a container league's stored name carries
+                  the user id, and the calendar was printing the uuid. */}
+              {practiceLeagueDisplayName(night.league) || "Bowling"}
             </div>
             <div style={{ fontSize: "12px", color: C.textMuted }}>{night.date}</div>
           </div>
