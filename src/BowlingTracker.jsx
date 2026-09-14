@@ -3746,9 +3746,28 @@ export default function BowlingTracker(){
     // whatever the bowler last did, and nothing cleared it on the way
     // back from the tenth. Normalising here means the record is right
     // regardless of what the form was carrying.
-    const shotBallNum=parseInt(form.frame)===10
-      ?(Number(form.ballNum)||1)
-      :null;
+    // The tenth's ball number, healed against what is already there.
+    //
+    // Diagnostics showed a tenth holding a single shot numbered BALL 2,
+    // with no ball 1 -- so the frame could never close, and the game
+    // scored 210 instead of 259 because the scorer had no first ball to
+    // read.
+    //
+    // nextState returns ball 1 correctly on entering the tenth, so the
+    // form had drifted. Rather than trust it: the first shot in a tenth
+    // IS ball 1, the second is ball 2, the third is ball 3. Numbering by
+    // what exists cannot drift.
+    const shotBallNum=(()=>{
+      if(parseInt(form.frame)!==10)return null;
+      if(editingId)return Number(form.ballNum)||1;
+      const already=shots.filter(sh=>sh
+        &&sh.bowler===form.bowler&&sh.league===shotLeague&&sh.date===shotDate
+        &&String(sh.game)===String(form.game)&&parseInt(sh.frame)===10).length;
+      // Respect an explicit choice when it lines up with what is there;
+      // otherwise take the next slot.
+      const asked=Number(form.ballNum)||0;
+      return (asked>=1&&asked<=3&&asked===already+1)?asked:Math.min(3,already+1);
+    })();
 
 
     // A no-tap strike is stored as the LEAVE, with noTap: true -- not as
