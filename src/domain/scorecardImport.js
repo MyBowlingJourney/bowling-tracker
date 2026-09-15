@@ -24,11 +24,20 @@
 // future reader cannot handle one shape and forget the other.
 function pinsOf(ball) {
   const raw = ball?.pinsStanding;
-  if (Array.isArray(raw)) return raw.map(p => String(p).trim()).filter(Boolean);
-  if (typeof raw === "string") {
-    return raw.split(",").map(p => p.trim()).filter(Boolean);
-  }
-  return [];
+  let pins = [];
+  if (Array.isArray(raw)) pins = raw.map(p => String(p).trim()).filter(Boolean);
+  else if (typeof raw === "string") pins = raw.split(",").map(p => p.trim()).filter(Boolean);
+
+  // Only real pin numbers. A model asked for pins in a string field
+  // answered with a COUNT -- a 6-10 spare came back as "2" -- which is a
+  // valid pin number and so passed straight through as a 2-pin leave.
+  // Every frame collapsed into strike, 9-open or 9-spare.
+  //
+  // A count cannot be told from an identity when there is one of them, so
+  // this cannot catch that case. It does drop the impossible ones, which
+  // is where a count shows itself on a fuller rack: "10 pins standing"
+  // arrives as 10, and 0 arrives when nothing is.
+  return pins.filter(p => /^([1-9]|10)$/.test(p));
 }
 
 function convertRegularFrame(frame, base) {
