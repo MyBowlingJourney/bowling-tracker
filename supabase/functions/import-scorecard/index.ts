@@ -363,11 +363,28 @@ Deno.serve(async (req) => {
     // all, so a fixed number would have been wrong there too.
     let retries = 0;
 
+    // A HARD CEILING on each attempt.
+    //
+    // The call had no timeout and retries twice, so a slow or stuck
+    // Gemini response left the bowler on a spinner with no end and no
+    // error -- nothing was even written to diagnostics, because neither
+    // the success nor the failure path was ever reached.
+    //
+    // 90s is deliberately generous: a full scorecard with thirty frames
+    // of pin-deck detail is genuinely slow to read, and cutting a working
+    // import short is worse than waiting. This exists to end a hang, not
+    // to hurry a success.
+    const ATTEMPT_TIMEOUT_MS = 90_000;
+
     for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+      const ac = new AbortController();
+      const killer = setTimeout(() => ac.abort(), ATTEMPT_TIMEOUT_MS);
+      try {
       geminiRes = await fetch(GEMINI_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: requestBody,
+        signal: ac.signal,
       });
       if (geminiRes.ok) break;
 
@@ -376,6 +393,21 @@ Deno.serve(async (req) => {
       if (!transient || attempt === RETRY_DELAYS_MS.length) break;
       await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[attempt]));
       retries++;
+      } catch (err) {
+        // A timed-out attempt is transient by definition, so it retries
+        // like a 503 rather than failing the whole import. The last one
+        // falls through to the error response below with a message that
+        // says what happened, instead of the caller waiting forever.
+        geminiRes = null;
+        lastErrText = (err as Error)?.name === "AbortError"
+          ? `attempt timed out after ${ATTEMPT_TIMEOUT_MS / 1000}s`
+          : String(err);
+        if (attempt === RETRY_DELAYS_MS.length) break;
+        await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[attempt]));
+        retries++;
+      } finally {
+        clearTimeout(killer);
+      }
     }
 
     if (!geminiRes || !geminiRes.ok) {
