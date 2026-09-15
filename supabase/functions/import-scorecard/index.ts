@@ -81,10 +81,14 @@ const GEMINI_MODEL = Deno.env.get("IMPORT_GEMINI_MODEL")?.trim()
 const GEMINI_MODEL_DETAILED = Deno.env.get("IMPORT_GEMINI_MODEL_DETAILED")?.trim()
   || "gemini-3.6-flash";
 // Built per request, because the model varies: the fast one by default,
-// the detailed one on a retry. A module-scope constant cannot see a
-// per-request value.
+// the detailed one on a retry.
+//
+// The ?key= is NOT optional and is easy to lose in a refactor -- doing so
+// returns a 403 "Method doesn't allow unregistered callers", which reads
+// like a permissions problem with the function rather than a missing
+// query parameter. It cost a deploy and an import to find.
 const geminiUrlFor = (model: string) =>
-  `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+  `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
 
 // One uniform shape for every frame, 1 through 10. Each frame is just a
 // list of the actual deliveries (balls) physically thrown in it, each with
@@ -483,7 +487,18 @@ Deno.serve(async (req) => {
       const ac = new AbortController();
       const killer = setTimeout(() => ac.abort(), ATTEMPT_TIMEOUT_MS);
       try {
-      geminiRes = await fetch(geminiUrlFor(modelForRequest), {
+      // A URL without the key returns a 403 that reads like a function
+      // permissions problem. Catch it here, where the message can say
+      // what is actually wrong.
+      const url = geminiUrlFor(modelForRequest);
+      if (!url.includes("?key=") || url.endsWith("?key=")) {
+        return new Response(JSON.stringify({
+          error: "Server misconfigured: the Gemini API key is missing from the request URL.",
+          reason: "missing_key",
+        }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      geminiRes = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: requestBody,
