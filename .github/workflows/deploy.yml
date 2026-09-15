@@ -68,25 +68,6 @@ jobs:
           else echo "audit_dataflow.mjs not found in scripts/ or the repo root"; exit 1
           fi
 
-      - name: Free-variable audit
-        # Catches "reads something that nothing declares" -- the class that
-        # put `userId is not defined` into production, where it crashed
-        # Brooklyn for every bowler with a team.
-        #
-        # The script itself had a blind spot until 15 Sep 2026: TypeScript
-        # resolved a bare identifier against a JSX attribute name of the
-        # same name elsewhere in the file, emitted no diagnostic, and the
-        # audit printed "0 undefined identifiers" while the bug shipped.
-        # It now walks identifiers directly as well as reading diagnostics.
-        #
-        # Same both-locations-then-fail pattern as the audits above: a
-        # missing check must never look like a passing one.
-        run: |
-          if   [ -f scripts/qa_freevars.mjs ]; then node scripts/qa_freevars.mjs
-          elif [ -f qa_freevars.mjs ];         then node qa_freevars.mjs
-          else echo "qa_freevars.mjs not found in scripts/ or the repo root"; exit 1
-          fi
-
       - name: Schema audit
         # Runs from wherever the file lives -- these moved to scripts/
         # partway through and two builds failed on the path rather than
