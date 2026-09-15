@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { C, S, AiNote } from "./ui.jsx";
 import { reviewAiOutput, overreachNote } from "./domain/aiGuard.js";
 
@@ -48,6 +48,37 @@ export default function BowlingGenie({
   const [open, setOpen] = useState(false);
   const [question, setQuestion] = useState("");
   const [thinking, setThinking] = useState(false);
+
+  // What the wait says, changing as it goes on.
+  //
+  // A message that never changes stops being evidence of progress after
+  // a few seconds -- it looks as stuck as no message at all. These are
+  // honest about what is happening rather than fake progress: she really
+  // does read the statistics before answering.
+  const [thinkingNote, setThinkingNote] = useState("Rubbing the lamp\u2026");
+
+  // The pulse is driven from JS, not a CSS animation.
+  //
+  // There is no stylesheet in this project and no @keyframes anywhere, so
+  // an animation name would resolve to nothing and the dot would sit
+  // still -- which is precisely the "looks frozen" problem this is meant
+  // to fix, reintroduced by the fix.
+  const [pulse, setPulse] = useState(1);
+  useEffect(() => {
+    if (!thinking) return;
+    const id = setInterval(() => setPulse(p => (p === 1 ? 0.35 : 1)), 550);
+    return () => clearInterval(id);
+  }, [thinking]);
+  useEffect(() => {
+    if (!thinking) { setThinkingNote("Rubbing the lamp\u2026"); return; }
+    const stages = [
+      [1500, "Reading your numbers\u2026"],
+      [5000, "Working out what they mean\u2026"],
+      [12000, "Still going \u2014 it is a fair question\u2026"],
+    ];
+    const timers = stages.map(([ms, text]) => setTimeout(() => setThinkingNote(text), ms));
+    return () => timers.forEach(clearTimeout);
+  }, [thinking]);
   const [answer, setAnswer] = useState(null);
   const [freeRefusal, setFreeRefusal] = useState("");
 
@@ -80,6 +111,15 @@ export default function BowlingGenie({
       // drop it and say "couldn't reach" for all of them. A bowler waits
       // and retries, which is right for a blip and useless for a quota
       // that resets at midnight.
+      // The server says when it ran out of room mid-answer.
+      if (reply?.truncated) {
+        recordError({
+          kind: "unhandled",
+          where: "BowlingGenie.ask",
+          message: "answer truncated (MAX_TOKENS) — raise maxOutputTokens",
+        });
+      }
+
       if (reply?.error && !reply?.text) {
         recordError({
           kind: "unhandled",
@@ -258,6 +298,26 @@ export default function BowlingGenie({
 
           {/* Free refusal. Says outright that it cost nothing, because
               otherwise people assume it did. */}
+          {/* Say she is THINKING, at the place the answer will appear.
+              
+              The only sign was the Ask button turning into a single "…"
+              while a call takes ten to twenty seconds. Nothing moved,
+              nothing appeared where the answer goes, and the app read as
+              frozen -- which is worse than slow, because a bowler who
+              thinks it crashed taps again or leaves.
+              
+              The lines change as the wait goes on, so late in a long call
+              there is still evidence something is happening. */}
+          {thinking && (
+            <div style={{ fontSize: "12px", color: C.textMuted, marginTop: "10px",
+              lineHeight: 1.6, display: "flex", alignItems: "center", gap: "8px" }}>
+              <span style={{ display: "inline-block", width: "10px", height: "10px",
+                borderRadius: "50%", background: C.accent,
+                opacity: pulse, transition: "opacity 0.5s ease-in-out" }} />
+              <span>{thinkingNote}</span>
+            </div>
+          )}
+
           {freeRefusal && (
             <div style={{ fontSize: "12px", color: C.textMuted, marginTop: "10px", lineHeight: 1.5 }}>
               {freeRefusal}

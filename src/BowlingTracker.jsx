@@ -4698,7 +4698,26 @@ export default function BowlingTracker(){
     const{data,error}=await supabase.functions.invoke("bowling-genie",{
       body:{question,context:buildGenieContext(summary)},
     });
-    if(error||!data?.text){
+    // READ THE BODY on a non-2xx.
+    //
+    // supabase-js reports every non-2xx as the same opaque "Edge Function
+    // returned a non-2xx status code" and puts the actual response on
+    // error.context. The function already returns a useful { error }
+    // message; without this it is discarded, and a Gemini rejection, a
+    // rate limit and a bad model name all read identically.
+    if(error){
+      let detail="";
+      try{
+        const res=error?.context;
+        if(res&&typeof res.json==="function"){
+          const body=await res.json();
+          detail=body?.error||body?.detail||"";
+        }
+      }catch{ /* body was not JSON; the status is all we have */ }
+      return{error:detail||error.message||"Brooklyn had no answer for that."};
+    }
+
+    if(!data?.text){
       // Not recorded: a failure must not spend a wish.
       // RETURN the reason rather than throwing it.
       //
