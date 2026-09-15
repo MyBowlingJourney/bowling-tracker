@@ -404,12 +404,64 @@ export default function ImportScorecard({
         setTimeout(()=>reject(new Error(
           "The import took too long and was stopped. Try one image at a time.")),
           CLIENT_TIMEOUT_MS));
-      const{data,error:fnError}=await Promise.race([
-        supabase.functions.invoke("import-scorecard",{
-        body:{images:images.map(img=>({base64:img.base64,mimeType:img.mimeType}))},
-      }),
-        timeoutGuard,
-      ]);
+      const payload=images.map(img=>({base64:img.base64,mimeType:img.mimeType}));
+      const call=body=>supabase.functions.invoke("import-scorecard",{body});
+
+      // TWO PHASES, because one request reading thirty frames took 61s.
+      //
+      // Count first -- a tiny answer, a few seconds -- then ask for each
+      // game at once. Each of those reads ten frames instead of thirty and
+      // they run together, so the wait is the slowest single game rather
+      // than the sum.
+      //
+      // Any failure falls back to the original single request. A slower
+      // import that works beats a faster one that does not, and this is
+      // the path that is currently working.
+      let data=null,fnError=null,pathTaken="single";
+      const single=async()=>{
+        const r=await call({images:payload});
+        data=r.data; fnError=r.error;
+      };
+
+      try{
+        const counted=await Promise.race([call({images:payload,mode:"count"}),timeoutGuard]);
+        const games=Number(counted?.data?.gameCount)||0;
+
+        if(counted?.error||games<2||games>6){
+          // Nothing to split, or a count we do not believe. One game needs
+          // no parallelism, and a wild number means the count failed --
+          // either way the single request is the honest answer.
+          pathTaken=`single (count said ${games||"?"})`;
+          await Promise.race([single(),timeoutGuard]);
+        } else {
+          const results=await Promise.race([
+            Promise.all(Array.from({length:games},(_,i)=>call({
+              images:payload,onlyGame:i+1,
+            }))),
+            timeoutGuard,
+          ]);
+
+          const failed=results.find(r=>r?.error);
+          const merged=results.flatMap(r=>r?.data?.games||[]);
+          if(failed||!merged.length){
+            // A game that did not come back would be a game silently
+            // missing from the import, which is worse than being slow.
+            pathTaken="single (a game failed)";
+            await Promise.race([single(),timeoutGuard]);
+          } else {
+            pathTaken=`parallel x${games}`;
+            data={
+              ...(results[0]?.data||{}),
+              bowlerCount:Number(counted.data?.bowlerCount)||undefined,
+              games:merged,
+            };
+          }
+        }
+      }catch(err){
+        // The timeout guard rejects here. Surface it rather than falling
+        // back into another long wait.
+        throw err;
+      }
       if(fnError){
         // supabase-js reports any non-2xx or network failure as the same
         // opaque "Failed to send a request to the Edge Function", which
@@ -578,7 +630,7 @@ export default function ImportScorecard({
         kind:"import-quality",
         where:"ImportScorecard.timing",
         message:`${Math.round((Date.now()-startedAt)/100)/10}s for `
-          +`${images.length} image(s), ~${totalKb}KB`,
+          +`${images.length} image(s), ~${totalKb}KB, ${pathTaken}`,
       });
 
       recordError({
