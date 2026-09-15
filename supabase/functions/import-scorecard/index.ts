@@ -30,6 +30,30 @@ const GEMINI_API_KEY = Deno.env.get("gemini_api_key") || Deno.env.get("GEMINI_AP
 // already. gemini-2.5-flash was retired for new callers and returns a 404
 // -- which surfaced here as a bare "Gemini API error" for a while because
 // the client was discarding the detail the function sent alongside it.
+// The counting phase asks for almost nothing, so it answers fast.
+const COUNT_SCHEMA = {
+  type: "object",
+  properties: {
+    bowlerCount: { type: "integer", nullable: true, description: "How many different bowlers appear." },
+    gameCount: { type: "integer", nullable: true, description: "How many games EACH bowler bowled, as shown on this card." },
+    bowlerNames: {
+      type: "array",
+      nullable: true,
+      items: { type: "string" },
+      description: "Each bowler's name exactly as printed, in the order they appear.",
+    },
+  },
+  required: ["gameCount"],
+};
+
+const COUNT_PROMPT = `Look at this bowling scorecard and answer only these questions.
+
+How many DIFFERENT bowlers are on it? Count every row or column with a name.
+How many GAMES does each bowler have? A card usually shows 3.
+What is each bowler's name, exactly as printed?
+
+Do not transcribe any scores or frames. Do not explain. Answer with JSON only.`;
+
 const GEMINI_MODEL = "gemini-3.6-flash";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
@@ -258,7 +282,21 @@ Deno.serve(async (req) => {
       }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const { images } = await req.json();
+    // mode / onlyGame drive a TWO-PHASE extraction.
+    //
+    // One request reading thirty frames of pin-deck detail took 61s. The
+    // work is output tokens, not bandwidth -- the image is 247KB -- so the
+    // fix is to ask for less per request and run them at once:
+    //
+    //   mode "count"  -> how many games and bowlers, and their names. A
+    //                    tiny answer, so it comes back in a few seconds.
+    //   onlyGame: N   -> the full schema, but one game. Ten frames each,
+    //                    fired in parallel, so the wait is the slowest
+    //                    single game rather than the sum of all of them.
+    //
+    // Neither is required. A request with neither behaves exactly as it
+    // did before, which is the fallback when counting fails.
+    const { images, mode, onlyGame } = await req.json();
     // images: array of { base64: string, mimeType: string } -- one entry per uploaded screenshot
     if (!Array.isArray(images) || !images.length) {
       return new Response(JSON.stringify({ error: "No images provided" }), {
@@ -315,8 +353,18 @@ Deno.serve(async (req) => {
         status: 413, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    const counting = mode === "count";
+    const gameFilter = Number.isInteger(onlyGame) && onlyGame > 0 ? onlyGame : null;
+
+    // One game only. Said plainly and twice -- once as an instruction and
+    // once as a restatement -- because a model reading a card full of
+    // games will happily transcribe all of them otherwise.
+    const gameSuffix = gameFilter
+      ? `\n\nEXTRACT ONLY GAME ${gameFilter}. Ignore every other game on this card completely. Return exactly one entry in "games" per bowler, and set gameNumber to ${gameFilter} on each. Do not return game ${gameFilter === 1 ? 2 : 1} or any other game.`
+      : "";
+
     const parts = [
-      { text: EXTRACTION_PROMPT },
+      { text: counting ? COUNT_PROMPT : EXTRACTION_PROMPT + gameSuffix },
       ...images.map((img) => ({
         inline_data: { mime_type: img.mimeType || "image/jpeg", data: img.base64 },
       })),
@@ -331,7 +379,7 @@ Deno.serve(async (req) => {
       contents: [{ parts }],
       generationConfig: {
         responseMimeType: "application/json",
-        responseSchema: RESPONSE_SCHEMA,
+        responseSchema: counting ? COUNT_SCHEMA : RESPONSE_SCHEMA,
 
         // NO thinking cap. It was tried at 512 and broke frame-level cards.
         //
