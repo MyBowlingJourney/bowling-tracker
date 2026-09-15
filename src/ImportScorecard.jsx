@@ -231,6 +231,17 @@ export default function ImportScorecard({
   const[expandedByGame,setExpandedByGame]=useState([]); // [Set(frameKey), ...] parallel to games
   // Team cards: one entry per bowler column, plus who each maps to.
   const[columns,setColumns]=useState([]);
+
+  // "Add as a new bowler" is carried in the dropdown value as
+  // __new__<name>, because a <select> can only hold a string. This turns
+  // it back into the plain name everywhere an assignment is read, so no
+  // caller has to know the sentinel exists.
+  const NEW_PREFIX="__new__";
+  const resolveAssigned=v=>{
+    const s=String(v||"");
+    return s.startsWith(NEW_PREFIX)?s.slice(NEW_PREFIX.length):s;
+  };
+  const isNewBowler=v=>String(v||"").startsWith(NEW_PREFIX);
   const[assignments,setAssignments]=useState({}); // columnIndex -> bowler name or "" (skip)
   const[orderCheck,setOrderCheck]=useState(null);
   // "Busy, try again" is not the same as "this is broken", and colouring
@@ -336,7 +347,7 @@ export default function ImportScorecard({
 
   // Confirming the mapping is what decides whose games get reviewed.
   function confirmColumns(){
-    const mineIndex=columns.findIndex((c,i)=>assignments[i]===contextBowler);
+    const mineIndex=columns.findIndex((c,i)=>resolveAssigned(assignments[i])===contextBowler);
     const mine=mineIndex>=0?columns[mineIndex]:null;
     const converted=mine?convertColumn(mine,contextBowler):[];
     setGames(converted);
@@ -345,7 +356,7 @@ export default function ImportScorecard({
     // step shows their numbers rather than sending them unseen.
     const seeded={};
     columns.forEach((c,i)=>{
-      const who=assignments[i];
+      const who=resolveAssigned(assignments[i]);
       if(!who||who===contextBowler)return;
       seeded[i]=(c.games||[]).map(g=>g.totalScore==null?"":String(g.totalScore));
     });
@@ -354,7 +365,7 @@ export default function ImportScorecard({
   }
 
   const teammateEntries=columns
-    .map((c,i)=>({column:c,index:i,bowler:assignments[i]}))
+    .map((c,i)=>({column:c,index:i,bowler:resolveAssigned(assignments[i])}))
     .filter(x=>x.bowler&&x.bowler!==contextBowler);
 
   // Any teammate score that a game of bowling can't produce. Sending one
@@ -509,6 +520,20 @@ export default function ImportScorecard({
       // two columns (games 1-3 and 4-6, or a wide card in halves).
       const withMatches=cols.map((c,i)=>({...c,...matched.columns[i]}));
       const finalCols=mergeColumnsByBowler(withMatches).map((c,i)=>({...c,columnIndex:i}));
+
+      // How many bowlers came back, and how many survived to review.
+      //
+      // A team card with four bowlers that produces one review row is
+      // either the vision model returning less than the card shows, or
+      // the client losing them. Those need different fixes and look
+      // identical from the outside, so record both numbers.
+      recordError({
+        kind:"import-quality",
+        where:"ImportScorecard.columns",
+        message:`extracted ${(data?.games||[]).length} game(s) `
+          +`-> ${cols.length} bowler(s) -> ${finalCols.length} for review `
+          +`[${finalCols.map(c=>c.scorecardName||"?").join(" | ")}]`,
+      });
       setColumns(finalCols);
       setAssignments(Object.fromEntries(finalCols.map((c,i)=>[i,c.assigned||""])));
       setOrderCheck(roster.length?rosterOrderCheck(matched.columns,roster):null);
@@ -615,7 +640,7 @@ export default function ImportScorecard({
     // hostage to whoever bowls and goes home. See
     // domain/importVerification.js for the full lifecycle.
     const teammateColumns=columns
-      .map((c,i)=>({column:c,index:i,bowler:assignments[i]}))
+      .map((c,i)=>({column:c,index:i,bowler:resolveAssigned(assignments[i])}))
       .filter(x=>x.bowler&&x.bowler!==contextBowler);
     if(teammateColumns.length&&onSubmitTeammateScores){
       await onSubmitTeammateScores(teammateColumns.map(({column,index,bowler})=>({
@@ -856,6 +881,21 @@ export default function ImportScorecard({
                     value={assignments[i]||""}
                     onChange={e=>setAssignments(a=>({...a,[i]:e.target.value}))}>
                     <option value="">Skip this bowler</option>
+                    {/* Add the name from the card as a NEW bowler.
+                        
+                        Without this, a teammate who is not already in the
+                        roster has nowhere to go: the only choices were an
+                        existing bowler or skip, and skip throws away a
+                        real set of scores the card plainly shows.
+                        
+                        A team card is mostly people the bowler has never
+                        entered, so this is the common case, not an edge
+                        one. */}
+                    {c.scorecardName && !bowlers.includes(c.scorecardName) && (
+                      <option value={`__new__${c.scorecardName}`}>
+                        Add "{c.scorecardName}" as a new bowler
+                      </option>
+                    )}
                     {bowlers.map(b=><option key={b} value={b}>{b}</option>)}
                   </select>
                   {c.best&&!c.autoMatch&&(
