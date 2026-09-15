@@ -96,6 +96,8 @@ import { categorizeFriendships } from "./Friends.jsx";
 import { retireBall, unretireBall, activeBalls, retiredBallNames, retiredBallSummary, describeRetirement, isRetired } from "./domain/retiredBalls.js";
 
 import { hasDuplicateIdentity, mergedBowlers, movedRecords, movedKeyedMap, handleFromEmail } from "./domain/bowlerIdentity.js";
+
+import { leaveCauseProfile, missingCauseFields } from "./domain/leaveCauses.js";
 const StatsView = lazyScreen("StatsView", () => import("./StatsView.jsx"));
 const ImportScorecard = lazyScreen("ImportScorecard", () => import("./ImportScorecard.jsx"));
 const Settings = lazyScreen("Settings", () => import("./Settings.jsx"));
@@ -4714,7 +4716,7 @@ export default function BowlingTracker(){
     // whether Brooklyn discussed anything the analysis would withhold.
     // Same withheld list, same standard -- she cannot claim what the
     // Improve tab refuses to.
-    return{text:data.text,payload:buildAnalysisPayload(insightStats)};
+    return{text:data.text,truncated:!!data.truncated,payload:buildAnalysisPayload(insightStats)};
 
   }
 
@@ -4770,6 +4772,40 @@ export default function BowlingTracker(){
         ?Math.round(((bd.frames-(bd.strikeSample*(bd.strikeRate||0)/100)-(bd.spareSample*(bd.spareRate||0)/100))/scores.length)*10)/10
         :null,
       cornerPinPct:pctOrNull(bd.cornerPinRate),
+
+      // WHY the common leaves happen, not just how often.
+      //
+      // Everything above is a frequency. Asked "why do I keep leaving the
+      // ten pin", Brooklyn had nothing causal to reach for and answered
+      // with a conversion rate instead -- the nearest question she could
+      // actually answer.
+      //
+      // These compare the shots that left each corner pin against the
+      // shots that did not: speed, revs, where it missed, which ball. The
+      // contrast is the answer; a single number never is.
+      //
+      // Corner pins only, because they are what bowlers ask about and
+      // because every extra leave is payload the model has to read past.
+      leaveCauses:(()=>{
+        const corners=preferences.leftHanded?[["7"],["4","7"]]:[["10"],["6","10"]];
+        const out={};
+        for(const pins of corners){
+          const key=pins.join("-");
+          const profile=leaveCauseProfile(myShots,pins);
+          if(profile.enough&&profile.factors.length){
+            out[key]=profile;
+          } else if(profile.count>0){
+            // Say WHAT WOULD ANSWER IT rather than nothing. An honest
+            // "not yet, track this" is worth more than a confident
+            // answer to a question that was not asked.
+            out[key]={
+              enough:false,count:profile.count,need:profile.need,
+              missing:missingCauseFields(myShots,pins).map(f=>f.label),
+            };
+          }
+        }
+        return Object.keys(out).length?out:null;
+      })(),
       topBall,
       arsenal:(arsenals?.[activeBowler]||[]).join(", ")||null,
       leagues:[...new Set(mine.map(s=>s.league).filter(Boolean))].join(", ")||null,
