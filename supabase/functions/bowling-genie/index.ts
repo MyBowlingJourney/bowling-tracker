@@ -23,7 +23,20 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const GEMINI_API_KEY = Deno.env.get("gemini_api_key");
-const MODEL = "gemini-3.7-flash";
+// Overridable without a code deploy, via a GENIE_GEMINI_MODEL secret.
+//
+// Brooklyn's job is PHRASING, not reading. The statistics are precomputed
+// client-side and gated on sample size before they are ever sent, so the
+// model is turning numbers it has been handed into a sentence -- not
+// working anything out and not looking at anything.
+//
+// That is the opposite of the scorecard import, where Lite failed because
+// it could not READ pin-deck graphics. No vision, no arithmetic, nothing
+// to mirror-flip. A cheaper model is a much safer bet here.
+//
+// The failure mode is also visible: a weak answer is text the bowler
+// reads and judges. A wrong pin identity is silent and poisons the stats.
+const MODEL = Deno.env.get("GENIE_GEMINI_MODEL")?.trim() || "gemini-3.7-flash";
 const GEMINI_URL =
   `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 
@@ -197,7 +210,24 @@ Deno.serve(async (req: Request) => {
             { text: `Their question: ${question}` },
           ],
         }],
-        generationConfig: { maxOutputTokens: 400, temperature: 0.7 },
+        generationConfig: {
+          // THINKING TOKENS COUNT AGAINST maxOutputTokens on Gemini 3.x.
+          //
+          // At 400 the model spent the budget thinking and the visible
+          // answer was cut after eight words -- "As a righty, leaving the
+          // 10-pin usually comes". That reads as a useless answer rather
+          // than a truncated one, which is worse: it looks like the
+          // feature has nothing to say.
+          //
+          // Brooklyn's answers are meant to be a few sentences, so the
+          // room goes to the ANSWER rather than the deliberation. A small
+          // thinking budget is enough to pick the right statistic out of
+          // the context; the analysis it is quoting was precomputed
+          // client-side, so there is no hard reasoning left to do here.
+          maxOutputTokens: 1200,
+          thinkingConfig: { thinkingBudget: 256 },
+          temperature: 0.7,
+        },
       }),
     });
 
@@ -216,7 +246,17 @@ Deno.serve(async (req: Request) => {
       .map((p: { text?: string }) => p?.text || "").join("").trim();
 
     if (!text) return json({ error: "The lamp went quiet. Try again in a moment." }, cors, 502);
-    return json({ text }, cors);
+
+    // Say when the answer was CUT rather than finished.
+    //
+    // Gemini reports finishReason MAX_TOKENS when it ran out of room. A
+    // truncated answer is indistinguishable from a bad one on screen --
+    // "As a righty, leaving the 10-pin usually comes" reads as the
+    // feature having nothing to say, when in fact it had plenty and lost
+    // it. Surfacing it means the next occurrence is a five-minute fix
+    // rather than a hunt.
+    const finish = data?.candidates?.[0]?.finishReason;
+    return json({ text, truncated: finish === "MAX_TOKENS" }, cors);
   } catch (e) {
     const aborted = e instanceof Error && e.name === "AbortError";
     console.error(aborted ? "genie timed out after 25s" : "genie threw:", String(e));
