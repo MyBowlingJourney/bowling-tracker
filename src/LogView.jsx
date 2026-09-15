@@ -23,6 +23,8 @@ import { plasticLast } from "./domain/bags.js";
 
 
 import { tenthBall3Earned, maxPossibleScore } from "./domain/scoring.js";
+
+import { isBaker, bakerBowlerFor } from "./domain/tournamentFormats.js";
 export default function LogView({
   // Was used free at the night-achievements block below and never
   // declared anywhere, so rendering a completed session threw
@@ -264,7 +266,23 @@ export default function LogView({
   const leagueTab=sessionLeague?leagueTabChoice:"setup";
   const setLeagueTab=setLeagueTabChoice;
   const leagueTabs=env==="league";
-  const onTab=t=>!leagueTabs||leagueTab===t;
+  // Which tab a block belongs to, for BOTH tab strips.
+  //
+  // This was `!leagueTabs || leagueTab === t`, so outside league mode it
+  // answered TRUE for every tab name -- and the tournament screen has its
+  // own tabs. The night recap, gated on onTab("results"), therefore
+  // appeared under Set up, Scoring, Brackets and Match as well: four
+  // screens showing a summary of a session, one of which is the place it
+  // belongs.
+  //
+  // In tournament mode the answer comes from the TOURNAMENT tab instead.
+  // Practice and open bowling have no tabs at all, so there everything
+  // still shows, which is what "no tabs" should mean.
+  const onTab=t=>{
+    if(env==="tournament")return tournamentTab===t;
+    if(!leagueTabs)return true;
+    return leagueTab===t;
+  };
 
   const [tenthPick,setTenthPick]=useState(null);
   // Scroll target for Save Shot.
@@ -343,6 +361,33 @@ export default function LogView({
   // where "which frame are you on" is not a question.
   const showShotContext=leagueReady&&env!=="casual"&&!isDrill&&preferences.trackingMode==="shot"
     &&(env!=="tournament"||tournamentTab==="scoring");
+
+  // In BAKER, the name follows the FRAME, not the session.
+  //
+  // Baker alternates every frame and the alternation carries across
+  // games, so the bowler on the shot context was simply whoever the
+  // session was filed under -- wrong for half of every game, and wrong
+  // for the whole of every second game.
+  //
+  // We know who started the block, so we know whose frame this is. Null
+  // outside Baker, so everything else keeps the session's bowler.
+  // Both names, for a Baker heading.
+  const bakerTeamName=(()=>{
+    if(!activeTournament||!isBaker(activeTournament))return null;
+    const me=form.bowler||activeBowler;
+    const partner=activeTournament.bakerPartner;
+    if(!me||!partner)return null;
+    return `${me} & ${partner}`;
+  })();
+
+  const bakerBowlerName=(()=>{
+    if(!activeTournament||!isBaker(activeTournament))return null;
+    const who=bakerBowlerFor(form.game,form.frame,activeTournament.bakerStarter);
+    if(!who)return null;
+    const me=form.bowler||activeBowler||"Me";
+    const partner=activeTournament.bakerPartner||"Partner";
+    return who==="me"?me:partner;
+  })();
 
 
   return (
@@ -913,7 +958,7 @@ export default function LogView({
                       shots belong to "Ryan", and showing the wrong one
                       here made it look like the app was logging for
                       somebody else. */}
-                  {form.bowler||activeBowler||"No bowler selected"}
+                  {bakerBowlerName||form.bowler||activeBowler||"No bowler selected"}
 
                   {effectiveSessionLeague
                     /* The DISPLAY name. A container league's stored name
@@ -1896,7 +1941,14 @@ export default function LogView({
                 )}
                 <div style={{...S.card,border:`1px solid ${C.accent}44`}}>
                   <div style={{...S.label}}>
-                    {cs.bowler?`${cs.bowler}'s night`:"Tonight"}
+                    {/* A BAKER night belongs to the pair, not to one of
+                        them. One score for five frames each, so "Ryan's
+                        night" over a shared total credits one bowler with
+                        both halves -- the same mistake as counting a Baker
+                        game as a personal high game, in the heading. */}
+                    {bakerTeamName
+                      ? `${bakerTeamName} \u2014 tonight`
+                      : (cs.bowler?`${cs.bowler}'s night`:"Tonight")}
                     {/* The DISPLAY name. A container league's stored name
                         carries the user id -- "Tournament·Tourny 5·c3e40233-
                         c180-4d76-be28-36abd33f9c07" -- and the recap header
