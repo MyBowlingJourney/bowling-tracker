@@ -58,12 +58,12 @@ export function applyTheme(id) {
 
 export const S = {};
 function buildStyles() { return {
-  app:{minHeight:"100vh",backgroundColor:C.bg,color:C.text,fontFamily:F.body,fontSize:"14px",lineHeight:1.45},
+  app:{minHeight:"100vh",backgroundColor:C.bg,color:C.text,fontFamily:F.body,fontSize:"15px",lineHeight:1.55},
   header:{backgroundColor:C.bg,padding:"14px 16px 10px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100},
   // The wordmark. Weight and width carry it, not uppercase tracking --
   // ALL-CAPS-with-letterspacing was the single loudest "generated
   // dashboard" signal in the old header.
-  title:{fontSize:"17px",fontWeight:700,fontFamily:F.display,letterSpacing:"-0.01em",color:C.text},
+  title:{fontSize:"18px",fontWeight:600,fontFamily:F.display,letterSpacing:"-0.015em",color:C.text},
   // Five tabs, not four. Tighter gap and horizontal padding, plus
   // flexShrink:0 on the buttons so labels never wrap mid-word if a
   // narrow phone still runs short.
@@ -79,19 +79,19 @@ function buildStyles() { return {
   // No hairline border. On a dark ground the card tone already separates
   // it; a border on every card is what made every screen read at the same
   // volume, because nothing was allowed to be quieter than anything else.
-  card:{backgroundColor:C.card,borderRadius:"14px",padding:"16px",marginBottom:"12px"},
+  card:{backgroundColor:C.card,borderRadius:"16px",padding:"18px",marginBottom:"14px",border:`1px solid ${C.border}`},
   // Section headings. Sentence case, normal tracking, readable size.
   // This one definition was 172 all-caps tracked-out eyebrows across the
   // app -- the visual language of a spreadsheet column header, and the
   // thing most responsible for it feeling like accounting software.
-  label:{fontSize:"13px",fontWeight:600,letterSpacing:"0",textTransform:"none",color:C.text,marginBottom:"8px"},
-  chips:{display:"flex",flexWrap:"wrap",gap:"6px",marginBottom:"12px"},
-  chip:(sel,col)=>({padding:"7px 13px",borderRadius:"20px",border:`1px solid ${sel?(col||C.accent):C.border}`,backgroundColor:sel?(col?col+"22":C.accentDim):C.surface,color:sel?(col||C.accent):C.textMuted,cursor:"pointer",fontSize:"13px",fontWeight:sel?600:500,fontFamily:F.body,WebkitTapHighlightColor:"transparent"}),
+  label:{fontSize:"12px",fontWeight:500,letterSpacing:"0.01em",textTransform:"none",color:C.textMuted,marginBottom:"10px"},
+  chips:{display:"flex",flexWrap:"wrap",gap:"8px",marginBottom:"14px"},
+  chip:(sel,col)=>({padding:"9px 15px",borderRadius:"20px",border:`1px solid ${sel?(col||C.accent):C.border}`,backgroundColor:sel?(col?col+"22":C.accentDim):C.surface,color:sel?(col||C.accent):C.textMuted,cursor:"pointer",fontSize:"13px",fontWeight:sel?600:500,fontFamily:F.body,WebkitTapHighlightColor:"transparent"}),
   row:{display:"flex",gap:"8px",marginBottom:"8px"},
-  input:{width:"100%",backgroundColor:C.surface,border:`1px solid ${C.border}`,borderRadius:"10px",padding:"11px 12px",color:C.text,fontSize:"15px",fontFamily:F.body,boxSizing:"border-box",outline:"none"},
-  sel:{flex:1,backgroundColor:C.surface,border:`1px solid ${C.border}`,borderRadius:"10px",padding:"11px 12px",color:C.text,fontSize:"15px",fontFamily:F.body,outline:"none",appearance:"none"},
-  btn:(v)=>({padding:"13px 20px",borderRadius:"12px",border:"none",cursor:"pointer",fontSize:"15px",fontWeight:600,fontFamily:F.body,WebkitTapHighlightColor:"transparent",...(v==="primary"?{backgroundColor:C.accent,color:C.onAccent,width:"100%"}:v==="sm"?{backgroundColor:C.surface,color:C.text,padding:"8px 14px",fontSize:"18px"}:v==="warn"?{backgroundColor:C.miss+"1A",color:C.miss,width:"100%"}:{backgroundColor:C.surface,color:C.text})}),
-  divider:{height:"1px",backgroundColor:C.border,margin:"12px 0"},
+  input:{width:"100%",backgroundColor:C.surface,border:`1px solid ${C.border}`,borderRadius:"12px",padding:"13px 14px",color:C.text,fontSize:"15px",fontFamily:F.body,boxSizing:"border-box",outline:"none"},
+  sel:{flex:1,backgroundColor:C.surface,border:`1px solid ${C.border}`,borderRadius:"12px",padding:"13px 14px",color:C.text,fontSize:"15px",fontFamily:F.body,outline:"none",appearance:"none"},
+  btn:(v)=>({padding:"14px 20px",borderRadius:"14px",border:"none",cursor:"pointer",fontSize:"15px",fontWeight:500,fontFamily:F.body,WebkitTapHighlightColor:"transparent",...(v==="primary"?{backgroundColor:C.accent,color:C.onAccent,width:"100%"}:v==="sm"?{backgroundColor:C.surface,color:C.text,padding:"8px 14px",fontSize:"18px"}:v==="warn"?{backgroundColor:C.miss+"1A",color:C.miss,width:"100%"}:{backgroundColor:C.surface,color:C.text})}),
+  divider:{height:"1px",backgroundColor:C.border,margin:"16px 0",opacity:0.6},
   shotCard:{backgroundColor:C.card,borderRadius:"12px",padding:"12px",marginBottom:"8px",display:"flex",gap:"12px",alignItems:"flex-start"},
   dot:(r)=>({width:"32px",height:"32px",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"12px",fontWeight:700,flexShrink:0,backgroundColor:r==="Strike"?C.strike+"22":r?.includes("10")?C.miss+"22":C.spare+"22",color:r==="Strike"?C.strike:r?.includes("10")?C.miss:C.spare}),
   tag:(c)=>({display:"inline-block",padding:"3px 9px",borderRadius:"10px",fontSize:"12px",fontWeight:500,backgroundColor:(c||C.accent)+"22",color:c||C.accent,marginRight:"4px",marginBottom:"4px"}),
