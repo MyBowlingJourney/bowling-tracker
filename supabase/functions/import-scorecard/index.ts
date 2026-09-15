@@ -150,9 +150,12 @@ const RESPONSE_SCHEMA = {
     //
     // SEEING pin decks is far easier than reading thirty of them, so even
     // a model that cannot transcribe them can answer this.
-    hasFrameDetail: {
-      type: "boolean",
-      nullable: true,
+    hasFrameDetail: {
+      type: "boolean",
+      // NOT nullable, and required below. A model free to omit this
+      // omits it -- and an absent answer reads the same as "no frames",
+      // so the escalation never fires on the card that needs it.
+
       description: "True if this scorecard shows per-frame detail -- pin-deck graphics, frame boxes, or per-frame marks like X and /. False if it shows only game totals and series, as a results or standings screen does.",
     },
     // COUNT THE BOWLERS FIRST.
@@ -197,7 +200,7 @@ const RESPONSE_SCHEMA = {
       },
     },
   },
-  required: ["games"],
+  required: ["games", "hasFrameDetail"],
 };
 
 const EXTRACTION_PROMPT = `You are reading a bowling scorecard screenshot (from an app called LaneTalk). Extract every game and frame shown into the exact JSON shape requested.
@@ -216,6 +219,16 @@ If a game's ball name is shown as a tag/label near that game, include it. If not
 Also record each game's final printed score in totalScore when the scorecard shows one.
 
 IMPORTANT -- some scorecards show only game totals with no per-frame detail at all (no pin-deck graphics, no frame boxes). That is a valid and common case, not a failure. When that happens, return the games with their totalScore and an empty frames array. Do not invent frames to fill the gap.
+
+ALSO set hasFrameDetail. This is about what the card SHOWS, not about what you
+managed to read. If the card has pin-deck graphics, frame boxes, or per-frame
+marks like X and / anywhere on it, set hasFrameDetail to true -- even if you
+cannot make out the individual pins, and even if you return no frames at all.
+Set it to false ONLY for a card that shows nothing but game totals and series,
+like a results or standings screen.
+
+Answering true and returning no frames is expected and useful. Answering false
+about a card that plainly shows frames is a mistake.
 
 BEFORE TRANSCRIBING ANYTHING, count the bowlers. Look down the whole card and
 count every row (or column) that has a name against it. Put that number in
