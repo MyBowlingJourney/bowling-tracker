@@ -59,7 +59,7 @@ import { normalizePattern, patternFromRow, patternToRow, patternAverages, allVer
 import { normalizeLeagueDates, needsBookAverageUpdate , isNoTapLeague, leagueFormat} from "./domain/leagueSeasons.js";
 import { archiveOnNewStart, compareSeasons, describeSeasonChange } from "./domain/seasons.js";
 
-import { sessionsForFigures } from "./domain/tournamentFormats.js";
+import { sessionsForFigures, isBaker, bakerBowlerFor } from "./domain/tournamentFormats.js";
 import { emptyDrill, normalizeDrill, drillToRow, drillFromRow } from "./domain/drills.js";
 import { scorekeepingOptions, allowsOtherBowlers, normalizeGuests, addGuest, removeGuest } from "./domain/scorekeeping.js";
 import { visibleLeagues, isLeagueHidden, teamsInLeague, describeLeaveImpact, leaveConfirmationText, isContainerLeague } from "./domain/leagueMembership.js";
@@ -4788,7 +4788,36 @@ export default function BowlingTracker(){
     // fields and this supplied five, so the genie was answering from an
     // average and a handedness. The spare and split numbers -- the whole
     // reason to ask it anything -- were never sent.
-    const myShots=shots.filter(s=>s&&s.bowler===activeBowler);
+    // In a BAKER block, only the frames THIS bowler threw.
+    //
+    // Baker shots are filed under the logging bowler for every frame, so
+    // a partner's frames look like the user's own. Frame-level metrics --
+    // strike rate, spare conversion, which leaves keep appearing, how a
+    // ball carries -- are built on these, and crediting a partner's
+    // frames does not merely inflate a number: it teaches the coaching
+    // the wrong thing about how someone bowls.
+    //
+    // Game-level figures are handled the other way round, by excluding
+    // Baker sessions entirely (see bowlerHighGame). One score for five
+    // frames each is nobody's game; five frames of balls are absolutely
+    // somebody's frames.
+    const myShots=(()=>{
+      const own=shots.filter(s=>s&&s.bowler===activeBowler);
+      const bakerLeagues=new Set(
+        (tournaments||[]).filter(t=>isBaker(t))
+          .map(t=>tournamentLeagueCloudName(t.name,user?.id))
+          .filter(Boolean));
+      if(!bakerLeagues.size)return own;
+      const starterFor=lg=>{
+        const t=(tournaments||[]).find(x=>
+          tournamentLeagueCloudName(x.name,user?.id)===lg);
+        return t?.bakerStarter||"me";
+      };
+      return own.filter(s=>{
+        if(!bakerLeagues.has(s.league))return true;
+        return bakerBowlerFor(s.game,parseInt(s.frame,10),starterFor(s.league))==="me";
+      });
+    })();
     const bd=shotBreakdown(myShots,{
       isSplit,isSinglePinLeave,isCornerPinLeave,leftHanded:!!preferences.leftHanded,
     });
