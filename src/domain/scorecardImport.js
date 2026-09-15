@@ -574,3 +574,36 @@ export function mergeColumnsByBowler(columns) {
 
   return merged;
 }
+
+// Do the extracted FRAMES add up to the printed TOTAL?
+//
+// Frames coming back is not the same as frames coming back right. A fast
+// model returned all thirty and got five of them wrong, and nothing
+// downstream noticed, because "are there frames" and "are the frames
+// correct" are different questions.
+//
+// A scorecard answers the second one itself: the printed total is an
+// independent check on the marks above it. If they disagree, the
+// extraction is wrong -- no judgement needed, just arithmetic.
+//
+// Returns { checked, matched, mismatches } -- games with no printed total
+// are not checked, because there is nothing to check against.
+export function framesReconcile(games, scoreGame) {
+  let checked = 0;
+  let matched = 0;
+  const mismatches = [];
+
+  for (const g of (Array.isArray(games) ? games : [])) {
+    const printed = Number(g?.totalScore);
+    if (!Number.isFinite(printed)) continue;
+    if (!(g?.frames || []).length) continue;
+
+    checked += 1;
+    let computed = null;
+    try { computed = scoreGame(g); } catch { computed = null; }
+
+    if (computed === printed) matched += 1;
+    else mismatches.push({ game: g?.gameNumber ?? null, printed, computed });
+  }
+  return { checked, matched, mismatches };
+}
