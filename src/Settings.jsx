@@ -6,7 +6,6 @@ import CalendarView from "./CalendarView.jsx";
 import { LEAGUE_FORMATS, leagueFormat, isNoTapLeague } from "./domain/leagueSeasons.js";
 import { availableTours } from "./domain/tour.js";
 import SessionHistory from "./SessionHistory.jsx";
-import JourneyView from "./JourneyView.jsx";
 import CenterPicker from "./CenterPicker.jsx";
 import { isContainerLeague, isLeagueHidden, teamsInLeague } from "./domain/leagueMembership.js";
 import { sessionsToCsv, shotsToCsv, seasonSummary, summaryToText } from "./domain/seasonExport.js";
@@ -202,8 +201,6 @@ export default function Settings({
               <Chip label="Sessions" selected={historyTab === "sessions"} onToggle={() => setHistoryTab("sessions")} />
               <Chip label="Season" selected={historyTab === "season"} onToggle={() => setHistoryTab("season")} />
               <Chip label="Calendar" selected={historyTab === "calendar"} onToggle={() => setHistoryTab("calendar")} />
-              <Chip label="My Journey" selected={historyTab === "journey"}
-                onToggle={() => setHistoryTab("journey")} />
 
             </div>
           </div>
@@ -221,16 +218,6 @@ export default function Settings({
 
               The calendar answers "what did I bowl this month", across all
               of it. The colours ARE the filter. */}
-          {historyTab === "journey" && (
-            <JourneyView
-              sessions={sessions || []}
-              shots={shots || []}
-              shots={shots || []}
-
-              drills={drills || []}
-              tournaments={tournaments || []}
-              bowler={statsBowler || activeBowler} />
-          )}
           {historyTab === "calendar" && (
             <CalendarView
               sessions={sessions || []}

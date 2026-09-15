@@ -10,6 +10,9 @@ import Onboarding from "./Onboarding.jsx";
 // returning bowler pays for none of it. Its TourScreen mock-ups are
 // the single biggest chunk that was loading on every open.
 const Tour = lazyScreen("Tour", () => import("./Tour.jsx"));
+
+// Lazy like the others -- see lazyScreen for the stale-chunk recovery.
+const JourneyScreen = lazyScreen("Journey", () => import("./JourneyView.jsx"));
 import { tourSteps, tourToOffer, markTourSeen, hasSeenTour, pendingModeTour, needsLeagueSetup, availableTours } from "./domain/tour.js";
 import HelpView from "./HelpView.jsx";
 import CasualLeaderboard from "./CasualLeaderboard.jsx";
@@ -5716,24 +5719,34 @@ export default function BowlingTracker(){
     {id:"log",    label:"Bowl",    icon:"🎳"},
     {id:"badges", label:"Badges",  icon:"🏅"},
   ]:[
-    // Gear and Teams flank the row -- the two setup tabs, least visited,
-    // at the edges. Between them: look back (History, Stats), do it
-    // (Bowl, visually raised -- see navBtn/renderTab), look at what you
-    // earned (Badges), then what's next (Improve).
+    // FIVE tabs, and Journey is one of them.
     //
-    // Measured at 360px: seven labels fit without wrapping, ~51px each,
-    // above the 44px touch minimum.
+    // Seven was the count that made this app hard to learn: the feature a
+    // bowler wanted was always behind a label they had to guess at, and
+    // 38 of 50 league bowlers never found shot tracking at all. Tutorials
+    // do not fix that -- most people will not watch one.
+    //
+    // What fixes it is fewer places and putting depth INSIDE the thing it
+    // describes. A ball's carry belongs in that ball, not in a Gear tab;
+    // standings belong in the league; money belongs in the night. Those
+    // moves are separate work -- this is the shell they hang off.
+    //
+    // Journey is promoted from a chip three taps inside History. It is
+    // the app's name and the reason someone keeps it for years, and it
+    // was the hardest thing here to find.
+    //
+    // Badges and Improve fold into Journey and Stats respectively; Teams
+    // moves under a league. Measured at 360px: five labels sit at ~72px
+    // each, comfortably above the 44px touch minimum.
+    {id:"log",     label:"Bowl",    icon:"🎳"},
+    {id:"data",    label:"Stats",   icon:"📈"},
+    // Improve (id "insights") no longer has a tab. It is reached from
+    // Stats, where the coaching is about the numbers on that screen --
+    // which is where a bowler is already asking "why". Nothing else
+    // linked to it, so without this it would be orphaned.
+    {id:"journey", label:"Journey", icon:"🛤️"},
     {id:"locker",  label:"Gear",    icon:"🎒"}, // internal id stays "locker" -- plumbing, not shown
     {id:"history", label:"History", icon:"📖"},
-    {id:"data",    label:"Stats",   icon:"📈"},
-    {id:"log",     label:"Bowl",    icon:"🎳"},
-    // Placeholder screen. The real league/tournament/practice badge set
-    // (the 38-badge merged module) is designed but not yet built --
-    // wiring it in is separate work. This tab exists now so the nav
-    // order is correct today rather than needing another reshuffle later.
-    {id:"badges",  label:"Badges",  icon:"🏅"},
-    {id:"insights",label:"Improve", icon:"🎯"},
-    {id:"teams",   label:"Teams",   icon:"👥"},
   ];
   // Icons go inline beside the title until the nav genuinely needs the
   // width. Five was the count that pushed "Social" off a phone screen and
@@ -6757,6 +6770,19 @@ export default function BowlingTracker(){
           </button>
         )}
 
+        {/* Journey is its own screen now, not a chip inside History.
+            
+            It is the app's name and the reason someone keeps it for
+            years, and it was three taps deep behind a label that gave no
+            hint it was there. */}
+        {view==="journey"&&(
+          <Suspense fallback={null}>
+            <JourneyScreen
+              sessions={sessions} shots={shots} tournaments={tournaments}
+              bowler={displayName||activeBowler} />
+          </Suspense>
+        )}
+
         {(view==="settings"||view==="history")&&(
           <Settings
             mode={view==="history"?"history":"settings"}
@@ -6951,6 +6977,9 @@ export default function BowlingTracker(){
 
         {view==="data"&&dataTab==="stats"&&(
           <StatsView
+            // Improve lost its tab; Stats is where a bowler is already
+            // asking "why", so the coaching is reached from there.
+            onOpenImprove={()=>setView("insights")}
             centerStats={centerStats}
             lanePatterns={lanePatterns}
             centers={centers}

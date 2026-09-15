@@ -1,4 +1,4 @@
-import { Fragment, useState} from "react";
+import { Fragment } from "react";
 import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { C, S, F, Chip, CompareBadge, StatLead, StatRow, StatRows } from "./ui.jsx";
 import { PRACTICE_SESSION_KEY, CASUAL_SESSION_KEY, formatDate, STRIKE_DESCRIPTIONS, RELEASES, BALL_CHANGE_REASONS, strikeDescriptionsForHand, storedStrikeDescriptionFor } from "./constants.js";
@@ -10,18 +10,13 @@ import {
 import { lineupSort } from "./domain/leagues.js";
 import { totalMoney } from "./domain/money.js";
 import { isContainerLeague } from "./domain/leagueMembership.js";
-import { anyMoneyGameShown, visibleStatsCardOrder, STATS_CARDS } from "./domain/preferences.js";
-import { visibleStatsCards, lockedStatsMessage, lockedStatsDetail } from "./domain/statsGating.js";
-import { statsByRackType } from "./domain/centers.js";
-import { patternHistory, patternVersusOverall } from "./domain/oilPatterns.js";
-import { compareSeasons, describeSeasonChange } from "./domain/seasons.js";
+import { anyMoneyGameShown, visibleStatsCardOrder } from "./domain/preferences.js";
 
 export default function StatsView({
+  onOpenImprove,
   centerStats,
   preferences,
   view, shots, sessions, bowlers, teams, leagues: allLeagues, arsenals, saved,
-  centers = [], lanePatterns = [],
-  closedSeasons = [], leagueDates = {},
   statsBowler, setStatsBowler, compareBowler, setCompareBowler,
   compareFriendId, setCompareFriendId, friends=[], onLoadFriendData, onOpenFriends, compareSessions, displayName="",
   statsLeague, setStatsLeague,
@@ -38,8 +33,6 @@ export default function StatsView({
   theoreticalScoreForGame,
   viewedLeftHanded=false,
 }) {
-  const [showLocked, setShowLocked] = useState(false);
-  const [expandedPattern, setExpandedPattern] = useState(null);
   // Practice and Just Bowling are containers, not teams -- nobody plays
   // FOR them, so "compare me to Practice" is a comparison against a
   // filing cabinet. Filtered once here rather than at each of the five
@@ -90,44 +83,9 @@ export default function StatsView({
   // Records stranded further down, when it's the other half of "how do we
   // stack up" and belongs immediately after the comparison.
   const promoted = ["headToHead", "teamRecords"];
-  const orderBeforeGating = comparing
+  const renderOrder = comparing
     ? ["viewing", ...promoted, ...baseOrder.filter(id => id !== "viewing" && !promoted.includes(id))]
     : baseOrder;
-
-  // Cards that cannot populate are not rendered at all.
-  //
-  // A league night logged as scores only filled a handful of cards and
-  // left the rest blank -- strike percentage, leaves, splits, frame
-  // position, none of which can come from a three-digit total. An empty
-  // card reads as the app being broken rather than as data not existing,
-  // and a run of them buries the ones that DO have something.
-  //
-  // Counted from the shots actually in view, so switching bowler or
-  // league re-evaluates: a teammate you only keep score for shows score
-  // cards, and your own shot-by-shot nights show everything.
-  // `tot` and `bStats`, NOT the raw shots prop.
-  //
-  // shots is every shot the app holds; tot is the shot count for what is
-  // actually being viewed -- this bowler, this league, this season, or
-  // the whole team. Gating on shots.length meant a team view with shots
-  // somewhere else in the app still rendered "0 Shots / 0% Strike / 0%
-  // Spare", which is exactly the three-zero card that reads as broken.
-  //
-  // The rule: gate on the same number the card itself displays.
-  const shotDataCount = Number(tot) || 0;
-  const ballDataCount = Array.isArray(bStats) ? bStats.length : 0;
-  const renderOrder = visibleStatsCards(orderBeforeGating, {
-    shotCount: shotDataCount, ballCount: ballDataCount,
-  });
-  const lockedMessage = lockedStatsMessage(orderBeforeGating, {
-    shotCount: shotDataCount, ballCount: ballDataCount,
-  });
-  // Round 7, finding 4: four people asked "which 17?". Named on demand
-  // rather than in the line itself, which would turn a reassurance into a
-  // wall of text.
-  const lockedNames = lockedStatsDetail(orderBeforeGating,
-    { shotCount: shotDataCount, ballCount: ballDataCount },
-    id => (STATS_CARDS.find(c => c.id === id) || {}).label || id);
 
   return (
           <>
@@ -388,113 +346,6 @@ showTeamCompare&&(()=>{
                   );
                 })()
                 );
-                byId["seasonCompare"] = (()=>{
-                  // Needs a league in view: seasons belong to a league,
-                  // and averaging across two leagues' seasons would
-                  // compare things that were never comparable.
-                  if(!statsLeague)return null;
-                  const c=compareSeasons(statsLeague,sessions,closedSeasons,
-                    leagueDates?.[statsLeague],statsBowler||displayName);
-                  if(!c)return null;
-                  const row=(label,now,then,change,lowerBetter)=>{
-                    if(now===null||now===undefined)return null;
-                    const better=change===null||change===0?null:(lowerBetter?change<0:change>0);
-                    const sign=change>0?"+":"";
-                    return(
-                      <StatRow key={label} label={label}
-                        value={String(now)}
-                        sub={then===null||then===undefined?"":`was ${then}`}
-                        badge={change===null||change===0?null:`${sign}${change}`}
-                        color={better===null?undefined:(better?C.strike:C.miss)}/>
-                    );
-                  };
-                  return(
-                    <div style={S.card}>
-                      <div style={S.label}>{c.current.label} vs {c.previous.label}</div>
-                      <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"10px",lineHeight:1.5}}>
-                        {describeSeasonChange(c)}
-                      </div>
-                      <StatRows>
-                        {row("Average",c.current.average,c.previous.average,c.changes.average)}
-                        {row("High game",c.current.highGame,c.previous.highGame,c.changes.highGame)}
-                        {row("High series",c.current.highSeries,c.previous.highSeries,c.changes.highSeries)}
-                        {row("200 games",c.current.over200,c.previous.over200,c.changes.over200)}
-                        {/* Lower spread is steadier, so a drop is the
-                            improvement -- flagged so the colour cannot
-                            show getting streakier as a gain. */}
-                        {row("Score spread",c.current.spread,c.previous.spread,c.changes.spread,true)}
-                        {row("Games",c.current.games,c.previous.games,c.changes.games)}
-                      </StatRows>
-                    </div>
-                  );
-                })();
-
-                byId["patternHistory"] = (()=>{
-                  const who=statsBowler||displayName;
-                  const hist=patternHistory(sessions,lanePatterns,who);
-                  if(!hist.length)return null;
-                  // Against the bowler's own overall, because 172 alone
-                  // says nothing -- "17 below your average" is the
-                  // sentence they can act on before Thursday.
-                  const withDiff=patternVersusOverall(hist,bStats?.average??null);
-                  const diffFor=n=>withDiff.find(x=>x.name===n)?.versusOverall??null;
-                  return(
-                    <div style={S.card}>
-                      <div style={S.label}>By oil pattern</div>
-                      {hist.map(p=>{
-                        const d=diffFor(p.name);
-                        const open=expandedPattern===p.name;
-                        return(
-                          <div key={p.name} style={{marginBottom:"10px"}}>
-                            <StatRow label={p.name}
-                              value={p.average===null?"—":String(p.average)}
-                              sub={`${p.games} game${p.games===1?"":"s"} over ${p.nights} night${p.nights===1?"":"s"}`}
-                              badge={d===null||d===0?null:`${d>0?"+":""}${d}`}
-                              color={d===null||d===0?undefined:(d>0?C.strike:C.miss)}/>
-                            {(p.hasNotes||p.entries.length>1)&&(
-                              <button style={{background:"none",border:"none",padding:"2px 0",cursor:"pointer",
-                                color:C.accent,fontSize:"11px"}}
-                                onClick={()=>setExpandedPattern(open?null:p.name)}>
-                                {open?"Hide nights":(p.hasNotes?"Notes and nights":"Nights")}
-                              </button>
-                            )}
-                            {open&&p.entries.map((e,i)=>(
-                              <div key={i} style={{fontSize:"11px",color:C.textMuted,lineHeight:1.5,
-                                paddingLeft:"8px",borderLeft:`2px solid ${C.border}`,marginTop:"4px"}}>
-                                <div>{e.date}{e.series!==null?` · ${e.series} series`:""}</div>
-                                {/* The note is the point. An average says a
-                                    pattern is hard; the note says what to do
-                                    about it next time. */}
-                                {e.notes&&<div style={{marginTop:"2px",fontStyle:"italic"}}>{e.notes}</div>}
-                              </div>
-                            ))}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                })();
-
-                byId["rackType"] = (()=>{
-                  const who=statsBowler||displayName;
-                  const rows=statsByRackType(sessions,shots,allLeagues,centers,who);
-                  // Needs BOTH types represented, or this is not a
-                  // comparison -- it is one number with nothing to set it
-                  // against, which is what the average-by-centre card
-                  // already shows.
-                  if(rows.length<2)return null;
-                  return(
-                    <div style={S.card}>
-                      <div style={S.label}>Free fall vs string</div>
-                      {rows.map(r=>(
-                        <StatRow key={r.rackType} label={r.rackType}
-                          value={r.average===null?"—":String(r.average)}
-                          sub={`${r.games} game${r.games===1?"":"s"}${r.messengerRate!==null?` · ${r.messengerRate}% of strikes were messengers`:""}`}/>
-                      ))}
-                    </div>
-                  );
-                })();
-
                 byId["seasonRecord"] = (
 !statsBowler&&(()=>{
                   const rMain=seasonRecord(matches,statsLeague);
@@ -1439,40 +1290,34 @@ anyMoneyGameShown(preferences)&&statsBowler&&(()=>{
                   </div>
                   )
                 );
-                return (<>
-                  {/* Says what unlocks the rest, once -- at the top, not
-                      as a placeholder per missing card. Naming the action
-                      rather than the deficiency, and what it buys, since
-                      shot-by-shot is real extra effort at the lanes and
-                      should stay a choice. */}
-                  {lockedMessage && (
-                    <div style={{backgroundColor:C.accent+"11",border:`1px solid ${C.accent}33`,borderRadius:"10px",padding:"10px 12px",marginBottom:"12px",fontSize:"12px",color:C.textMuted,lineHeight:1.5}}>
-                      {lockedMessage}
-                      <button onClick={()=>setShowLocked(v=>!v)}
-                        style={{background:"none",border:"none",padding:0,marginLeft:"6px",cursor:"pointer",color:C.accent,fontSize:"12px"}}>
-                        {showLocked?"Hide":"Which ones?"}
-                      </button>
-                      {showLocked&&(
-                        <div style={{marginTop:"8px"}}>
-                          {lockedNames.shots.length>0&&(
-                            <div style={{marginBottom:"6px"}}>
-                              <div style={{fontWeight:600,color:C.text}}>Frame tracking</div>
-                              <div>{lockedNames.shots.join(" · ")}</div>
-                            </div>
-                          )}
-                          {lockedNames.balls.length>0&&(
-                            <div>
-                              <div style={{fontWeight:600,color:C.text}}>A ball noted per game</div>
-                              <div>{lockedNames.balls.join(" · ")}</div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  {renderOrder.map(id => <Fragment key={id}>{byId[id]}</Fragment>)}
-                </>);
+                return (<>{renderOrder.map(id => <Fragment key={id}>{byId[id]}</Fragment>)}</>);
               })()
+            )}
+            {onOpenImprove && (
+              <div style={{...S.card, marginTop:"12px", padding:"12px 14px"}}>
+                {/* The way into coaching, from the screen that raises the
+                    question.
+
+                    Improve lost its tab in the five-tab nav, and nothing
+                    else linked to it -- the screen was reachable only by
+                    a tab that no longer existed. Stats is the right home
+                    for the link: a bowler looking at their spare
+                    percentage is already asking what to do about it. */}
+                <button onClick={onOpenImprove}
+                  style={{width:"100%", textAlign:"left", background:"none",
+                    border:"none", padding:0, display:"flex",
+                    alignItems:"center", justifyContent:"space-between"}}>
+                  <span>
+                    <span style={{display:"block", fontSize:"14px", color:C.text}}>
+                      What to work on
+                    </span>
+                    <span style={{display:"block", fontSize:"12px", color:C.textMuted}}>
+                      Drills and coaching built on these numbers
+                    </span>
+                  </span>
+                  <span style={{color:C.textMuted, fontSize:"18px"}}>{"\u203A"}</span>
+                </button>
+              </div>
             )}
             <div style={{height:"32px"}}/>
           </>
