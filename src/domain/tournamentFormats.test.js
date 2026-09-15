@@ -1,8 +1,20 @@
 import { describe, it, expect } from 'vitest';
 import {
-  handicapPerGame, gameWithHandicap, appliesHandicap, handicapPins,
-  isBaker, bakerFrameOwner, bakerFramesFor, isMyBakerFrame,
-  myBakerShots, scoreCountsForBowler, bakerScoreNote, BAKER_STARTERS, sessionsForFigures,
+  handicapPerGame,
+  gameWithHandicap,
+  appliesHandicap,
+  handicapPins,
+  isBaker,
+  bakerFrameOwner,
+  bakerFramesFor,
+  isMyBakerFrame,
+  myBakerShots,
+  scoreCountsForBowler,
+  bakerScoreNote,
+  BAKER_STARTERS,
+  sessionsForFigures,
+  bakerStarterForGame,
+  bakerBowlerFor,
 } from './tournamentFormats.js';
 
 describe('handicap', () => {
@@ -191,5 +203,55 @@ describe('which sessions reach the bowler’s figures', () => {
       expect(() => sessionsForFigures(j, j)).not.toThrow();
     }
     expect(sessionsForFigures(null, null)).toEqual([]);
+  });
+});
+
+describe('Baker alternation across games', () => {
+  // A ten-frame game is an even number of frames, so whoever did NOT
+  // start game 1 starts game 2. The bowler who threw the tenth -- fill
+  // ball and all -- leads off next.
+  //
+  // The alternation used to stop at the game boundary, so every game
+  // began with the same bowler and one of them got every odd frame all
+  // block.
+  it('swaps the starter each game', () => {
+    expect(bakerStarterForGame(1, 'me')).toBe('me');
+    expect(bakerStarterForGame(2, 'me')).toBe('partner');
+    expect(bakerStarterForGame(3, 'me')).toBe('me');
+    expect(bakerStarterForGame(4, 'me')).toBe('partner');
+  });
+
+  it('swaps from a partner-started block too', () => {
+    expect(bakerStarterForGame(1, 'partner')).toBe('partner');
+    expect(bakerStarterForGame(2, 'partner')).toBe('me');
+  });
+
+  // The whole tenth belongs to one bowler, fill ball included -- it is
+  // one frame, not three separate turns.
+  it('gives the tenth to whoever did not start that game', () => {
+    expect(bakerBowlerFor(1, 10, 'me')).toBe('partner');
+    expect(bakerBowlerFor(2, 10, 'me')).toBe('me');
+  });
+
+  it('hands the next game to whoever bowled the last tenth', () => {
+    const tenth = bakerBowlerFor(1, 10, 'me');
+    expect(bakerBowlerFor(2, 1, 'me')).toBe(tenth);
+  });
+
+  it('alternates within a game as before', () => {
+    const owners = [1, 2, 3, 4].map(f => bakerBowlerFor(1, f, 'me'));
+    expect(owners).toEqual(['me', 'partner', 'me', 'partner']);
+  });
+
+  // A wrong name is worse than the default one.
+  it('falls back to the block starter on junk', () => {
+    for (const j of [null, undefined, 'x', 0, -3, NaN]) {
+      expect(bakerStarterForGame(j, 'me')).toBe('me');
+      expect(bakerStarterForGame(j, 'partner')).toBe('partner');
+    }
+  });
+
+  it('treats an unknown starter as me', () => {
+    expect(bakerStarterForGame(1, 'nobody')).toBe('me');
   });
 });

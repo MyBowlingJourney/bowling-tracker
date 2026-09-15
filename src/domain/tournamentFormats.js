@@ -147,6 +147,36 @@ export function bakerFrameOwner(frameNumber, starter) {
 }
 
 // The frames this bowler actually threw.
+// Who starts a given GAME, when the alternation runs across games.
+//
+// Baker alternates every frame, and a ten-frame game is an even number of
+// frames -- so whoever did NOT start game 1 starts game 2. The bowler who
+// threw the tenth, fill ball and all, leads off next.
+//
+// The alternation did not previously cross the game boundary: every game
+// started with the same bowler, which quietly gave one of them every odd
+// frame all block and made "who is up" wrong from game 2 onwards.
+//
+// gameNumber is 1-based. Anything unreadable falls back to the block's
+// starter, because a wrong name is worse than the default one.
+export function bakerStarterForGame(gameNumber, blockStarter) {
+  const g = Number(gameNumber);
+  const start = blockStarter === "partner" ? "partner" : "me";
+  if (!Number.isFinite(g) || g < 1) return start;
+  // Odd games keep the block's starter; even games swap.
+  const swap = (Math.floor(g) - 1) % 2 === 1;
+  if (!swap) return start;
+  return start === "me" ? "partner" : "me";
+}
+
+// Who is bowling a given frame of a given game.
+//
+// The one function the scoring screen and the shot context should both
+// ask, so they cannot disagree about whose turn it is.
+export function bakerBowlerFor(gameNumber, frameNumber, blockStarter) {
+  return bakerFrameOwner(frameNumber, bakerStarterForGame(gameNumber, blockStarter));
+}
+
 export function bakerFramesFor(who, starter) {
   const out = [];
   for (let f = 1; f <= 10; f++) if (bakerFrameOwner(f, starter) === who) out.push(f);
