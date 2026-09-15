@@ -3232,7 +3232,20 @@ export default function BowlingTracker(){
     // bowled it. Stamping the CURRENT activeBowler onto one that already
     // names someone else would file their scores under the wrong person --
     // reachable by switching bowlers in practice and returning here.
-    if(activeTournament.bowler&&activeTournament.bowler!==activeBowler){
+    // Both of MY names count as me.
+    //
+    // A tournament saved before the display name existed carries the
+    // sign-in handle (reverett290). A bare string comparison then reads
+    // that as somebody else and refuses to save the bowler's own event:
+    // "This tournament is reverett290's. Switch bowler to save it."
+    //
+    // The merge in the profile sync renames these as it finds them, but
+    // it only runs when both names are in the bowler list, and it cannot
+    // reach a tournament saved on another device or restored from a
+    // backup. So the CHECK has to be tolerant as well as the data.
+    const myNames=new Set([activeBowler,displayName,handleFromEmail(user?.email)]
+      .map(n=>String(n||"").trim()).filter(Boolean));
+    if(activeTournament.bowler&&!myNames.has(String(activeTournament.bowler).trim())){
       setTournamentSaveMessage(`This tournament is ${activeTournament.bowler}\u2019s. Switch bowler to save it.`);
       setTimeout(()=>setTournamentSaveMessage(""),4000);
       return;
