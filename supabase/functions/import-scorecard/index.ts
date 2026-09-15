@@ -205,7 +205,20 @@ const RESPONSE_SCHEMA = {
         properties: {
           bowlerName: { type: "string", nullable: true, description: "The bowler this game belongs to, exactly as printed on the scorecard including abbreviations (e.g. 'R. Nadon'). Null on a single-bowler card with no name shown." },
           lineupPosition: { type: "integer", nullable: true, description: "Zero-based position of this bowler's column on the card, in the order bowlers appear." },
-          seriesTotal: { type: "integer", nullable: true, description: "This bowler's printed series total, if the card shows one. Repeat the same value on each of that bowler's games." },
+          // The SCRATCH series -- pins actually knocked down.
+          //
+          // "Series total" alone got the handicap column on a card that
+          // prints both: 129+156+141 is 426 scratch, printed as 498 with
+          // a 72 handicap. Handicap is league bookkeeping, not a bowling
+          // result, and storing it would inflate every average and stat
+          // built on it.
+          //
+          // It also destroys the only check available on a scores-only
+          // import: the games must add to the scratch series exactly. A
+          // near-enough comparison against a handicap total checks
+          // nothing.
+          seriesTotal: { type: "integer", nullable: true, description: "This bowler's SCRATCH series -- the sum of their game scores, with NO handicap added. If the card shows both a scratch and a handicap or total column, take the scratch one. If it shows only one series number and a separate handicap column, subtract the handicap. Null if the card prints no series at all." },
+          handicap: { type: "integer", nullable: true, description: "This bowler's handicap for the night, if the card prints one in its own column. Null if the card shows no handicap. Do not calculate or guess it." },
           gameNumber: { type: "integer" },
           ballUsed: { type: "string", nullable: true, description: "The ball name shown for this game, if visible (e.g. 'Bionic'). Null if not shown or not legible." },
           frames: { type: "array", items: FRAME_SCHEMA },
@@ -289,7 +302,8 @@ common result.
 TEAM SCORECARDS -- many scorecards show a whole team, one column or row per bowler. Return EVERY bowler's games in the single flat "games" list, and tag each game with who it belongs to:
 - bowlerName exactly as printed, including abbreviations ("R. Nadon", "RYAN N"). Do not expand, correct, or guess at a fuller name; the app matches the printed text itself.
 - lineupPosition as the zero-based position of that bowler's column, in the order bowlers appear on the card.
-- seriesTotal if the card prints a series total for that bowler, repeated on each of their games.
+- seriesTotal as the SCRATCH series (no handicap), repeated on each of their games.
+- handicap separately if the card prints one. Never fold it into seriesTotal.
 So a four-bowler team playing three games each returns twelve entries in "games", not four. On a single-bowler card, bowlerName may be null.
 
 Repeat bowlerName and lineupPosition on EVERY game belonging to that bowler -- not just their first one. Game 2 and game 3 of the same bowler must each carry that bowler's name and position, otherwise there is no way to tell whose game it is.
