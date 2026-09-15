@@ -18,7 +18,6 @@
 // Get a free key (no credit card required) at https://aistudio.google.com
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { validateExtraction } from "./validate.ts";
 
 // Reads BOTH spellings. analyze-performance has always used the
 // lowercase "gemini_api_key", and this function used the uppercase one --
@@ -76,7 +75,23 @@ const FRAME_SCHEMA = {
 const RESPONSE_SCHEMA = {
   type: "object",
   properties: {
+    // COUNT THE BOWLERS FIRST.
+    //
+    // A four-bowler team card was returning one bowler -- always the top
+    // row -- with the other three silently absent. The instructions
+    // already said to return everyone; the model agreed and then did not.
+    //
+    // Asking for the count as its own field makes the model read the
+    // whole card before it starts transcribing, and gives the client a
+    // number to check the result against. A schema field is much harder
+    // to skip than a sentence of prose.
+    bowlerCount: {
+      type: "integer",
+      nullable: true,
+      description: "How many DIFFERENT bowlers appear on this scorecard. Count every row or column with a name, even if you cannot read all of their scores. A team card usually shows 4 or 5.",
+    },
     // FLAT list of games, exactly as this schema was before team support
+
     // was added -- one bowler per game, identified by bowlerName, rather
     // than games nested inside a bowlers array.
     //
@@ -122,6 +137,21 @@ Also record each game's final printed score in totalScore when the scorecard sho
 
 IMPORTANT -- some scorecards show only game totals with no per-frame detail at all (no pin-deck graphics, no frame boxes). That is a valid and common case, not a failure. When that happens, return the games with their totalScore and an empty frames array. Do not invent frames to fill the gap.
 
+BEFORE TRANSCRIBING ANYTHING, count the bowlers. Look down the whole card and
+count every row (or column) that has a name against it. Put that number in
+bowlerCount. Then transcribe EVERY one of them.
+
+Returning only the first bowler is the single most common mistake on these
+cards. If the card shows four names, "games" must contain that bowler's games
+FOUR times over -- once per bowler -- not just the first name's. A results
+screen listing Dayton, Zack, Connor and Ryan with three games each is twelve
+entries, and bowlerCount is 4.
+
+Do not stop after the first row. Do not summarise. Do not omit a bowler because
+their scores look similar to another's, because their name is hard to read, or
+because they bowled the same score three times -- 174, 174, 174 is a real and
+common result.
+
 TEAM SCORECARDS -- many scorecards show a whole team, one column or row per bowler. Return EVERY bowler's games in the single flat "games" list, and tag each game with who it belongs to:
 - bowlerName exactly as printed, including abbreviations ("R. Nadon", "RYAN N"). Do not expand, correct, or guess at a fuller name; the app matches the printed text itself.
 - lineupPosition as the zero-based position of that bowler's column, in the order bowlers appear on the card.
@@ -137,43 +167,9 @@ Respond with valid JSON matching the provided schema exactly. If a screenshot sh
 // tightest limit. Auth already stops a stranger; this stops one account
 // looping.
 //
-// Fails SAFE, not open. The database check is still the real limiter --
-// it is shared across instances and survives cold starts -- but when it
-// is unavailable this now degrades to a conservative in-process cap
-// rather than to no cap at all.
-//
-// Previously both failure paths returned true. If check_api_rate_limit
-// were dropped, renamed, or simply erroring, every signed-in account
-// became unlimited against a vision model billed per image, and nothing
-// would have said so.
-//
-// Worth being clear about what this fallback is NOT: an in-process Map
-// resets on cold start and is not shared between instances, so N warm
-// instances allow up to N x limit. That is a real weakening, and it is
-// still bounded where the previous behaviour was not. It is a backstop
-// for a broken limiter, not a replacement for one.
-const fallbackHits = new Map<string, number[]>();
-
-function withinFallbackLimit(userId: string, limit: number, windowMs: number): boolean {
-  const now = Date.now();
-  const recent = (fallbackHits.get(userId) || []).filter((t) => now - t < windowMs);
-  if (recent.length >= limit) {
-    fallbackHits.set(userId, recent);
-    return false;
-  }
-  recent.push(now);
-  fallbackHits.set(userId, recent);
-  // Bounded memory: a long-lived instance must not accumulate an entry
-  // per user seen since boot.
-  if (fallbackHits.size > 5000) {
-    for (const [k, v] of fallbackHits) {
-      if (!v.some((t) => now - t < windowMs)) fallbackHits.delete(k);
-    }
-  }
-  return true;
-}
-
-async function withinRateLimit(req, endpoint, limit, windowInterval, userId, windowMs) {
+// Fails OPEN: a broken rate limiter should degrade to "no limit", not
+// "nobody can import". Auth is the security boundary; this is cost control.
+async function withinRateLimit(req, endpoint, limit, windowInterval) {
   try {
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL"),
@@ -183,14 +179,10 @@ async function withinRateLimit(req, endpoint, limit, windowInterval, userId, win
     const { data, error } = await supabase.rpc("check_api_rate_limit", {
       p_endpoint: endpoint, p_limit: limit, p_window: windowInterval,
     });
-    if (error) {
-      console.error(`rate limit check failed for ${endpoint}, falling back:`, error.message);
-      return withinFallbackLimit(userId, limit, windowMs);
-    }
+    if (error) return true;
     return data !== false;
-  } catch (e) {
-    console.error(`rate limit check threw for ${endpoint}, falling back:`, String(e));
-    return withinFallbackLimit(userId, limit, windowMs);
+  } catch {
+    return true;
   }
 }
 
@@ -223,16 +215,6 @@ function corsFor(req) {
 
 Deno.serve(async (req) => {
   const corsHeaders = corsFor(req);
-  // One id per request, returned to the caller and attached to every
-  // server-side log line for it. This is what replaces shipping
-  // internals to the client: a bowler who hits a problem can quote a
-  // short id, and the exception is findable in the function logs.
-  //
-  // What used to go back instead: `detail: String(err)` (any thrown
-  // error, including stack text and anything a driver puts in a
-  // message), the entire Gemini response object, and Gemini's raw
-  // output text. All three on a public endpoint.
-  const requestId = crypto.randomUUID().slice(0, 8);
 
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -270,7 +252,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (!(await withinRateLimit(req, "import-scorecard", 20, "1 hour", user.id, 60 * 60 * 1000))) {
+    if (!(await withinRateLimit(req, "import-scorecard", 20, "1 hour"))) {
       return new Response(JSON.stringify({
         error: "You've imported a lot in the last hour. Give it a little while and try again.",
       }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -404,8 +386,7 @@ Deno.serve(async (req) => {
     const geminiData = await geminiRes.json();
     const text = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!text) {
-      console.error(`[${requestId}] gemini returned no extractable content:`, JSON.stringify(geminiData).slice(0, 2000));
-      return new Response(JSON.stringify({ error: "Gemini returned no extractable content", requestId }), {
+      return new Response(JSON.stringify({ error: "Gemini returned no extractable content", detail: geminiData }), {
         status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -415,40 +396,17 @@ Deno.serve(async (req) => {
     try {
       extracted = JSON.parse(text);
     } catch {
-      console.error(`[${requestId}] gemini response was not valid JSON:`, String(text).slice(0, 2000));
-      return new Response(JSON.stringify({ error: "Gemini's response wasn't valid JSON", requestId }), {
+      return new Response(JSON.stringify({ error: "Gemini's response wasn't valid JSON", detail: text }), {
         status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Validated HERE, before the result crosses into application data.
-    // The client does its own defensive work, but the client is not the
-    // boundary -- nothing stops a caller skipping it entirely, and
-    // anything that got this far has already been paid for.
-    //
-    // Spread rather than rebuilt, so a field added to RESPONSE_SCHEMA
-    // later is not silently discarded on the way out (HANDOFF 4.3).
-    const validated = validateExtraction(extracted);
-    const { dropped, nulled, repaired } = validated;
-    if (dropped.games || dropped.frames || repaired.pins
-        || Object.values(nulled).some((n) => n > 0)) {
-      console.warn(`[${requestId}] extraction validation:`, JSON.stringify({ dropped, nulled, repaired }));
-    }
-
-    return new Response(JSON.stringify({
-      ...extracted,
-      games: validated.games,
-      // Additive, so an existing client that reads only `games` is
-      // unaffected. It lets the review step say "two frames could not be
-      // read" instead of quietly showing a game with holes in it.
-      validation: { dropped, nulled, repaired, requestId },
-    }), {
+    return new Response(JSON.stringify(extracted), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
-    console.error(`[${requestId}] unexpected error:`, err instanceof Error ? (err.stack || err.message) : String(err));
-    return new Response(JSON.stringify({ error: "Unexpected error", requestId }), {
+    return new Response(JSON.stringify({ error: "Unexpected error", detail: String(err) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
