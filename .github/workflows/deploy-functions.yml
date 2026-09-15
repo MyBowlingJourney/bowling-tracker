@@ -29,7 +29,27 @@ jobs:
       # it just warns.
       - uses: supabase/setup-cli@v2
         with:
-          version: latest
+          # PINNED, not "latest".
+          #
+          # "latest" makes the action ask GitHub's releases API which
+          # version that is, unauthenticated, on every run -- and shared
+          # runner IPs hit the 60-requests-an-hour limit for anonymous
+          # callers. The deploy then fails with "rate limit exceeded"
+          # while nothing is wrong with the deploy itself.
+          #
+          # Pinning also avoids a second, sharper failure: supabase/cli
+          # publishes BETA releases continuously, and "latest" has 404'd
+          # when the newest release had no matching artifact. A stable
+          # version cannot do that.
+          #
+          # 2.117.0 is the current stable (the higher tags on GitHub are
+          # betas). Bump it deliberately.
+          version: 2.117.0
+        env:
+          # Raises the anonymous limit to 1,000/hour for this repo, so a
+          # version bump or a re-run does not fail for the same reason.
+          # Automatically provided by Actions; no secret to configure.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Deploy all functions
         env:
