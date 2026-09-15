@@ -129,6 +129,18 @@ export default function SessionStart({ preferences, onApply, onDismiss, envChose
             }} />
         ))}
       </div>
+
+      {/* Say it can be changed.
+          
+          61 of 250 in the focus round picked the wrong mode and 17 asked
+          whether it could be changed -- so most of them could see the
+          mistake and did not know it was recoverable. Ten words removes
+          the reason to hesitate, and a bowler about to start a night is
+          the worst possible audience for a decision that feels final. */}
+      <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "6px" }}>
+        You can change this any time.
+      </div>
+
       {envChosen && (
         <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "4px", marginBottom: "12px" }}>
           {ENVIRONMENT_DESCRIPTIONS[preferences.environment]}
