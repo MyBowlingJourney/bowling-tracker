@@ -419,6 +419,19 @@ export function seriesFor(bowlerEntry) {
       // Surfaced rather than silently preferred: if the printed total and
       // the games disagree, that's a misread worth a human glance, not
       // something to paper over by picking one.
+      // The games must add to the SCRATCH series EXACTLY.
+      //
+      // This is the only check a scores-only import has, and it only
+      // works against scratch. Allowing a printed total above the games
+      // as "probably handicap" would wave through a genuinely misread
+      // game whenever the error happened to be low -- which is most of
+      // them.
+      //
+      // The extraction now returns scratch and handicap separately, so
+      // the comparison can be strict again. Handicap is league
+      // bookkeeping and is NOT stored: the games are what get imported,
+      // and every average and stat is built on pins actually knocked
+      // down.
       disagrees: computed !== null && computed !== printed,
       computed,
     };

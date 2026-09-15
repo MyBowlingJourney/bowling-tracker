@@ -337,10 +337,39 @@ describe('team scorecards', () => {
 
   // Disagreement is a misread worth a human glance, not something to
   // paper over by silently preferring one source.
-  it('flags a printed total that disagrees with the games', () => {
-    const bad = normalizeExtraction({ bowlers: [{ bowlerName: 'X', seriesTotal: 999, games: [{ totalScore: 100 }, { totalScore: 100 }] }] });
+  // The games must add to the SCRATCH series exactly.
+  //
+  // Handicap is league bookkeeping, not a bowling result. The extraction
+  // asks for scratch and handicap separately so this comparison can be
+  // strict -- allowing a printed total above the games as "probably
+  // handicap" would wave through a genuinely misread game whenever the
+  // error happened to be low, which is most of them.
+  it('accepts games that add to the scratch series', () => {
+    const ok = normalizeExtraction({ games: [
+      { bowlerName: 'Z', lineupPosition: 0, gameNumber: 1, totalScore: 129, seriesTotal: 426 },
+      { bowlerName: 'Z', lineupPosition: 0, gameNumber: 2, totalScore: 156, seriesTotal: 426 },
+      { bowlerName: 'Z', lineupPosition: 0, gameNumber: 3, totalScore: 141, seriesTotal: 426 },
+    ] });
+    expect(ok[0].disagrees).toBe(false);
+    expect(ok[0].computed).toBe(426);
+  });
+
+  it('flags games that do not add to the scratch series', () => {
+    const bad = normalizeExtraction({ games: [
+      { bowlerName: 'X', lineupPosition: 0, gameNumber: 1, totalScore: 200, seriesTotal: 150 },
+    ] });
     expect(bad[0].disagrees).toBe(true);
     expect(bad[0].computed).toBe(200);
+  });
+
+  // Handicap must never become a stored score.
+  it('never stores a handicap total as the series', () => {
+    const cols = normalizeExtraction({ games: [
+      { bowlerName: 'Z', lineupPosition: 0, gameNumber: 1, totalScore: 129, seriesTotal: 426, handicap: 72 },
+    ] });
+    expect(cols[0].computed).toBe(129);
+    expect(cols[0].series).toBe(426);
+    expect(cols[0].series).not.toBe(498);
   });
 
   it('says whether a column carries shots or only scores', () => {
