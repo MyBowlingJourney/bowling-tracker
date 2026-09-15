@@ -915,6 +915,13 @@ export default function BowlingTracker(){
   const[preEditForm,setPreEditForm]=useState(null);
   const[saved,setSaved]=useState(false);
   const[sessionSaved,setSessionSaved]=useState(false);
+
+  // Which tab the Log screen is showing, owned HERE rather than in
+  // LogView, because ending a session has to move it -- and a child
+  // cannot be told to change its own state from the outside.
+  const[leagueTabChoice,setLeagueTabChoice]=useState("scoring");
+  const[tournamentTab,setTournamentTab]=useState("setup");
+  const setLeagueTab=setLeagueTabChoice;
   const[sessionSaveMessage,setSessionSaveMessage]=useState(null);
   const[winningsSaved,setWinningsSaved]=useState(false);
   const[filterBall,setFilterBall]=useState("");
@@ -1019,7 +1026,6 @@ export default function BowlingTracker(){
   }
 
   const[startingLane,setStartingLane]=useState(savedContext?.lane||"");
-  const[showSummary,setShowSummary]=useState(false);
   const[confirmClear,setConfirmClear]=useState(false);
   const[showBackup,setShowBackup]=useState(false);
   const[expandedSections,setExpandedSections]=useState({releaseMiss:false,ballChange:false,notes:false,tonightSession:false,arsenal:false,surface:false,/* open by default: reaching this card means a league is chosen and the
@@ -3352,7 +3358,6 @@ export default function BowlingTracker(){
     const team=teams.find(t=>t.league===sessionLeague&&(t.members||[]).includes(name));
     const teamId=team?.id||"";
     setActiveBowler(name);
-    setShowSummary(false);
 
     // Park the outgoing bowler's drill under their own name and pick up
     // whatever the incoming bowler had. Keyed by the drill's OWN bowler
@@ -4140,7 +4145,6 @@ export default function BowlingTracker(){
     await saveLanePatterns([]);
     setForm({...emptyShot(),bowler:activeBowler});
     setEditingId(null);
-    setShowSummary(false);
     setSessionLeague("");
     setStartingLane("");
     setBallLaneLines({});
@@ -4311,7 +4315,30 @@ export default function BowlingTracker(){
     };
     const updated=existing?sessions.map(s=>s.id===existing.id?session:s):[...sessions,session];
     await saveSessions(updated);
-    setShowSummary(true);
+
+    // Take the bowler TO the results.
+    //
+    // The button says "End Session & View Summary" and did not view
+    // anything: setShowSummary set a flag nothing reads, so the night was
+    // saved and the screen did not move. The bowler is left looking at
+    // the shot form they have just finished with.
+    //
+    // Each mode keeps its results in a different place, so the jump has
+    // to know which one:
+    //
+    //   league / practice / open bowling -> the Results tab, where the
+    //     recap, the running averages and the share button live.
+    //   tournament -> the tournament card's own Results tab, which has
+    //     the block totals, the cut line and the money.
+    if(preferences.environment==="tournament"){
+      setTournamentTab("results");
+    } else {
+      setLeagueTab("results");
+    }
+    // Scroll to the top, or the results open below the fold and it still
+    // looks as though nothing happened.
+    try{window.scrollTo({top:0,behavior:"smooth"});}catch{}
+
     setSessionSaved(true);
     setTimeout(()=>setSessionSaved(false),1500);
   }
@@ -6664,7 +6691,7 @@ export default function BowlingTracker(){
             activeBowler={activeBowler} newBowlerName={newBowlerName} setNewBowlerName={setNewBowlerName} arsenals={arsenals} newBallName={newBallName} setNewBallName={setNewBallName}
             form={form} setForm={setForm} editingId={editingId} saved={saved} sessionSaved={sessionSaved} sessionSaveMessage={sessionSaveMessage}
             sessionLeague={sessionLeague} setSessionLeague={setSessionLeague} effectiveSessionLeague={effectiveSessionLeague} sessionDate={sessionDate} setSessionDate={changeSessionDate}
-            startingLane={startingLane} setStartingLane={setStartingLane} setShowSummary={setShowSummary} expandedSections={expandedSections}
+            startingLane={startingLane} setStartingLane={setStartingLane} expandedSections={expandedSections}
             offerShotByShot={offerShotByShot} onTryShotByShot={tryShotByShot} onDismissShotByShot={dismissShotPrompt}
             promptForTeam={promptForTeam} onDismissTeamPrompt={dismissTeamPrompt}
             ballNumLabel={ballNumLabel} curSession={curSession} currentLane={currentLane} firstBallPins={firstBallPins} gameScores={gameScores}
@@ -6682,6 +6709,9 @@ export default function BowlingTracker(){
             activeBowlerLeftHanded={activeBowlerLeftHanded}
             ballLayouts={ballLayouts} setBallLayout={setBallLayout}
             tournamentSaveMessage={tournamentSaveMessage}
+
+            leagueTabChoice={leagueTabChoice} setLeagueTabChoice={setLeagueTabChoice}
+            tournamentTab={tournamentTab} setTournamentTab={setTournamentTab}
 
             deleteNight={deleteNight}
             activeTournament={activeTournament} updateTournament={updateTournament} saveTournament={saveTournament} closeTournament={closeTournament} tournamentSaved={tournamentSaved}

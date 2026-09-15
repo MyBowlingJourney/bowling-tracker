@@ -40,6 +40,7 @@ export default function LogView({
   shots, sessions, bowlers, footerHeight, footerRef, teams, leagues, startEdit, deleteShot,
   activeBowler, newBowlerName, setNewBowlerName, arsenals, newBallName, setNewBallName,
   form, setForm, editingId, saved, sessionSaved, sessionSaveMessage, tournamentSaveMessage,
+  leagueTabChoice = "scoring", setLeagueTabChoice, tournamentTab = "setup", setTournamentTab,
   sessionLeague, setSessionLeague, effectiveSessionLeague, sessionDate, setSessionDate,
   startingLane, setStartingLane, setShowSummary, expandedSections,
   ballNumLabel, curSession, currentLane, firstBallPins, gameScores = [],
@@ -237,7 +238,6 @@ export default function LogView({
   // Shot Context (game/frame/lane) is meaningless without shots -- a
   // scores-only night has games, not frames. It had no gate at all.
   // Tournament tab, owned here so Shot Context can follow it.
-  const [tournamentTab,setTournamentTab]=useState("setup");
   // League tabs. Same treatment as the tournament card: a league night
   // carries setup, scoring, side pots and a recap, and one scroll of all
   // of it buries the part you came for.
@@ -252,7 +252,6 @@ export default function LogView({
   //
   // Once a league is picked, arriving mid-night should land on the
   // scoresheet, which is what a league bowler actually came for.
-  const [leagueTabChoice,setLeagueTabChoice]=useState("scoring");
   // DERIVED, not just an initial value.
   //
   // A lazy initialiser runs once, and sessionLeague is empty on the
