@@ -1,6 +1,10 @@
 // The app's name, in one place so a rename doesn't mean hunting through
 // JSX for a hardcoded string.
-export const APP_NAME = "My Bowling Vault";
+// One name, one place. Several screens used to hardcode it -- the sign
+// in screen was still showing "Shot Tracker", two names behind -- so a
+// rename left the app calling itself different things depending where
+// you looked.
+export const APP_NAME = "My Bowling Journey";
 
 // Practice and casual nights aren't leagues, but every per-night record in
 // this app -- manual game scores, session recaps -- is keyed by
