@@ -527,10 +527,26 @@ export default function ImportScorecard({
       // either the vision model returning less than the card shows, or
       // the client losing them. Those need different fixes and look
       // identical from the outside, so record both numbers.
+      // The model's OWN count, against what it actually returned.
+      //
+      // bowlerCount asks it to read the whole card before transcribing.
+      // When the two disagree, the extraction stopped early -- and that
+      // is a different fault from the client dropping bowlers, which is
+      // what this line exists to tell apart.
+      const claimed=Number(data?.bowlerCount)||0;
+      if(claimed&&claimed>cols.length){
+        recordError({
+          kind:"import-quality",
+          where:"ImportScorecard.shortExtraction",
+          message:`card shows ${claimed} bowler(s), extraction returned ${cols.length}`,
+        });
+      }
+
       recordError({
         kind:"import-quality",
         where:"ImportScorecard.columns",
-        message:`extracted ${(data?.games||[]).length} game(s) `
+        message:`bowlerCount=${data?.bowlerCount??"?"} `
+          +`extracted ${(data?.games||[]).length} game(s) `
           +`-> ${cols.length} bowler(s) -> ${finalCols.length} for review `
           +`[${finalCols.map(c=>c.scorecardName||"?").join(" | ")}]`,
       });
