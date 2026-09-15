@@ -4753,7 +4753,7 @@ export default function BowlingTracker(){
         const mineTeams=(teams||[]).filter(t=>t&&Array.isArray(t.members)
           // Members carry `name` and `userId`; activeBowler is a display
           // name, so match on name and fall back to the signed-in id.
-          &&t.members.some(m=>m&&(m.name===activeBowler||(userId&&m.userId===userId))));
+          &&t.members.some(m=>m&&(m.name===activeBowler||(user?.id&&m.userId===user.id))));
         return mineTeams.map(t=>t.name).filter(Boolean).join(", ")||null;
       })(),
       average:scores.length?Math.round(scores.reduce((a,b)=>a+b,0)/scores.length):null,
