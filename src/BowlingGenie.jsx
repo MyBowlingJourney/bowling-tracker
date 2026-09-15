@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { C, S, AiNote } from "./ui.jsx";
 import { reviewAiOutput, overreachNote } from "./domain/aiGuard.js";
+
+import { recordError } from "./errorLogStore.js";
 import {
   classifyQuestion, refusalMessage, questionsLeftToday, canAskToday,
   budgetLabel, DAILY_QUESTIONS, GENIE_NAME,
@@ -70,6 +72,23 @@ export default function BowlingGenie({
     setAnswer(null);
     try {
       const reply = await onAsk?.(q);
+
+      // Show the REAL reason when there is one.
+      //
+      // onAsk returns { error } with the actual cause -- an exhausted
+      // Gemini quota, a retired model, a server fault -- and this used to
+      // drop it and say "couldn't reach" for all of them. A bowler waits
+      // and retries, which is right for a blip and useless for a quota
+      // that resets at midnight.
+      if (reply?.error && !reply?.text) {
+        recordError({
+          kind: "unhandled",
+          where: "BowlingGenie.ask",
+          message: String(reply.error).slice(0, 300),
+        });
+        setAnswer({ text: String(reply.error), failed: true });
+        return;
+      }
       // Checked against what she was actually sent, the same way the
       // analysis is. A genie discussing a statistic the app withholds is
       // the fastest way to lose a bowler's trust in both.
@@ -87,6 +106,13 @@ export default function BowlingGenie({
       // failure HAS spent one of the three. Saying "that one's still
       // yours" and then showing two left would be a small lie the bowler
       // would notice. See the note in the Edge Function.
+      // A thrown error is a different failure from a returned one, and
+      // was indistinguishable on screen. Recorded so it can be told apart.
+      recordError({
+        kind: "unhandled",
+        where: "BowlingGenie.ask",
+        message: `threw: ${e?.message || String(e)}`.slice(0, 300),
+      });
       setAnswer({ text: `Couldn't reach ${GENIE_NAME}. Try again in a moment.`, failed: true });
     } finally {
       setThinking(false);

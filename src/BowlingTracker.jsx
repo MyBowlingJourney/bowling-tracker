@@ -4698,7 +4698,15 @@ export default function BowlingTracker(){
     });
     if(error||!data?.text){
       // Not recorded: a failure must not spend a wish.
-      throw new Error(data?.error||error?.message||"no answer");
+      // RETURN the reason rather than throwing it.
+      //
+      // Throwing sent this straight to the Genie's catch block, which
+      // replaces whatever went wrong with "Couldn't reach Brooklyn. Try
+      // again in a moment." So an exhausted Gemini quota, a retired
+      // model and a server fault all read as a blip worth retrying --
+      // and the one message the code had already worked out was thrown
+      // away one line before it could be shown.
+      return{error:data?.error||error?.message||"Brooklyn had no answer for that."};
     }
     const today=localDateString();
     setGenieAsked(prev=>[...prev,{date:today}]);
