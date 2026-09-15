@@ -48,6 +48,10 @@ function isWritten(field) {
 const IGNORE = new Set([
   'length','map','filter','forEach','find','reduce','slice','split','join','push',
   'includes','indexOf','toFixed','toString','replace','trim','sort','some','every',
+  // String methods, like the array ones above: a method call is not a
+  // data field, and flagging one sends the reader hunting for a writer
+  // that can never exist.
+  'startsWith','endsWith','toLowerCase','toUpperCase','padStart','padEnd','repeat','at',
   'flatMap','concat','keys','values','entries','then','catch','data','error','value',
   'current','style','target','id','name','type','props','children','key','message','code',
 ]);
