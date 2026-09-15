@@ -272,6 +272,10 @@ export default function ImportScorecard({
   // silently degrading every image to avoid it.
   const MAX_TOTAL_MB = 18;
 
+  // Kept as a name only. It forwards to readRaw and scales nothing --
+  // see the note above about why resizing was removed. Renaming it means
+  // touching every call site; leaving it misleading costs the next reader
+  // the ten minutes it just cost me.
   async function downscale(file){
     // Kept as the single entry point so callers don't change, but it no
     // longer scales anything -- it just reads the file.
@@ -546,8 +550,11 @@ export default function ImportScorecard({
         });
       }
 
+      // .base64 is the field images actually carry -- dataUrl was a guess
+      // and reported every import as ~0KB, which is worse than no number
+      // because it looks like a measurement.
       const totalKb=Math.round(images.reduce((n,im)=>
-        n+(String(im?.dataUrl||im?.data||"").length*0.75),0)/1024);
+        n+(String(im?.base64||"").length*0.75),0)/1024);
       recordError({
         kind:"import-quality",
         where:"ImportScorecard.timing",
