@@ -429,11 +429,47 @@ export default function ImportScorecard({
       // how many requests carry it. Worth doing deliberately, with the
       // timing line below to measure against, rather than guessed at
       // again.
-      let pathTaken="single";
-      const{data,error:fnError}=await Promise.race([
+      let{data,error:fnError}=await Promise.race([
         supabase.functions.invoke("import-scorecard",{body:{images:payload}}),
         timeoutGuard,
       ]);
+
+      // ESCALATE when the card has frame detail and none came back.
+      //
+      // The fast model reads scores in a quarter of the time and does not
+      // read pin decks at all. Empty frames alone cannot tell a results
+      // screen (correct, done) from a scorecard it could not read (wrong)
+      // -- both return nothing. hasFrameDetail is the model's answer to
+      // "does this card SHOW frames", which it can give even when it
+      // cannot transcribe them.
+      //
+      // So the trigger is not "frames are missing". It is "frames are
+      // missing from a card that says it has them". Escalating on empty
+      // frames alone would double every results-screen import, which is
+      // the case the fast model is good at.
+      if(!fnError&&data?.hasFrameDetail===true){
+        const gotFrames=(data?.games||[]).some(g=>(g.frames||[]).length);
+        if(!gotFrames){
+          const retry=await Promise.race([
+            supabase.functions.invoke("import-scorecard",{
+              body:{images:payload,detailed:true},
+            }),
+            timeoutGuard,
+          ]);
+          // Keep the fast result if the retry fails or comes back no
+          // better. Scores without frames beat an error.
+          const retryFrames=(retry?.data?.games||[]).some(g=>(g.frames||[]).length);
+          if(!retry?.error&&retryFrames){
+            recordError({
+              kind:"import-quality",
+              where:"ImportScorecard.escalated",
+              message:`${data?.model} saw frame detail but read none; `
+                +`retried on ${retry.data?.model}`,
+            });
+            data=retry.data;
+          }
+        }
+      }
 
       if(fnError){
         // supabase-js reports any non-2xx or network failure as the same
@@ -610,6 +646,23 @@ export default function ImportScorecard({
         message:`${Math.round((Date.now()-startedAt)/100)/10}s for `
           +`${images.length} image(s), ~${totalKb}KB, ${data?.model||"?"}`,
       });
+
+      // Frames missing across the board, on a model known to skip them.
+      //
+      // A scorecard WITH pin-deck graphics that comes back as scores only
+      // is not a card without detail -- it is a model that did not read
+      // it. The column labels already say "scores only", but nothing
+      // said why, so the obvious reading is that the app lost the frames.
+      const anyFrames=cols.some(c=>(c.games||[]).some(g=>(g.frames||[]).length));
+      if(!anyFrames&&/lite/i.test(String(data?.model||""))){
+        recordError({
+          kind:"import-quality",
+          where:"ImportScorecard.noFrames",
+          message:`no frame detail from ${data?.model}. `
+            +`Lite models read scores but not pin decks -- switch `
+            +`IMPORT_GEMINI_MODEL back for frame tracking.`,
+        });
+      }
 
       recordError({
         kind:"import-quality",
