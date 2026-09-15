@@ -327,10 +327,25 @@ async function withinRateLimit(req, endpoint, limit, windowInterval) {
     const { data, error } = await supabase.rpc("check_api_rate_limit", {
       p_endpoint: endpoint, p_limit: limit, p_window: windowInterval,
     });
-    if (error) return true;
-    return data !== false;
-  } catch {
-    return true;
+    if (error) {
+      // FAIL CLOSED. A limiter that opens on failure is not a limiter.
+      //
+      // This returned true when the check itself failed, so a database
+      // fault -- or anything that reliably breaks the RPC -- let every
+      // request through unmetered. That is the exact condition under
+      // which a limit matters most, and it is reachable on purpose.
+      //
+      // The cost of closing is that a database problem also stops
+      // imports. That is the right way round: a bowler who cannot import
+      // for ten minutes is inconvenienced, an uncapped image endpoint
+      // billed per token is a bill with no ceiling.
+      console.error("rate limit check failed, denying:", endpoint, error.message);
+      return "unavailable";
+    }
+    return data !== false ? true : "limited";
+  } catch (e) {
+    console.error("rate limit check threw, denying:", endpoint, String(e));
+    return "unavailable";
   }
 }
 
@@ -400,7 +415,19 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (!(await withinRateLimit(req, "import-scorecard", 20, "1 hour"))) {
+    // Three outcomes, not two: allowed, over the limit, or the check
+    // itself is broken. Failing closed is right, but saying "you have
+    // imported a lot" when the database is down sends a bowler away to
+    // wait out a limit they never hit.
+    const limitState = await withinRateLimit(req, "import-scorecard", 20, "1 hour");
+    if (limitState === "unavailable") {
+      return new Response(JSON.stringify({
+        error: "The import service can't check its limits right now. Try again shortly.",
+        reason: "limit_unavailable",
+        requestId,
+      }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    if (limitState !== true) {
       return new Response(JSON.stringify({
         error: "You've imported a lot in the last hour. Give it a little while and try again.",
       }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -420,6 +447,14 @@ Deno.serve(async (req) => {
     //
     // Neither is required. A request with neither behaves exactly as it
     // did before, which is the fallback when counting fails.
+    // An id the bowler can quote and the logs can be searched by.
+    //
+    // Replaces returning the exception text: a stack trace or a raw
+    // upstream payload tells an attacker about the server and tells a
+    // bowler nothing. An id tells the bowler nothing either, which is the
+    // point -- it is a handle into logs they cannot read.
+    const requestId = crypto.randomUUID().slice(0, 8);
+
     const { images, mode, onlyGame, detailed } = await req.json();
     // images: array of { base64: string, mimeType: string } -- one entry per uploaded screenshot
     if (!Array.isArray(images) || !images.length) {
@@ -640,7 +675,7 @@ Deno.serve(async (req) => {
     const geminiData = await geminiRes.json();
     const text = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!text) {
-      return new Response(JSON.stringify({ error: "Gemini returned no extractable content", detail: geminiData }), {
+      return new Response(JSON.stringify({ error: "Gemini returned no extractable content", requestId }), {
         status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -650,7 +685,7 @@ Deno.serve(async (req) => {
     try {
       extracted = JSON.parse(text);
     } catch {
-      return new Response(JSON.stringify({ error: "Gemini's response wasn't valid JSON", detail: text }), {
+      return new Response(JSON.stringify({ error: "Gemini's response wasn't valid JSON", requestId }), {
         status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -662,7 +697,8 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
-    return new Response(JSON.stringify({ error: "Unexpected error", detail: String(err) }), {
+    console.error("import-scorecard failed:", requestId, err);
+    return new Response(JSON.stringify({ error: "Unexpected error", requestId }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
