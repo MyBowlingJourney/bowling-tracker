@@ -608,7 +608,7 @@ export default function ImportScorecard({
         kind:"import-quality",
         where:"ImportScorecard.timing",
         message:`${Math.round((Date.now()-startedAt)/100)/10}s for `
-          +`${images.length} image(s), ~${totalKb}KB, ${pathTaken}`,
+          +`${images.length} image(s), ~${totalKb}KB, ${data?.model||"?"}`,
       });
 
       recordError({
