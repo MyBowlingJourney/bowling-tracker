@@ -265,7 +265,26 @@ Deno.serve(async (req: Request) => {
       // Logged, not returned: upstream errors can name models, quotas and
       // keys, and none of that belongs in a client response.
       console.error("gemini call failed:", res.status, detail.slice(0, 500));
-      return json({ error: "The lamp went quiet. Try again in a moment." }, cors, 502);
+      // Pass the CAUSE through, not just the shrug.
+      //
+      // The real Gemini message went to console.error, which nobody
+      // reads, and the bowler got "the lamp went quiet" whether the
+      // model name was wrong, a config field was rejected, or the quota
+      // was gone. Three different fixes, one message.
+      //
+      // Trimmed and prefixed rather than dumped: enough to act on,
+      // without putting raw upstream text in front of a bowler.
+      const why = (() => {
+        try {
+          const parsed = JSON.parse(detail);
+          return String(parsed?.error?.message || "").slice(0, 200);
+        } catch { return ""; }
+      })();
+      return json({
+        error: why
+          ? `The lamp went quiet: ${why}`
+          : "The lamp went quiet. Try again in a moment.",
+      }, cors, 502);
     }
 
     const data = await res.json();
