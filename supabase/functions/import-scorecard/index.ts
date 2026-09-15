@@ -69,7 +69,22 @@ Do not transcribe any scores or frames. Do not explain. Answer with JSON only.`;
 // available", which is the right message for a typo in a secret.
 const GEMINI_MODEL = Deno.env.get("IMPORT_GEMINI_MODEL")?.trim()
   || "gemini-3.6-flash";
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+
+// The model used when the FAST one saw frame detail it could not read.
+//
+// Lite reads scores in 15s and does not read pin decks at all. That is the
+// right trade for a results screen and the wrong one for a scorecard, so a
+// card that has frames and came back without them is retried here.
+//
+// Separate secret, because the two models are chosen for opposite
+// reasons: one for speed on easy cards, one for capability on hard ones.
+const GEMINI_MODEL_DETAILED = Deno.env.get("IMPORT_GEMINI_MODEL_DETAILED")?.trim()
+  || "gemini-3.6-flash";
+// Built per request, because the model varies: the fast one by default,
+// the detailed one on a retry. A module-scope constant cannot see a
+// per-request value.
+const geminiUrlFor = (model: string) =>
+  `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
 // One uniform shape for every frame, 1 through 10. Each frame is just a
 // list of the actual deliveries (balls) physically thrown in it, each with
@@ -122,6 +137,20 @@ const FRAME_SCHEMA = {
 const RESPONSE_SCHEMA = {
   type: "object",
   properties: {
+    // Does this card SHOW frame detail?
+    //
+    // Empty frames are ambiguous on their own: a results screen has none,
+    // and a scorecard the model failed to read has none either. Those
+    // need opposite responses -- accept, or retry on a stronger model --
+    // and they are indistinguishable from the output alone.
+    //
+    // SEEING pin decks is far easier than reading thirty of them, so even
+    // a model that cannot transcribe them can answer this.
+    hasFrameDetail: {
+      type: "boolean",
+      nullable: true,
+      description: "True if this scorecard shows per-frame detail -- pin-deck graphics, frame boxes, or per-frame marks like X and /. False if it shows only game totals and series, as a results or standings screen does.",
+    },
     // COUNT THE BOWLERS FIRST.
     //
     // A four-bowler team card was returning one bowler -- always the top
@@ -319,7 +348,7 @@ Deno.serve(async (req) => {
     //
     // Neither is required. A request with neither behaves exactly as it
     // did before, which is the fallback when counting fails.
-    const { images, mode, onlyGame } = await req.json();
+    const { images, mode, onlyGame, detailed } = await req.json();
     // images: array of { base64: string, mimeType: string } -- one entry per uploaded screenshot
     if (!Array.isArray(images) || !images.length) {
       return new Response(JSON.stringify({ error: "No images provided" }), {
@@ -377,6 +406,9 @@ Deno.serve(async (req) => {
     }
 
     const counting = mode === "count";
+    // The client sets detailed:true on the retry after a card reported
+    // frame detail and returned none.
+    const modelForRequest = detailed ? GEMINI_MODEL_DETAILED : GEMINI_MODEL;
     const gameFilter = Number.isInteger(onlyGame) && onlyGame > 0 ? onlyGame : null;
 
     // One game only. Said plainly and twice -- once as an instruction and
@@ -451,7 +483,7 @@ Deno.serve(async (req) => {
       const ac = new AbortController();
       const killer = setTimeout(() => ac.abort(), ATTEMPT_TIMEOUT_MS);
       try {
-      geminiRes = await fetch(GEMINI_URL, {
+      geminiRes = await fetch(geminiUrlFor(modelForRequest), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: requestBody,
@@ -543,7 +575,7 @@ Deno.serve(async (req) => {
 
     // Which model produced this, so a model switch is measurable rather
     // than a guess -- quality and speed both move when it changes.
-    return new Response(JSON.stringify({ ...extracted, model: GEMINI_MODEL }), {
+    return new Response(JSON.stringify({ ...extracted, model: modelForRequest }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
