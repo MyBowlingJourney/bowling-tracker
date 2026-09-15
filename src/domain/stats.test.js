@@ -701,3 +701,32 @@ describe('hangAssistCounts', () => {
     expect(hangAssistCounts(null, 'L')).toEqual({});
   });
 });
+
+describe('Baker scores are not one bowler\'s game', () => {
+  // Five frames each, one score. A Baker game standing as a personal
+  // high game credits a bowler with their partner's half.
+  const baker = { bowler: 'R', league: 'Tournament\u00b7Baker Doubles\u00b7u1', date: 'd2', scores: [289, 250, 260] };
+  const league = { bowler: 'R', league: 'Tuesday', date: 'd1', scores: [200, 190, 210] };
+
+  it('keeps a Baker game out of the high game', () => {
+    expect(bowlerHighGame([league, baker], 'R').value).toBe(210);
+  });
+
+  it('keeps a Baker block out of the high series', () => {
+    const hs = bowlerHighSeries([league, baker], 'R');
+    expect(hs.date).toBe('d1');
+  });
+
+  // Only Baker. A normal tournament game is entirely the bowler's own.
+  it('still counts an ordinary tournament game', () => {
+    const open = { bowler: 'R', league: 'Tournament\u00b7City Open\u00b7u1', date: 'd3', scores: [279] };
+    expect(bowlerHighGame([open], 'R').value).toBe(279);
+  });
+
+  it('survives junk sessions', () => {
+    for (const j of [null, undefined, 'x', 42, [null]]) {
+      expect(() => bowlerHighGame(j, 'R')).not.toThrow();
+      expect(() => bowlerHighSeries(j, 'R')).not.toThrow();
+    }
+  });
+});

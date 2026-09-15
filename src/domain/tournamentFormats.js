@@ -197,10 +197,22 @@ export function isMyBakerFrame(frameNumber, starter) {
 // Splitting the two is the point. Dropping Baker entirely would throw
 // away real shot data; keeping it whole would inflate an average with a
 // partner's pins.
+// The shots THIS bowler actually threw in a Baker block.
+//
+// Game-aware, because the alternation crosses the game boundary: whoever
+// did not start game 1 starts game 2. Filtering on the frame alone was
+// right for odd games and exactly backwards for even ones -- it handed a
+// bowler their partner's frames every other game.
+//
+// This matters more than a display bug. Frame-level metrics are built on
+// these shots: strike percentage, spare conversion, which leaves keep
+// appearing, how each ball carries. Crediting a partner's frames does not
+// just inflate a number, it teaches the coaching the wrong thing about
+// how someone bowls.
 export function myBakerShots(shots, starter) {
   return (Array.isArray(shots) ? shots : [])
     .filter(s => s && typeof s === "object")
-    .filter(s => isMyBakerFrame(parseInt(s.frame, 10), starter));
+    .filter(s => bakerBowlerFor(s.game, parseInt(s.frame, 10), starter) === "me");
 }
 
 // Does this session's SCORE belong in the bowler's average?

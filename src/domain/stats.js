@@ -43,7 +43,26 @@ function arr(v){ return (Array.isArray(v) ? v : []).filter(x => x && typeof x ==
 
 // The single highest game this bowler has ever bowled, across every
 // session on file for them (any league, any night).
+// A BAKER score is not one bowler's game.
+//
+// Five frames each, one score. Letting a Baker game stand as a personal
+// high game credits a bowler with their partner's half, and the same
+// applies to a high series and to any average built on game totals.
+//
+// Frame-level metrics are different: a bowler threw the balls they threw,
+// so their own frames DO count for strike rate, spares and ball carry.
+// That split is the whole point -- see myBakerShots for the other half.
+//
+// Matched on the league name because that is what a session carries; the
+// tournament record itself is not in scope here.
+function isBakerSession(s) {
+  return /^Tournament\u00b7/.test(String(s?.league || ""))
+    && /baker/i.test(String(s?.league || ""));
+}
+
 export function bowlerHighGame(sessions,bowler){
+  sessions=(Array.isArray(sessions)?sessions:[]).filter(x=>!isBakerSession(x));
+
   let best=null;
   // A null session, or one whose scores never arrived, throws on
   // s.bowler / s.scores. Both shapes come from the cloud and from a
@@ -58,6 +77,8 @@ export function bowlerHighGame(sessions,bowler){
 
 // The single highest 3-game series total this bowler has ever bowled.
 export function bowlerHighSeries(sessions,bowler){
+  sessions=(Array.isArray(sessions)?sessions:[]).filter(x=>!isBakerSession(x));
+
   let best=null;
   arr(sessions).filter(s=>s&&typeof s==="object"&&s.bowler===bowler).forEach(s=>{
     if(best===null||s.total>best.value)best={value:s.total,date:s.date,league:s.league};
