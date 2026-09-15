@@ -220,6 +220,32 @@ const RESPONSE_SCHEMA = {
 
 const EXTRACTION_PROMPT = `You are reading a bowling scorecard screenshot (from an app called LaneTalk). Extract every game and frame shown into the exact JSON shape requested.
 
+THE PIN NUMBERING. Read this before naming any pin.
+
+A rack is a triangle with its point toward the bowler. Seen from above, the way
+a scorecard draws it, the rows from BACK to FRONT are:
+
+    7  8  9  10      <- back row, four pins, LEFT to RIGHT
+      4  5  6        <- three pins
+        2  3         <- two pins
+          1          <- head pin, nearest the bowler
+
+So 7 is the BACK LEFT corner and 10 is the BACK RIGHT corner. 4 is on the LEFT
+side, 6 is on the RIGHT side. 2 is LEFT of centre, 3 is RIGHT of centre.
+
+LEFT AND RIGHT ARE THE MOST COMMON MISTAKE. A 4-7 leave (both on the left) and
+a 6-10 leave (both on the right) are mirror images of each other and look almost
+identical if you lose track of which side is which. Check the horizontal
+position of every standing pin against the row it is in before you name it:
+
+- a pin in the back row at the far left is 7, at the far right is 10
+- a pin in the three-pin row at the left is 4, centre is 5, right is 6
+- a pin in the two-pin row at the left is 2, at the right is 3
+
+Do not infer the pins from the score. A 2-count leave could be 4-7, 6-10, 2-8,
+or several others -- only the graphic tells you which, and getting the count
+right while getting the identities wrong is worse than useless.
+
 For each frame, focus on the small triangular pin-deck graphic above the frame's score box, not just the text notation -- the graphic shows which of the 10 pins were knocked down (typically colored/filled) versus left standing (typically gray/outlined) after each ball thrown. Standard ten-pin numbering: pin 1 is the headpin at the front; pins 2-3 are the next row back; pins 4-6 the next; pins 7-10 are the back row.
 
 Report each frame as a plain, ordered list of the actual deliveries (balls) physically thrown in it -- do not try to interpret bowling scoring rules or bonus-ball logic, just describe what you see, ball by ball, in the order thrown:
