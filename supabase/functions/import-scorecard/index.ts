@@ -69,15 +69,24 @@ const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GE
 // Frames 1-9 have 1 ball (if a strike) or 2 balls (if not). Frame 10 has
 // 2 or 3 balls, depending on strikes/spares -- the client-side conversion
 // figures out how many balls SHOULD exist and only trusts what's present.
+// A COMPACT ball. The pin list is a string, not an array of strings.
+//
+// This is the app's biggest output cost. A full scorecard is thirty
+// frames, roughly sixty deliveries, and every one was emitting a nested
+// array: ["4","6","7","10"] -- brackets, quotes and commas around each
+// digit. As a plain "4,6,7,10" it says the same thing in about half the
+// tokens, and output tokens are what made a 247KB image take 61 seconds.
+//
+// The client accepts BOTH shapes, so an older deployed function keeps
+// working and this can be rolled back without a matching client change.
 const BALL_SCHEMA = {
   type: "object",
   properties: {
     ballIndex: { type: "integer", description: "1, 2, or 3 -- which delivery within the frame this is" },
     isStrike: { type: "boolean" },
     pinsStanding: {
-      type: "array",
-      items: { type: "string" },
-      description: "Pin numbers 1-10 left standing on the rack immediately after THIS delivery, read from the pin-deck graphic. Empty array if isStrike is true, or if this delivery cleared every pin that was left (a spare/conversion).",
+      type: "string",
+      description: "Pin numbers 1-10 left standing on the rack immediately after THIS delivery, read from the pin-deck graphic, comma separated with no spaces -- for example \"4,6,7,10\". Use an empty string if isStrike is true, or if this delivery cleared every pin that was left (a spare/conversion).",
     },
   },
   required: ["ballIndex", "isStrike", "pinsStanding"],
