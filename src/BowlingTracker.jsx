@@ -4720,13 +4720,33 @@ export default function BowlingTracker(){
     // rate limit and a bad model name all read identically.
     if(error){
       let detail="";
+      let limited=false;
       try{
         const res=error?.context;
         if(res&&typeof res.json==="function"){
           const body=await res.json();
           detail=body?.error||body?.detail||"";
+          limited=body?.limited===true;
         }
       }catch{ /* body was not JSON; the status is all we have */ }
+      // The SERVER's limit is the real one; make the display agree.
+      //
+      // Two counters exist: the client counts answers it received, the
+      // server counts requests it was sent. A failed request spends a
+      // server wish and records nothing on the client, so a day of
+      // errors leaves the lamp saying "3 wishes left" while the server
+      // says "you've used all three".
+      //
+      // Believing the server costs a wish that was genuinely spent, and
+      // is far better than offering three that do not exist.
+      if(limited){
+        const today=localDateString();
+        setGenieAsked(prev=>{
+          const mine=prev.filter(a=>a&&a.date===today);
+          if(mine.length>=3)return prev;
+          return [...prev,...Array(3-mine.length).fill({date:today})];
+        });
+      }
       return{error:detail||error.message||"Brooklyn had no answer for that."};
     }
 
