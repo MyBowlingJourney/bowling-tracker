@@ -388,9 +388,28 @@ export default function ImportScorecard({
       // Image bytes go in the same line: a slow import on a big photo and
       // a slow one on a small photo need different fixes.
       const startedAt=Date.now();
-      const{data,error:fnError}=await supabase.functions.invoke("import-scorecard",{
+
+      // The CLIENT's own ceiling, above the server's.
+      //
+      // The import hung with nothing in diagnostics at all: neither the
+      // success nor the failure path ran, so there was no spinner to
+      // stop and no message to show. A request with no timeout has no
+      // failure path -- it just never returns.
+      //
+      // Longer than the server's own limit so its message wins when it
+      // has one. This only catches a function that dies without
+      // answering, which is the case that produced silence.
+      const CLIENT_TIMEOUT_MS=210_000;
+      const timeoutGuard=new Promise((_,reject)=>
+        setTimeout(()=>reject(new Error(
+          "The import took too long and was stopped. Try one image at a time.")),
+          CLIENT_TIMEOUT_MS));
+      const{data,error:fnError}=await Promise.race([
+        supabase.functions.invoke("import-scorecard",{
         body:{images:images.map(img=>({base64:img.base64,mimeType:img.mimeType}))},
-      });
+      }),
+        timeoutGuard,
+      ]);
       if(fnError){
         // supabase-js reports any non-2xx or network failure as the same
         // opaque "Failed to send a request to the Edge Function", which
