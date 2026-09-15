@@ -232,6 +232,11 @@ export default function ImportScorecard({
   // Team cards: one entry per bowler column, plus who each maps to.
   const[columns,setColumns]=useState([]);
 
+  // The names the matcher can suggest, so the dropdown can offer them.
+  const teamRosterNames=(contextTeam?.members||[])
+    .map(m=>(typeof m==="string"?m:(m?.bowlerName||m?.name||m?.bowler||"")))
+    .map(n=>String(n).trim()).filter(Boolean);
+
   // "Add as a new bowler" is carried in the dropdown value as
   // __new__<name>, because a <select> can only hold a string. This turns
   // it back into the plain name everywhere an assignment is read, so no
@@ -1062,7 +1067,8 @@ export default function ImportScorecard({
                       pick between them. */}
                   {c.disagrees&&(
                     <div style={{fontSize:"10px",color:C.spare,marginBottom:"6px"}}>
-                      Printed series is {c.series} but the games add to {c.computed}. Check the card.
+                      Games add to {c.computed} but the card's scratch series is {c.series}.
+                      One of the games was misread — check the card.
                     </div>
                   )}
                   <select style={{...S.sel,width:"100%",fontSize:"12px"}}
@@ -1084,7 +1090,22 @@ export default function ImportScorecard({
                         Add "{c.scorecardName}" as a new bowler
                       </option>
                     )}
-                    {bowlers.map(b=><option key={b} value={b}>{b}</option>)}
+                    {/* Roster members AND the bowler list.
+                        
+                        Matching runs against the team roster, so it would
+                        say "Closest match: Zack" while the dropdown listed
+                        only the personal bowler list -- naming someone the
+                        bowler could not then pick. A suggestion you cannot
+                        accept is worse than no suggestion.
+                        
+                        Deduped, because a teammate already in the bowler
+                        list would otherwise appear twice. */}
+                    {[...new Set([
+                      ...(teamRosterNames||[]),
+                      ...(bowlers||[]),
+                    ])].filter(Boolean).map(b=>(
+                      <option key={b} value={b}>{b}</option>
+                    ))}
                   </select>
                   {c.best&&!c.autoMatch&&(
                     <div style={{fontSize:"10px",color:C.textMuted,marginTop:"4px"}}>
