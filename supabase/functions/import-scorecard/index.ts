@@ -118,8 +118,23 @@ const BALL_SCHEMA = {
     ballIndex: { type: "integer", description: "1, 2, or 3 -- which delivery within the frame this is" },
     isStrike: { type: "boolean" },
     pinsStanding: {
-      type: "string",
-      description: "Pin numbers 1-10 left standing on the rack immediately after THIS delivery, read from the pin-deck graphic, comma separated with no spaces -- for example \"4,6,7,10\". Use an empty string if isStrike is true, or if this delivery cleared every pin that was left (a spare/conversion).",
+      // An ARRAY of pin numbers, not a string, and not a count.
+      //
+      // This was changed to a comma-separated string to cut output tokens.
+      // It cut accuracy instead: a string field invites a NUMBER, and the
+      // model started answering with how many pins were standing rather
+      // than which ones. A 6-10 spare came back as "2".
+      //
+      // That is invisible downstream -- "2" is a valid pin number -- so it
+      // silently became a 2-pin leave, and every frame collapsed into
+      // strike, 9-open or 9-spare.
+      //
+      // An array of identities cannot be mistaken for a count. The token
+      // saving was never worth this, and was never measured against a real
+      // import before shipping.
+      type: "array",
+      items: { type: "string" },
+      description: "WHICH pins are left standing after THIS delivery, as their numbers 1-10 read from the pin-deck graphic -- for example [\"6\",\"10\"] for a 6-10 split, or [\"4\",\"6\",\"7\",\"10\"] for the big four. This is the IDENTITY of each standing pin, NEVER a count: two pins standing is [\"6\",\"10\"], not [\"2\"]. Empty array if isStrike is true, or if this delivery cleared every pin that was left.",
     },
   },
   required: ["ballIndex", "isStrike", "pinsStanding"],
