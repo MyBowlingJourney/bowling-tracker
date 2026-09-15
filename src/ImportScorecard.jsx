@@ -471,7 +471,25 @@ export default function ImportScorecard({
         const recon=framesReconcile(data?.games,scoreExtracted);
         const badFrames=recon.checked>0&&recon.matched<recon.checked;
 
-        if(!gotFrames||badFrames){
+        // A Lite model NEVER supplies frame data, whatever it returned.
+        //
+        // Lite was tried as a fast first pass. On a frame-level card it
+        // does one of three things: returns no frames (caught), returns
+        // frames that do not add up (caught), or returns frames that add
+        // up with the PIN IDENTITIES wrong -- 4-7 read as 6-10.
+        //
+        // That third case is undetectable. A 4-7 spare and a 6-10 spare
+        // score identically, so the total agrees with either, and the
+        // wrong leave flows into split tracking and spare stats with
+        // nothing to flag it.
+        //
+        // So the rule cannot be "escalate when we can tell it is wrong".
+        // It has to be "escalate whenever a Lite model met a card with
+        // frames", because the case we cannot detect is the one that
+        // quietly corrupts the data.
+        const liteOnFrames=/lite/i.test(String(data?.model||""));
+
+        if(!gotFrames||badFrames||liteOnFrames){
           const retry=await Promise.race([
             supabase.functions.invoke("import-scorecard",{
               body:{images:payload,detailed:true},
@@ -485,7 +503,9 @@ export default function ImportScorecard({
             recordError({
               kind:"import-quality",
               where:"ImportScorecard.escalated",
-              message:`${data?.model}: ${gotFrames
+              message:`${data?.model}: ${liteOnFrames
+                ?"a Lite model cannot be trusted with pin identities"
+                :gotFrames
                 ?`frames did not match the printed total `
                  +`(${recon.mismatches.map(x=>`g${x.game} ${x.computed}!=${x.printed}`).join(", ")})`
                 :"saw frame detail but read none"}; `
