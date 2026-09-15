@@ -1959,69 +1959,6 @@ export default function LogView({
 
                   {onTab("side")&&anyMoneyGameShown(preferences)&&(
                     <>
-                      <div style={{marginBottom:"12px"}}>
-                        <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"6px"}}>Poker Winnings ($)</div>
-                        {[0,1,2].map(gameIdx=>{
-                          if(cs.scores[gameIdx]==null)return null;
-                          const quarterVal=(cs.pokerQuarter||[0,0,0])[gameIdx]??0;
-                          const dollarVal=(cs.pokerDollar||[0,0,0])[gameIdx]??0;
-                          return(
-                            <div key={gameIdx} style={{display:"flex",gap:"8px",alignItems:"center",marginBottom:"6px"}}>
-                              <div style={{fontSize:"12px",color:C.textMuted,width:"28px"}}>G{gameIdx+1}</div>
-                              <input style={{...S.input,flex:1,fontSize:"13px",padding:"6px 10px"}} type="number" step="0.25" placeholder="Quarter $"
-                                value={quarterVal||""} onChange={e=>setPokerWinnings(cs.id,gameIdx,"quarter",e.target.value===""?0:parseFloat(e.target.value))}/>
-                              <input style={{...S.input,flex:1,fontSize:"13px",padding:"6px 10px"}} type="number" step="1" placeholder="Dollar $"
-                                value={dollarVal||""} onChange={e=>setPokerWinnings(cs.id,gameIdx,"dollar",e.target.value===""?0:parseFloat(e.target.value))}/>
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      <div style={{marginBottom:"12px"}}>
-                        <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"6px"}}>High Game Pot ($)</div>
-                        <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"6px"}}>
-                          Highest game in the league takes it — enter what you won, if anything.
-                        </div>
-                        {[0,1,2].map(gameIdx=>{
-                          if(cs.scores[gameIdx]==null)return null;
-                          const val=(cs.highGameWinnings||[0,0,0])[gameIdx]??0;
-                          return(
-                            <div key={gameIdx} style={{display:"flex",gap:"8px",alignItems:"center",marginBottom:"6px"}}>
-                              <div style={{fontSize:"12px",color:C.textMuted,width:"64px"}}>G{gameIdx+1} · {cs.scores[gameIdx]}</div>
-                              <input style={{...S.input,flex:1,fontSize:"13px",padding:"6px 10px"}} type="number" step="1" placeholder="Won $"
-                                value={val||""} onChange={e=>setSessionMoneyArray(cs.id,"highGameWinnings",gameIdx,e.target.value===""?0:parseFloat(e.target.value))}/>
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {(()=>{
-                        // 3-6-9: a single, whole-session win (all 9 specific
-                        // strikes across games 1, 2, AND 3) -- not per-game
-                        // like poker, so this only shows once per session, and
-                        // only when actually qualified. The jackpot input is
-                        // additionally gated on game 3's 10th being a full
-                        // turkey, on top of the win itself.
-                        const r369=threeSixNineResults(shots,cs.bowler,cs.league,cs.date);
-                        if(!r369.qualifies)return null;
-                        return(
-                          <div style={{marginBottom:"12px"}}>
-                            <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"6px"}}>3-6-9 Winnings ($)</div>
-                            <div style={{display:"flex",gap:"8px",alignItems:"center",marginBottom:"6px"}}>
-                              <div style={{fontSize:"12px",color:C.strike,width:"56px"}}>Pot</div>
-                              <input style={{...S.input,flex:1,fontSize:"13px",padding:"6px 10px"}} type="number" step="1" placeholder="$"
-                                value={cs.threeSixNineWinnings||""} onChange={e=>setThreeSixNineWinnings(cs.id,"pot",e.target.value===""?0:parseFloat(e.target.value))}/>
-                            </div>
-                            {r369.jackpotEligible&&(
-                              <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
-                                <div style={{fontSize:"12px",color:C.spare,width:"56px"}}>Jackpot</div>
-                                <input style={{...S.input,flex:1,fontSize:"13px",padding:"6px 10px"}} type="number" step="1" placeholder="$"
-                                  value={cs.jackpotWinnings||""} onChange={e=>setThreeSixNineWinnings(cs.id,"jackpot",e.target.value===""?0:parseFloat(e.target.value))}/>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })()}
 
                       {/* Buy-ins are per LEAGUE, not per game and not per
                           week: the quarter game costs a quarter every game
@@ -2034,7 +1971,20 @@ export default function LogView({
                           they actually cost. */}
                       {(()=>{
                         const rates=buyInsForLeague(leagueBuyIns,cs.league);
-                        const games=(cs.scores||[]).filter(v=>v!=null).length;
+                        // Games to charge for. Defaults to a FULL night.
+                        //
+                        // This was the count of scores entered, which is
+                        // zero before the first ball -- so every cost came
+                        // out [0,0,0], "in this pot" is derived from a
+                        // non-zero cost, and the toggle did nothing at all
+                        // however many times it was tapped.
+                        //
+                        // Pots are entered before bowling starts. A bowler
+                        // who ticks the quarter game owes it for the night,
+                        // and the cost corrects itself as the real games
+                        // land.
+                        const games=Math.max(
+                          (cs.scores||[]).filter(v=>v!=null).length, 3);
                         const pots=visibleMoneyGames(preferences);
 
                         // Whether the bowler is IN each pot tonight,
@@ -2119,6 +2069,70 @@ export default function LogView({
                         );
                       })()}
 
+
+                      <div style={{marginBottom:"12px"}}>
+                        <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"6px"}}>Poker Winnings ($)</div>
+                        {[0,1,2].map(gameIdx=>{
+                          if(cs.scores[gameIdx]==null)return null;
+                          const quarterVal=(cs.pokerQuarter||[0,0,0])[gameIdx]??0;
+                          const dollarVal=(cs.pokerDollar||[0,0,0])[gameIdx]??0;
+                          return(
+                            <div key={gameIdx} style={{display:"flex",gap:"8px",alignItems:"center",marginBottom:"6px"}}>
+                              <div style={{fontSize:"12px",color:C.textMuted,width:"28px"}}>G{gameIdx+1}</div>
+                              <input style={{...S.input,flex:1,fontSize:"13px",padding:"6px 10px"}} type="number" step="0.25" placeholder="Quarter $"
+                                value={quarterVal||""} onChange={e=>setPokerWinnings(cs.id,gameIdx,"quarter",e.target.value===""?0:parseFloat(e.target.value))}/>
+                              <input style={{...S.input,flex:1,fontSize:"13px",padding:"6px 10px"}} type="number" step="1" placeholder="Dollar $"
+                                value={dollarVal||""} onChange={e=>setPokerWinnings(cs.id,gameIdx,"dollar",e.target.value===""?0:parseFloat(e.target.value))}/>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div style={{marginBottom:"12px"}}>
+                        <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"6px"}}>High Game Pot ($)</div>
+                        <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"6px"}}>
+                          Highest game in the league takes it — enter what you won, if anything.
+                        </div>
+                        {[0,1,2].map(gameIdx=>{
+                          if(cs.scores[gameIdx]==null)return null;
+                          const val=(cs.highGameWinnings||[0,0,0])[gameIdx]??0;
+                          return(
+                            <div key={gameIdx} style={{display:"flex",gap:"8px",alignItems:"center",marginBottom:"6px"}}>
+                              <div style={{fontSize:"12px",color:C.textMuted,width:"64px"}}>G{gameIdx+1} · {cs.scores[gameIdx]}</div>
+                              <input style={{...S.input,flex:1,fontSize:"13px",padding:"6px 10px"}} type="number" step="1" placeholder="Won $"
+                                value={val||""} onChange={e=>setSessionMoneyArray(cs.id,"highGameWinnings",gameIdx,e.target.value===""?0:parseFloat(e.target.value))}/>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {(()=>{
+                        // 3-6-9: a single, whole-session win (all 9 specific
+                        // strikes across games 1, 2, AND 3) -- not per-game
+                        // like poker, so this only shows once per session, and
+                        // only when actually qualified. The jackpot input is
+                        // additionally gated on game 3's 10th being a full
+                        // turkey, on top of the win itself.
+                        const r369=threeSixNineResults(shots,cs.bowler,cs.league,cs.date);
+                        if(!r369.qualifies)return null;
+                        return(
+                          <div style={{marginBottom:"12px"}}>
+                            <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"6px"}}>3-6-9 Winnings ($)</div>
+                            <div style={{display:"flex",gap:"8px",alignItems:"center",marginBottom:"6px"}}>
+                              <div style={{fontSize:"12px",color:C.strike,width:"56px"}}>Pot</div>
+                              <input style={{...S.input,flex:1,fontSize:"13px",padding:"6px 10px"}} type="number" step="1" placeholder="$"
+                                value={cs.threeSixNineWinnings||""} onChange={e=>setThreeSixNineWinnings(cs.id,"pot",e.target.value===""?0:parseFloat(e.target.value))}/>
+                            </div>
+                            {r369.jackpotEligible&&(
+                              <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
+                                <div style={{fontSize:"12px",color:C.spare,width:"56px"}}>Jackpot</div>
+                                <input style={{...S.input,flex:1,fontSize:"13px",padding:"6px 10px"}} type="number" step="1" placeholder="$"
+                                  value={cs.jackpotWinnings||""} onChange={e=>setThreeSixNineWinnings(cs.id,"jackpot",e.target.value===""?0:parseFloat(e.target.value))}/>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                       {(()=>{
                         const m=sessionMoney(cs);
                         if(!m)return null;

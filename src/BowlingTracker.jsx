@@ -4352,10 +4352,33 @@ export default function BowlingTracker(){
   //
   // Buy-ins are owed before the first ball, so this is the normal case
   // for money, not an edge one.
+  // The id of a row created THIS tick, so a burst of writes shares one.
+  //
+  // applyCosts writes every money field in a loop. React has not flushed
+  // setSessions between those calls, so each one looked up the stale
+  // list, found nothing, and created another row -- one tap producing a
+  // handful of duplicate sessions for the same night.
+  const pendingSessionIdRef=useRef("");
+
+  // Cleared once the row is really in state, and whenever the night
+  // changes. A held id that no longer matches the night on screen would
+  // file the next money entry against the wrong session.
+  useEffect(()=>{
+    const id=pendingSessionIdRef.current;
+    if(!id)return;
+    const row=sessions.find(s=>s.id===id);
+    if(!row||row.bowler!==nightBowler||row.league!==nightLeague||row.date!==nightDate){
+      pendingSessionIdRef.current="";
+    } else if(sessions.some(s=>s.id===id)){
+      pendingSessionIdRef.current="";
+    }
+  },[sessions,nightBowler,nightLeague,nightDate]);
+
   function ensureSessionRow(){
     const existing=sessions.find(s=>s.bowler===nightBowler
       &&s.league===nightLeague&&s.date===nightDate);
     if(existing)return existing.id;
+    if(pendingSessionIdRef.current)return pendingSessionIdRef.current;
     if(!nightBowler||!nightLeague||!nightDate)return "";
     const row={
       id:crypto.randomUUID(),
@@ -4367,6 +4390,7 @@ export default function BowlingTracker(){
       pokerQuarterCost:[0,0,0],pokerDollarCost:[0,0,0],
       highGameCost:[0,0,0],threeSixNineCost:0,
     };
+    pendingSessionIdRef.current=row.id;
     const next=[...sessions,row];
     setSessions(next);
     try{window.storage.set(SESSIONS_KEY,JSON.stringify(next));}catch{}
