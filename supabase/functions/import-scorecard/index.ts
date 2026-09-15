@@ -54,7 +54,21 @@ What is each bowler's name, exactly as printed?
 
 Do not transcribe any scores or frames. Do not explain. Answer with JSON only.`;
 
-const GEMINI_MODEL = "gemini-3.6-flash";
+// The model, overridable WITHOUT a code deploy.
+//
+// Free-tier limits are per model and can be brutal -- gemini-3.6-flash
+// allows 5 requests a minute and 20 a DAY, which four failed imports with
+// retries will exhaust before lunch. Trying a different model should be a
+// dashboard change, not an edit, a commit and a deploy.
+//
+// Set IMPORT_GEMINI_MODEL as a Supabase secret to switch. The constant is
+// the fallback, so nothing changes until the secret exists.
+//
+// Model IDs are checked at the call, not here -- a wrong one returns a
+// 404 the client already explains as "pointed at a model that's no longer
+// available", which is the right message for a typo in a secret.
+const GEMINI_MODEL = Deno.env.get("IMPORT_GEMINI_MODEL")?.trim()
+  || "gemini-3.6-flash";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
 // One uniform shape for every frame, 1 through 10. Each frame is just a
@@ -527,7 +541,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify(extracted), {
+    // Which model produced this, so a model switch is measurable rather
+    // than a guess -- quality and speed both move when it changes.
+    return new Response(JSON.stringify({ ...extracted, model: GEMINI_MODEL }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
