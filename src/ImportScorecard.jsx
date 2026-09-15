@@ -668,6 +668,11 @@ export default function ImportScorecard({
         kind:"import-quality",
         where:"ImportScorecard.columns",
         message:`bowlerCount=${data?.bowlerCount??"?"} `
+          // hasFrameDetail decides whether a scores-only result escalates.
+          // Without it in the log, "it did not switch models" cannot be
+          // told apart from "the model said there were no frames".
+          +`hasFrameDetail=${data?.hasFrameDetail??"absent"} `
+          +`frames=${(data?.games||[]).reduce((n,g)=>n+(g.frames||[]).length,0)} `
           +`extracted ${(data?.games||[]).length} game(s) `
           +`-> ${cols.length} bowler(s) -> ${finalCols.length} for review `
           +`[${finalCols.map(c=>c.scorecardName||"?").join(" | ")}]`,
