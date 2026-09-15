@@ -354,6 +354,36 @@ export default function LogView({
                 what made this screen overwhelming. */}
             {!editingId&&showSessionStart&&(
               <div style={{minHeight:"calc(100vh - 210px)",display:"flex",flexDirection:"column",justifyContent:"center"}}>
+            {/* Tabs ABOVE the content.
+
+                They were moved below the session cards so a bowler
+                setting up a night saw the setup first. With a
+                near-empty Set up tab that left them stranded at the
+                foot of a mostly blank screen, reading as a footer
+                rather than as navigation.
+
+                A tab bar belongs above what it switches. */}
+                task and tabbing away from it mid-edit loses the thread. */}
+            {/* Hidden while the guided prompt is up.
+                
+                The prompt is meant to be the only thing on screen -- the
+                comment above it says so -- but the tabs rendered anyway.
+                On a fresh night that left four chips stranded at the foot
+                of a mostly blank screen, reading as a footer rather than
+                as navigation, and offering tabs for a session that does
+                not exist yet. */}
+            {leagueTabs&&!editingId&&!showSessionStart&&(
+              <div style={{...S.card,padding:"10px 12px"}}>
+                <div style={{...S.chips,flexWrap:"nowrap",overflowX:"auto",
+                  WebkitOverflowScrolling:"touch",paddingBottom:"2px"}}>
+                  {[["setup","Set up"],["scoring","Scoring"],
+                    ["side","Side games"],["results","Results"]].map(([id,label])=>(
+                    <Chip key={id} label={label} selected={leagueTab===id}
+                      onToggle={()=>setLeagueTab(id)} />
+                  ))}
+                </div>
+              </div>
+            )}
                 <SessionStart
                   preferences={preferences}
                   onApply={updatePreferences}
@@ -379,28 +409,6 @@ export default function LogView({
                 onEnvChosen={onSessionEnvChosen}/>
             )}
 
-            {/* League tabs.
-                
-                Set up    -- tonight's session, league and team setup
-                Scoring   -- shot context, scoresheet, the result form,
-                             typed game scores
-                Side games-- money games and pots
-                Results   -- session recap, goals, running averages
-                
-                Hidden while editing a shot: the edit form is a single
-                task and tabbing away from it mid-edit loses the thread. */}
-            {leagueTabs&&!editingId&&(
-              <div style={{...S.card,padding:"10px 12px"}}>
-                <div style={{...S.chips,flexWrap:"nowrap",overflowX:"auto",
-                  WebkitOverflowScrolling:"touch",paddingBottom:"2px"}}>
-                  {[["setup","Set up"],["scoring","Scoring"],
-                    ["side","Side games"],["results","Results"]].map(([id,label])=>(
-                    <Chip key={id} label={label} selected={leagueTab===id}
-                      onToggle={()=>setLeagueTab(id)} />
-                  ))}
-                </div>
-              </div>
-            )}
 
 
             {/* Everything below waits for the prompt to be answered. */}
