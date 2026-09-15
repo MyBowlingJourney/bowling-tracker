@@ -154,12 +154,27 @@ Object.assign(THEMES, {
     hint: "Cool white, quiet blue",
     light: true,
     colors: {
-      bg: "#F3F5F8", surface: "#FFFFFF", card: "#FAFBFD",
-      accent: "#2457B0", accentDim: "#DCE6F7",
+      // A NEUTRAL scale, not a blue-grey one.
+      //
+      // The old values carried blue into every surface and border, which
+      // reads as a theme applied to an app rather than an app that was
+      // designed. Premium interfaces keep their neutrals almost neutral
+      // and spend the colour on one accent.
+      //
+      // bg sits slightly below card so a card lifts without a shadow,
+      // and border is light enough to be an edge rather than a line --
+      // the most common way a flat interface ends up looking like a
+      // spreadsheet is a border that competes with its content.
+      bg: "#F7F8FA", surface: "#FFFFFF", card: "#FFFFFF",
+      // A deeper, less saturated blue. #2457B0 is a link colour; this
+      // reads as a considered brand choice at the same contrast.
+      accent: "#1B4FD8", accentDim: "#E8EFFE",
       onAccent: "#FFFFFF",
       compare: "#A5620F",
       strike: "#1E7A44", spare: "#A5620F", miss: "#B8322C",
-      text: "#141A24", textMuted: "#5F6B7A", border: "#DCE2EA",
+      // Muted text one step lighter, so labels recede behind the numbers
+      // they describe.
+      text: "#11151C", textMuted: "#6B7684", border: "#E6E9EF",
     },
   },
 });
