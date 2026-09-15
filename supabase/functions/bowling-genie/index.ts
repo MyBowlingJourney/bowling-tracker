@@ -239,13 +239,20 @@ Deno.serve(async (req: Request) => {
           // than a truncated one, which is worse: it looks like the
           // feature has nothing to say.
           //
-          // Brooklyn's answers are meant to be a few sentences, so the
-          // room goes to the ANSWER rather than the deliberation. A small
-          // thinking budget is enough to pick the right statistic out of
-          // the context; the analysis it is quoting was precomputed
-          // client-side, so there is no hard reasoning left to do here.
-          maxOutputTokens: 1200,
-          thinkingConfig: { thinkingBudget: 256 },
+          // Brooklyn's answers are meant to be a few sentences, so most
+          // of the room goes to the ANSWER rather than the deliberation.
+          //
+          // 512 rather than a token budget, because picking the right
+          // factor out of leaveCauses is a real choice: several numbers
+          // differ between the shots that left a pin and the shots that
+          // did not, and only some of them matter. A cheaper model needs
+          // room to make that call.
+          //
+          // The cap is a CEILING, not a spend -- unused tokens cost
+          // nothing, so 1500 is free headroom rather than a bill. What
+          // actually keeps her brief is the 120-word rule in the prompt.
+          maxOutputTokens: 1500,
+          thinkingConfig: { thinkingBudget: 512 },
           temperature: 0.7,
         },
       }),
