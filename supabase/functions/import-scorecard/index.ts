@@ -332,6 +332,24 @@ Deno.serve(async (req) => {
       generationConfig: {
         responseMimeType: "application/json",
         responseSchema: RESPONSE_SCHEMA,
+
+        // Cap the thinking budget. This is TRANSCRIPTION, not reasoning.
+        //
+        // The model reads printed numbers off a scorecard into a strict
+        // schema. There is no problem to work out -- the answer is on the
+        // card -- and unbounded thinking on a task like this buys latency
+        // rather than accuracy. An import that takes twenty seconds is one
+        // a bowler stops using at the alley.
+        //
+        // NOT zero. Counting the bowlers before transcribing is the step
+        // that fixed team cards returning only the first row, and that is
+        // exactly the kind of look-before-you-write that a tiny budget
+        // pays for. This leaves room for it and cuts the rest.
+        thinkingConfig: { thinkingBudget: 512 },
+
+        // Deterministic. Two imports of the same photo should not disagree,
+        // and creative variation has no value when copying digits.
+        temperature: 0,
       },
     });
 
