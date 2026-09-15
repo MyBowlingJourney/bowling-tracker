@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { C, S, Chip, PinDeck, CollapsibleCard, resultSym, AiNote } from "./ui.jsx";
 import { formatDate, RESULTS, localDateString, PRACTICE_SESSION_KEY } from "./constants.js";
-import { convertExtractedGameToShots, normalizeExtraction, detailLevel, mergeColumnsByBowler, scoreDisagreement, scoreDisagreementNote, extractionQuality, extractionQualityNote } from "./domain/scorecardImport.js";
+import { convertExtractedGameToShots, normalizeExtraction, detailLevel, mergeColumnsByBowler, scoreDisagreement, scoreDisagreementNote, extractionQuality, extractionQualityNote, framesReconcile } from "./domain/scorecardImport.js";
 import { matchScorecard, rosterOrderCheck } from "./domain/nameMatching.js";
-import { strictPartial } from "./domain/scoring.js";
+import { strictPartial, frameScoresheet } from "./domain/scoring.js";
 import { findExistingShotSlot } from "./domain/sessions.js";
 import { isValidGameScore, invalidScoreIndexes } from "./domain/importVerification.js";
 import { supabase } from "./supabaseClient.js";
@@ -447,9 +447,31 @@ export default function ImportScorecard({
       // missing from a card that says it has them". Escalating on empty
       // frames alone would double every results-screen import, which is
       // the case the fast model is good at.
+      // Score a game's extracted frames, so they can be checked against
+      // the printed total.
+      const scoreExtracted=g=>{
+        const {shots}=convertExtractedGameToShots(
+          {frames:g?.frames||[]},
+          {bowler:"x",league:"x",date:"2000-01-01",game:String(g?.gameNumber||1)});
+        const sheet=frameScoresheet(shots,"x","x","2000-01-01",String(g?.gameNumber||1));
+        const last=[...(sheet||[])].reverse().find(f=>f&&f.running!=null);
+        return last?last.running:null;
+      };
+
       if(!fnError&&data?.hasFrameDetail===true){
         const gotFrames=(data?.games||[]).some(g=>(g.frames||[]).length);
-        if(!gotFrames){
+
+        // Frames present is NOT frames correct. The fast model returned
+        // all thirty and got five wrong, and nothing noticed -- so the
+        // trigger cannot be "are there frames".
+        //
+        // The card checks itself: the printed total is independent of the
+        // marks above it, so frames that do not add up to it are wrong by
+        // arithmetic, not opinion.
+        const recon=framesReconcile(data?.games,scoreExtracted);
+        const badFrames=recon.checked>0&&recon.matched<recon.checked;
+
+        if(!gotFrames||badFrames){
           const retry=await Promise.race([
             supabase.functions.invoke("import-scorecard",{
               body:{images:payload,detailed:true},
@@ -463,7 +485,10 @@ export default function ImportScorecard({
             recordError({
               kind:"import-quality",
               where:"ImportScorecard.escalated",
-              message:`${data?.model} saw frame detail but read none; `
+              message:`${data?.model}: ${gotFrames
+                ?`frames did not match the printed total `
+                 +`(${recon.mismatches.map(x=>`g${x.game} ${x.computed}!=${x.printed}`).join(", ")})`
+                :"saw frame detail but read none"}; `
                 +`retried on ${retry.data?.model}`,
             });
             data=retry.data;
