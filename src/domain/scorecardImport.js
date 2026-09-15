@@ -380,7 +380,20 @@ export function convertExtractedGameToShots(extractedGame, context) {
   // Nulls and stray values filtered out: the frames come from a model,
   // and one null threw on frame.frameNumber, taking the whole import
   // down rather than losing a single frame.
-  for (const frame of (Array.isArray(extractedGame.frames) ? extractedGame.frames : []).filter(f => f && typeof f === "object")) {
+  // RANGE-CHECK the frame number before anything is built from it.
+  //
+  // A frame of 44, 0 or -2 came straight through and became a shot. The
+  // schema tells Gemini the range in prose, which is a request rather
+  // than a constraint -- and a bad frame number does not look wrong
+  // downstream, it just files a delivery into a frame that cannot exist
+  // and quietly breaks every per-frame statistic built on it.
+  //
+  // Scores and pins were already clamped; this was the gap.
+  const frameInRange = f => {
+    const n = parseInt(f?.frameNumber, 10);
+    return Number.isFinite(n) && n >= 1 && n <= 10;
+  };
+  for (const frame of (Array.isArray(extractedGame.frames) ? extractedGame.frames : []).filter(frameInRange).filter(f => f && typeof f === "object")) {
     if (frame.frameNumber === 10) {
       shots.push(...convertTenthFrame(frame, base, warnings));
     } else {

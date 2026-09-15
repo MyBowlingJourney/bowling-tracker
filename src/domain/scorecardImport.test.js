@@ -542,3 +542,46 @@ describe('pinsStanding as a string or an array', () => {
     expect(r.shots[0].spareMade).toBe('Yes');
   });
 });
+
+describe('range-checking what the model returns', () => {
+  const ctx = { bowler: 'R', league: 'L', date: '2026-01-01', game: '1' };
+  const frame = n => ({
+    gameNumber: 1,
+    frames: [{ frameNumber: n, balls: [{ ballIndex: 1, isStrike: true, pinsStanding: [] }] }],
+  });
+
+  // The schema states the range to Gemini in prose, which is a request
+  // rather than a constraint. A frame of 44 does not look wrong
+  // downstream -- it files a delivery into a frame that cannot exist and
+  // quietly breaks every per-frame statistic built on it.
+  it('drops a frame number outside 1-10', () => {
+    for (const n of [0, 11, 44, -2]) {
+      expect(convertExtractedGameToShots(frame(n), ctx).shots).toHaveLength(0);
+    }
+  });
+
+  it('keeps real frames', () => {
+    for (const n of [1, 5, 10]) {
+      expect(convertExtractedGameToShots(frame(n), ctx).shots).toHaveLength(1);
+    }
+  });
+
+  it('drops an unreadable frame number', () => {
+    for (const n of ['x', null, undefined, {}]) {
+      expect(convertExtractedGameToShots(frame(n), ctx).shots).toHaveLength(0);
+    }
+  });
+
+  // These were already clamped; kept here so the whole boundary is
+  // covered in one place.
+  it('nulls an impossible game score', () => {
+    const cols = normalizeExtraction({ games: [{ bowlerName: 'R', lineupPosition: 0, gameNumber: 1, totalScore: 9999 }] });
+    expect(cols[0].games[0].totalScore).toBe(null);
+  });
+
+  it('drops impossible pin numbers', () => {
+    const g = { gameNumber: 1, frames: [{ frameNumber: 1, balls: [
+      { ballIndex: 1, isStrike: false, pinsStanding: ['99', '0', '-3'] }] }] };
+    expect(convertExtractedGameToShots(g, ctx).shots[0].otherLeave).toEqual([]);
+  });
+});
