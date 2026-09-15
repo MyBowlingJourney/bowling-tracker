@@ -465,7 +465,12 @@ export default function ImportScorecard({
               }
               case "rate_limited":
                 retryable=true;
-                detail="The scorecard reader has hit its usage limit for the moment. Give it a few minutes and try again — nothing is lost.";
+                detail=body.reason==="quota"
+                  // An exhausted allowance is not a busy minute. Telling
+                  // someone to wait a few minutes when the daily quota is
+                  // gone sends them back to fail again, twice.
+                  ? "The scorecard reader's daily allowance is used up. It resets on Google's clock, so this usually means tomorrow — scores typed in by hand save normally in the meantime."
+                  : "The scorecard reader is briefly over its rate limit. Wait about a minute and try again — nothing is lost."
                 break;
               case "model_unavailable":
                 detail="The scorecard reader is pointed at a model that's no longer available. This needs a fix in the app, not something you can work around.";
