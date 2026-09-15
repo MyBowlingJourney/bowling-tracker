@@ -4236,8 +4236,17 @@ export default function BowlingTracker(){
     if(!leagueId)return;
     clearTimeout(pokerSaveTimers.current[`manual|${bowler}|${date}|${game}`]);
     pokerSaveTimers.current[`manual|${bowler}|${date}|${game}`]=setTimeout(()=>{
+      // Only delete a score that WAS there.
+      //
+      // Clearing a box that was already empty issued a delete matching no
+      // rows -- a "write-noop, matched 0 rows" in diagnostics for every
+      // empty box touched, three at a time on an import. Harmless, and it
+      // buries the noops that mean something.
+      const had=getManualScore(manualScores,bowler,league,date,game);
       const score=getManualScore(updated,bowler,league,date,game);
-      if(score===null)cloudDelete("manual_scores",{bowler_name:bowler,league_id:leagueId,date,game});
+      if(score===null&&had!==null){
+        cloudDelete("manual_scores",{bowler_name:bowler,league_id:leagueId,date,game});
+      }
       // Same: keyed by the natural (user, bowler, league, date, game)
       // tuple, so correcting a typed score updates instead of colliding.
       else cloudWrite("manual_scores",manualScoreToRow(bowler,leagueId,date,game,score,user?.id||null,
