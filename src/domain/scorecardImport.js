@@ -13,6 +13,24 @@
 // 1-9 always map 1:1 -- one shot record per frame, embedding both the
 // first ball's leave and (if not a strike) the second ball's spareMade/
 // pinCount, exactly like the app's own manual-entry flow produces.
+// pinsStanding arrives as EITHER an array or a comma-separated string.
+//
+// The extraction emits "4,6,7,10" now, because a nested array of quoted
+// digits per delivery was the single biggest output cost on a full
+// scorecard -- sixty deliveries of brackets and commas. Older responses,
+// and anything already queued offline, still carry the array.
+//
+// Normalised once here rather than at each of the five read sites, so a
+// future reader cannot handle one shape and forget the other.
+function pinsOf(ball) {
+  const raw = ball?.pinsStanding;
+  if (Array.isArray(raw)) return raw.map(p => String(p).trim()).filter(Boolean);
+  if (typeof raw === "string") {
+    return raw.split(",").map(p => p.trim()).filter(Boolean);
+  }
+  return [];
+}
+
 function convertRegularFrame(frame, base) {
   const balls = frame.balls || [];
   const first = balls[0];
@@ -22,7 +40,7 @@ function convertRegularFrame(frame, base) {
     return { ...base, frame: String(frame.frameNumber), ballNum: null, result: "Strike", otherLeave: [], spareMade: "", pinCount: "" };
   }
 
-  const standingAfterBall1 = first.pinsStanding || [];
+  const standingAfterBall1 = pinsOf(first);
   const firstBallCount = 10 - standingAfterBall1.length;
   const second = balls[1];
   if (!second) {
@@ -31,10 +49,10 @@ function convertRegularFrame(frame, base) {
     return { ...base, frame: String(frame.frameNumber), ballNum: null, result: "Other Leave", otherLeave: standingAfterBall1, spareMade: "", pinCount: "" };
   }
 
-  const madeSpare = (second.pinsStanding || []).length === 0;
+  const madeSpare = pinsOf(second).length === 0;
   const pinCount = madeSpare
     ? String(firstBallCount) // spare: pinCount holds the FIRST-ball count, matching handleLeaveToggle's own convention -- the app never actually reads pinCount for scoring a spare (it's always 10 + bonus), but stores it this way for consistency with manual entry
-    : String(10 - (second.pinsStanding || []).length); // open: pinCount is the TOTAL combined pinfall for both balls, i.e. 10 minus whatever's still standing at frame's end
+    : String(10 - pinsOf(second).length); // open: pinCount is the TOTAL combined pinfall for both balls, i.e. 10 minus whatever's still standing at frame's end
 
   return {
     ...base, frame: String(frame.frameNumber), ballNum: null, result: "Other Leave",
@@ -74,15 +92,15 @@ function convertTenthFrame(frame, base, warnings) {
     b1Shot = { ...base, frame: "10", ballNum: 1, result: "Strike", otherLeave: [], spareMade: "", pinCount: "" };
     i += 1;
   } else {
-    const standing = b1.pinsStanding || [];
+    const standing = pinsOf(b1);
     const b2 = balls[i + 1];
     if (!b2) {
       // Only ball 1 shown and it wasn't a strike -- incomplete for now.
       shots.push({ ...base, frame: "10", ballNum: 1, result: "Other Leave", otherLeave: standing, spareMade: "", pinCount: "" });
       return shots;
     }
-    const made = (b2.pinsStanding || []).length === 0;
-    const pinCount = made ? String(10 - standing.length) : String(10 - (b2.pinsStanding || []).length);
+    const made = pinsOf(b2).length === 0;
+    const pinCount = made ? String(10 - standing.length) : String(10 - pinsOf(b2).length);
     b1Shot = { ...base, frame: "10", ballNum: 1, result: "Other Leave", otherLeave: standing, spareMade: made ? "Yes" : "No", pinCount };
     i += 2;
   }
@@ -107,7 +125,7 @@ function convertTenthFrame(frame, base, warnings) {
       b2Shot = { ...base, frame: "10", ballNum: 2, result: "Strike", otherLeave: [], spareMade: "", pinCount: "" };
       i += 1;
     } else {
-      const standing = b2.pinsStanding || [];
+      const standing = pinsOf(b2);
       const b3 = balls[i + 1];
       if (!b3) {
         shots.push({ ...base, frame: "10", ballNum: 2, result: "Other Leave", otherLeave: standing, spareMade: "", pinCount: "" });
@@ -118,8 +136,8 @@ function convertTenthFrame(frame, base, warnings) {
       // ballNum=3 in this specific path, matching the app's own convention
       // exactly ("ball 2 bundles its own spare attempt, frame done in 2
       // balls" -- see nextState in domain/scoring.js).
-      const made = (b3.pinsStanding || []).length === 0;
-      const pinCount = made ? String(10 - standing.length) : String(10 - (b3.pinsStanding || []).length);
+      const made = pinsOf(b3).length === 0;
+      const pinCount = made ? String(10 - standing.length) : String(10 - pinsOf(b3).length);
       b2Shot = { ...base, frame: "10", ballNum: 2, result: "Other Leave", otherLeave: standing, spareMade: made ? "Yes" : "No", pinCount };
       i += 2;
     }
@@ -140,7 +158,7 @@ function convertTenthFrame(frame, base, warnings) {
   // delivery with no bonus of its own (max 3 balls in the 10th, period).
   const finalBall = balls[i];
   if (!finalBall) return shots;
-  const finalStanding = finalBall.pinsStanding || [];
+  const finalStanding = pinsOf(finalBall);
   let result, otherLeave = [], pinCount = "";
   if (finalBall.isStrike) {
     result = "Strike";

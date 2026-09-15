@@ -461,3 +461,55 @@ describe('telling the bowler how the reading went', () => {
     expect(extractionQualityNote(null)).toBe('');
   });
 });
+
+describe('pinsStanding as a string or an array', () => {
+  // The extraction emits "4,6,7,10" now. A nested array of quoted digits
+  // per delivery was the biggest output cost on a full scorecard --
+  // sixty deliveries of brackets and commas -- and output tokens are
+  // what made a 247KB image take 61 seconds.
+  //
+  // Older responses, and anything queued offline before the change,
+  // still carry the array, so both must work.
+  const ctx = { bowler: 'Ryan', league: 'Tuesday', date: '2026-09-15', game: '1' };
+  const frames = pins => ([{
+    frameNumber: 1,
+    balls: [
+      { ballIndex: 1, isStrike: false, pinsStanding: pins.first },
+      { ballIndex: 2, isStrike: false, pinsStanding: pins.second },
+    ],
+  }]);
+
+  it('reads both shapes identically', () => {
+    const asArray = convertExtractedGameToShots(
+      { frames: frames({ first: ['4', '6', '7', '10'], second: ['7', '10'] }) }, ctx);
+    const asString = convertExtractedGameToShots(
+      { frames: frames({ first: '4,6,7,10', second: '7,10' }) }, ctx);
+    expect(asString).toEqual(asArray);
+  });
+
+  it('treats an empty string as no pins standing', () => {
+    const r = convertExtractedGameToShots(
+      { frames: [{ frameNumber: 1, balls: [{ ballIndex: 1, isStrike: true, pinsStanding: '' }] }] }, ctx);
+    expect(r.shots[0].result).toBe('Strike');
+  });
+
+  it('tolerates spaces after the commas', () => {
+    const r = convertExtractedGameToShots(
+      { frames: frames({ first: '4, 6, 7', second: '' }) }, ctx);
+    expect(r.shots[0].otherLeave).toEqual(['4', '6', '7']);
+  });
+
+  it('survives a null or missing pin list', () => {
+    for (const pins of [null, undefined, 42, {}]) {
+      expect(() => convertExtractedGameToShots(
+        { frames: [{ frameNumber: 1, balls: [{ ballIndex: 1, isStrike: true, pinsStanding: pins }] }] },
+        ctx)).not.toThrow();
+    }
+  });
+
+  it('converts a spare from the string form', () => {
+    const r = convertExtractedGameToShots(
+      { frames: frames({ first: '7,10', second: '' }) }, ctx);
+    expect(r.shots[0].spareMade).toBe('Yes');
+  });
+});
