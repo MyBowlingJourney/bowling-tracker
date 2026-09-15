@@ -446,7 +446,24 @@ Deno.serve(async (req) => {
       if (geminiRes.ok) break;
 
       lastErrText = await geminiRes.text();
-      const transient = geminiRes.status === 503 || geminiRes.status === 429;
+
+      // A 429 is TWO different failures wearing one status code.
+      //
+      //   A rate spike -- too many requests in a moment. Waiting a few
+      //   seconds clears it, which is what the retry is for.
+      //
+      //   An exhausted QUOTA -- the daily or per-minute allowance is
+      //   gone. Retrying cannot help, and it makes things worse: one
+      //   import becomes three calls against an allowance that has
+      //   already run out, so it takes longer to recover.
+      //
+      // Google says which in the body. Treating them the same meant every
+      // quota failure burned two extra calls on the way to the same
+      // answer.
+      const quotaExhausted = /quota|exceeded your current quota|RESOURCE_EXHAUSTED/i
+        .test(lastErrText);
+      const transient = geminiRes.status === 503
+        || (geminiRes.status === 429 && !quotaExhausted);
       if (!transient || attempt === RETRY_DELAYS_MS.length) break;
       await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[attempt]));
       retries++;
@@ -472,7 +489,7 @@ Deno.serve(async (req) => {
       // A machine-readable reason so the client can say something useful
       // instead of showing raw API JSON to a bowler.
       const reason = status === 503 ? "busy"
-        : status === 429 ? "rate_limited"
+        : status === 429 ? (/quota|RESOURCE_EXHAUSTED/i.test(lastErrText) ? "quota" : "rate_limited")
         : status === 404 ? "model_unavailable"
         : "api_error";
       return new Response(JSON.stringify({
