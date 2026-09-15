@@ -380,6 +380,10 @@ export default function ImportScorecard({
     setError(null);
     setErrorIsTemporary(false);
     try{
+      // Timed, so the next speed change is measured rather than guessed.
+      // Image bytes go in the same line: a slow import on a big photo and
+      // a slow one on a small photo need different fixes.
+      const startedAt=Date.now();
       const{data,error:fnError}=await supabase.functions.invoke("import-scorecard",{
         body:{images:images.map(img=>({base64:img.base64,mimeType:img.mimeType}))},
       });
@@ -541,6 +545,15 @@ export default function ImportScorecard({
           message:`card shows ${claimed} bowler(s), extraction returned ${cols.length}`,
         });
       }
+
+      const totalKb=Math.round(images.reduce((n,im)=>
+        n+(String(im?.dataUrl||im?.data||"").length*0.75),0)/1024);
+      recordError({
+        kind:"import-quality",
+        where:"ImportScorecard.timing",
+        message:`${Math.round((Date.now()-startedAt)/100)/10}s for `
+          +`${images.length} image(s), ~${totalKb}KB`,
+      });
 
       recordError({
         kind:"import-quality",
