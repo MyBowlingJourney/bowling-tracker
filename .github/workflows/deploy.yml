@@ -27,6 +27,15 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  # deploy-pages@v5 reads the uploaded artifact back before deploying
+  # it, and that call needs actions: read. Without it the step fails
+  # with a 403 on ListArtifacts -- which reads like a GitHub outage
+  # and is not one, so it does not clear by waiting or re-running.
+  #
+  # Naming any permission drops every unnamed one to none, so adding
+  # the block for pages and id-token is what removed the default read
+  # access this needs.
+  actions: read
 
 concurrency:
   group: pages
