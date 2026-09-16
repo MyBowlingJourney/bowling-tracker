@@ -63,12 +63,23 @@ export default function DrillSession({ drill, onChange, onSave, saved, balls, dr
         {(balls || []).length > 0 && (
           <>
             <div style={{ ...S.label, marginTop: "10px" }}>Ball</div>
-            <div style={S.chips}>
+            {/* A dropdown, not a chip per ball.
+                
+                A full arsenal is a dozen balls, and twelve chips wrapped
+                to four rows pushed the drill itself off the screen. A
+                bowler picks one ball and then bowls -- that is a select,
+                not a filter.
+                
+                Empty option included so a chosen ball can be cleared,
+                which the chips did by tapping the selected one again. */}
+            <select style={{ ...S.sel, width: "100%" }}
+              value={drill.ball || ""}
+              onChange={e => onChange({ ...drill, ball: e.target.value })}>
+              <option value="">No ball recorded</option>
               {balls.map(b => (
-                <Chip key={b} label={b} dense selected={drill.ball === b}
-                  onToggle={() => onChange({ ...drill, ball: drill.ball === b ? "" : b })} />
+                <option key={b} value={b}>{b}</option>
               ))}
-            </div>
+            </select>
           </>
         )}
       </div>

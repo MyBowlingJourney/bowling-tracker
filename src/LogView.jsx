@@ -279,6 +279,20 @@ export default function LogView({
   // still shows, which is what "no tabs" should mean.
   const onTab=t=>{
     if(env==="tournament")return tournamentTab===t;
+    // Practice has chips too -- Games, Drill and Results -- and until now
+    // this returned true for every tab name in practice, so the
+    // "Tonight's Session" summary card rendered on Games and Drill as
+    // well as Results. Three chips, one screen, no difference between
+    // them but the form at the bottom.
+    //
+    // Games and Drill are for doing; Results is for looking back. Setup
+    // and results content belongs there, scoring belongs on the other
+    // two.
+    if(env==="practice"){
+      if(t==="results")return practiceMode==="results";
+      if(t==="setup")return practiceMode==="results";
+      return practiceMode!=="results";
+    }
     if(!leagueTabs)return true;
     return leagueTab===t;
   };
@@ -543,6 +557,14 @@ export default function LogView({
                 <div style={S.chips}>
                   <Chip label="Games" selected={practiceMode==="games"} onToggle={()=>setPracticeMode("games")}/>
                   <Chip label="Drill" selected={practiceMode==="drill"} onToggle={()=>{setPracticeMode("drill");if(!activeDrill)startDrill();}}/>
+                  {/* Results, so practice has somewhere to look back at.
+                      
+                      Games and Drill were both places to DO something and
+                      neither had a place to see how it went -- the only
+                      way to read a practice was to end it and hope the
+                      recap covered it. */}
+                  <Chip label="Results" selected={practiceMode==="results"}
+                    onToggle={()=>setPracticeMode("results")} />
                 </div>
                 {/* Tracking depth for THIS practice only. It changes what the
                     Log tab shows tonight and nothing in Settings, so a
@@ -1197,7 +1219,12 @@ export default function LogView({
                 apply. It puts two cards of setup in front of someone who
                 came to enter a score. */}
             {onTab("scoring")&&!editingId&&preferences.environment!=="tournament"&&preferences.environment!=="casual"
-              &&(preferences.environment!=="league"||!!effectiveSessionLeague)&&(
+              &&(preferences.environment!=="league"||!!effectiveSessionLeague)
+              // Not on a drill. A drill is one bowler working on one
+              // thing -- there is nobody else to keep score for, so the
+              // card asked a question with one possible answer and took
+              // a card's worth of space above the drill to do it.
+              &&!isDrill&&(
               <div style={{...S.card,padding:"10px 12px"}}>
                 {/* Below Shot Context and kept short: this is a setting
                     you touch once a night, not something to scroll past
