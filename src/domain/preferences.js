@@ -256,6 +256,26 @@ function presetFor(environment) {
 // isContainerLeague matches the literal. Renaming that constant would
 // orphan every casual session ever logged. Display and storage are
 // deliberately different here; do not reconcile them.
+// An icon and a colour per mode, so the four are told apart before they
+// are read.
+//
+// 61 of 250 in the focus round picked the wrong mode and 17 asked whether
+// it could be changed. Four identical text chips give a bowler nothing to
+// recognise; a colour and a shape give them something they learn in two
+// sessions and then stop reading.
+//
+// The colours are semantic, not decorative: league is the accent because
+// it is the common case, tournament takes the competitive amber, practice
+// the calm green of working on something, and open bowling a neutral
+// grey-blue because it is the mode for not keeping score seriously.
+export const ENVIRONMENT_ICONS = {
+  practice: "\u25CE", league: "\u265F", tournament: "\u2691", casual: "\u25CB",
+};
+
+export const ENVIRONMENT_COLORS = {
+  practice: "#1E7A44", league: "#1B4FD8", tournament: "#A5620F", casual: "#6B7684",
+};
+
 export const ENVIRONMENT_LABELS = {
   practice: "Practice", league: "League", tournament: "Tournament", casual: "Open bowling",
 };
