@@ -16,9 +16,11 @@ import { anyMoneyGameShown, visibleStatsCardOrder } from "./domain/preferences.j
 import { seasonComparison } from "./domain/scoreInsights.js";
 
 import { patternAverages, patternVersusOverall } from "./domain/oilPatterns.js";
+
+import { statsByRackType } from "./domain/centers.js";
 export default function StatsView({
   // Already passed by BowlingTracker, never read until now.
-  lanePatterns = [], tournaments = [],
+  lanePatterns = [], tournaments = [], centers = [],
   onOpenImprove,
   centerStats,
   preferences,
@@ -1064,6 +1066,50 @@ sessions.length>0&&(()=>{
                 // Against the OVERALL average rather than in isolation: 187
                 // means nothing on its own, and "eighteen under your
                 // overall" is the sentence a bowler plans practice around.
+                // "Free Fall vs String" -- the last card that was listed in
+                // Settings and rendered nowhere.
+                //
+                // String pins do not behave like free-fall pins: they are
+                // tethered, so they deflect differently and messengers are
+                // rarer. USBC certifies them separately for that reason. A
+                // bowler whose average drops four pins at one house usually
+                // blames themselves rather than the pinsetter.
+                //
+                // Needs BOTH types to say anything -- one type is not a
+                // comparison, it is just your average again.
+                byId["rackType"] = (()=>{
+                  const rows=statsByRackType(sessions,shots,allLeagues,centers,statsBowler);
+                  const withGames=(rows||[]).filter(r=>r&&r.games>0);
+                  if(withGames.length<2)return null;
+                  return (
+                    <div style={S.card}>
+                      <div style={S.label}>Free Fall vs String</div>
+                      <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"10px"}}>
+                        Strung pins are tethered, so they deflect differently.
+                      </div>
+                      <div style={{display:"flex",gap:"10px"}}>
+                        {withGames.map(r=>(
+                          <div key={r.rackType} style={{flex:1,minWidth:0,textAlign:"center"}}>
+                            <div style={{fontSize:"18px",fontWeight:500}}>{r.average}</div>
+                            <div style={{fontSize:"11px",color:C.textMuted}}>{r.rackType}</div>
+                            <div style={{fontSize:"11px",color:C.textMuted,marginTop:"4px"}}>
+                              {r.games} game{r.games===1?"":"s"}
+                            </div>
+                            {/* Only when there are strikes to take a rate of:
+                                0% off no strikes is not a fact about pins. */}
+                            {r.strikes>0&&r.messengerRate!==null&&(
+                              <div style={{fontSize:"11px",color:C.textMuted}}>
+                                {r.messengerRate}% messengers
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })();
+
+
                 byId["patternHistory"] = (()=>{
                   const rows=patternAverages(sessions,lanePatterns,tournaments,statsBowler);
                   if(!rows||rows.length<2)return null;

@@ -7257,6 +7257,8 @@ export default function BowlingTracker(){
             centerStats={centerStats}
             lanePatterns={lanePatterns}
 
+            centers={centers}
+
             tournaments={tournaments}
             centers={centers}
 
