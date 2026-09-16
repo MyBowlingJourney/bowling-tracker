@@ -6892,7 +6892,17 @@ export default function BowlingTracker(){
               leagues={leagues}
               onOpenJourney={()=>setView("journey")}
               onOpenStats={()=>setView("data")}
-              onStartBowling={()=>setView("log")} />
+              onPickMode={env=>{
+                // Set the mode, then go straight to scoring.
+                //
+                // The mode is PASSED to the tour, not read back:
+                // updatePreferences schedules the change, so
+                // preferences.environment is still the old value here.
+                // The same mistake once started the Open bowling tour
+                // when a bowler picked Practice.
+                updatePreferences(prev=>applyEnvironment(prev,env));
+                setView("log");
+              }} />
           </Suspense>
         )}
 

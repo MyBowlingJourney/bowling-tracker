@@ -1,7 +1,9 @@
-import { C, S } from "./ui.jsx";
+import { C, S, ActionRow } from "./ui.jsx";
 import { seasonFigures, journeyRecap } from "./domain/home.js";
 import { journeyMilestones } from "./domain/journey.js";
 
+
+import { ENVIRONMENTS, ENVIRONMENT_ICONS, ENVIRONMENT_COLORS, ENVIRONMENT_LABELS } from "./domain/preferences.js";
 // The screen the app opens on, when a night is not under way.
 //
 // It answers "how am I bowling?" before anyone taps anything. The app
@@ -13,7 +15,7 @@ import { journeyMilestones } from "./domain/journey.js";
 // the Stats screen, that is a bug rather than a second opinion.
 export default function HomeView({
   sessions = [], shots = [], tournaments = [], bowler = "",
-  leagues = [], onOpenJourney, onOpenStats, onStartBowling,
+  leagues = [], onOpenJourney, onOpenStats, onPickMode,
 }) {
   const figures = seasonFigures(sessions, { bowler, leagues });
   const recap = journeyRecap(journeyMilestones(
@@ -56,11 +58,27 @@ export default function HomeView({
             ? `${figures.games} game${figures.games === 1 ? "" : "s"} this season`
             : "No games logged yet this season"}
         </div>
-        <button style={{ ...S.btn("primary"), width: "100%", marginTop: "14px" }}
-          onClick={onStartBowling}>
-          Log bowling
-        </button>
       </div>
+
+
+      {/* The four modes ARE the way in.
+          
+          A "Log bowling" button asked a bowler to commit before saying
+          what they were doing, and then asked what they were doing --
+          two steps where the second was the only real question.
+          
+          Four doors instead: tapping one sets the mode and opens
+          scoring. Same rows as the setup screen and Settings, from the
+          same source, so the modes look like the same four things
+          everywhere they appear. */}
+      <div style={S.label}>What are you doing today?</div>
+      {ENVIRONMENTS.map(env => (
+        <ActionRow key={env}
+          icon={ENVIRONMENT_ICONS[env]}
+          color={ENVIRONMENT_COLORS[env]}
+          label={ENVIRONMENT_LABELS[env]}
+          onClick={() => onPickMode?.(env)} />
+      ))}
 
       {/* Journey, as a recap rather than a target.
           
