@@ -1,13 +1,13 @@
 {
   "name": "My Bowling Journey",
-  "short_name": "Vault",
+  "short_name": "Journey",
   "description": "Your complete bowling record — scores, shots, equipment and history, all in one place.",
   "start_url": "https://rynadon290.github.io/bowling-tracker/",
   "scope": "https://rynadon290.github.io/bowling-tracker/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#14110E",
-  "theme_color": "#14110E",
+  "background_color": "#F7F8FA",
+  "theme_color": "#F7F8FA",
   "icons": [
     {
       "src": "icon-192.png",

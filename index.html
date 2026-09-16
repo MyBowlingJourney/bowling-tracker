@@ -3,17 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- Was #0f1117 -- the old Classic-theme slate. The browser chrome
-         (address bar on mobile, task switcher preview) should match
-         whichever theme is actually active, but that's only known once
-         React has mounted and read the stored preference. This is the
-         best static default: the current default theme's background,
-         Lane. main.jsx can still update it at runtime via
+    <!-- The browser chrome (address bar on mobile, task switcher
+         preview) should match whichever theme is actually active, but
+         that is only known once React has mounted and read the stored
+         preference. This is the best static default: the background of
+         Chalk, the light palette the redesign opens on. main.jsx still
+         updates it at runtime via
          document.querySelector('meta[name="theme-color"]') once
-         applyTheme runs, so this is just what shows before that. -->
-    <meta name="theme-color" content="#14110E" />
-    <link rel="icon" type="image/svg+xml" href="./icon.svg" />
-    <link rel="apple-touch-icon" href="./icon.svg" />
+         applyTheme runs, so this is only what shows before that.
+
+         It must stay in step with the manifest's background_color, or
+         the splash screen flashes one colour and the app paints
+         another. -->
+    <meta name="theme-color" content="#F7F8FA" />
+    <link rel="icon" type="image/png" href="./icon-192.png" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <title>My Bowling Journey</title>
   </head>
