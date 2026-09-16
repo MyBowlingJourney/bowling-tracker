@@ -525,6 +525,18 @@ export default function LogView({
               </div>
             )}
 
+            {!editingId&&activeBowler&&(preferences.environment==="practice"||preferences.environment==="casual")&&(
+              <div style={{...S.card,padding:"10px 12px"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <div style={{...S.label,marginBottom:0}}>
+                    {preferences.environment==="practice"?"Practice":"Bowling"}
+                  </div>
+                  <input style={{...S.input,width:"auto",fontSize:"12px",padding:"4px 8px"}} type="date"
+                    value={sessionDate} onChange={e=>setSessionDate(e.target.value)}/>
+                </div>
+              </div>
+            )}
+
             {/* The date card leads practice.
                 
                 It was gated on the setup tab, and practice has no setup
@@ -740,6 +752,7 @@ export default function LogView({
               </CollapsibleCard>
             )}
 
+
             {/* Game scores FIRST, directly under the chips.
                 
                 This sat below the shot form, so a bowler whose night is
@@ -812,11 +825,6 @@ export default function LogView({
                       shot-by-shot -- was nowhere on the screen.
  
                       One line, and only when a ball can actually be chosen. */}
-                  {logBalls.length>0&&(
-                    <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"10px",lineHeight:1.5}}>
-                      One ball per game here. Log frames below to record a mid-game change.
-                    </div>
-                  )}
                   {/* Shown only when there is a derived score to protect.
                       
                       Was keyed to shot mode, which no longer exists. The
@@ -829,8 +837,8 @@ export default function LogView({
                                  backgroundColor:C.surface,border:`1px solid ${C.border}`}}>
                       <span style={{fontSize:"12px",color:C.textMuted,flex:1,lineHeight:1.4}}>
                         {scoresUnlocked
-                          ?"Game scores now come from what you type here, not from your shots."
-                          :"Tired of logging every shot? Switch to entering game scores instead."}
+                          ? "Typed scores are overriding the frames for this game."
+                          : "This game's score comes from its frames."}
                       </span>
                       <button style={{...S.btn(),padding:"6px 12px",fontSize:"12px",flexShrink:0}}
                         onClick={()=>setScoresUnlocked(v=>!v)}>
@@ -1027,17 +1035,6 @@ export default function LogView({
             {/* In Practice, a night can be games OR a drill. A drill is a
                 focused repetition scored as a rate -- it's kept out of the
                 game flow entirely so it can never touch an average. */}
-            {!editingId&&activeBowler&&(preferences.environment==="practice"||preferences.environment==="casual")&&(
-              <div style={{...S.card,padding:"10px 12px"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <div style={{...S.label,marginBottom:0}}>
-                    {preferences.environment==="practice"?"Practice":"Bowling"}
-                  </div>
-                  <input style={{...S.input,width:"auto",fontSize:"12px",padding:"4px 8px"}} type="date"
-                    value={sessionDate} onChange={e=>setSessionDate(e.target.value)}/>
-                </div>
-              </div>
-            )}
 
             {!editingId&&activeBowler&&preferences.environment==="practice"&&practiceMode==="drill"&&activeDrill&&(
               <DrillSession
@@ -1236,10 +1233,7 @@ export default function LogView({
                 backgroundColor:C.surface,borderRadius:"10px",
                 border:`1px solid ${C.border}`,
               }}>
-                Typing your game scores above is all you need to keep a
-                record. Log the frames below and the app can also tell you
-                which leaves keep costing you and how each ball is
-                carrying.
+                Scores above are enough. Frames below add leave and ball data.
               </div>
             )}
 
@@ -1748,18 +1742,22 @@ export default function LogView({
                       of the card rather than a change of subject inside
                       it -- the spacing already does that job. */}
                   <div style={{...S.label,marginBottom:"8px"}}>Strike Description</div>
-                  {/* Eight options, two rows of four.
+                  {/* Eight options in two rows, sized to their words.
                       
-                      S.chips wraps on content width, so these ran to
-                      three ragged rows. A four-column grid makes it two
-                      even ones, and the cells match the Result row above
-                      so the two read as the same kind of choice. Each is
-                      81px at 380px, above the touch minimum. */}
-                  <div style={{display:"grid",
-                    gridTemplateColumns:"repeat(4, minmax(0, 1fr))",
-                    gap:"6px",marginBottom:"12px"}}>
+                      Equal columns forced "Messenger" and "Half Pocket"
+                      into a cell built for "High", so the text overflowed
+                      its button. These are labels of very different
+                      lengths and there is no reason for them to be the
+                      same width.
+                      
+                      So: wrap, but shrink to fit. Smaller text and
+                      tighter padding than a normal chip, which is what
+                      brings eight of them down to two rows without
+                      cutting any of them off. */}
+                  <div style={{display:"flex",flexWrap:"wrap",
+                    gap:"5px",marginBottom:"12px"}}>
                     {strikeDescriptionsForHand(activeBowlerLeftHanded).map(label=>(
-                      <Chip key={label} label={label}
+                      <Chip key={label} label={label} dense
                         selected={storedStrikeDescriptionFor(label)===form.strikeDescription}
                         onToggle={()=>{
                           const stored=storedStrikeDescriptionFor(label);
@@ -2420,7 +2418,11 @@ export default function LogView({
               );
             })()}
 
-            {!editingId&&<div style={S.divider}/>}
+            {/* No divider between Result and the fields below it.
+                
+                It drew a full-width rule across the screen, which reads
+                as the end of a section rather than a gap between two
+                cards -- and the cards already have their own edges. */}
 
 
             {/* Result. Regression fix: the earlier card reorder moved this
