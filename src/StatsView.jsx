@@ -1,6 +1,6 @@
 import { Fragment } from "react";
 import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { C, S, F, Chip, CompareBadge, StatLead, StatRow, StatRows } from "./ui.jsx";
+import { C, S, F, Chip, CompareBadge, StatLead, StatRow, StatRows, ActionRow } from "./ui.jsx";
 import { PRACTICE_SESSION_KEY, CASUAL_SESSION_KEY, formatDate, STRIKE_DESCRIPTIONS, RELEASES, BALL_CHANGE_REASONS, strikeDescriptionsForHand, storedStrikeDescriptionFor } from "./constants.js";
 import {
   bowlerHighGame, bowlerHighSeries, teamHighGame, teamHighSeries, seasonRecord, weeklyPointsData,
@@ -1294,29 +1294,20 @@ anyMoneyGameShown(preferences)&&statsBowler&&(()=>{
               })()
             )}
             {onOpenImprove && (
-              <div style={{...S.card, marginTop:"12px", padding:"12px 14px"}}>
+              <div style={{marginTop:"12px"}}>
                 {/* The way into coaching, from the screen that raises the
-                    question.
+                    question. Improve lost its tab in the five-tab nav,
+                    and nothing else linked to it.
 
-                    Improve lost its tab in the five-tab nav, and nothing
-                    else linked to it -- the screen was reachable only by
-                    a tab that no longer existed. Stats is the right home
-                    for the link: a bowler looking at their spare
-                    percentage is already asking what to do about it. */}
-                <button onClick={onOpenImprove}
-                  style={{width:"100%", textAlign:"left", background:"none",
-                    border:"none", padding:0, display:"flex",
-                    alignItems:"center", justifyContent:"space-between"}}>
-                  <span>
-                    <span style={{display:"block", fontSize:"14px", color:C.text}}>
-                      What to work on
-                    </span>
-                    <span style={{display:"block", fontSize:"12px", color:C.textMuted}}>
-                      Drills and coaching built on these numbers
-                    </span>
-                  </span>
-                  <span style={{color:C.textMuted, fontSize:"18px"}}>{"\u203A"}</span>
-                </button>
+                    Uses the shared ActionRow so it matches every other
+                    "go somewhere" row in the app rather than being a
+                    one-off built here. */}
+                <ActionRow
+                  icon={"\u25CE"}
+                  color={C.accent}
+                  label="What to work on"
+                  detail="Drills and coaching built on these numbers"
+                  onClick={onOpenImprove} />
               </div>
             )}
             <div style={{height:"32px"}}/>

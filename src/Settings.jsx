@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { C, S, Chip, CollapsibleCard } from "./ui.jsx";
+import { C, S, Chip, CollapsibleCard, ActionRow } from "./ui.jsx";
 import { THEMES, DARK_THEME_IDS, LIGHT_THEME_IDS } from "./domain/themes.js";
 import { useAuth } from "./AuthProvider.jsx";
 import CalendarView from "./CalendarView.jsx";
@@ -13,10 +13,26 @@ import { inferLeagueDay, dayName, reminderSpec, reminderToIcs } from "./domain/r
 import { localDateString } from "./constants.js";
 import { errorLogSummary, errorLogText, clearErrorLog } from "./errorLogStore.js";
 import {
-  ENVIRONMENT_LABELS, ENVIRONMENT_DESCRIPTIONS, ENVIRONMENTS, applyEnvironment, setTrackingMode, MONEY_GAMES, MONEY_GAME_LABELS, isMoneyGameShown, setMoneyGameHidden, setTheme,
-  TRACKED_FIELD_KEYS, MOVABLE_STATS_CARDS, TRACKING_MODE_LABELS,
-  resetToEnvironmentDefaults, setTrackedField,
-  moveStatsCard, toggleStatsCardHidden, reconcileCardOrder,
+  ENVIRONMENT_LABELS,
+  ENVIRONMENT_DESCRIPTIONS,
+  ENVIRONMENTS,
+  applyEnvironment,
+  setTrackingMode,
+  MONEY_GAMES,
+  MONEY_GAME_LABELS,
+  isMoneyGameShown,
+  setMoneyGameHidden,
+  setTheme,
+  TRACKED_FIELD_KEYS,
+  MOVABLE_STATS_CARDS,
+  TRACKING_MODE_LABELS,
+  resetToEnvironmentDefaults,
+  setTrackedField,
+  moveStatsCard,
+  toggleStatsCardHidden,
+  reconcileCardOrder,
+  ENVIRONMENT_ICONS,
+  ENVIRONMENT_COLORS,
 } from "./domain/preferences.js";
 
 const FIELD_LABELS = { surface: "Ball Surface", line: "Line (Board & Arrows)", release: "Release", miss: "Miss Direction", ballSpeed: "Ball Speed", shoes: "Shoes (Heel & Sole)", revRate: "Rev Rate (estimate)", axisRotation: "Axis Rotation (estimate)" };
@@ -352,14 +368,20 @@ export default function Settings({
           different things, so switching here changes what the rest of the app offers.
         </div>
 
-        <div style={S.label}>Mode</div>
-        <div style={{ ...S.chips, marginBottom: "12px" }}>
-          {ENVIRONMENTS.map(env => (
-            <Chip key={env} label={ENVIRONMENT_LABELS[env]}
-              selected={preferences.environment === env}
-              onToggle={() => apply(prev => applyEnvironment(prev, env))} />
-          ))}
-        </div>
+        <div style={S.label}>What are you doing today?</div>
+        {/* The SAME rows as the session question, from the same source.
+            
+            Settings had text chips while the question screen had tinted
+            rows, so the four modes looked like different things in the
+            two places a bowler meets them -- which is the confusion the
+            rows were built to remove, reintroduced one screen over. */}
+        {ENVIRONMENTS.map(env => (
+          <ActionRow key={env}
+            icon={ENVIRONMENT_ICONS[env]}
+            color={ENVIRONMENT_COLORS[env]}
+            label={ENVIRONMENT_LABELS[env]}
+            onClick={() => apply(prev => applyEnvironment(prev, env))} />
+        ))}
         {/* The same one-line description the question shows, from the
             same source. Settings had the chips and no description at
             all, so the only place explaining what a mode does was the
