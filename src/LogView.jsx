@@ -10,7 +10,6 @@ import { achievementsFor, PLACEMENTS } from "./domain/achievements.js";
 import { inferLeagueDay } from "./domain/reminders.js";
 import Scoresheet from "./Scoresheet.jsx";
 import TournamentSession from "./TournamentSession.jsx";
-import SessionStart from "./SessionStart.jsx";
 import DrillSession from "./DrillSession.jsx";
 import SessionRecap from "./SessionRecap.jsx";
 import ShareButton from "./ShareButton.jsx";
@@ -409,62 +408,32 @@ export default function LogView({
                 tab, vertically centred between header and nav. Showing
                 eleven cards behind a question nobody has answered yet is
                 what made this screen overwhelming. */}
-            {!editingId&&showSessionStart&&(
-              <div style={{minHeight:"calc(100vh - 210px)",display:"flex",flexDirection:"column",justifyContent:"center"}}>
-            {/* Tabs ABOVE the content.
-
-                They were moved below the session cards so a bowler
-                setting up a night saw the setup first. With a
-                near-empty Set up tab that left them stranded at the
-                foot of a mostly blank screen, reading as a footer
-                rather than as navigation.
-
-                A tab bar belongs above what it switches. */}
-                task and tabbing away from it mid-edit loses the thread. */}
-            {/* Hidden while the guided prompt is up.
+            {/* The "Bowling today?" card is gone from here.
                 
-                The prompt is meant to be the only thing on screen -- the
-                comment above it says so -- but the tabs rendered anyway.
-                On a fresh night that left four chips stranded at the foot
-                of a mostly blank screen, reading as a footer rather than
-                as navigation, and offering tabs for a session that does
-                not exist yet. */}
-            {leagueTabs&&!editingId&&!showSessionStart&&(
-              <div style={{...S.card,padding:"10px 12px"}}>
-                <div style={{...S.chips,flexWrap:"nowrap",overflowX:"auto",
-                  WebkitOverflowScrolling:"touch",paddingBottom:"2px"}}>
-                  {[["setup","Set up"],["scoring","Scoring"],
-                    ["side","Side games"],["results","Results"]].map(([id,label])=>(
-                    <Chip key={id} label={label} selected={leagueTab===id}
-                      onToggle={()=>setLeagueTab(id)} />
-                  ))}
-                </div>
-              </div>
-            )}
-                <SessionStart
-                  preferences={preferences}
-                  onApply={updatePreferences}
-                  onDismiss={dismissSessionStart}
-                  envChosen={sessionEnvChosen}
-                  onEnvChosen={onSessionEnvChosen}/>
-              </div>
-            )}
+                It asked which mode you are in -- and Home now asks that
+                with four tinted rows, which is where the question
+                belongs: you answer it once, on the way in. Asking again
+                on arrival made it the first thing on the screen you had
+                just been sent to.
+                
+                showSessionStart still gates the blocks below, because
+                "has a mode been chosen" is still the right question for
+                what the scoring screen shows. Only the card is gone. */}
+
 
             {/* Once answered the card COLLAPSES rather than disappearing.
                 Removing it entirely meant changing your mind -- wrong
                 environment, or you decided to log shot by shot after all
                 -- meant a trip to Settings. Collapsed, the answers stay
-                visible and one tap re-opens them. */}
-            {!editingId&&!showSessionStart&&(
-              <SessionStart
-                collapsed
-                routineNote={routineNote}
-                preferences={preferences}
-                onApply={updatePreferences}
-                onDismiss={dismissSessionStart}
-                envChosen
-                onEnvChosen={onSessionEnvChosen}/>
-            )}
+            {/* The collapsed mode-changer is gone too.
+                
+                It existed so changing your mind did not mean a trip to
+                Settings. Going back Home does that now -- the four modes
+                are there, one tap each, and the back arrow in the header
+                is one tap away. A permanent card on every scoring screen
+                to cover a rare change of mind was a poor trade for the
+                space it took at the top of the night. */}
+
 
 
 

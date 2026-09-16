@@ -5746,6 +5746,20 @@ export default function BowlingTracker(){
     ||shots.length>0
     ||drills.length>0;
 
+  // Where "up" is, for each screen that is not a tab.
+  //
+  // A real hierarchy, not browser history: scoring belongs under Home
+  // because that is where the mode was chosen, and Badges under Journey
+  // because that is the only link to it. Null means the screen IS a tab
+  // and there is nowhere up to go.
+  const PARENT_VIEW={
+    log:"home", journey:"home", data:"home",
+    badges:"journey",
+    settings:"home", profile:"home", inbox:"home",
+    coaching:"home", import:"home", help:"home", social:"home",
+  };
+  const parentView=PARENT_VIEW[view]||null;
+
   const casualMode=preferences.environment==="casual";
   const navTabs=casualMode?[
     // Home first, so open bowling is never a dead end.
@@ -6394,6 +6408,27 @@ export default function BowlingTracker(){
                 Home is the front door and the screen the app opens on --
                 showing "Home" there names the tab rather than the app,
                 which is the one place the name belongs. */}
+            {/* Back, for screens that are not tabs.
+                
+                The nav reaches five places; everything else -- scoring,
+                Journey, Stats, Badges, Settings -- is reached FROM one of
+                them and had no way back except finding the right tab.
+                
+                This walks the tree rather than history: from scoring you
+                go Home because that is where you chose the mode, and from
+                Badges you go to Journey because that is where the link
+                is. Browser-style "last screen" would send you back to
+                wherever you happened to come from, which is not the same
+                thing and is worse when you arrived from a share link. */}
+            {parentView&&(
+              <button onClick={()=>setView(parentView)}
+                aria-label="Back"
+                style={{background:"none",border:"none",padding:"0 8px 0 0",
+                  cursor:"pointer",color:C.text,fontSize:"22px",lineHeight:1,
+                  WebkitTapHighlightColor:"transparent"}}>
+                {"\u2039"}
+              </button>
+            )}
             {(view==="home"||view==="log")
               ? <div style={S.title}>🎳 {APP_NAME}</div>
               : <div style={S.title}>{navTabs.find(t=>t.id===view)?.label
