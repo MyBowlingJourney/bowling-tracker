@@ -59,7 +59,7 @@ export function applyTheme(id) {
 export const S = {};
 function buildStyles() { return {
   app:{minHeight:"100vh",backgroundColor:C.bg,color:C.text,fontFamily:F.body,fontSize:"15px",lineHeight:1.55},
-  header:{backgroundColor:C.bg,padding:"14px 16px 10px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100},
+  header:{backgroundColor:C.bg,padding:"16px 18px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100,borderBottom:`1px solid ${C.border}`},
   // The wordmark. Weight and width carry it, not uppercase tracking --
   // ALL-CAPS-with-letterspacing was the single loudest "generated
   // dashboard" signal in the old header.
@@ -75,7 +75,7 @@ function buildStyles() { return {
   // Bottom padding clears the fixed nav (and the iOS home indicator via
   // safe-area). Without it the last card on every screen sits underneath
   // the tab bar and can't be reached.
-  content:{padding:"16px",paddingBottom:"calc(84px + env(safe-area-inset-bottom, 0px))",maxWidth:"480px",margin:"0 auto"},
+  content:{padding:"18px",paddingBottom:"calc(88px + env(safe-area-inset-bottom, 0px))",maxWidth:"480px",margin:"0 auto"},
   // No hairline border. On a dark ground the card tone already separates
   // it; a border on every card is what made every screen read at the same
   // volume, because nothing was allowed to be quieter than anything else.
@@ -94,7 +94,7 @@ function buildStyles() { return {
   divider:{height:"1px",backgroundColor:C.border,margin:"16px 0",opacity:0.6},
   shotCard:{backgroundColor:C.card,borderRadius:"12px",padding:"12px",marginBottom:"8px",display:"flex",gap:"12px",alignItems:"flex-start"},
   dot:(r)=>({width:"32px",height:"32px",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"12px",fontWeight:700,flexShrink:0,backgroundColor:r==="Strike"?C.strike+"22":r?.includes("10")?C.miss+"22":C.spare+"22",color:r==="Strike"?C.strike:r?.includes("10")?C.miss:C.spare}),
-  tag:(c)=>({display:"inline-block",padding:"3px 9px",borderRadius:"10px",fontSize:"12px",fontWeight:500,backgroundColor:(c||C.accent)+"22",color:c||C.accent,marginRight:"4px",marginBottom:"4px"}),
+  tag:(c)=>({display:"inline-block",padding:"4px 10px",borderRadius:"999px",fontSize:"12px",fontWeight:500,backgroundColor:(c||C.accent)+"18",color:c||C.accent,marginRight:"4px",marginBottom:"4px"}),
   // Peer groups (Shots/Strike%/Spare%, Game 1/2/3) still use boxes -- those
   // ARE equals, so a row of them is the right shape. But they were filled
   // surface panels while every redesigned card sits flat on the card
