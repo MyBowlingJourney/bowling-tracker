@@ -16,7 +16,7 @@ import ShareButton from "./ShareButton.jsx";
 import { sessionHighlights } from "./domain/shareCard.js";
 import { getManualScore, seriesTotal, getGameEquipment, defaultPracticeBall } from "./domain/manualScores.js";
 import { formatLayout } from "./domain/layouts.js";
-import { otherBowlerSource, scorekeepingHelp } from "./domain/scorekeeping.js";
+import { otherBowlerSource, scorekeepingHelp, boardMiss } from "./domain/scorekeeping.js";
 import { plasticLast } from "./domain/bags.js";
 
 
@@ -2613,15 +2613,18 @@ export default function LogView({
                   // recording both: consistently missing the same direction
                   // is an execution problem, which is a different fix from
                   // having picked the wrong line to begin with.
-                  const t=parseFloat(form.targetArrows), a=parseFloat(form.actualBoard);
-                  if(Number.isNaN(t)||Number.isNaN(a))return null;
-                  const diff=a-t;
-                  if(diff===0)return(
-                    <div style={{fontSize:"12px",color:C.strike,fontWeight:600,marginTop:"6px",textAlign:"center"}}>✓ Hit the target</div>
+                  // Handedness decides which way the numbers run, so the
+                  // maths lives in the domain with a test rather than
+                  // inline here -- it was hardcoded as "right" for
+                  // everyone, which is backwards for every right-hander.
+                  const miss=boardMiss(form.targetArrows,form.actualBoard,activeBowlerLeftHanded);
+                  if(!miss)return null;
+                  if(miss.boards===0)return(
+                    <div style={{fontSize:"12px",color:C.strike,fontWeight:600,marginTop:"6px",textAlign:"center"}}>On target</div>
                   );
                   return(
                     <div style={{fontSize:"12px",color:C.spare,fontWeight:600,marginTop:"6px",textAlign:"center"}}>
-                      {Math.abs(diff)} board{Math.abs(diff)===1?"":"s"} {diff>0?"right":"left"} of target
+                      {miss.boards} board{miss.boards===1?"":"s"} {miss.direction} of target
                     </div>
                   );
                 })()}
@@ -2934,11 +2937,19 @@ export default function LogView({
                 Only when there is a shot to save. In game-scores-only
                 logging there is no shot form, and a permanent disabled
                 button would be a control that never does anything. */}
-            {onTab("scoring")&&showShotContext&&(
+            {/* editingId first, on its own.
+                
+                Correcting a logged shot has to be saveable wherever
+                you opened it from -- History, a drill, open bowling --
+                and none of those satisfy showShotContext. The in-flow
+                button this replaced started with editingId for that
+                reason; making it sticky dropped the clause and left
+                three ways to edit a shot with no way to save it. */}
+            {(editingId||(onTab("scoring")&&showShotContext))&&(
               <button style={{...S.btn("primary"),flex:1}}
                 onClick={submitShot}
                 disabled={!form.result||!form.bowler||needsPins||needsSpareMade}>
-                {saved?(editingId?"✓ Saved":"✓ Saved"):(editingId?"Update":"Save Shot")}
+                {saved?(editingId?"✓ Updated":"✓ Saved"):(editingId?"Update":"Save Shot")}
               </button>
             )}
             <button style={{...S.btn("primary"),flex:1}} onClick={submitSession}>
