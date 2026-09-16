@@ -1,3 +1,14 @@
+// ballNum is compared with Number(), never ===.
+//
+// shot.frame is a string everywhere in this app and ballNum is one
+// keystroke from being one too. These comparisons were strict against a
+// numeric literal, so a string "1" made the tenth frame read as empty --
+// and the failure is silent and wrong rather than loud: a perfect game
+// scores 210, because the ninth frame never gets its fill balls.
+//
+// Nothing about the tenth deserves a stricter rule than frames 1-9, which
+// already used Number().
+
 import { isSplit, isMakeableSpare } from './splits.js';
 
 // A shot that ends the frame and scores ten.
@@ -110,7 +121,7 @@ export function nextState(savedShots, bowler, league, date, game, frame, ballNum
   if(f<10){
     // Frames 1-9: advance to next frame. Landing on frame 10 must set ballNum
     // explicitly to 1 (not null) — every 10th-frame lookup elsewhere expects
-    // ball 1's shot to be tagged ballNum===1, and a null here caused it to
+    // ball 1's shot to be tagged Number(ballNum)===1, and a null here caused it to
     // go unrecognized, looping the ball selector back to "Ball 1" forever.
     return{game:String(g),frame:String(f+1),ballNum:(f+1===10)?1:null};
   }
@@ -122,10 +133,10 @@ export function nextState(savedShots, bowler, league, date, game, frame, ballNum
   // jump straight to whatever ball that old frame ended on, or a genuine
   // 3rd ball earned tonight could get miscounted against that old data and
   // skipped entirely.
-  if(!ballNum||ballNum===1){
+  if(!ballNum||Number(ballNum)===1){
     // Just saved ball 1
     const f10shots=savedShots.filter(s=>s.bowler===bowler&&s.league===league&&s.date===date&&s.game===String(g)&&parseInt(s.frame)===10);
-    const b1=f10shots.find(s=>(!s.ballNum||s.ballNum===1));
+    const b1=f10shots.find(s=>(!s.ballNum||Number(s.ballNum)===1));
     if(!b1) return{game:String(g),frame:"10",ballNum:2};
 
     if(isStk(b1)){
@@ -144,20 +155,20 @@ export function nextState(savedShots, bowler, league, date, game, frame, ballNum
     return{game:String(g),frame:"10",ballNum:2};
   }
 
-  if(ballNum===2){
+  if(Number(ballNum)===2){
     // Just saved ball 2 (only reached if ball 1 was a strike). If ball 2 also
     // struck, the rack reset again and a genuine 3rd ball is still owed. If
     // ball 2 was NOT a strike, it bundles its own spare attempt (Spare Made
     // Yes/No) just like any other frame — the frame is complete right here.
     const f10shots=savedShots.filter(s=>s.bowler===bowler&&s.league===league&&s.date===date&&s.game===String(g)&&parseInt(s.frame)===10);
-    const b2=f10shots.find(s=>s.ballNum===2);
+    const b2=f10shots.find(s=>Number(s.ballNum)===2);
     if(b2&&isStk(b2)){
       return{game:String(g),frame:"10",ballNum:3};
     }
     return{game:String(g+1),frame:"1",ballNum:null};
   }
 
-  if(ballNum===3){
+  if(Number(ballNum)===3){
     // Done with 10th — next game
     return{game:String(g+1),frame:"1",ballNum:null};
   }
@@ -168,10 +179,10 @@ export function nextState(savedShots, bowler, league, date, game, frame, ballNum
 export function tenthFrameStatus(shots,bowler,league,date,game){
   shots = (Array.isArray(shots) ? shots : []).filter(s => s && typeof s === "object");
   const f10shots=shots.filter(s=>s.bowler===bowler&&s.league===league&&s.date===date&&s.game===game&&parseInt(s.frame)===10);
-  const b1=f10shots.find(s=>(!s.ballNum||s.ballNum===1));
+  const b1=f10shots.find(s=>(!s.ballNum||Number(s.ballNum)===1));
   if(!b1)return[1];
   if(isStk(b1)){
-    const b2=f10shots.find(s=>s.ballNum===2);
+    const b2=f10shots.find(s=>Number(s.ballNum)===2);
     if(!b2)return[2];
     if(isStk(b2))return[3];
     return[];
@@ -224,9 +235,9 @@ export function strictPartial(shots){
   // can be found by number. Reading every tenth by position instead
   // broke 3,010 oracle games, because a correctly numbered tenth is
   // already right and reordering it is not.
-  let f10b1=f10shots.find(s=>(!s.ballNum||s.ballNum===1))||null;
-  let f10b2=f10shots.find(s=>s.ballNum===2)||null;
-  let f10b3=f10shots.find(s=>s.ballNum===3)||null;
+  let f10b1=f10shots.find(s=>(!s.ballNum||Number(s.ballNum)===1))||null;
+  let f10b2=f10shots.find(s=>Number(s.ballNum)===2)||null;
+  let f10b3=f10shots.find(s=>Number(s.ballNum)===3)||null;
   if(!f10b1&&f10shots.length){
     const ordered=[...f10shots].sort((a,b)=>
       (Number(a?.ballNum)||0)-(Number(b?.ballNum)||0));
@@ -377,8 +388,8 @@ export function strictPartial(shots){
 export function makeTheoreticalShots(shots,leftHanded,avgFirstBall){
   shots = (Array.isArray(shots) ? shots : []).filter(s => s && typeof s === "object");
   const f10Shots=shots.filter(s=>parseInt(s.frame)===10);
-  const f10b1=f10Shots.find(s=>!s.ballNum||s.ballNum===1);
-  const f10HasLaterBalls=f10Shots.some(s=>s.ballNum===2||s.ballNum===3);
+  const f10b1=f10Shots.find(s=>!s.ballNum||Number(s.ballNum)===1);
+  const f10HasLaterBalls=f10Shots.some(s=>Number(s.ballNum)===2||Number(s.ballNum)===3);
   const canConvertF10b1=!!(f10b1&&f10b1.spareMade==="No"&&isMakeableSpare(f10b1,leftHanded)&&!f10HasLaterBalls&&avgFirstBall!=null);
 
   const transformed=shots.map(s=>{
@@ -495,9 +506,9 @@ export function maxPossibleScore(shots) {
       || null;
   }
   const f10 = played.filter(s => parseInt(s.frame) === 10);
-  const f10b1 = f10.find(s => !s.ballNum || s.ballNum === 1) || null;
-  const f10b2 = f10.find(s => s.ballNum === 2) || null;
-  const f10b3 = f10.find(s => s.ballNum === 3) || null;
+  const f10b1 = f10.find(s => !s.ballNum || Number(s.ballNum) === 1) || null;
+  const f10b2 = f10.find(s => Number(s.ballNum) === 2) || null;
+  const f10b3 = f10.find(s => Number(s.ballNum) === 3) || null;
 
   // Nothing left to throw: the tenth is complete.
   const tenthDone =
@@ -557,9 +568,9 @@ export function frameScoresheet(shots) {
       || null;
   }
   const f10 = played.filter(s => parseInt(s.frame) === 10);
-  const f10b1 = f10.find(s => !s.ballNum || s.ballNum === 1) || null;
-  const f10b2 = f10.find(s => s.ballNum === 2) || null;
-  const f10b3 = f10.find(s => s.ballNum === 3) || null;
+  const f10b1 = f10.find(s => !s.ballNum || Number(s.ballNum) === 1) || null;
+  const f10b2 = f10.find(s => Number(s.ballNum) === 2) || null;
+  const f10b3 = f10.find(s => Number(s.ballNum) === 3) || null;
 
   // What goes in the frame's little boxes.
   function marksFor(s) {
@@ -672,7 +683,7 @@ export function frameScoresheet(shots) {
             const m = marksFor(b).filter(x => x !== "");
             // Ball 3 is a single fill ball -- it has no "second ball",
             // so only its first mark is real.
-            return b.ballNum === 3 ? m.slice(0, 1) : m;
+            return Number(b.ballNum) === 3 ? m.slice(0, 1) : m;
           }),
         running: throughHere,
         shot: f10b1,

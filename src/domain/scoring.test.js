@@ -826,3 +826,33 @@ describe('a stale ball number on frames 1-9 does not hide the game', () => {
     expect(sheet.find(r => r.frame === 9).running).toBeGreaterThan(0);
   });
 });
+
+describe('ballNum type tolerance in the tenth frame', () => {
+  const sh = (f, b, result) => ({
+    frame: String(f), ballNum: b, result, otherLeave: [], spareMade: '',
+  });
+  const perfect = (b1, b2, b3) => {
+    const a = [];
+    for (let f = 1; f <= 9; f++) a.push(sh(f, null, 'Strike'));
+    a.push(sh(10, b1, 'Strike'), sh(10, b2, 'Strike'), sh(10, b3, 'Strike'));
+    return a;
+  };
+  const total = shots =>
+    frameScoresheet(shots).filter(x => x && x.running != null).pop()?.running;
+
+  // shot.frame is a string everywhere in this app, and ballNum was
+  // compared strictly against a numeric literal. A string "1" made the
+  // tenth read as empty -- and the failure is silent: 300 scores 210,
+  // because the ninth frame never gets its fill balls.
+  it('scores a perfect game with numeric ballNum', () => {
+    expect(total(perfect(1, 2, 3))).toBe(300);
+  });
+
+  it('scores a perfect game with string ballNum', () => {
+    expect(total(perfect('1', '2', '3'))).toBe(300);
+  });
+
+  it('agrees whichever type is used', () => {
+    expect(total(perfect('1', '2', '3'))).toBe(total(perfect(1, 2, 3)));
+  });
+});
