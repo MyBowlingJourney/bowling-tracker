@@ -26,9 +26,10 @@ export default function HomeView({
 
   const stat = (label, value, suffix) => (
     <div style={{
-      flex: 1, minWidth: 0, backgroundColor: C.surface,
-      borderRadius: "14px", padding: "12px 10px", textAlign: "center",
-      border: `1px solid ${C.border}`,
+      flex: 1, minWidth: 0, textAlign: "center",
+      // No border and no fill: these sit INSIDE the season card now, and
+      // a bordered box inside a bordered box reads as three cards that
+      // happen to be adjacent rather than one figure in three parts.
     }}>
       <div style={{ fontSize: "20px", fontWeight: 500, color: C.text }}>
         {value === null || value === undefined ? "\u2014" : value}
@@ -44,46 +45,43 @@ export default function HomeView({
 
   return (
     <>
-      {/* The headline. One number, the one a bowler would say out loud
-          if asked how they are bowling. */}
-      <div style={{ ...S.card, paddingBottom: "14px" }}>
-        <div style={{ fontSize: "13px", color: C.textMuted }}>
-          Season average
+      {/* The three numbers, in ONE card, at the top.
+          
+          Separate cards made three numbers look like three subjects. They
+          are one subject -- how you are bowling this season -- and the
+          whole card is the doorway into Stats.
+          
+          The standalone average card is gone: it said the same thing as
+          the first figure here, and a number repeated twice on one screen
+          reads as two different numbers that happen to match. */}
+      <button onClick={onOpenStats}
+        style={{
+          ...S.card, width: "100%", textAlign: "left",
+          cursor: "pointer", fontFamily: "inherit",
+        }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ fontSize: "13px", color: C.textMuted }}>This league season</span>
+          <span aria-hidden="true" style={{ color: C.textMuted, fontSize: "18px" }}>
+            {"\u203A"}
+          </span>
         </div>
-        <div style={{ fontSize: "38px", fontWeight: 500, lineHeight: 1.1, marginTop: "2px" }}>
-          {figures.average === null ? "\u2014" : figures.average}
+        <div style={{ display: "flex", gap: "10px", marginTop: "12px" }}>
+          {stat("Average", figures.average)}
+          {stat("High game", figures.highGame)}
+          {stat("High series", figures.highSeries)}
         </div>
-        <div style={{ fontSize: "12px", color: C.textMuted }}>
+        <div style={{ fontSize: "12px", color: C.textMuted, marginTop: "10px" }}>
           {figures.games
-            ? `${figures.games} game${figures.games === 1 ? "" : "s"} this season`
+            ? `${figures.games} game${figures.games === 1 ? "" : "s"} logged`
             : "No games logged yet this season"}
         </div>
-      </div>
-
-
-      {/* The four modes ARE the way in.
-          
-          A "Log bowling" button asked a bowler to commit before saying
-          what they were doing, and then asked what they were doing --
-          two steps where the second was the only real question.
-          
-          Four doors instead: tapping one sets the mode and opens
-          scoring. Same rows as the setup screen and Settings, from the
-          same source, so the modes look like the same four things
-          everywhere they appear. */}
-      <div style={S.label}>What are you doing today?</div>
-      {ENVIRONMENTS.map(env => (
-        <ActionRow key={env}
-          icon={ENVIRONMENT_ICONS[env]}
-          color={ENVIRONMENT_COLORS[env]}
-          label={ENVIRONMENT_LABELS[env]}
-          onClick={() => onPickMode?.(env)} />
-      ))}
+      </button>
 
       {/* Journey, as a recap rather than a target.
           
           The most recent milestone EARNED -- a recap that asks for
-          something is a demand, not a recap. */}
+          something is a demand, not a recap. The whole card opens
+          Journey. */}
       <button onClick={onOpenJourney}
         style={{
           ...S.card, width: "100%", textAlign: "left", cursor: "pointer",
@@ -99,7 +97,7 @@ export default function HomeView({
           </span>
           {recap && (
             <span style={{ display: "block", fontSize: "12px", color: C.textMuted, marginTop: "2px" }}>
-              {recap.date} \u00b7 {recap.total} milestone{recap.total === 1 ? "" : "s"} so far
+              {recap.date} {"\u00b7"} {recap.total} milestone{recap.total === 1 ? "" : "s"} so far
             </span>
           )}
         </span>
@@ -108,24 +106,19 @@ export default function HomeView({
         </span>
       </button>
 
-      {/* Three numbers, one tap from the rest.
+      {/* The four modes ARE the way in.
           
-          Summary here, depth in Stats -- the cards are a doorway, not a
-          destination. */}
-      <button onClick={onOpenStats}
-        style={{
-          width: "100%", background: "none", border: "none", padding: 0,
-          cursor: "pointer", fontFamily: "inherit",
-        }}>
-        <div style={{ display: "flex", gap: "10px" }}>
-          {stat("Average", figures.average)}
-          {stat("High game", figures.highGame)}
-          {stat("High series", figures.highSeries)}
-        </div>
-        <div style={{ fontSize: "12px", color: C.textMuted, marginTop: "8px", textAlign: "center" }}>
-          This league season \u00b7 see all stats {"\u203A"}
-        </div>
-      </button>
+          Tapping one sets the mode and opens scoring. Same rows as the
+          setup screen and Settings, from the same source, so the modes
+          look like the same four things everywhere they appear. */}
+      <div style={S.label}>What are you doing today?</div>
+      {ENVIRONMENTS.map(env => (
+        <ActionRow key={env}
+          icon={ENVIRONMENT_ICONS[env]}
+          color={ENVIRONMENT_COLORS[env]}
+          label={ENVIRONMENT_LABELS[env]}
+          onClick={() => onPickMode?.(env)} />
+      ))}
     </>
   );
 }
