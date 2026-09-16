@@ -236,3 +236,65 @@ describe('rack type persistence', () => {
     expect(centerFromRow({ id: '2', name: 'X', rack_type: null }).rackType).toBe('');
   });
 });
+
+describe('free fall against string', () => {
+  const leagues = [{ name: 'Tuesday', centerId: 'c1' }, { name: 'Thursday', centerId: 'c2' }];
+  const centers = [
+    { id: 'c1', name: 'Oak Hill', rackType: 'freefall' },
+    { id: 'c2', name: 'Maple', rackType: 'string' },
+  ];
+  const sessions = [
+    { bowler: 'R', league: 'Tuesday', date: 'd1', scores: [210, 220, 200] },
+    { bowler: 'R', league: 'Thursday', date: 'd2', scores: [180, 175, 190] },
+  ];
+  const strike = (league, strikeDescription) => ({
+    bowler: 'R', league, date: 'd', ballNum: '1', result: 'Strike', strikeDescription,
+  });
+
+  // String pins are tethered, so they deflect differently and messengers
+  // are rarer. USBC certifies them separately for that reason.
+  it('separates the two rack types', () => {
+    const r = statsByRackType(sessions, [], leagues, centers, 'R');
+    const ff = r.find(x => x.rackType === 'Free fall');
+    const st = r.find(x => x.rackType === 'String');
+    expect(ff.average).toBe(210);
+    expect(st.average).toBe(181.7);
+  });
+
+  it('counts messengers per rack type', () => {
+    const shots = [
+      strike('Tuesday', 'Messenger'), strike('Tuesday', 'Flush'),
+      strike('Tuesday', 'Flush'), strike('Tuesday', 'Flush'),
+      strike('Thursday', 'Flush'),
+    ];
+    const r = statsByRackType(sessions, shots, leagues, centers, 'R');
+    expect(r.find(x => x.rackType === 'Free fall').messengerRate).toBe(25);
+    expect(r.find(x => x.rackType === 'String').messengerRate).toBe(0);
+  });
+
+  // A rate off no strikes is not a fact about pins.
+  it('has no messenger rate without strikes', () => {
+    const r = statsByRackType(sessions, [], leagues, centers, 'R');
+    expect(r.find(x => x.rackType === 'Free fall').messengerRate).toBe(null);
+  });
+
+  // One type is not a comparison -- it is your average again.
+  it('reports one type when only one has been bowled', () => {
+    const r = statsByRackType(sessions, [], [leagues[0]], [centers[0]], 'R')
+      .filter(x => x.games > 0);
+    expect(r).toHaveLength(1);
+  });
+
+  it('reports nothing when rack type was never recorded', () => {
+    const blank = [{ id: 'c1', name: 'Oak Hill', rackType: '' }];
+    const r = statsByRackType(sessions, [], [leagues[0]], blank, 'R')
+      .filter(x => x.games > 0);
+    expect(r).toHaveLength(0);
+  });
+
+  it('survives junk', () => {
+    for (const j of [null, undefined, 'x', 42]) {
+      expect(() => statsByRackType(j, j, j, j, j)).not.toThrow();
+    }
+  });
+});
