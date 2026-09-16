@@ -4,8 +4,7 @@ import { formatDateShort } from "./constants.js";
 import {
   DRILL_TARGETS, targetLabel, targetShortLabel, recordMade, recordMissed, undo,
   attempts, conversionRate, targetHistory, normalizeCustomPins,
-  weeklyTargetHistory, weeklyTrend,
-} from "./domain/drills.js";
+  } from "./domain/drills.js";
 
 // Big two-button tapping. This runs while someone is standing on the
 // approach between shots, so everything is oversized and the rate is
@@ -21,8 +20,6 @@ export default function DrillSession({ drill, onChange, onSave, saved, balls, dr
   const n = attempts(drill);
   const todaysDrills = (drills || []).filter(d => d.bowler === bowler && d.date === (sessionDate || drill.date) && ((d.made || 0) + (d.missed || 0)) > 0);
   const history = targetHistory(drills || [], bowler, drill.target);
-  const weeks = weeklyTargetHistory(drills || [], bowler, drill.target, { customPins: drill.customPins });
-  const trend = weeklyTrend(weeks);
   const prev = history.length ? history[history.length - 1] : null;
 
   return (
@@ -193,53 +190,16 @@ export default function DrillSession({ drill, onChange, onSave, saved, balls, dr
           percentages is noise, and a 2-attempt night would otherwise
           swing a week as hard as a 40-attempt one. Attempts are pooled
           within the week and the rate computed from the total. */}
-      {weeks.length > 1 && (
-        <div style={{ ...S.card, marginTop: "12px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-            <div style={S.label}>By week</div>
-            {trend.direction !== "unknown" && (
-              <div style={{ fontSize: "11px", fontWeight: 600,
-                color: trend.direction === "up" ? C.strike : trend.direction === "down" ? C.miss : C.textMuted }}>
-                {trend.direction === "steady" ? "Steady" : `${trend.change > 0 ? "+" : ""}${trend.change} pts`}
-              </div>
-            )}
-          </div>
-          {weeks.slice(-8).map(w => (
-            <div key={w.week} style={{ marginBottom: "6px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px" }}>
-                <span style={{ color: C.textMuted }}>
-                  {`Week of ${formatDateShort(w.week)}`}{w.sessions > 1 ? ` — ${w.sessions} sessions` : ""}
-                </span>
-                <span style={{ color: w.thin ? C.textMuted : C.text, fontWeight: 600 }}>
-                  {w.thin ? `${w.made}/${w.attempts}` : `${w.rate}%`}
-                  <span style={{ color: C.textMuted, fontWeight: 400 }}> ({w.attempts})</span>
-                </span>
-              </div>
-              <div style={{ height: "5px", backgroundColor: C.surface, borderRadius: "3px", overflow: "hidden", marginTop: "2px" }}>
-                <div style={{ height: "100%", width: `${w.thin ? 0 : w.rate}%`,
-                  backgroundColor: w.rate >= 80 ? C.strike : w.rate >= 60 ? C.spare : C.miss, borderRadius: "3px" }} />
-              </div>
-            </div>
-          ))}
-          {weeks.some(w => w.thin) && (
-            <div style={{ fontSize: "10px", color: C.textMuted, marginTop: "4px" }}>
-              Weeks with only a few attempts show the count, not a percentage.
-            </div>
-          )}
-        </div>
-      )}
+      {/* By-week and over-time have moved out.
+          
+          Both were history: eight weeks of conversion rates and the last
+          six sittings at this target. Useful, but not while a bowler is
+          stood on the approach with a ball in hand -- they pushed Made and
+          Missed down the screen to make room for last month.
+          
+          They belong in a stats view for drills, where looking back is
+          the whole point. */}
 
-      {history.length > 1 && (
-        <div style={{ ...S.card, marginTop: "12px" }}>
-          <div style={S.label}>{targetLabel(drill.target, drill.customTarget, leftHanded, drill.customPins)} over time</div>
-          {history.slice(-6).map((h, i) => (
-            <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", marginBottom: "4px" }}>
-              <span style={{ color: C.textMuted }}>{h.date}{h.ball ? ` · ${h.ball}` : ""}</span>
-              <span style={{ fontWeight: 600, color: h.rate >= 80 ? C.strike : h.rate >= 60 ? C.spare : C.miss }}>{h.rate}% <span style={{ color: C.textMuted, fontWeight: 400 }}>({h.attempts})</span></span>
-            </div>
-          ))}
-        </div>
-      )}
       <div style={{ height: "32px" }} />
     </div>
   );

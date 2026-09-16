@@ -2173,7 +2173,18 @@ export default function LogView({
                     </div>
                   </div>
                   {(()=>{
-                    const theoreticalScores=[1,2,3].map(g=>theoreticalScoreForGame(cs.bowler,cs.league,cs.date,g));
+                    // The games actually bowled, not a fixed three.
+                    //
+                    // [1,2,3] is a league assumption: a practice night can be
+                    // one game or five, and a tournament block more. It showed
+                    // a theoretical score for games that were never thrown and
+                    // hid any past the third.
+                    //
+                    // gameScores is already sized to the night, so its length
+                    // is the honest count.
+                    const theoreticalScores=gameScores
+                      .map((_,idx)=>idx+1)
+                      .map(g=>theoreticalScoreForGame(cs.bowler,cs.league,cs.date,g));
                     const anyTheoretical=theoreticalScores.some(v=>v!=null);
                     if(!anyTheoretical)return null;
 
@@ -2909,7 +2920,14 @@ export default function LogView({
                         </div>
                       ))}
                       <div style={{fontSize:"12px",color:C.textMuted,marginTop:"6px"}}>
-                        {ps.drillAttempts} attempts overall {"·"} {ps.drillRate}%
+                        {/* "18 of 25 across 2 drills", not "25 attempts".
+                            
+                            The old line gave a total and a percentage with no
+                            made count, so a bowler could not see what the rate
+                            was built from -- and "targets" is the internal word
+                            for a drill, which nobody says at the lanes. */}
+                        {ps.drillMade} of {ps.drillAttempts} across {ps.targets.length}{" "}
+                        drill{ps.targets.length===1?"":"s"} {"·"} {ps.drillRate}%
                       </div>
                     </>
                   )}
