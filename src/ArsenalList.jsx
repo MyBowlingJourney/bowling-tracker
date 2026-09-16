@@ -124,6 +124,7 @@ function LayoutEditor({ layout, onChange }) {
 // because removal deserves an explicit button rather than "tapping the
 // ball itself deletes it", which is easy to do by accident on a phone.
 export default function ArsenalList({
+  ballStats = [],
   activeBowler, balls, ballLayouts, setBallLayout, removeBall,
   retired = {}, setBallRetired, shots = [],
   ballSpecs, setBallSpec, ballGroups, seedDefaultGroups, saveBallGroup, deleteBallGroup,
@@ -177,16 +178,92 @@ export default function ArsenalList({
     </div>
   );
 
+  // A stable colour per ball, from its name.
+  //
+  // Same ball, same colour, every time -- that is what lets a bowler find
+  // the Phaze in a list of six without reading any of them. Random or
+  // index-based colours would reshuffle whenever a ball is added.
+  //
+  // Hues are snapped to a 12-step wheel rather than taken raw.
+  //
+  // A raw hash gave Zen 91 degrees and Harsh Reality 94 -- two colours no
+  // one can tell apart, which defeats the only purpose here. Snapping to
+  // 30-degree steps means two balls either look clearly different or
+  // exactly the same, and "exactly the same" is at least honest.
+  function ballTint(name) {
+    let h = 0;
+    for (const ch of String(name || "")) h = (h * 31 + ch.charCodeAt(0)) % 360;
+    return `hsl(${Math.round(h / 30) * 30 % 360}, 42%, 38%)`;
+  }
+
+  function ballInitials(name) {
+    const words = String(name || "").trim().split(/\s+/).filter(Boolean);
+    if (!words.length) return "?";
+    if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+    return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+  }
+
+  // "412 shots · 59% strikes · 83% spares", from the same numbers the
+  // Stats screen shows -- one source, so the two cannot disagree.
+  //
+  // Shots rather than games and average: bStats counts DELIVERIES with
+  // this ball, and a game is not attributable to one ball when a bowler
+  // switches mid-game. Showing "38 games" would be a number this data
+  // cannot support, however well it reads.
+  //
+  // Null when the ball has no logged shots, so a new ball says so rather
+  // than showing zeroes that look like bad performance.
+  function perf(name) {
+    const b = (ballStats || []).find(x => x && x.ball === name);
+    if (!b || !b.total) return null;
+    const bits = [`${b.total} shot${b.total === 1 ? "" : "s"}`];
+    if (b.rate !== null && b.rate !== undefined) bits.push(`${b.rate}% strikes`);
+    if (b.spareRate !== null && b.spareRate !== undefined) bits.push(`${b.spareRate}% spares`);
+    return bits.join(" \u00b7 ");
+  }
+
   function renderBall(ball) {
     const key = `${activeBowler}|${ball}`;
     const layout = formatLayout(ballLayouts?.[key]);
     const specText = describeSpecs(specsByBall[ball]);
     const isOpen = openBall === ball;
     return (
-      <div key={ball} style={{ borderBottom: `1px solid ${C.border}`, paddingBottom: "8px", marginBottom: "8px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+      <div key={ball} style={{
+        ...S.card,
+        padding: "12px 14px",
+        marginBottom: "10px",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          {/* A ball, not a bullet.
+              
+              The app has no ball photographs, so a coloured disc stands in
+              -- derived from the name so the same ball is the same colour
+              every time, which is what makes a list scannable without
+              reading it. A generic icon would not: five identical icons
+              are five bullet points. */}
+          <div aria-hidden="true" style={{
+            width: "44px", height: "44px", borderRadius: "50%", flexShrink: 0,
+            backgroundColor: ballTint(ball),
+            display: "flex", alignItems: "center", justifyContent: "center",
+            color: "#FFFFFF", fontSize: "15px", fontWeight: 500,
+          }}>{ballInitials(ball)}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: "13px", fontWeight: 600 }}>{ball}</div>
+            <div style={{ fontSize: "15px", fontWeight: 500 }}>{ball}</div>
+            {/* What this ball DOES for you, above what it is made of.
+                
+                Average, games and carry are the reason to open the screen;
+                coverstock and layout are reference. The old row led with
+                specs and never showed performance at all -- the one thing
+                no other bowling app can tell you. */}
+            {perf(ball) ? (
+              <div style={{ fontSize: "12px", color: C.textMuted, marginTop: "2px" }}>
+                {perf(ball)}
+              </div>
+            ) : (
+              <div style={{ fontSize: "12px", color: C.textMuted, marginTop: "2px" }}>
+                No games logged with it yet
+              </div>
+            )}
             {specText && (
               <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "2px" }}>{specText}</div>
             )}

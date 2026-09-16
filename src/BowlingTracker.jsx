@@ -6700,6 +6700,7 @@ export default function BowlingTracker(){
 
         {(view==="profile"||view==="locker")&&(
           <Profile
+            ballStats={bStats}
             only={view==="locker"
               ?["arsenal","bags"]
               :["identity","aliases","coaching","bookAverage","homeCenters","notes"]}

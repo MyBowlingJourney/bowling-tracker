@@ -35,6 +35,7 @@ function BookAverageUpdatePrompt({ currentAverage, suggestion, onSave, onDismiss
 }
 
 export default function Profile({
+  ballStats = [],
   only = null,
   bowlers, activeBowler, selectBowler,
   profiles, setProfile, teams,
@@ -403,6 +404,7 @@ export default function Profile({
         )}
 
         <ArsenalList
+          ballStats={ballStats}
           activeBowler={profileBowler}
           retired={(retiredBalls || {})[profileBowler] || {}}
           setBallRetired={setBallRetired} shots={shots || []}
