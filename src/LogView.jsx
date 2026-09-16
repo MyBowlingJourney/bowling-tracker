@@ -416,6 +416,7 @@ export default function LogView({
   const spareMadeRef=useRef(null);
   const totalPinsRef=useRef(null);
   const detailsRef=useRef(null);
+  const shotContextRef=useRef(null);
 
 
   // Shot Context (game/frame/lane) is meaningless without shots -- a
@@ -934,7 +935,19 @@ export default function LogView({
                             <input style={{...S.input,flex:1,opacity:locked?0.5:1}}
                               type="number" inputMode="numeric" placeholder="Score"
                               disabled={locked}
-                              value={entered[g-1]==null?"":String(entered[g-1])}
+                              // Show the frame-derived score when there is one.
+                              //
+                              // The box locked as soon as a game had frames but
+                              // kept showing the MANUAL value, which is empty --
+                              // so bowling a full game frame by frame left G1
+                              // blank and uneditable. The score existed; it just
+                              // had nowhere to appear.
+                              //
+                              // Manual entry still wins where no frames exist,
+                              // which is the whole point of having both.
+                              value={gameScores[g-1]!=null
+                                ? String(gameScores[g-1])
+                                : (entered[g-1]==null?"":String(entered[g-1]))}
                               onChange={e=>updateManualScore(activeBowler,effectiveSessionLeague,sessionDate,g,e.target.value)}/>
                           );
                         })()}
@@ -1292,7 +1305,7 @@ export default function LogView({
             )}
 
             {onTab("scoring")&&showShotContext&&(
-            <div style={S.card}>
+            <div ref={shotContextRef} style={S.card}>
               <div style={S.label}>
                 Shot Context
                 {inTenth&&<span style={{color:C.spare,marginLeft:"8px"}}>10th Frame{ballNumLabel}</span>}
@@ -2961,7 +2974,17 @@ export default function LogView({
                 three ways to edit a shot with no way to save it. */}
             {(editingId||(onTab("scoring")&&showShotContext))&&(
               <button style={{...S.btn("primary"),flex:1}}
-                onClick={submitShot}
+                onClick={()=>{
+                  submitShot();
+                  // Back to Shot Context for the next delivery.
+                  //
+                  // Saving leaves the page wherever the last answer was --
+                  // often the bottom of the accessory details -- while the
+                  // next thing a bowler needs is the frame counter at the
+                  // top. Without this they scroll up by hand after every
+                  // single shot.
+                  scrollToTopOf(shotContextRef);
+                }}
                 disabled={!form.result||!form.bowler||needsPins||needsSpareMade}>
                 {saved?(editingId?"✓ Updated":"✓ Saved"):(editingId?"Update":"Save Shot")}
               </button>

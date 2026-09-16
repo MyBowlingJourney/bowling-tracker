@@ -5974,7 +5974,17 @@ export default function BowlingTracker(){
   // frames or typed scores. Capped at twelve to match the stepper.
   const gameScores=(()=>{
     const league=effectiveSessionLeague;
-    let highest=3;
+    // Practice starts at ONE game, not three.
+    //
+    // A league night is three games by definition, so showing G1 G2 G3
+    // from the first ball is right there. Practice is not: a bowler
+    // throws one, or two, or five, and three empty boxes told them the
+    // app expected three and they were behind.
+    //
+    // It still grows from the shots below, so a second game appears the
+    // moment one is bowled. Tournaments keep the floor of three because a
+    // block is at least that.
+    let highest=preferences.environment==="practice"?1:3;
     for(const sh of shots||[]){
       if(sh&&sh.bowler===activeBowler&&sh.league===league&&sh.date===sessionDate){
         const n=parseInt(sh.game);
