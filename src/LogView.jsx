@@ -292,9 +292,18 @@ export default function LogView({
     // and results content belongs there, scoring belongs on the other
     // two.
     if(env==="practice"){
+      // Named explicitly, not "anything that is not results".
+      //
+      // The catch-all returned true for "side" as well, and the night
+      // summary card renders on results OR side -- so the whole results
+      // table appeared on Games and Drill, which is exactly what the
+      // chips were meant to separate.
+      //
+      // Practice has no side pots and no setup of its own, so those are
+      // false outright.
       if(t==="results")return practiceMode==="results";
-      if(t==="setup")return practiceMode==="results";
-      return practiceMode!=="results";
+      if(t==="scoring")return practiceMode!=="results";
+      return false;
     }
     if(!leagueTabs)return true;
     return leagueTab===t;
@@ -485,6 +494,34 @@ export default function LogView({
                       onToggle={()=>setLeagueTab(id)} />
                   ))}
                 </div>
+              </div>
+            )}
+
+            {!editingId&&activeBowler&&preferences.environment==="practice"&&(
+              <div style={{...S.card,padding:"10px 12px"}}>
+                <div style={S.chips}>
+                  <Chip label="Games" selected={practiceMode==="games"} onToggle={()=>setPracticeMode("games")}/>
+                  <Chip label="Drill" selected={practiceMode==="drill"} onToggle={()=>{setPracticeMode("drill");if(!activeDrill)startDrill();}}/>
+                  {/* Results, so practice has somewhere to look back at.
+                      
+                      Games and Drill were both places to DO something and
+                      neither had a place to see how it went -- the only
+                      way to read a practice was to end it and hope the
+                      recap covered it. */}
+                  <Chip label="Results" selected={practiceMode==="results"}
+                    onToggle={()=>setPracticeMode("results")} />
+                </div>
+                {/* Tracking depth for THIS practice only. It changes what the
+                    Log tab shows tonight and nothing in Settings, so a
+                    scores-only practice can't quietly turn a league night
+                    into scores-only too. */}
+                {/* The "tracking tonight" question is gone.
+                    
+                    It asked frame or scores-only for this practice. Both
+                    are always available now -- game entry on top, frames
+                    below -- so the question had nothing left to switch
+                    and the answer changed nothing on screen. */}
+
               </div>
             )}
 
@@ -787,33 +824,6 @@ export default function LogView({
               </div>
             )}
 
-            {!editingId&&activeBowler&&preferences.environment==="practice"&&(
-              <div style={{...S.card,padding:"10px 12px"}}>
-                <div style={S.chips}>
-                  <Chip label="Games" selected={practiceMode==="games"} onToggle={()=>setPracticeMode("games")}/>
-                  <Chip label="Drill" selected={practiceMode==="drill"} onToggle={()=>{setPracticeMode("drill");if(!activeDrill)startDrill();}}/>
-                  {/* Results, so practice has somewhere to look back at.
-                      
-                      Games and Drill were both places to DO something and
-                      neither had a place to see how it went -- the only
-                      way to read a practice was to end it and hope the
-                      recap covered it. */}
-                  <Chip label="Results" selected={practiceMode==="results"}
-                    onToggle={()=>setPracticeMode("results")} />
-                </div>
-                {/* Tracking depth for THIS practice only. It changes what the
-                    Log tab shows tonight and nothing in Settings, so a
-                    scores-only practice can't quietly turn a league night
-                    into scores-only too. */}
-                {/* The "tracking tonight" question is gone.
-                    
-                    It asked frame or scores-only for this practice. Both
-                    are always available now -- game entry on top, frames
-                    below -- so the question had nothing left to switch
-                    and the answer changed nothing on screen. */}
-
-              </div>
-            )}
             {!editingId&&activeBowler&&preferences.environment==="practice"&&practiceMode==="drill"&&activeDrill&&(
               <DrillSession
                 drill={activeDrill}
@@ -1459,7 +1469,13 @@ export default function LogView({
               // thing -- there is nobody else to keep score for, so the
               // card asked a question with one possible answer and took
               // a card's worth of space above the drill to do it.
-              &&!isDrill&&(
+              &&!isDrill
+              // ...and not in practice at all. A practice night is one
+              // bowler working alone, games or drills alike -- there is
+              // nobody else to keep score for, so the card asked a
+              // question with one possible answer. It was already off for
+              // drills; games is the same situation.
+              &&preferences.environment!=="practice"&&(
               <div style={{...S.card,padding:"10px 12px"}}>
                 {/* Below Shot Context and kept short: this is a setting
                     you touch once a night, not something to scroll past
