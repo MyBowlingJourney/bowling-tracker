@@ -25,7 +25,9 @@ import { tenthBall3Earned, maxPossibleScore } from "./domain/scoring.js";
 
 import { isBaker, bakerBowlerFor } from "./domain/tournamentFormats.js";
 
-import { practiceSummary } from "./domain/practiceSummary.js";
+import { practiceSummary, practiceShotStats } from "./domain/practiceSummary.js";
+
+import { isSplit } from "./domain/splits.js";
 export default function LogView({
   // The night's own note, owned by BowlingTracker so it can be saved with
   // the session. It used to write form.notes -- the shot form -- so a
@@ -2924,7 +2926,7 @@ export default function LogView({
                   {ps.didGames&&(
                     <>
                       <div style={S.label}>Games</div>
-                      <div style={{display:"flex",gap:"6px",marginBottom:"4px"}}>
+                      <div style={{display:"flex",gap:"6px",marginBottom:"8px"}}>
                         <div style={S.statBox}>
                           <div style={{fontSize:"18px",fontWeight:500}}>{ps.games.average}</div>
                           <div style={{fontSize:"11px",color:C.textMuted}}>average</div>
@@ -2938,9 +2940,62 @@ export default function LogView({
                           <div style={{fontSize:"11px",color:C.textMuted}}>series</div>
                         </div>
                       </div>
-                      <div style={{fontSize:"12px",color:C.textMuted}}>
+                      <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"10px"}}>
                         {ps.games.games.join(" · ")}
                       </div>
+                      {/* What the FRAMES say, when they were logged.
+                          
+                          Average, best and series is what any scoresheet
+                          gives. The reason to record every delivery is that
+                          the app can say things a scoresheet cannot, and if
+                          a bowler took that trouble the recap owes them the
+                          difference.
+                          
+                          A scores-only practice gets nothing here rather
+                          than detail invented from three numbers. */}
+                      {(()=>{
+                        const st=practiceShotStats(shots,{
+                          bowler:activeBowler,league:effectiveSessionLeague,
+                          date:sessionDate,isSplit,
+                        });
+                        if(!st) return null;
+                        return (
+                          <>
+                            <div style={{borderTop:`1px solid ${C.border}`,paddingTop:"10px"}}>
+                              <div style={{display:"flex",gap:"6px",marginBottom:"8px"}}>
+                                <div style={S.statBox}>
+                                  <div style={{fontSize:"16px",fontWeight:500,color:C.strike}}>{st.strikeRate}%</div>
+                                  <div style={{fontSize:"11px",color:C.textMuted}}>strikes</div>
+                                </div>
+                                <div style={S.statBox}>
+                                  <div style={{fontSize:"16px",fontWeight:500,color:C.spare}}>
+                                    {st.spareRate==null?"—":`${st.spareRate}%`}
+                                  </div>
+                                  <div style={{fontSize:"11px",color:C.textMuted}}>spares</div>
+                                </div>
+                                <div style={S.statBox}>
+                                  <div style={{fontSize:"16px",fontWeight:500}}>{st.cleanRate}%</div>
+                                  <div style={{fontSize:"11px",color:C.textMuted}}>clean</div>
+                                </div>
+                              </div>
+                              <div style={{fontSize:"12px",color:C.textMuted,lineHeight:1.6}}>
+                                {st.strikes} of {st.firstBalls} first balls struck
+                                {st.spareChances>0&&`, ${st.sparesMade} of ${st.spareChances} spares made`}
+                                {st.splits>0&&`, ${st.splits} split${st.splits===1?"":"s"}`}
+                                {"."}
+                              </div>
+                              {/* Only with more than one ball thrown: one ball
+                                  is not a comparison. */}
+                              {st.bestBall&&(
+                                <div style={{fontSize:"12px",color:C.text,marginTop:"6px"}}>
+                                  Best carry tonight: {st.bestBall.ball} {"·"} {st.bestBall.rate}%
+                                  {" "}over {st.bestBall.first} first balls
+                                </div>
+                              )}
+                            </div>
+                          </>
+                        );
+                      })()}
                     </>
                   )}
                 </div>
