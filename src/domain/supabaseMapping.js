@@ -127,6 +127,10 @@ export function sessionToSupabaseRow(session,userId,leagueIdsMap){
     bowler_name:session.bowler||"",
     date:session.date,
     scores:session.scores||[],
+    // The night's own note. Shot notes ride on shots; this one is about
+    // the session, so it belongs on the session row rather than being
+    // smuggled onto whichever delivery happened to be saved last.
+    notes:session.notes||null,
     total:session.total??null,
     average:session.average??null,
     shot_count:session.shotCount||0,
@@ -163,6 +167,7 @@ export function sessionFromSupabaseRow(row,leagueNameById){
     league:leagueNameById[row.league_id]||"",
     date:row.date,
     scores:row.scores||[],
+    notes:row.notes||"",
     total:row.total,
     average:row.average,
     shotCount:row.shot_count||0,
