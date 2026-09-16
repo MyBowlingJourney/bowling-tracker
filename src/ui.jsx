@@ -122,8 +122,15 @@ Object.assign(S, buildStyles());
 //
 // One component rather than per-screen styling, so a row on the mode
 // picker and a row on a settings list cannot drift apart.
-export function ActionRow({icon,label,detail,color,onClick,disabled}){
+export function ActionRow({icon,label,detail,color,onClick,disabled,compact}){
   const tint=color||C.accent;
+  // Compact is for a screen that must fit without scrolling -- Home
+  // carries four of these plus two cards, and the full-size row is
+  // generous enough that four of them push the last one under the nav
+  // bar on a smaller phone.
+  const pad=compact?"10px 14px":"14px 16px";
+  const box=compact?34:38;
+  const gap=compact?"6px":"10px";
   return (
     <button onClick={onClick} disabled={disabled}
       style={{
@@ -133,17 +140,17 @@ export function ActionRow({icon,label,detail,color,onClick,disabled}){
         // colour to reconcile.
         backgroundColor:tint+"14",
         border:"none",borderRadius:"14px",
-        padding:"14px 16px",marginBottom:"10px",
+        padding:pad,marginBottom:gap,
         textAlign:"left",cursor:disabled?"default":"pointer",
         opacity:disabled?0.5:1,
         fontFamily:F.body,WebkitTapHighlightColor:"transparent",
       }}>
       <span aria-hidden="true"
         style={{
-          width:"38px",height:"38px",borderRadius:"11px",flexShrink:0,
+          width:`${box}px`,height:`${box}px`,borderRadius:"11px",flexShrink:0,
           backgroundColor:tint,color:C.onAccent,
           display:"flex",alignItems:"center",justifyContent:"center",
-          fontSize:"18px",
+          fontSize:compact?"16px":"18px",
         }}>{icon}</span>
       <span style={{flex:1,minWidth:0}}>
         <span style={{display:"block",fontSize:"15px",fontWeight:500,color:C.text}}>

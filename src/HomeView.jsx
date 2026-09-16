@@ -58,6 +58,7 @@ export default function HomeView({
         style={{
           ...S.card, width: "100%", textAlign: "left",
           cursor: "pointer", fontFamily: "inherit",
+          padding: "14px 16px", marginBottom: "8px",
         }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <span style={{ fontSize: "13px", color: C.textMuted }}>This league season</span>
@@ -91,12 +92,24 @@ export default function HomeView({
         style={{
           ...S.card, width: "100%", textAlign: "left", cursor: "pointer",
           fontFamily: "inherit",
+          padding: "14px 16px", marginBottom: "8px",
           backgroundColor: C.accentDim,
           border: `1px solid ${C.accent}33`,
         }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ fontSize: "12px", color: C.accent, letterSpacing: "0.02em" }}>
-            My journey
+          <span style={{ display: "flex", alignItems: "center", gap: "7px" }}>
+            {/* A road. The app is called My Bowling Journey and the card
+                had no mark of its own -- the one place a symbol earns
+                its space rather than decorating. */}
+            <span aria-hidden="true" style={{
+              width: "24px", height: "24px", borderRadius: "8px", flexShrink: 0,
+              backgroundColor: C.accent, color: C.onAccent,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: "13px",
+            }}>{"\u{1F6E4}"}</span>
+            <span style={{ fontSize: "12px", color: C.accent, letterSpacing: "0.02em" }}>
+              My journey
+            </span>
           </span>
           <span aria-hidden="true" style={{ color: C.accent, fontSize: "18px" }}>
             {"\u203A"}
@@ -109,15 +122,9 @@ export default function HomeView({
             <div style={{ fontSize: "20px", fontWeight: 500, color: C.text, marginTop: "8px", lineHeight: 1.25 }}>
               {recap.label}
             </div>
-            <div style={{ fontSize: "12px", color: C.textMuted, marginTop: "4px" }}>
-              {recap.date}
-            </div>
-            <div style={{
-              marginTop: "12px", paddingTop: "10px",
-              borderTop: `1px solid ${C.accent}22`,
-              fontSize: "13px", color: C.text,
-            }}>
-              {recap.total} milestone{recap.total === 1 ? "" : "s"} on your road so far
+
+            <div style={{ fontSize: "12px", color: C.textMuted, marginTop: "6px" }}>
+              {recap.date} {"\u00b7"} {recap.total} milestone{recap.total === 1 ? "" : "s"} so far
             </div>
           </>
         ) : (
@@ -138,12 +145,13 @@ export default function HomeView({
           Tapping one sets the mode and opens scoring. Same rows as the
           setup screen and Settings, from the same source, so the modes
           look like the same four things everywhere they appear. */}
-      <div style={S.label}>What are you doing today?</div>
+      <div style={{ ...S.label, marginBottom: "8px", marginTop: "2px" }}>What are you doing today?</div>
       {ENVIRONMENTS.map(env => (
         <ActionRow key={env}
           icon={ENVIRONMENT_ICONS[env]}
           color={ENVIRONMENT_COLORS[env]}
           label={ENVIRONMENT_LABELS[env]}
+          compact
           onClick={() => onPickMode?.(env)} />
       ))}
     </>
