@@ -2542,32 +2542,43 @@ export default function LogView({
             {/* Line */}
             {preferences.trackedFields.line&&(
               <div style={S.card}>
-                <div style={S.label}>Line{!editingId&&currentLane?` · Lane ${currentLane}`:""}{!editingId&&form.startingBoard&&form.targetArrows?" (stored)":""}</div>
-                <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"4px"}}>Target</div>
-                <div style={S.row}>
-                  <div style={{flex:1,minWidth:0}}>
-                      <div style={fieldHead}>Board</div>
-                      <input style={{...S.input,...smallInput,width:"100%"}} type="number" inputMode="decimal"
-                        value={form.startingBoard} onChange={e=>editingId?set("startingBoard",e.target.value):handleLineChange("startingBoard",e.target.value)}/>
-                    </div>
-                  <div style={{flex:1,minWidth:0}}>
-                      <div style={fieldHead}>Arrow</div>
-                      <input style={{...S.input,...smallInput,width:"100%"}} type="number" inputMode="decimal"
-                        value={form.targetArrows} onChange={e=>editingId?set("targetArrows",e.target.value):handleLineChange("targetArrows",e.target.value)}/>
-                    </div>
+                <div style={S.label}>Line{!editingId&&currentLane?` · Lane ${currentLane}`:""}</div>
+                {/* Feet on its own row, arrows paired beneath.
+                    
+                    The two board fields were "Board" under Target and
+                    "Board" under Actual -- one number for where you stand,
+                    which does not have a target and an actual. It is one
+                    fact, so it is one field, and "Feet" says what it is.
+                    
+                    That leaves the arrows, which genuinely do differ: where
+                    you meant the ball to cross and where it did. Comparing
+                    those two is what the drift note below reads.
+                    
+                    Three fields in two rows measures 180px, matching the
+                    Release Measurements card beside it exactly. */}
+                <div style={{marginBottom:"8px"}}>
+                  <div style={fieldHead}>Feet</div>
+                  <input style={{...S.input,...smallInput,width:"100%"}}
+                    type="number" inputMode="numeric" placeholder="board #"
+                    value={form.startingBoard}
+                    onChange={e=>editingId?set("startingBoard",e.target.value):handleLineChange("startingBoard",e.target.value)}/>
                 </div>
-                <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"4px",marginTop:"8px"}}>Actual</div>
-                <div style={S.row}>
-                  <div style={{flex:1,minWidth:0}}>
-                      <div style={fieldHead}>Board</div>
-                      <input style={{...S.input,...smallInput,width:"100%"}} type="number" inputMode="decimal"
-                        value={form.actualBoard} onChange={e=>set("actualBoard",e.target.value)}/>
-                    </div>
-                  <div style={{flex:1,minWidth:0}}>
-                      <div style={fieldHead}>Arrow</div>
-                      <input style={{...S.input,...smallInput,width:"100%"}} type="number" inputMode="decimal"
-                        value={form.actualArrows} onChange={e=>set("actualArrows",e.target.value)}/>
-                    </div>
+                <div style={{display:"grid",
+                  gridTemplateColumns:"repeat(2, minmax(0, 1fr))",gap:"8px"}}>
+                  <div style={{minWidth:0}}>
+                    <div style={fieldHead}>Target arrows</div>
+                    <input style={{...S.input,...smallInput,width:"100%"}}
+                      type="number" inputMode="numeric" placeholder="board #"
+                      value={form.targetArrows}
+                      onChange={e=>editingId?set("targetArrows",e.target.value):handleLineChange("targetArrows",e.target.value)}/>
+                  </div>
+                  <div style={{minWidth:0}}>
+                    <div style={fieldHead}>Actual arrows</div>
+                    <input style={{...S.input,...smallInput,width:"100%"}}
+                      type="number" inputMode="numeric" placeholder="board #"
+                      value={form.actualArrows}
+                      onChange={e=>set("actualArrows",e.target.value)}/>
+                  </div>
                 </div>
                 {(()=>{
                   // The gap between target and actual is the whole point of
@@ -2598,7 +2609,7 @@ export default function LogView({
                     <div style={{minWidth:0}}>
                       <div style={fieldHead}>Speed</div>
                       <input style={{...S.input,...smallInput,width:"100%"}}
-                        type="number" step="0.1" inputMode="decimal"
+                        type="number" step="0.1" inputMode="decimal" placeholder="mph"
                         value={form.ballSpeed} onChange={e=>set("ballSpeed",e.target.value)}/>
                     </div>
                   )}
@@ -2606,7 +2617,7 @@ export default function LogView({
                     <div style={{minWidth:0}}>
                       <div style={fieldHead}>Rev rate</div>
                       <input style={{...S.input,...smallInput,width:"100%"}}
-                        type="number" inputMode="numeric"
+                        type="number" inputMode="numeric" placeholder="rpm"
                         value={form.revRate} onChange={e=>set("revRate",e.target.value)}/>
                     </div>
                   )}
@@ -2614,7 +2625,7 @@ export default function LogView({
                     <div style={{minWidth:0}}>
                       <div style={fieldHead}>Axis rotation</div>
                       <input style={{...S.input,...smallInput,width:"100%"}}
-                        type="number" inputMode="numeric"
+                        type="number" inputMode="numeric" placeholder="degrees"
                         value={form.axisRotation} onChange={e=>set("axisRotation",e.target.value)}/>
                     </div>
                   )}
@@ -2622,7 +2633,7 @@ export default function LogView({
                     <div style={{minWidth:0}}>
                       <div style={fieldHead}>Axis tilt</div>
                       <input style={{...S.input,...smallInput,width:"100%"}}
-                        type="number" inputMode="numeric"
+                        type="number" inputMode="numeric" placeholder="degrees"
                         value={form.axisTilt} onChange={e=>set("axisTilt",e.target.value)}/>
                     </div>
                   )}
