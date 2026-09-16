@@ -121,6 +121,9 @@ export function practiceSummary(opts) {
     games,
     targets,
     drillAttempts,
+    // Returned as well as used: the recap says "18 of 25", and a rate
+    // without the made count behind it is a number a bowler cannot check.
+    drillMade,
     drillRate: drillAttempts ? Math.round((drillMade / drillAttempts) * 100) : null,
     didGames: games.games.length > 0,
     didDrills: drillAttempts > 0,
