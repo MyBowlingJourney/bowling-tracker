@@ -392,6 +392,7 @@ export default function BowlingTracker(){
   // that league, since teams.league_id references leagues.id).
   const leagueIdsRef=useRef({});
   const[view,setView]=useState("log");
+
   // Stats and Trends are one nav tab ("Data") with a sub-tab, rather than
   // two top-level tabs. They already share statsBowler/statsLeague, so the
   // "Viewing" selection carries across the sub-tab switch instead of being
@@ -889,6 +890,25 @@ export default function BowlingTracker(){
     try{return window.localStorage.getItem(ONBOARDED_KEY)!=="1";}
     catch{return true;}
   });
+
+  // A new screen starts at the top.
+  //
+  // The browser keeps the scroll position when only the content changes,
+  // so arriving somewhere new left you part-way down it -- most visibly
+  // straight after onboarding, where the first thing a new bowler saw
+  // was the middle of a screen they had never seen the top of.
+  //
+  // Handled once here rather than per screen: three places already did
+  // this for their own reasons, and the next screen to need it would
+  // have been the fourth.
+  //
+  // showOnboarding is in the deps because onboarding is a separate
+  // render branch, not a view -- finishing it swaps the whole tree
+  // without `view` ever changing, which is the case that was reported
+  // and the one keying on `view` alone would have missed.
+  useEffect(()=>{
+    try{window.scrollTo(0,0);}catch{ /* not a browser */ }
+  },[view,showOnboarding]);
   const[newBallName,setNewBallName]=useState("");
   const[retiredBalls,setRetiredBalls]=useState({});
   const[ballAddMessage,setBallAddMessage]=useState("");
@@ -7045,7 +7065,7 @@ export default function BowlingTracker(){
           thumb reach and this app is used standing up holding a ball.
           One badge per tab, on the tab where the waiting thing lives:
           "something needs you" and "here's where" become one signal. */}
-      <nav style={{position:"fixed",bottom:0,left:0,right:0,zIndex:100,display:"flex",backgroundColor:C.surface,borderTop:`1px solid ${C.border}`,padding:"6px 2px calc(8px + env(safe-area-inset-bottom, 0px))"}}>
+      <nav style={{position:"fixed",bottom:0,left:0,right:0,zIndex:100,display:"flex",backgroundColor:C.surface,borderTop:`1px solid ${C.border}`,padding:"8px 4px calc(10px + env(safe-area-inset-bottom, 0px))"}}>
         {navTabs.map(t=>{
           const on=view===t.id||(t.id==="insights"&&view==="coaching")||(t.id==="locker"&&view==="social")||(t.id==="log"&&view==="import");
           // History does NOT badge the inbox count -- the inbox is
