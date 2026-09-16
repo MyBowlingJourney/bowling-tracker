@@ -7256,6 +7256,8 @@ export default function BowlingTracker(){
             onOpenImprove={()=>setView("insights")}
             centerStats={centerStats}
             lanePatterns={lanePatterns}
+
+            tournaments={tournaments}
             centers={centers}
 
             closedSeasons={closedSeasons} leagueDates={leagueDates}

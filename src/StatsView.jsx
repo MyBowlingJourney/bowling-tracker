@@ -14,7 +14,11 @@ import { anyMoneyGameShown, visibleStatsCardOrder } from "./domain/preferences.j
 
 
 import { seasonComparison } from "./domain/scoreInsights.js";
+
+import { patternAverages, patternVersusOverall } from "./domain/oilPatterns.js";
 export default function StatsView({
+  // Already passed by BowlingTracker, never read until now.
+  lanePatterns = [], tournaments = [],
   onOpenImprove,
   centerStats,
   preferences,
@@ -1051,6 +1055,49 @@ sessions.length>0&&(()=>{
                 // existed. It was movable and hideable there while nothing
                 // drew it, so a bowler could reorder a card that was never
                 // going to appear.
+                // "By Oil Pattern" -- listed in Settings for all four modes
+                // and rendered nowhere. The domain has had patternAverages
+                // and patternVersusOverall the whole time, and the payload
+                // sent to Brooklyn already used them; only the bowler could
+                // not see it.
+                //
+                // Against the OVERALL average rather than in isolation: 187
+                // means nothing on its own, and "eighteen under your
+                // overall" is the sentence a bowler plans practice around.
+                byId["patternHistory"] = (()=>{
+                  const rows=patternAverages(sessions,lanePatterns,tournaments,statsBowler);
+                  if(!rows||rows.length<2)return null;
+                  const overall=cAvg(sessions,statsBowler,statsLeague);
+                  if(overall===null)return null;
+                  const withDiff=patternVersusOverall(rows,overall)
+                    .sort((a,b)=>b.versusOverall-a.versusOverall);
+                  if(!withDiff.length)return null;
+                  return (
+                    <div style={S.card}>
+                      <div style={S.label}>By Oil Pattern</div>
+                      <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"10px"}}>
+                        Against your overall average of {overall}.
+                      </div>
+                      {withDiff.map(p=>(
+                        <div key={p.name} style={{display:"flex",alignItems:"baseline",
+                          justifyContent:"space-between",gap:"8px",marginBottom:"6px"}}>
+                          <span style={{fontSize:"14px",minWidth:0}}>{p.name}</span>
+                          <span style={{fontSize:"13px",color:C.textMuted,
+                            whiteSpace:"nowrap",flexShrink:0}}>
+                            {p.average}{" "}
+                            <strong style={{color:p.versusOverall>0?C.strike
+                              :(p.versusOverall<0?C.miss:C.textMuted)}}>
+                              {p.versusOverall>0?"+":""}{p.versusOverall}
+                            </strong>
+                            {" \u00b7 "}{p.games} game{p.games===1?"":"s"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })();
+
+
                 byId["seasonCompare"] = (()=>{
                   const lgRow=(leagues||[]).find(l=>l&&(l.name===statsLeague||l===statsLeague));
                   const start=lgRow&&typeof lgRow==="object"?lgRow.startDate:"";
