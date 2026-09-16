@@ -5920,6 +5920,14 @@ export default function BowlingTracker(){
     {id:"home",    label:"Home",    icon:"🏠"},
     {id:"locker",  label:"Gear",    icon:"🎒"}, // internal id stays "locker" -- plumbing, not shown
     {id:"teams",   label:"Team",    icon:"👥"},
+    // Stats gets the bar back.
+    //
+    // It was reached from a card on Home, which is fine for a glance and
+    // wrong for the screen that holds everything the app knows about a
+    // bowler's game. Six tabs is one more than ideal, but a tab is 63px
+    // at 380px -- still above the touch minimum, and cheaper than burying
+    // the thing the whole product is for.
+    {id:"data",    label:"Stats",   icon:"📈"},
     {id:"insights",label:"Improve", icon:"🎯"},
     {id:"history", label:"History", icon:"📖"},
   ];
@@ -7097,6 +7105,8 @@ export default function BowlingTracker(){
               onOpenStats={()=>setView("data")}
 
               badgeCount={earnedBadgeCount}
+
+              today={localDateString()}
               onPickMode={env=>{
                 // Set the mode, then go straight to scoring.
                 //

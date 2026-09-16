@@ -1,6 +1,6 @@
 import journeyIcon from "../journey-icon.png";
 import { C, S, ActionRow } from "./ui.jsx";
-import { seasonFigures, journeyRecap } from "./domain/home.js";
+import { seasonFigures, journeyRecap, recentTournament } from "./domain/home.js";
 import { journeyMilestones } from "./domain/journey.js";
 
 
@@ -17,6 +17,7 @@ import { ENVIRONMENTS, ENVIRONMENT_ICONS, ENVIRONMENT_COLORS, ENVIRONMENT_LABELS
 export default function HomeView({
   sessions = [], shots = [], tournaments = [], bowler = "",
   leagues = [], onOpenJourney, onOpenStats, onPickMode, badgeCount = 0,
+  today = "",
 }) {
   const figures = seasonFigures(sessions, { bowler, leagues });
   const recap = journeyRecap(journeyMilestones(
@@ -197,6 +198,57 @@ export default function HomeView({
           compact
           onClick={() => onPickMode?.(env)} />
       ))}
+
+      {/* A recent tournament, at the foot of the screen.
+          
+          Tournament scores are kept out of the season figures above, so
+          without this a block bowled last weekend appeared nowhere on the
+          front page. It sits last because it is a look back, and the
+          modes above it are what you do next.
+          
+          It disappears after ten days: a tournament from two months ago
+          is history, and leaving it here turns the home screen into a
+          museum. */}
+      {(() => {
+        const t = recentTournament(tournaments, { bowler, today });
+        if (!t) return null;
+        return (
+          <div style={{ ...S.card, padding: "14px 16px", marginTop: "4px" }}>
+            <div style={{ fontSize: "12px", color: C.textMuted }}>Recent tournament</div>
+            <div style={{ fontSize: "16px", fontWeight: 500, color: C.text, marginTop: "2px" }}>
+              {t.name}
+            </div>
+            <div style={{ fontSize: "12px", color: C.textMuted, marginTop: "2px" }}>
+              {[t.center, t.date].filter(Boolean).join(" · ")}
+            </div>
+            {t.games ? (
+              <div style={{ display: "flex", gap: "10px", marginTop: "12px" }}>
+                <div style={{ flex: 1, minWidth: 0, textAlign: "center" }}>
+                  <div style={{ fontSize: "18px", fontWeight: 500 }}>{t.average}</div>
+                  <div style={{ fontSize: "11px", color: C.textMuted }}>average</div>
+                </div>
+                <div style={{ flex: 1, minWidth: 0, textAlign: "center" }}>
+                  <div style={{ fontSize: "18px", fontWeight: 500 }}>{t.best}</div>
+                  <div style={{ fontSize: "11px", color: C.textMuted }}>best</div>
+                </div>
+                <div style={{ flex: 1, minWidth: 0, textAlign: "center" }}>
+                  <div style={{ fontSize: "18px", fontWeight: 500 }}>{t.games}</div>
+                  <div style={{ fontSize: "11px", color: C.textMuted }}>games</div>
+                </div>
+              </div>
+            ) : null}
+            {/* Placement and cash only when there are any -- an empty
+                "finished —" line says less than nothing. */}
+            {(t.placement || t.winnings > 0) && (
+              <div style={{ fontSize: "13px", color: C.text, marginTop: "10px" }}>
+                {t.placement}
+                {t.placement && t.winnings > 0 ? " · " : ""}
+                {t.winnings > 0 ? `$${t.winnings}` : ""}
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </>
   );
 }

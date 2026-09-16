@@ -166,15 +166,29 @@ export default function ArsenalList({
   const sections = groupBalls(groupMode, shown, specsByBall, groups);
 
   const gearChips = (
-    <div style={{ ...S.chips, marginBottom: "10px" }}>
-      <Chip label={`Active \u00b7 ${active.length}`} selected={gearTab === "active"}
-        onToggle={() => setGearTab("active")} />
+    // The count moves out of the chip to the top right.
+    //
+    // "Active · 5" put a number inside a control, where it read as part
+    // of the label rather than a fact about the arsenal -- and it changed
+    // width as balls were added, nudging the Archive chip along with it.
+    // A chip should say what it selects; the count belongs to the card.
+    <div style={{ display: "flex", alignItems: "center",
+      justifyContent: "space-between", gap: "8px", marginBottom: "10px" }}>
+      <div style={{ ...S.chips, marginBottom: 0 }}>
+        <Chip label="Active" selected={gearTab === "active"}
+          onToggle={() => setGearTab("active")} />
       {/* Only once something is IN it. An empty Archive chip is a
           question the bowler has no reason to ask. */}
       {archived.length > 0 && (
-        <Chip label={`Archive \u00b7 ${archived.length}`} selected={gearTab === "archive"}
+        <Chip label="Archive" selected={gearTab === "archive"}
           onToggle={() => setGearTab("archive")} />
       )}
+      </div>
+      <span style={{ fontSize: "12px", color: C.textMuted, flexShrink: 0 }}>
+        {gearTab === "archive"
+          ? `${archived.length} archived`
+          : `${active.length} ball${active.length === 1 ? "" : "s"}`}
+      </span>
     </div>
   );
 
