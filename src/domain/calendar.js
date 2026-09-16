@@ -173,6 +173,7 @@ export function monthsWithSessions(sessions, bowler, league) {
 // Deliberately small: a cell is a few characters wide. The series total
 // is the one number that belongs in the box; everything else waits for
 // the bowler to tap it.
+
 export function nightSummary(session) {
   const s = (session && typeof session === "object") ? session : null;
   if (!s) return null;
@@ -196,6 +197,20 @@ export function nightSummary(session) {
     series: scores.reduce((a, b) => a + b, 0),
     high: Math.max(...scores),
     average: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length),
+    // The night's note and its shot totals, carried through.
+    //
+    // This returned scores and nothing else, so the calendar could show
+    // what you bowled but never what you wrote or how you bowled it --
+    // the session row holds both and they were being dropped here.
+    //
+    // Nulls rather than zeros: a night logged scores-only has no strike
+    // count, and 0 would read as "struck nothing".
+    notes: String(s.notes || "").trim(),
+    shotCount: num(s.shotCount),
+    strikes: num(s.strikes),
+    spareAttempts: num(s.spareAttempts),
+    sparesMade: num(s.sparesMade),
+    splits: num(s.splits),
   };
 }
 
