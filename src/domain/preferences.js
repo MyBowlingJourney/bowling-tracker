@@ -17,7 +17,7 @@ export const ENVIRONMENTS = ["practice", "league", "tournament", "casual"];
 // revRate and axisRotation are self-reported estimates -- a bowler has no
 // way to measure them without a sensor -- and are labelled as such in the
 // UI. Off everywhere by default; the bowlers who want them will find them.
-export const TRACKED_FIELD_KEYS = ["surface", "line", "release", "miss", "ballSpeed", "shoes", "revRate", "axisRotation"];
+export const TRACKED_FIELD_KEYS = ["surface", "line", "release", "miss", "ballSpeed", "shoes", "revRate", "axisRotation", "axisTilt"];
 
 // How much detail the person wants to log. "shot" is the full frame-by-frame
 // flow the app was built around; "game" is just final scores per game, for
@@ -222,19 +222,19 @@ export const MOVABLE_STATS_CARD_IDS = MOVABLE_STATS_CARDS.map(c => c.id);
 // convention that usually doesn't apply in tournament play.
 export const ENVIRONMENT_PRESETS = {
   practice: {
-    trackedFields: { surface: true, line: true, release: true, miss: true, ballSpeed: true, shoes: true, revRate: false, axisRotation: false },
+    trackedFields: { surface: true, line: true, release: true, miss: true, ballSpeed: true, shoes: true, revRate: false, axisRotation: false, axisTilt: false },
     showMoneyGames: false,
   },
   league: {
-    trackedFields: { surface: false, line: false, release: false, miss: false, ballSpeed: false, shoes: false, revRate: false, axisRotation: false },
+    trackedFields: { surface: false, line: false, release: false, miss: false, ballSpeed: false, shoes: false, revRate: false, axisRotation: false, axisTilt: false },
     showMoneyGames: true,
   },
   tournament: {
-    trackedFields: { surface: false, line: false, release: false, miss: false, ballSpeed: false, shoes: false, revRate: false, axisRotation: false },
+    trackedFields: { surface: false, line: false, release: false, miss: false, ballSpeed: false, shoes: false, revRate: false, axisRotation: false, axisTilt: false },
     showMoneyGames: false,
   },
   casual: {
-    trackedFields: { surface: false, line: false, release: false, miss: false, ballSpeed: false, shoes: false, revRate: false, axisRotation: false },
+    trackedFields: { surface: false, line: false, release: false, miss: false, ballSpeed: false, shoes: false, revRate: false, axisRotation: false, axisTilt: false },
     showMoneyGames: false,
   },
 };

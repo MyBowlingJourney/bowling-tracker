@@ -51,13 +51,13 @@ describe('defaultPreferences', () => {
 
   it('league starts with every accessory field off, money games shown', () => {
     const p = defaultPreferences('league');
-    expect(p.trackedFields).toEqual({ surface: false, line: false, release: false, miss: false, ballSpeed: false, shoes: false, revRate: false, axisRotation: false });
+    expect(p.trackedFields).toEqual({ surface: false, line: false, release: false, miss: false, ballSpeed: false, shoes: false, revRate: false, axisRotation: false, axisTilt: false });
     expect(p.showMoneyGames).toBe(true);
   });
 
   it('practice starts with every accessory field on, money games hidden', () => {
     const p = defaultPreferences('practice');
-    expect(p.trackedFields).toEqual({ surface: true, line: true, release: true, miss: true, ballSpeed: true, shoes: true, revRate: false, axisRotation: false });
+    expect(p.trackedFields).toEqual({ surface: true, line: true, release: true, miss: true, ballSpeed: true, shoes: true, revRate: false, axisRotation: false, axisTilt: false });
     expect(p.showMoneyGames).toBe(false);
   });
 
@@ -69,7 +69,7 @@ describe('defaultPreferences', () => {
     // turn it on. Money games are league side-pot conventions that don't
     // apply in tournament play.
     const p = defaultPreferences('tournament');
-    expect(p.trackedFields).toEqual({ surface: false, line: false, release: false, miss: false, ballSpeed: false, shoes: false, revRate: false, axisRotation: false });
+    expect(p.trackedFields).toEqual({ surface: false, line: false, release: false, miss: false, ballSpeed: false, shoes: false, revRate: false, axisRotation: false, axisTilt: false });
     expect(p.showMoneyGames).toBe(false);
   });
 
@@ -104,7 +104,7 @@ describe('defaultPreferences', () => {
 describe('normalizePreferences', () => {
   it('fills in missing tracked-field keys rather than dropping them', () => {
     const result = normalizePreferences({ environment: 'league', trackedFields: { surface: true } });
-    expect(result.trackedFields).toEqual({ surface: true, line: false, release: false, miss: false, ballSpeed: false, shoes: false, revRate: false, axisRotation: false });
+    expect(result.trackedFields).toEqual({ surface: true, line: false, release: false, miss: false, ballSpeed: false, shoes: false, revRate: false, axisRotation: false, axisTilt: false });
   });
 
   it('returns full defaults for null/undefined input', () => {
@@ -146,7 +146,7 @@ describe('setTrackedField / setShowMoneyGames', () => {
   it('setTrackedField only touches the one field named', () => {
     const p = defaultPreferences('league');
     const updated = setTrackedField(p, 'release', true);
-    expect(updated.trackedFields).toEqual({ surface: false, line: false, release: true, miss: false, ballSpeed: false, shoes: false, revRate: false, axisRotation: false });
+    expect(updated.trackedFields).toEqual({ surface: false, line: false, release: true, miss: false, ballSpeed: false, shoes: false, revRate: false, axisRotation: false, axisTilt: false });
   });
 
   it('setShowMoneyGames toggles independently of trackedFields', () => {
