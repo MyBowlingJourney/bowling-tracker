@@ -109,6 +109,59 @@ function buildStyles() { return {
 }; }
 Object.assign(S, buildStyles());
 
+// A tinted action row: coloured icon, label, chevron.
+//
+// The pattern that answers "what would you like to do?" without a
+// tutorial. Each destination carries a colour and an icon, so it becomes
+// recognisable before it is read -- a bowler learns the shape of "log a
+// game" in two sessions and stops reading the label at all.
+//
+// This is the fix for the discovery problem that tutorials could not
+// solve. Four modes behind identical text chips all look like the same
+// decision; four tinted rows look like four different things.
+//
+// One component rather than per-screen styling, so a row on the mode
+// picker and a row on a settings list cannot drift apart.
+export function ActionRow({icon,label,detail,color,onClick,disabled}){
+  const tint=color||C.accent;
+  return (
+    <button onClick={onClick} disabled={disabled}
+      style={{
+        width:"100%",display:"flex",alignItems:"center",gap:"12px",
+        // The tint is the row, not a border on it. A 10% wash of the
+        // icon's own colour ties the two together without a second
+        // colour to reconcile.
+        backgroundColor:tint+"14",
+        border:"none",borderRadius:"14px",
+        padding:"14px 16px",marginBottom:"10px",
+        textAlign:"left",cursor:disabled?"default":"pointer",
+        opacity:disabled?0.5:1,
+        fontFamily:F.body,WebkitTapHighlightColor:"transparent",
+      }}>
+      <span aria-hidden="true"
+        style={{
+          width:"38px",height:"38px",borderRadius:"11px",flexShrink:0,
+          backgroundColor:tint,color:C.onAccent,
+          display:"flex",alignItems:"center",justifyContent:"center",
+          fontSize:"18px",
+        }}>{icon}</span>
+      <span style={{flex:1,minWidth:0}}>
+        <span style={{display:"block",fontSize:"15px",fontWeight:500,color:C.text}}>
+          {label}
+        </span>
+        {detail&&(
+          <span style={{display:"block",fontSize:"12px",color:C.textMuted,marginTop:"1px"}}>
+            {detail}
+          </span>
+        )}
+      </span>
+      <span aria-hidden="true" style={{color:C.textMuted,fontSize:"17px",flexShrink:0}}>
+        {"\u203A"}
+      </span>
+    </button>
+  );
+}
+
 export function Chip({label,selected,onToggle,color,dense}){
   const style=dense?{...S.chip(selected,color),padding:"5px 9px"}:S.chip(selected,color);
   return <button style={style} onClick={onToggle}>{label}</button>;

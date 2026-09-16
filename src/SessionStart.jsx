@@ -1,9 +1,16 @@
 import { useState } from "react";
-import { C, S, Chip } from "./ui.jsx";
+import { C, S, Chip, ActionRow } from "./ui.jsx";
 import {
-  ENVIRONMENTS, ENVIRONMENT_LABELS, ENVIRONMENT_DESCRIPTIONS,
-  TRACKING_MODES, TRACKING_MODE_LABELS, TRACKING_MODE_DESCRIPTIONS,
-  applyEnvironment, setTrackingMode,
+  ENVIRONMENTS,
+  ENVIRONMENT_LABELS,
+  ENVIRONMENT_DESCRIPTIONS,
+  TRACKING_MODES,
+  TRACKING_MODE_LABELS,
+  TRACKING_MODE_DESCRIPTIONS,
+  applyEnvironment,
+  setTrackingMode,
+  ENVIRONMENT_ICONS,
+  ENVIRONMENT_COLORS,
 } from "./domain/preferences.js";
 
 
@@ -108,27 +115,34 @@ export default function SessionStart({ preferences, onApply, onDismiss, envChose
           : "Two quick questions and the app sets itself up for tonight."}
       </div>
 
-      <div style={S.label}>Mode</div>
-      <div style={S.chips}>
-        {ENVIRONMENTS.map(env => (
-          <Chip key={env} label={ENVIRONMENT_LABELS[env]}
-            selected={envChosen && preferences.environment === env}
-            onToggle={() => {
-              onApply(prev => applyEnvironment(prev, env));
-              // The chosen env is PASSED, not read back.
-              //
-              // onApply schedules a state change; React applies it on the
-              // next render, so preferences.environment is still the OLD
-              // value when this runs. The caller used it to pick which
-              // tour to start -- so switching from Open bowling to
-              // Practice started the Open bowling tour.
-              onEnvChosen(env);
-              // Just Bowling has no second question, so choosing it
-              // finishes the flow outright.
-              if (env === "casual") { if (collapsed) setOpen(false); else onDismiss(); }
-            }} />
-        ))}
-      </div>
+      <div style={S.label}>What are you doing today?</div>
+      {/* Tinted rows, not text chips.
+          
+          Four modes as identical chips all look like the same decision,
+          and 61 of 250 in the focus round picked the wrong one. A colour
+          and an icon each makes them four different things -- recognised
+          before they are read, which is what a bowler who will not watch
+          a tutorial needs. */}
+      {ENVIRONMENTS.map(env => (
+        <ActionRow key={env}
+          icon={ENVIRONMENT_ICONS[env]}
+          color={ENVIRONMENT_COLORS[env]}
+          label={ENVIRONMENT_LABELS[env]}
+          onClick={() => {
+            onApply(prev => applyEnvironment(prev, env));
+            // The chosen env is PASSED, not read back.
+            //
+            // onApply schedules a state change; React applies it on the
+            // next render, so preferences.environment is still the OLD
+            // value when this runs. The caller used it to pick which
+            // tour to start -- so switching from Open bowling to
+            // Practice started the Open bowling tour.
+            onEnvChosen(env);
+            // Just Bowling has no second question, so choosing it
+            // finishes the flow outright.
+            if (env === "casual") { if (collapsed) setOpen(false); else onDismiss(); }
+          }} />
+      ))}
 
       {/* Say it can be changed.
           
