@@ -1,4 +1,4 @@
-import { isPracticeLeagueName, isCasualLeagueName } from "../constants.js";
+import { isPracticeLeagueName, isCasualLeagueName, isTournamentLeagueName } from "../constants.js";
 
 // What the home screen says, before anyone taps anything.
 //
@@ -67,10 +67,16 @@ export function seasonFigures(sessions, opts) {
     //
     // Filtered HERE rather than by whatever list the caller passes,
     // because "season figures" means league figures whatever the caller
-    // believes. Tournaments stay: those are real competition.
+    // believes.
+    //
+    // Tournaments are excluded too, though they ARE real bowling. A
+    // tournament is a different discipline on a different pattern, and
+    // averaging a scratch block into a house-shot season produces a
+    // number that describes neither. They get their own card instead.
     const lg = clean(s.league);
     if (isPracticeLeagueName(lg) || lg === "Practice") return false;
     if (isCasualLeagueName(lg)) return false;
+    if (isTournamentLeagueName(lg) || lg === "Tournament") return false;
     if (Array.isArray(leagues) && leagues.length
       && !leagues.map(clean).includes(clean(s.league))) return false;
     if (since && clean(s.date) < clean(since)) return false;
@@ -108,4 +114,65 @@ export function journeyRecap(milestones) {
   const latest = earned.reduce((best, m) =>
     (!best || clean(m.date) > clean(best.date)) ? m : best, null);
   return { label: latest.label, date: latest.date, total: earned.length };
+}
+
+// The most recent tournament, if it was recent enough to still matter.
+//
+// Tournament scores are kept out of the season figures -- a scratch block
+// on a different pattern is a different discipline, and averaging it into
+// a house-shot season describes neither. But a block bowled last weekend
+// is the thing a bowler most wants to see, so it gets its own card.
+//
+// Ten days, then it goes. A tournament from two months ago is history and
+// belongs in History; leaving it on the front page makes the home screen
+// a museum.
+export const TOURNAMENT_CARD_DAYS = 10;
+
+export function recentTournament(tournaments, { bowler, today, withinDays } = {}) {
+  const who = clean(bowler);
+  const limit = Number.isFinite(Number(withinDays)) ? Number(withinDays) : TOURNAMENT_CARD_DAYS;
+  const now = clean(today);
+
+  const mine = rows(tournaments).filter(t =>
+    clean(t.name) && (!who || clean(t.bowler) === who));
+  if (!mine.length) return null;
+
+  // A tournament's date is the last day it was bowled: a two-day event
+  // that finished yesterday is recent even though it started before the
+  // window.
+  const dated = mine.map(t => {
+    const days = Array.isArray(t.days) ? t.days : [];
+    const dates = days.map(d => clean(d && d.date)).filter(Boolean).sort();
+    const games = days.flatMap(d => (Array.isArray(d && d.games) ? d.games : []))
+      .map(g => Number(g && g.score !== undefined ? g.score : g))
+      .filter(v => Number.isFinite(v) && v > 0);
+    return { t, last: dates.length ? dates[dates.length - 1] : "", games };
+  }).filter(x => x.last);
+  if (!dated.length) return null;
+
+  dated.sort((a, b) => (a.last < b.last ? 1 : -1));
+  const best = dated[0];
+
+  if (now) {
+    const diff = Math.round(
+      (Date.parse(`${now}T00:00:00`) - Date.parse(`${best.last}T00:00:00`)) / 86400000);
+    // Future-dated events stay visible: an entry for next weekend is
+    // something a bowler wants to see, not something to hide.
+    if (Number.isFinite(diff) && diff > limit) return null;
+  }
+
+  const total = best.games.reduce((a, b) => a + b, 0);
+  return {
+    name: clean(best.t.name),
+    center: clean(best.t.center),
+    date: best.last,
+    games: best.games.length,
+    total: best.games.length ? total : null,
+    average: best.games.length
+      ? Math.round((total / best.games.length) * 10) / 10
+      : null,
+    best: best.games.length ? Math.max(...best.games) : null,
+    placement: clean(best.t.placement),
+    winnings: Number(best.t.winnings) || 0,
+  };
 }
