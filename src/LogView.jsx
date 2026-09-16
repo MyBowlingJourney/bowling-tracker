@@ -1743,9 +1743,21 @@ export default function LogView({
 
               {isStrike&&(
                 <>
-                  <div style={S.divider}/>
-                  <div style={S.label}>Strike Description</div>
-                  <div style={S.chips}>
+                  {/* No divider. It drew a line across the card between
+                      the result and what follows, which read as the end
+                      of the card rather than a change of subject inside
+                      it -- the spacing already does that job. */}
+                  <div style={{...S.label,marginBottom:"8px"}}>Strike Description</div>
+                  {/* Eight options, two rows of four.
+                      
+                      S.chips wraps on content width, so these ran to
+                      three ragged rows. A four-column grid makes it two
+                      even ones, and the cells match the Result row above
+                      so the two read as the same kind of choice. Each is
+                      81px at 380px, above the touch minimum. */}
+                  <div style={{display:"grid",
+                    gridTemplateColumns:"repeat(4, minmax(0, 1fr))",
+                    gap:"6px",marginBottom:"12px"}}>
                     {strikeDescriptionsForHand(activeBowlerLeftHanded).map(label=>(
                       <Chip key={label} label={label}
                         selected={storedStrikeDescriptionFor(label)===form.strikeDescription}
@@ -2506,34 +2518,46 @@ export default function LogView({
             {/* Ball Speed — an accessory field like the others: on by
                 default in Practice (where comparing speed against outcomes
                 is the point), off elsewhere, but opt-in either way. */}
-            {preferences.trackedFields.ballSpeed&&(
-              <div style={S.card}>
-                <div style={S.label}>Ball Speed</div>
-                <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
-                  <input style={{...S.input,flex:1}} placeholder="mph" type="number" step="0.1" inputMode="decimal"
-                    value={form.ballSpeed} onChange={e=>set("ballSpeed",e.target.value)}/>
-                  <span style={{fontSize:"13px",color:C.textMuted}}>mph</span>
-                </div>
-              </div>
-            )}
 
             {/* Rev rate and axis rotation are self-reported estimates -- there's
                 no way to measure them without a sensor -- so they're labelled
                 as such rather than presented as data. Off by default. */}
-            {(preferences.trackedFields.revRate||preferences.trackedFields.axisRotation)&&(
+            {/* Release Measurements -- speed, revs, rotation and tilt.
+                
+                Ball speed was its own card directly above this one, which
+                split four numbers describing the same delivery across two
+                cards for no reason.
+                
+                "Measurements" rather than "Estimates": a bowler with a
+                ball-tracking system has real figures, and calling their
+                data an estimate is wrong. The old subtitle told everyone
+                these cannot be measured without a sensor, which is both
+                untrue for those bowlers and unhelpful for the rest. */}
+            {(preferences.trackedFields.ballSpeed||preferences.trackedFields.revRate
+              ||preferences.trackedFields.axisRotation||preferences.trackedFields.axisTilt)&&(
               <div style={S.card}>
-                <div style={S.label}>Release Estimates</div>
-                <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"8px"}}>
-                  Your best guess — these can't be measured without a sensor.
-                </div>
-                <div style={S.row}>
+                <div style={S.label}>Release Measurements</div>
+                <div style={{display:"grid",
+                  gridTemplateColumns:"repeat(2, minmax(0, 1fr))",gap:"8px"}}>
+                  {preferences.trackedFields.ballSpeed&&(
+                    <input style={{...S.input,width:"100%"}} placeholder="Speed (mph)"
+                      type="number" step="0.1" inputMode="decimal"
+                      value={form.ballSpeed} onChange={e=>set("ballSpeed",e.target.value)}/>
+                  )}
                   {preferences.trackedFields.revRate&&(
-                    <input style={{...S.input,flex:1}} placeholder="Rev rate (rpm)" type="number" inputMode="numeric"
+                    <input style={{...S.input,width:"100%"}} placeholder="Rev rate (rpm)"
+                      type="number" inputMode="numeric"
                       value={form.revRate} onChange={e=>set("revRate",e.target.value)}/>
                   )}
                   {preferences.trackedFields.axisRotation&&(
-                    <input style={{...S.input,flex:1}} placeholder="Axis rotation (°)" type="number" inputMode="numeric"
+                    <input style={{...S.input,width:"100%"}} placeholder="Axis rotation (°)"
+                      type="number" inputMode="numeric"
                       value={form.axisRotation} onChange={e=>set("axisRotation",e.target.value)}/>
+                  )}
+                  {preferences.trackedFields.axisTilt&&(
+                    <input style={{...S.input,width:"100%"}} placeholder="Axis tilt (°)"
+                      type="number" inputMode="numeric"
+                      value={form.axisTilt} onChange={e=>set("axisTilt",e.target.value)}/>
                   )}
                 </div>
               </div>
@@ -2544,7 +2568,11 @@ export default function LogView({
               <CollapsibleCard
                 title={preferences.trackedFields.release&&preferences.trackedFields.miss?"Release & Miss":preferences.trackedFields.release?"Release":"Miss"}
                 summary={[preferences.trackedFields.release?form.release:"",preferences.trackedFields.miss&&form.miss.length?`${form.miss.length} miss`:""].filter(Boolean).join(", ")}
-                expanded={editingId?true:expandedSections.releaseMiss}
+                // Open by default. Release and miss are two dropdowns now, not two
+                // stacks of chips -- the card costs one row collapsed and three
+                // open, and collapsing a field a bowler fills every shot just
+                // adds a tap.
+                expanded={editingId?true:(expandedSections.releaseMiss!==false)}
                 onToggle={()=>toggleSection("releaseMiss")}>
                 {/* Release and miss, side by side.
                     

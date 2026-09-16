@@ -40,9 +40,20 @@ export default function DrillSession({ drill, onChange, onSave, saved, balls, dr
         <select style={{ ...S.sel, width: "100%" }}
           value={drill.target || ""}
           onChange={e => onChange({ ...drill, target: e.target.value, made: 0, missed: 0 })}>
-          {DRILL_TARGETS.map(t => (
-            <option key={t.id} value={t.id}>{targetShortLabel(t.id, leftHanded)}</option>
-          ))}
+          {DRILL_TARGETS.map(t => {
+            // "10" alone is a number; "10 pin" is a target.
+            //
+            // The short label is deliberately bare because it also fills
+            // tight chips elsewhere, where the extra word does not fit.
+            // A dropdown row has the space, and reading "7" in a list
+            // next to "Pocket" and "3-6-10" gives no clue what it is.
+            //
+            // Only the purely numeric ones: "3-6-10 pin" and "Pocket
+            // pin" would both be wrong.
+            const short = targetShortLabel(t.id, leftHanded);
+            const label = /^\d+$/.test(short) ? `${short} pin` : short;
+            return <option key={t.id} value={t.id}>{label}</option>;
+          })}
         </select>
         {drill.target === "custom" && (
           <>
