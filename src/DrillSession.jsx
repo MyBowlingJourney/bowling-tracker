@@ -39,7 +39,16 @@ export default function DrillSession({ drill, onChange, onSave, saved, balls, dr
             One target at a time, so this was always a select. */}
         <select style={{ ...S.sel, width: "100%" }}
           value={drill.target || ""}
-          onChange={e => onChange({ ...drill, target: e.target.value, made: 0, missed: 0 })}>
+          onChange={e => onChange({
+            ...drill,
+            target: e.target.value,
+            // Counts and notes both belong to the target you were working
+            // on. Carrying "ball was coming in light" onto the 2-4-5 after
+            // twenty 10-pins files an observation against a drill it was
+            // never about -- and the counts already reset for exactly this
+            // reason. Notes are per drill, like the made and missed.
+            made: 0, missed: 0, notes: "",
+          })}>
           {DRILL_TARGETS.map(t => {
             // "10" alone is a number; "10 pin" is a target.
             //
@@ -140,7 +149,7 @@ export default function DrillSession({ drill, onChange, onSave, saved, balls, dr
 
       <div style={S.card}>
         <textarea style={{ ...S.input, minHeight: "50px", resize: "vertical" }}
-          placeholder="Notes — what worked, what to try next time…"
+          placeholder="Shot notes — what worked on this drill…"
           value={drill.notes} onChange={e => onChange({ ...drill, notes: e.target.value })} />
       </div>
 

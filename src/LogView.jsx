@@ -2097,7 +2097,16 @@ export default function LogView({
             {/* Renders for Results AND Side games: the money card lives
                 inside this block alongside the recap, and each child below
                 is gated to the tab it belongs on. */}
-            {(onTab("results")||onTab("side"))&&!editingId&&preferences.environment!=="casual"&&curSession&&(()=>{
+            {/* Not in practice.
+                
+                This card is league framing: running averages across your
+                leagues, series, money games, "Share tonight". A practice
+                night has no league average to move and nothing to share
+                as a result, and the practice summary below already says
+                what the night was. */}
+            {(onTab("results")||onTab("side"))&&!editingId
+              &&preferences.environment!=="casual"&&preferences.environment!=="practice"
+              &&curSession&&(()=>{
               const cs=curSession;
               const sr=cs.shotCount?Math.round((cs.strikes/cs.shotCount)*100):0;
               const spr=cs.spareAttempts?Math.round((cs.sparesMade/cs.spareAttempts)*100):0;
@@ -2836,9 +2845,6 @@ export default function LogView({
               It carried !editingId while the bar now shows when editing,
               so the bar would have covered the bottom of the form -- the
               same class of bug as the one above, one element over. */}
-          {(editingId||(activeBowler&&effectiveSessionLeague))&&(
-            <div style={{height:env==="tournament"?"76px":`${footerHeight}px`}}/>
-          )}
           </>
           {/* The sticky bar is the SESSION button now, in every mode.
               
@@ -2875,30 +2881,20 @@ export default function LogView({
                   Nothing logged yet tonight. Shoot a game or run a drill and it lands here.
                 </div>
               );
+              // Drills are all this card reports now, so a games-only
+              // night has nothing to put in it -- and an empty card reads
+              // as something that failed to load.
+              if(!ps.didDrills) return null;
               return (
                 <div style={S.card}>
-                  {ps.didGames&&(
-                    <>
-                      <div style={S.label}>Games</div>
-                      <div style={{display:"flex",gap:"6px",marginBottom:"4px"}}>
-                        <div style={S.statBox}>
-                          <div style={{fontSize:"18px",fontWeight:500}}>{ps.games.average}</div>
-                          <div style={{fontSize:"11px",color:C.textMuted}}>average</div>
-                        </div>
-                        <div style={S.statBox}>
-                          <div style={{fontSize:"18px",fontWeight:500}}>{ps.games.best}</div>
-                          <div style={{fontSize:"11px",color:C.textMuted}}>best</div>
-                        </div>
-                        <div style={S.statBox}>
-                          <div style={{fontSize:"18px",fontWeight:500}}>{ps.games.total}</div>
-                          <div style={{fontSize:"11px",color:C.textMuted}}>total</div>
-                        </div>
-                      </div>
-                      <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"12px"}}>
-                        {ps.games.games.join(" · ")}
-                      </div>
-                    </>
-                  )}
+                  {/* The Games block is gone.
+                      
+                      Average, best and total restated the scores that are
+                      already in Enter Game Scores a card above -- the same
+                      numbers twice on one screen, which invites a bowler to
+                      check whether they agree.
+                      
+                      Drills stay: nothing else on this tab reports them. */}
                   {ps.didDrills&&(
                     <>
                       <div style={S.label}>Drills</div>
@@ -2933,14 +2929,23 @@ export default function LogView({
                 belongs -- after the numbers it is about.*/}
             {onTab("results")&&(
             <CollapsibleCard
-              title="Notes"
+              title="Session Notes"
               summary={form.notes?"✓":""}
               expanded={editingId?true:expandedSections.notes}
               onToggle={()=>toggleSection("notes")}>
               <textarea style={{...S.input,minHeight:"60px",resize:"vertical"}}
-                placeholder="Optional notes..." value={form.notes} onChange={e=>set("notes",e.target.value)}/>
+                placeholder="How the night went, what to try next time…" value={form.notes} onChange={e=>set("notes",e.target.value)}/>
             </CollapsibleCard>
             )}
+            {/* The spacer goes LAST, after every card.
+                
+                It sat inside the shot-form fragment, so anything rendered
+                after that fragment -- the practice summary, Session Notes
+                -- had nothing between it and the sticky bar and got cut
+                off at the bottom. A spacer only clears what precedes it. */}
+          {(editingId||(activeBowler&&effectiveSessionLeague))&&(
+            <div style={{height:env==="tournament"?"76px":`${footerHeight}px`}}/>
+          )}
 
           {/* The bar shows while EDITING too.
               

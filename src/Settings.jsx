@@ -3,6 +3,7 @@ import { C, S, Chip, CollapsibleCard } from "./ui.jsx";
 import { THEMES, DARK_THEME_IDS, LIGHT_THEME_IDS } from "./domain/themes.js";
 import { useAuth } from "./AuthProvider.jsx";
 import CalendarView from "./CalendarView.jsx";
+import JournalView from "./JournalView.jsx";
 import { LEAGUE_FORMATS, leagueFormat, isNoTapLeague } from "./domain/leagueSeasons.js";
 import { availableTours } from "./domain/tour.js";
 import SessionHistory from "./SessionHistory.jsx";
@@ -212,6 +213,12 @@ export default function Settings({
               <Chip label="Sessions" selected={historyTab === "sessions"} onToggle={() => setHistoryTab("sessions")} />
               <Chip label="Season" selected={historyTab === "season"} onToggle={() => setHistoryTab("season")} />
               <Chip label="Calendar" selected={historyTab === "calendar"} onToggle={() => setHistoryTab("calendar")} />
+              {/* The journal sits beside the calendar because they
+                  answer the same question from opposite ends: the
+                  calendar is when you bowled, the journal is what you
+                  said about it. */}
+              <Chip label="Journal" selected={historyTab === "journal"}
+                onToggle={() => setHistoryTab("journal")} />
 
             </div>
           </div>
@@ -236,6 +243,13 @@ export default function Settings({
               onDeleteNight={deleteNight ? n => deleteNight(statsBowler || activeBowler, n.league, n.date) : undefined}
               bowler={statsBowler || activeBowler}
               league="" />
+          )}
+          {historyTab === "journal" && (
+            <JournalView
+              sessions={sessions || []}
+              shots={shots || []}
+              drills={drills || []}
+              bowler={statsBowler || activeBowler} />
           )}
           {historyTab === "sessions" && (
             <SessionHistory
