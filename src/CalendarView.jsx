@@ -246,6 +246,21 @@ export default function CalendarView({
           <div style={{ fontSize: "11px", color: C.textMuted }}>
             {night.series} series · {night.average} average · {night.high} high
           </div>
+          {/* How the night was bowled, when the frames were logged.
+              
+              The calendar showed what you scored and nothing about how --
+              which is the part worth looking back at. A scores-only night
+              has no strike count, so this appears only when there is one
+              rather than printing zeros. */}
+          {night.strikes != null && night.shotCount ? (
+            <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "2px" }}>
+              {Math.round((night.strikes / night.shotCount) * 100)}% strikes
+              {night.spareAttempts
+                ? ` · ${Math.round((night.sparesMade / night.spareAttempts) * 100)}% spares`
+                : ""}
+              {night.splits ? ` · ${night.splits} split${night.splits === 1 ? "" : "s"}` : ""}
+            </div>
+          ) : null}
           {/* What you wrote that night.
               
               Notes ride on shots -- the box saves with each delivery --

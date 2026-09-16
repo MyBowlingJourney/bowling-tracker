@@ -4436,10 +4436,22 @@ export default function BowlingTracker(){
     }
     // Scroll to the top, or the results open below the fold and it still
     // looks as though nothing happened.
-    try{window.scrollTo({top:0,behavior:"smooth"});}catch{}
-
     setSessionSaved(true);
-    setTimeout(()=>setSessionSaved(false),1500);
+    // Back to Home once the night is filed.
+    //
+    // The tabs above are still set, so returning to Bowl later lands on
+    // Results -- but the night is over, and leaving a bowler on the
+    // scoring screen invites them to keep logging into a session they
+    // just ended.
+    //
+    // After the confirmation, not instead of it: the button says
+    // "Session Saved" for a moment first, so the screen changing is the
+    // consequence of something they saw work rather than a jump.
+    setTimeout(()=>{
+      setSessionSaved(false);
+      setView("home");
+      try{window.scrollTo({top:0,behavior:"smooth"});}catch{}
+    },1500);
   }
 
   // Updates one game's poker winnings on an already-saved session. Local
@@ -5127,7 +5139,18 @@ export default function BowlingTracker(){
   // Reads SHOTS rather than a session row: a row is only written by
   // "End session", so waiting for one would mean Home never took over
   // during the night it is meant to cover.
-  const nightLive=sessionIsLive(shots,{bowler:nightBowler,league:nightLeague,date:nightDate});
+  // A night is live until it is ENDED, not merely until it has shots.
+  //
+  // sessionIsLive reads shots, and ending a session does not delete them
+  // -- so Home would have gone back to the scoring screen the moment the
+  // bowler returned to it, on a night they had just filed.
+  //
+  // A saved session row is the record that the night is finished, which
+  // is exactly the signal "End session" writes.
+  const nightEnded=(sessions||[]).some(x=>x&&x.bowler===nightBowler
+    &&x.league===nightLeague&&x.date===nightDate);
+  const nightLive=!nightEnded
+    &&sessionIsLive(shots,{bowler:nightBowler,league:nightLeague,date:nightDate});
 
   // Load the note belonging to the night being viewed.
   //
