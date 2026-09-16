@@ -26,7 +26,6 @@ import { tenthBall3Earned, maxPossibleScore } from "./domain/scoring.js";
 import { isBaker, bakerBowlerFor } from "./domain/tournamentFormats.js";
 
 import { practiceSummary } from "./domain/practiceSummary.js";
-import { targetLabel } from "./domain/drills.js";
 export default function LogView({
   // The night's own note, owned by BowlingTracker so it can be saved with
   // the session. It used to write form.notes -- the shot form -- so a
@@ -2899,7 +2898,10 @@ export default function LogView({
               // Drills are all this card reports now, so a games-only
               // night has nothing to put in it -- and an empty card reads
               // as something that failed to load.
-              if(!ps.didDrills) return null;
+              // Games are all this card reports now, so a drill-only
+              // night has nothing to put in it -- Drill Recap above
+              // covers that night in full.
+              if(!ps.didGames) return null;
               return (
                 <div style={S.card}>
                   {/* The Games block is gone.
@@ -2910,28 +2912,34 @@ export default function LogView({
                       check whether they agree.
                       
                       Drills stay: nothing else on this tab reports them. */}
-                  {ps.didDrills&&(
+                  {/* Games, not drills.
+                      
+                      Drill Recap above already lists every target with its
+                      made-of-attempts and the overall line -- this card
+                      repeated all of it a few hundred pixels lower.
+                      
+                      The games summary has no such twin: Enter Game Scores
+                      holds the raw numbers, and this is what they add up
+                      to. */}
+                  {ps.didGames&&(
                     <>
-                      <div style={S.label}>Drills</div>
-                      {ps.targets.map(t=>(
-                        <div key={t.target}
-                          style={{display:"flex",justifyContent:"space-between",
-                            alignItems:"baseline",marginBottom:"6px"}}>
-                          <span style={{fontSize:"14px"}}>{targetLabel(t.target)}</span>
-                          <span style={{fontSize:"13px",color:C.textMuted}}>
-                            {t.made}/{t.attempts} {"·"} {t.rate}%
-                          </span>
+                      <div style={S.label}>Games</div>
+                      <div style={{display:"flex",gap:"6px",marginBottom:"4px"}}>
+                        <div style={S.statBox}>
+                          <div style={{fontSize:"18px",fontWeight:500}}>{ps.games.average}</div>
+                          <div style={{fontSize:"11px",color:C.textMuted}}>average</div>
                         </div>
-                      ))}
-                      <div style={{fontSize:"12px",color:C.textMuted,marginTop:"6px"}}>
-                        {/* "18 of 25 across 2 drills", not "25 attempts".
-                            
-                            The old line gave a total and a percentage with no
-                            made count, so a bowler could not see what the rate
-                            was built from -- and "targets" is the internal word
-                            for a drill, which nobody says at the lanes. */}
-                        {ps.drillMade} of {ps.drillAttempts} across {ps.targets.length}{" "}
-                        drill{ps.targets.length===1?"":"s"} {"·"} {ps.drillRate}%
+                        <div style={S.statBox}>
+                          <div style={{fontSize:"18px",fontWeight:500}}>{ps.games.best}</div>
+                          <div style={{fontSize:"11px",color:C.textMuted}}>best</div>
+                        </div>
+                        <div style={S.statBox}>
+                          <div style={{fontSize:"18px",fontWeight:500}}>{ps.games.total}</div>
+                          <div style={{fontSize:"11px",color:C.textMuted}}>series</div>
+                        </div>
+                      </div>
+                      <div style={{fontSize:"12px",color:C.textMuted}}>
+                        {ps.games.games.join(" · ")}
                       </div>
                     </>
                   )}
