@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { C, S } from "./ui.jsx";
+import { C, S, ActionRow } from "./ui.jsx";
 import {
   journeyMilestones,
   journeyProgress,
@@ -30,7 +30,7 @@ const STEP = 104;          // vertical gap between milestones
 const TOP_PAD = 52;
 const BOTTOM_PAD = 44;
 
-export default function JourneyView({ sessions = [], tournaments = [], bowler = "", shots = []}) {
+export default function JourneyView({ onOpenBadges, sessions = [], tournaments = [], bowler = "", shots = []}) {
   const mine = (Array.isArray(sessions) ? sessions : [])
     .filter(s => s && (!bowler || s.bowler === bowler));
   const myShots = (Array.isArray(shots) ? shots : [])
@@ -167,6 +167,25 @@ export default function JourneyView({ sessions = [], tournaments = [], bowler = 
           </div>
         );
       })}
+      {onOpenBadges && (
+        <div style={{ marginTop: "12px" }}>
+          {/* Badges live at the foot of the road.
+              
+              They lost their tab in the five-tab nav and had nowhere to
+              go -- but they were never a separate subject: a badge and a
+              milestone are both a record of something earned. The
+              difference is only that milestones are dated points on a
+              line and badges are a collection.
+              
+              So Journey holds both, and this is the way through. */}
+          <ActionRow
+            icon={"\u{1F3C5}"}
+            color={C.spare}
+            label="Badges"
+            detail="What you've collected along the way"
+            onClick={onOpenBadges} />
+        </div>
+      )}
     </div>
   );
 }

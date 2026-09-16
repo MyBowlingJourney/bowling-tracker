@@ -98,15 +98,26 @@ export default function HomeView({
         }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <span style={{ display: "flex", alignItems: "center", gap: "7px" }}>
-            {/* A road. The app is called My Bowling Journey and the card
-                had no mark of its own -- the one place a symbol earns
-                its space rather than decorating. */}
-            <span aria-hidden="true" style={{
-              width: "24px", height: "24px", borderRadius: "8px", flexShrink: 0,
-              backgroundColor: C.accent, color: C.onAccent,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: "13px",
-            }}>{"\u{1F6E4}"}</span>
+            {/* The app's own logo.
+                
+                Points at journey-icon.png, NOT icon.svg -- that one is
+                still the old Vault mark, so using it would put the
+                previous brand on the card carrying the new name.
+                
+                Hides itself if the file is not there yet rather than
+                showing a broken-image glyph, so this is safe to ship
+                before the asset lands. The label beside it carries the
+                meaning either way.
+                
+                No alt text: the label already says "My journey", and a
+                screen reader announcing the logo twice is noise. */}
+            <img src={`${(import.meta.env && import.meta.env.BASE_URL) || "./"}journey-icon.png`}
+              alt="" aria-hidden="true"
+              onError={e => { e.currentTarget.style.display = "none"; }}
+              style={{
+                width: "26px", height: "26px", borderRadius: "7px",
+                flexShrink: 0, display: "block",
+              }} />
             <span style={{ fontSize: "12px", color: C.accent, letterSpacing: "0.02em" }}>
               My journey
             </span>

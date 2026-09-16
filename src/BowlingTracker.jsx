@@ -5740,15 +5740,19 @@ export default function BowlingTracker(){
 
   const casualMode=preferences.environment==="casual";
   const navTabs=casualMode?[
-    // Badges first, Bowl in the middle, Standings last.
+    // Home first, so open bowling is never a dead end.
     //
-    // Bowl is the thing you reach for mid-game, and the middle of a
-    // bottom bar is the easiest place to hit one-handed while holding a
-    // ball. Badges lead because they are the reason to open the app on a
-    // day you are not bowling.
-    {id:"social", label:"Standings", icon:"📊"},
-    {id:"log",    label:"Bowl",    icon:"🎳"},
-    {id:"badges", label:"Badges",  icon:"🏅"},
+    // Casual had Standings, Bowl and Badges and no way back to Home --
+    // switching into open bowling stranded you there, because the mode is
+    // changed FROM Home and there was nothing to return to. A mode you
+    // can enter and not leave is a trap, not a mode.
+    //
+    // Bowl stays in the middle: it is the thing you reach for mid-game,
+    // and the middle of a bottom bar is the easiest place to hit
+    // one-handed while holding a ball.
+    {id:"home",   label:"Home",     icon:"\u{1F3E0}"},
+    {id:"log",    label:"Bowl",     icon:"\u{1F3B3}"},
+    {id:"social", label:"Standings",icon:"\u{1F4CA}"},
   ]:[
     // HOME first, and Home becomes the night while one is live.
     //
@@ -6820,7 +6824,8 @@ export default function BowlingTracker(){
           <Suspense fallback={null}>
             <JourneyScreen
               sessions={sessions} shots={shots} tournaments={tournaments}
-              bowler={displayName||activeBowler} />
+              bowler={displayName||activeBowler}
+              onOpenBadges={()=>setView("badges")} />
           </Suspense>
         )}
 
