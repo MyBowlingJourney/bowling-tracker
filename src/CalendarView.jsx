@@ -257,9 +257,16 @@ export default function CalendarView({
               Only rendered when there are any: an empty notes heading on
               every night is noise on the nights you wrote nothing. */}
           {(() => {
-            const notes = nightNotes(shots, {
+            // The night's own note leads, then the shot notes.
+            //
+            // A session note is about the whole night and a shot note about
+            // one delivery, so the summary reads top-down the way the night
+            // happened rather than mixing the two.
+            const sessionNote = String(night.notes || "").trim();
+            const shotNotes = nightNotes(shots, {
               bowler, league: night.league, date: night.date,
             });
+            const notes = sessionNote ? [sessionNote, ...shotNotes] : shotNotes;
             if (!notes.length) return null;
             return (
               <div style={{

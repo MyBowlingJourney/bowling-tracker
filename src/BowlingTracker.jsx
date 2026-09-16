@@ -826,6 +826,14 @@ export default function BowlingTracker(){
   // it has ever been seen at all. Defaults keep it hidden until the load
   // effect has actually read storage, so it can't flash on startup.
   const[sessionStartDismissedDate,setSessionStartDismissedDate]=useState(localDateString());
+
+  // The night's own note, kept on the SESSION.
+  //
+  // It used to write form.notes -- the shot form -- so a note typed on the
+  // Results tab saved only if the bowler happened to throw another ball
+  // afterwards, which on that tab they will not. It read as saved and
+  // vanished.
+  const[sessionNotes,setSessionNotes]=useState("");
   const[sessionStartSeen,setSessionStartSeen]=useState(true);
   // Has the "where" question been answered in THIS prompt? Drives the
   // staged reveal -- the tracking question only appears afterwards.
@@ -4364,7 +4372,15 @@ export default function BowlingTracker(){
     // immediately -- meaning neither environment could ever end a
     // session or produce a summary, however the button was wired.
     if(!effectiveSessionLeague||!activeBowler)return;
-    const scores=[1,2,3].map(g=>getGameStrict(nightBowler,nightLeague,nightDate,g)).filter(s=>s!=null);
+    // Every game bowled, not the first three.
+    //
+    // [1,2,3] is a league assumption, and it was silently dropping games
+    // four and five from a tournament block or a long practice -- the
+    // shots were saved, but the session that summarises them stopped at
+    // three, so the series and average were wrong for those nights.
+    //
+    // gameScores is already sized to the night.
+    const scores=gameScores.map((_,idx)=>idx+1).map(g=>getGameStrict(nightBowler,nightLeague,nightDate,g)).filter(s=>s!=null);
     if(!scores.length){
       // Previously silently did nothing here — no feedback at all, even
       // though this is a common, valid state (e.g. only the match points
@@ -4382,6 +4398,7 @@ export default function BowlingTracker(){
     const existing=sessions.find(s=>s.bowler===activeBowler&&s.league===effectiveSessionLeague&&s.date===sessionDate);
     const session={
       id:existing?existing.id:crypto.randomUUID(),bowler:activeBowler,teamId:ss[0]?.teamId||"",league:effectiveSessionLeague,date:sessionDate,scores,
+      notes:sessionNotes||existing?.notes||"",
       total:scores.reduce((a,b)=>a+b,0),
       average:Math.round(scores.reduce((a,b)=>a+b,0)/scores.length),
       pokerQuarter:existing?.pokerQuarter||[0,0,0],
@@ -5111,6 +5128,27 @@ export default function BowlingTracker(){
   // "End session", so waiting for one would mean Home never took over
   // during the night it is meant to cover.
   const nightLive=sessionIsLive(shots,{bowler:nightBowler,league:nightLeague,date:nightDate});
+
+  // Load the note belonging to the night being viewed.
+  //
+  // Without this, opening a night that already has a note shows an empty
+  // box -- and then saving writes that empty over what was there. Keyed
+  // on the night, not on every render, so typing is not overwritten
+  // mid-word.
+  const loadedNoteFor=useRef("");
+  useEffect(()=>{
+    const key=`${nightBowler}|${nightLeague}|${nightDate}`;
+    // Only when the NIGHT changes, not whenever sessions change.
+    //
+    // sessions is rewritten by every background sync, so depending on it
+    // meant a sync landing mid-sentence replaced what the bowler was
+    // typing with the stored value.
+    if(loadedNoteFor.current===key)return;
+    loadedNoteFor.current=key;
+    const row=(sessions||[]).find(x=>x&&x.bowler===nightBowler
+      &&x.league===nightLeague&&x.date===nightDate);
+    setSessionNotes(row?.notes||"");
+  },[nightBowler,nightLeague,nightDate,sessions]);
 
   const curSession=(()=>{
     const saved=[...sessions].reverse().find(s=>s.bowler===nightBowler
@@ -7022,6 +7060,7 @@ export default function BowlingTracker(){
         {(view==="log"||(view==="home"&&nightLive))&&(
           <LogView
             profiles={profiles}
+            sessionNotes={sessionNotes} setSessionNotes={setSessionNotes}
             shots={shots} sessions={sessions} bowlers={bowlers} footerHeight={footerHeight} footerRef={footerRef} teams={teams} leagues={activeLeagues} startEdit={startEdit} deleteShot={deleteShot}
             activeBowler={activeBowler} newBowlerName={newBowlerName} setNewBowlerName={setNewBowlerName} arsenals={arsenals} newBallName={newBallName} setNewBallName={setNewBallName}
             form={form} setForm={setForm} editingId={editingId} saved={saved} sessionSaved={sessionSaved} sessionSaveMessage={sessionSaveMessage}

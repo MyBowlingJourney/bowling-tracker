@@ -28,6 +28,10 @@ import { isBaker, bakerBowlerFor } from "./domain/tournamentFormats.js";
 import { practiceSummary } from "./domain/practiceSummary.js";
 import { targetLabel } from "./domain/drills.js";
 export default function LogView({
+  // The night's own note, owned by BowlingTracker so it can be saved with
+  // the session. It used to write form.notes -- the shot form -- so a
+  // note typed on Results only persisted if another ball was thrown.
+  sessionNotes = "", setSessionNotes,
   // Was used free at the night-achievements block below and never
   // declared anywhere, so rendering a completed session threw
   // "profiles is not defined" and took the screen down. Defaulted
@@ -2952,7 +2956,7 @@ export default function LogView({
               expanded={editingId?true:expandedSections.notes}
               onToggle={()=>toggleSection("notes")}>
               <textarea style={{...S.input,minHeight:"60px",resize:"vertical"}}
-                placeholder="How the night went, what to try next time…" value={form.notes} onChange={e=>set("notes",e.target.value)}/>
+                placeholder="How the night went, what to try next time…" value={sessionNotes} onChange={e=>setSessionNotes?.(e.target.value)}/>
             </CollapsibleCard>
             )}
             {/* The spacer goes LAST, after every card.
