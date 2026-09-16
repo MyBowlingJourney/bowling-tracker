@@ -830,7 +830,9 @@ export default function LogView({
                 <CollapsibleCard
                   title="Enter Game Scores"
                   summary={total!=null?`${total} series`:""}
-                  expanded={expandedSections.manualScores}
+                  expanded={env==="practice"
+                    ? expandedSections.manualScores===true
+                    : expandedSections.manualScores!==false}
 
                   onToggle={()=>toggleSection("manualScores")}>
                   {/* Which bag, asked ONCE rather than per game.
@@ -956,20 +958,32 @@ export default function LogView({
                               that can have bowled the game. With no bag
                               defined it falls back to everything, so nobody
                               is forced to pack one first. */}
-                          <select style={{...S.sel,width:"100%",marginBottom:"4px"}}
-                            value={shownBall||""}
-                            onChange={e=>updateGameEquipment(activeBowler,effectiveSessionLeague,sessionDate,g,{ball:e.target.value})}>
-                            <option value="">Ball used…</option>
-                            {gameBalls.map(b=>(<option key={b} value={b}>{b}</option>))}
-                          </select>
-                          {shownBall&&shownBall!==PLASTIC_BALL&&(
-                            <div style={S.chips}>
-                              {SURFACES.map(sf=>(
-                                <Chip key={sf} label={sf} selected={equip.surface===sf}
-                                  onToggle={()=>updateGameEquipment(activeBowler,effectiveSessionLeague,sessionDate,g,{surface:equip.surface===sf?"":sf})}/>
-                              ))}
-                            </div>
-                          )}
+                          {/* Ball and surface on one row.
+                              
+                              Surface was a wrapped row of chips under the
+                              ball, so every game cost two rows and a
+                              three-game night filled the card. They are one
+                              statement -- which ball, in what state -- and
+                              a dropdown says it in half the height. */}
+                          <div style={{display:"grid",
+                            gridTemplateColumns:"repeat(2, minmax(0, 1fr))",gap:"6px"}}>
+                            <select style={{...S.sel,...smallInput,width:"100%"}}
+                              value={shownBall||""}
+                              onChange={e=>updateGameEquipment(activeBowler,effectiveSessionLeague,sessionDate,g,{ball:e.target.value})}>
+                              <option value="">Ball used…</option>
+                              {gameBalls.map(b=>(<option key={b} value={b}>{b}</option>))}
+                            </select>
+                            {/* Disabled rather than hidden for plastic: a
+                                field that appears and disappears as you pick
+                                a ball shifts everything under it. */}
+                            <select style={{...S.sel,...smallInput,width:"100%"}}
+                              value={equip.surface||""}
+                              disabled={!shownBall||shownBall===PLASTIC_BALL}
+                              onChange={e=>updateGameEquipment(activeBowler,effectiveSessionLeague,sessionDate,g,{surface:e.target.value})}>
+                              <option value="">Surface…</option>
+                              {SURFACES.map(sf=>(<option key={sf} value={sf}>{sf}</option>))}
+                            </select>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -2574,10 +2588,18 @@ export default function LogView({
                   </div>
                   <div style={{minWidth:0}}>
                     <div style={fieldHead}>Actual arrows</div>
+                    {/* Stores actualBoard, not actualArrows.
+                        
+                        actualBoard is what the leave analysis reads -- it is
+                        described there as "the board you actually hit",
+                        which is exactly what this asks. actualArrows went
+                        nowhere but storage and the CSV export, so writing to
+                        it filled in a number nothing could use while leaving
+                        the one that mattered empty. */}
                     <input style={{...S.input,...smallInput,width:"100%"}}
                       type="number" inputMode="numeric" placeholder="board #"
-                      value={form.actualArrows}
-                      onChange={e=>set("actualArrows",e.target.value)}/>
+                      value={form.actualBoard}
+                      onChange={e=>set("actualBoard",e.target.value)}/>
                   </div>
                 </div>
                 {(()=>{
@@ -2585,7 +2607,7 @@ export default function LogView({
                   // recording both: consistently missing the same direction
                   // is an execution problem, which is a different fix from
                   // having picked the wrong line to begin with.
-                  const t=parseFloat(form.targetArrows), a=parseFloat(form.actualArrows);
+                  const t=parseFloat(form.targetArrows), a=parseFloat(form.actualBoard);
                   if(Number.isNaN(t)||Number.isNaN(a))return null;
                   const diff=a-t;
                   if(diff===0)return(

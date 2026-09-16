@@ -4126,6 +4126,19 @@ export default function BowlingTracker(){
         surface:form.surface,
         startingBoard:line.startingBoard,
         targetArrows:line.targetArrows,
+        // Shoes carry too.
+        //
+        // Heel and sole are a setting on the shoe, not a property of the
+        // shot -- a bowler changes them when the approach is sticky or
+        // slick, maybe once a night, and then bowls thirty more shots.
+        // Clearing them every shot meant retyping the same two numbers
+        // all night or, far more likely, not bothering, which is how the
+        // field ends up empty on every shot but the first.
+        //
+        // Same reasoning as ball, surface and line above, which already
+        // carried for exactly this reason.
+        heelNumber:form.heelNumber,
+        soleNumber:form.soleNumber,
       });
     }
     setSaved(true);
