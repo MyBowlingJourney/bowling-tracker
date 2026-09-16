@@ -525,6 +525,221 @@ export default function LogView({
               </div>
             )}
 
+            {/* The date card leads practice.
+                
+                It was gated on the setup tab, and practice has no setup
+                tab any more -- so the one card telling a bowler WHICH
+                night they are logging never rendered there at all.
+                
+                Above the scores, because which night it is has to be
+                settled before the numbers mean anything. */}
+            {(onTab("setup")||env==="practice")&&!editingId&&activeBowler&&preferences.environment!=="tournament"&&preferences.environment!=="practice"&&preferences.environment!=="casual"&&(
+              <CollapsibleCard
+                title="Tonight's Session"
+                summary={sessionLeague?`${sessionLeague.replace(" House Shot","")} · ${formatDate(sessionDate)}`:""}
+                expanded={expandedSections.tonightSession}
+                onToggle={()=>toggleSection("tonightSession")}>
+                <div style={S.chips}>
+                  {leagues.map(l=>(
+                    <Chip key={l} label={l.replace(" House Shot","")} selected={sessionLeague===l}
+                      onToggle={()=>{const team=teams.find(t=>t.league===l&&(t.members||[]).includes(activeBowler));setSessionLeague(l);setForm(f=>({...f,league:l,teamId:team?.id||"",date:sessionDate}));setShowSummary(false);}}/>
+                  ))}
+                </div>
+                <div style={{marginBottom:"10px"}}>
+                  <input style={S.input} type="date" value={sessionDate}
+                    onChange={e=>{setSessionDate(e.target.value);set("date",e.target.value);setShowSummary(false);}}/>
+                </div>
+
+                {/* Prebowling: games thrown early that count for a future
+                    week -- often on the same night as the current week's
+                    session, before or after it.
+                    
+                    Filed under the date they COUNT FOR, not the date
+                    thrown. That's correct for standings, and it's what
+                    keeps them from colliding: sessions are keyed on
+                    (bowler, league, date), so a prebowl filed under today
+                    would share a key with tonight's real session and one
+                    would silently overwrite the other. */}
+                {preferences.environment==="league"&&sessionLeague&&(()=>{
+                  const bowledOn=localDateString();
+                  const isPrebowl=sessionDate>bowledOn;
+                  const conflict=isPrebowl
+                    ?prebowlConflict(sessions,activeBowler,effectiveSessionLeague,sessionDate,bowledOn)
+                    :"";
+                  const leagueDay=inferLeagueDay(
+                    (sessions||[]).filter(s=>s.bowler===activeBowler),effectiveSessionLeague);
+                  return(
+                    <div style={{marginBottom:"10px"}}>
+                      <button
+                        onClick={()=>{
+                          if(isPrebowl){
+                            setSessionDate(bowledOn);set("date",bowledOn);
+                          }else{
+                            const next=nextLeagueDate(bowledOn,leagueDay)
+                              ||nextLeagueDate(bowledOn,new Date(`${bowledOn}T00:00:00`).getDay());
+                            setSessionDate(next);set("date",next);
+                          }
+                          setShowSummary(false);
+                        }}
+                        style={{width:"100%",textAlign:"left",cursor:"pointer",
+                          padding:"8px 10px",borderRadius:"8px",fontSize:"12px",
+                          border:`1px solid ${isPrebowl?C.accent:C.border}`,
+                          background:isPrebowl?C.accent+"11":"transparent",
+                          color:isPrebowl?C.text:C.textMuted}}>
+                        {isPrebowl?"✓ Prebowling":"Prebowling for a future week?"}
+                      </button>
+                      {isPrebowl&&(
+                        <div style={{fontSize:"11px",color:conflict?C.miss:C.textMuted,marginTop:"4px",lineHeight:1.4}}>
+                          {conflict||`Counts for ${formatDate(sessionDate)}. Bowled today — change the date above if that's the wrong week.`}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Opponent & handicap — moved here from Stats, since this is
+                    known before bowling starts and belongs with the rest of
+                    tonight's setup. Keyed by team when one resolves (so two
+                    teams sharing a league on the same night get separate
+                    records); falls back to the league name itself when the
+                    active bowler isn't yet set up as a team member, so this
+                    still works before Teams is fully configured. */}
+                {sessionLeague&&(()=>{
+                  const matchKey=form.teamId||sessionLeague;
+                  const m=getMatch(matchKey,sessionDate,sessionLeague)||{opponent:"",handicap:""};
+                  const handicap=matchHandicap(m);
+                  return(
+                    <div style={{marginBottom:"12px"}}>
+                      <div style={S.label}>Opponent</div>
+                      <div style={S.row}>
+                        <input style={{...S.input,flex:2}} placeholder="Opponent (e.g. Team Name)"
+                          value={m.opponent||""} onChange={e=>setMatchOpponent(matchKey,sessionLeague,sessionDate,e.target.value)}/>
+                        <input style={{...S.input,flex:1,textAlign:"center"}} type="number" placeholder="Handicap"
+                          value={handicap} onChange={e=>setMatchHandicap(matchKey,sessionLeague,sessionDate,e.target.value)}/>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Starting lane */}
+                <div style={{marginBottom:"12px"}}>
+                  <div style={S.label}>Starting Lane</div>
+                  <div style={S.row}>
+                    <input style={{...S.input,flex:1,textAlign:"center",fontSize:"18px",fontWeight:700}}
+                      type="number" placeholder="e.g. 8" value={startingLane}
+                      onChange={e=>setStartingLane(e.target.value)}/>
+                    {startingLane&&(()=>{
+                      const l=parseInt(startingLane),p=l%2===0?l-1:l+1;
+                      return(
+                        <div style={{flex:2,backgroundColor:C.surface,borderRadius:"8px",padding:"8px 12px",border:`1px solid ${C.border}`}}>
+                          <div style={{fontSize:"13px",fontWeight:600,color:C.accent}}>Lanes {Math.min(l,p)} & {Math.max(l,p)}</div>
+                          <div style={{fontSize:"10px",color:C.textMuted,marginTop:"2px"}}>
+                            G1F1→{startingLane} · G1F10→{calcLane(startingLane,1,10)||"?"} · G2F1→{calcLane(startingLane,2,1)||"?"}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+
+                {/* Lane conditions (oil pattern) — one entry per physical lane in
+                    tonight's pair, since leagues sometimes run a different
+                    pattern on each lane of the pair. Defaults to House Shot
+                    implicitly; no record exists until something is changed. */}
+                {startingLane&&sessionLeague&&(()=>{
+                  const l=parseInt(startingLane),p=l%2===0?l-1:l+1;
+                  const lanesToShow=[...new Set([l,p])].filter(n=>!isNaN(n));
+                  const renderLaneRow=(lane)=>{
+                    const rec=getLanePattern(sessionLeague,sessionDate,lane)||{patternType:"house",patternName:"",length:"",volume:"",ratio:""};
+                    const isOfficial=rec.patternType==="official";
+                    return(
+                      <div key={lane} style={{marginBottom:"10px"}}>
+                        <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"4px"}}>Lane {lane}</div>
+                        <div style={S.chips}>
+                          <Chip label="House Shot" selected={!isOfficial} onToggle={()=>setLanePattern(form.teamId||sessionLeague,sessionLeague,sessionDate,lane,{patternType:"house"})}/>
+                          <Chip label="Official Pattern" selected={isOfficial} onToggle={()=>setLanePattern(form.teamId||sessionLeague,sessionLeague,sessionDate,lane,{patternType:"official"})} color={C.spare}/>
+                        </div>
+                        {isOfficial&&(
+                          <div style={{marginTop:"6px"}}>
+                            <input style={{...S.input,marginBottom:"6px"}} placeholder="Pattern name (e.g. Kegel Main Street)"
+                              value={rec.patternName} onChange={e=>setLanePattern(form.teamId||sessionLeague,sessionLeague,sessionDate,lane,{patternName:e.target.value})}/>
+                            <div style={S.row}>
+                              <input style={{...S.input,flex:1}} type="number" placeholder="Length (ft)"
+                                value={rec.length} onChange={e=>setLanePattern(form.teamId||sessionLeague,sessionLeague,sessionDate,lane,{length:e.target.value})}/>
+                              <input style={{...S.input,flex:1}} type="number" placeholder="Volume (mL)"
+                                value={rec.volume} onChange={e=>setLanePattern(form.teamId||sessionLeague,sessionLeague,sessionDate,lane,{volume:e.target.value})}/>
+                              <input style={{...S.input,flex:1}} placeholder="Ratio (e.g. 3:1)"
+                                value={rec.ratio} onChange={e=>setLanePattern(form.teamId||sessionLeague,sessionLeague,sessionDate,lane,{ratio:e.target.value})}/>
+                            </div>
+                          </div>
+                        )}
+                        {/* Notes, on any pattern -- house shot included.
+
+                            An average tells a bowler a pattern is hard.
+                            "Played 4th arrow, ball rolled out, should
+                            have moved right" tells them what to do about
+                            it next time, and that is the thing they keep
+                            in a phone notes app today. Here it sits next
+                            to the score it explains. */}
+                        <textarea style={{...S.input,marginTop:"6px",minHeight:"52px",resize:"vertical"}}
+                          placeholder="How it played — line, ball, what you'd do differently"
+                          value={rec.notes||""}
+                          onChange={e=>setLanePattern(form.teamId||sessionLeague,sessionLeague,sessionDate,lane,{notes:e.target.value})}/>
+                      </div>
+                    );
+                  };
+                  return(
+                    <div style={{marginBottom:"12px"}}>
+                      <div style={S.label}>Lane Conditions</div>
+                      {lanesToShow.map(renderLaneRow)}
+                    </div>
+                  );
+                })()}
+
+                {sessionLeague&&(
+                  <>
+                    {/* Points won — moved here from Stats' Log Match Results,
+                        since you naturally mark these as the night wraps up. */}
+                    {sessionLeague&&(()=>{
+                      const matchKey=form.teamId||sessionLeague;
+                      const m=getMatch(matchKey,sessionDate,sessionLeague)||{games:[null,null,null],series:null};
+                      const pointsWon=m.games.filter(v=>v===true).length+(m.series===true?1:0);
+                      const pointsMarked=m.games.filter(v=>v!==null).length+(m.series!==null?1:0);
+                      const resultChip=(val,onTap,label)=>(
+                        <button key={label} onClick={onTap} style={{
+                          padding:"6px 10px",borderRadius:"8px",border:`1px solid ${val===true?C.strike:val===false?C.miss:C.border}`,
+                          backgroundColor:val===true?C.strike+"22":val===false?C.miss+"22":"transparent",
+                          color:val===true?C.strike:val===false?C.miss:C.textMuted,
+                          fontSize:"12px",fontWeight:600,cursor:"pointer",WebkitTapHighlightColor:"transparent",
+                        }}>{label}{val===true?" ✓":val===false?" ✗":""}</button>
+                      );
+                      return(
+                        <div style={{marginBottom:"10px"}}>
+                          <div style={S.label}>Points Won</div>
+                          <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"8px"}}>4 points per night — 1 per game, 1 for total pinfall. Tap to cycle: not marked → won → lost.</div>
+                          <div style={{display:"flex",gap:"6px",flexWrap:"wrap",marginBottom:"6px"}}>
+                            {[0,1,2].map(idx=>resultChip(m.games[idx]??null,()=>cycleGameResult(matchKey,sessionLeague,sessionDate,idx),`G${idx+1}`))}
+                            {resultChip(m.series??null,()=>cycleSeriesResult(matchKey,sessionLeague,sessionDate),"Pinfall")}
+                          </div>
+                          {pointsMarked>0&&(
+                            <div style={{fontSize:"12px",fontWeight:600,color:C.accent}}>{pointsWon} of 4 points</div>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    {/* Save moved to the bottom of Enter Game Scores.
+
+                         It sat here, in Tonight's SETUP -- above the card
+                         where the scores are actually typed. You finished
+                         the third game and then scrolled back up past the
+                         entry fields to save. The action belongs where the
+                         work ends. */}
+                  </>
+                )}
+              </CollapsibleCard>
+            )}
+
             {/* Game scores FIRST, directly under the chips.
                 
                 This sat below the shot form, so a bowler whose night is
@@ -871,212 +1086,6 @@ export default function LogView({
                 match points. Practice has none of that, so it gets a plain
                 date header instead of a card promising things that aren't
                 there. */}
-            {onTab("setup")&&!editingId&&activeBowler&&preferences.environment!=="tournament"&&preferences.environment!=="practice"&&preferences.environment!=="casual"&&(
-              <CollapsibleCard
-                title="Tonight's Session"
-                summary={sessionLeague?`${sessionLeague.replace(" House Shot","")} · ${formatDate(sessionDate)}`:""}
-                expanded={expandedSections.tonightSession}
-                onToggle={()=>toggleSection("tonightSession")}>
-                <div style={S.chips}>
-                  {leagues.map(l=>(
-                    <Chip key={l} label={l.replace(" House Shot","")} selected={sessionLeague===l}
-                      onToggle={()=>{const team=teams.find(t=>t.league===l&&(t.members||[]).includes(activeBowler));setSessionLeague(l);setForm(f=>({...f,league:l,teamId:team?.id||"",date:sessionDate}));setShowSummary(false);}}/>
-                  ))}
-                </div>
-                <div style={{marginBottom:"10px"}}>
-                  <input style={S.input} type="date" value={sessionDate}
-                    onChange={e=>{setSessionDate(e.target.value);set("date",e.target.value);setShowSummary(false);}}/>
-                </div>
-
-                {/* Prebowling: games thrown early that count for a future
-                    week -- often on the same night as the current week's
-                    session, before or after it.
-                    
-                    Filed under the date they COUNT FOR, not the date
-                    thrown. That's correct for standings, and it's what
-                    keeps them from colliding: sessions are keyed on
-                    (bowler, league, date), so a prebowl filed under today
-                    would share a key with tonight's real session and one
-                    would silently overwrite the other. */}
-                {preferences.environment==="league"&&sessionLeague&&(()=>{
-                  const bowledOn=localDateString();
-                  const isPrebowl=sessionDate>bowledOn;
-                  const conflict=isPrebowl
-                    ?prebowlConflict(sessions,activeBowler,effectiveSessionLeague,sessionDate,bowledOn)
-                    :"";
-                  const leagueDay=inferLeagueDay(
-                    (sessions||[]).filter(s=>s.bowler===activeBowler),effectiveSessionLeague);
-                  return(
-                    <div style={{marginBottom:"10px"}}>
-                      <button
-                        onClick={()=>{
-                          if(isPrebowl){
-                            setSessionDate(bowledOn);set("date",bowledOn);
-                          }else{
-                            const next=nextLeagueDate(bowledOn,leagueDay)
-                              ||nextLeagueDate(bowledOn,new Date(`${bowledOn}T00:00:00`).getDay());
-                            setSessionDate(next);set("date",next);
-                          }
-                          setShowSummary(false);
-                        }}
-                        style={{width:"100%",textAlign:"left",cursor:"pointer",
-                          padding:"8px 10px",borderRadius:"8px",fontSize:"12px",
-                          border:`1px solid ${isPrebowl?C.accent:C.border}`,
-                          background:isPrebowl?C.accent+"11":"transparent",
-                          color:isPrebowl?C.text:C.textMuted}}>
-                        {isPrebowl?"✓ Prebowling":"Prebowling for a future week?"}
-                      </button>
-                      {isPrebowl&&(
-                        <div style={{fontSize:"11px",color:conflict?C.miss:C.textMuted,marginTop:"4px",lineHeight:1.4}}>
-                          {conflict||`Counts for ${formatDate(sessionDate)}. Bowled today — change the date above if that's the wrong week.`}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-
-                {/* Opponent & handicap — moved here from Stats, since this is
-                    known before bowling starts and belongs with the rest of
-                    tonight's setup. Keyed by team when one resolves (so two
-                    teams sharing a league on the same night get separate
-                    records); falls back to the league name itself when the
-                    active bowler isn't yet set up as a team member, so this
-                    still works before Teams is fully configured. */}
-                {sessionLeague&&(()=>{
-                  const matchKey=form.teamId||sessionLeague;
-                  const m=getMatch(matchKey,sessionDate,sessionLeague)||{opponent:"",handicap:""};
-                  const handicap=matchHandicap(m);
-                  return(
-                    <div style={{marginBottom:"12px"}}>
-                      <div style={S.label}>Opponent</div>
-                      <div style={S.row}>
-                        <input style={{...S.input,flex:2}} placeholder="Opponent (e.g. Team Name)"
-                          value={m.opponent||""} onChange={e=>setMatchOpponent(matchKey,sessionLeague,sessionDate,e.target.value)}/>
-                        <input style={{...S.input,flex:1,textAlign:"center"}} type="number" placeholder="Handicap"
-                          value={handicap} onChange={e=>setMatchHandicap(matchKey,sessionLeague,sessionDate,e.target.value)}/>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* Starting lane */}
-                <div style={{marginBottom:"12px"}}>
-                  <div style={S.label}>Starting Lane</div>
-                  <div style={S.row}>
-                    <input style={{...S.input,flex:1,textAlign:"center",fontSize:"18px",fontWeight:700}}
-                      type="number" placeholder="e.g. 8" value={startingLane}
-                      onChange={e=>setStartingLane(e.target.value)}/>
-                    {startingLane&&(()=>{
-                      const l=parseInt(startingLane),p=l%2===0?l-1:l+1;
-                      return(
-                        <div style={{flex:2,backgroundColor:C.surface,borderRadius:"8px",padding:"8px 12px",border:`1px solid ${C.border}`}}>
-                          <div style={{fontSize:"13px",fontWeight:600,color:C.accent}}>Lanes {Math.min(l,p)} & {Math.max(l,p)}</div>
-                          <div style={{fontSize:"10px",color:C.textMuted,marginTop:"2px"}}>
-                            G1F1→{startingLane} · G1F10→{calcLane(startingLane,1,10)||"?"} · G2F1→{calcLane(startingLane,2,1)||"?"}
-                          </div>
-                        </div>
-                      );
-                    })()}
-                  </div>
-                </div>
-
-                {/* Lane conditions (oil pattern) — one entry per physical lane in
-                    tonight's pair, since leagues sometimes run a different
-                    pattern on each lane of the pair. Defaults to House Shot
-                    implicitly; no record exists until something is changed. */}
-                {startingLane&&sessionLeague&&(()=>{
-                  const l=parseInt(startingLane),p=l%2===0?l-1:l+1;
-                  const lanesToShow=[...new Set([l,p])].filter(n=>!isNaN(n));
-                  const renderLaneRow=(lane)=>{
-                    const rec=getLanePattern(sessionLeague,sessionDate,lane)||{patternType:"house",patternName:"",length:"",volume:"",ratio:""};
-                    const isOfficial=rec.patternType==="official";
-                    return(
-                      <div key={lane} style={{marginBottom:"10px"}}>
-                        <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"4px"}}>Lane {lane}</div>
-                        <div style={S.chips}>
-                          <Chip label="House Shot" selected={!isOfficial} onToggle={()=>setLanePattern(form.teamId||sessionLeague,sessionLeague,sessionDate,lane,{patternType:"house"})}/>
-                          <Chip label="Official Pattern" selected={isOfficial} onToggle={()=>setLanePattern(form.teamId||sessionLeague,sessionLeague,sessionDate,lane,{patternType:"official"})} color={C.spare}/>
-                        </div>
-                        {isOfficial&&(
-                          <div style={{marginTop:"6px"}}>
-                            <input style={{...S.input,marginBottom:"6px"}} placeholder="Pattern name (e.g. Kegel Main Street)"
-                              value={rec.patternName} onChange={e=>setLanePattern(form.teamId||sessionLeague,sessionLeague,sessionDate,lane,{patternName:e.target.value})}/>
-                            <div style={S.row}>
-                              <input style={{...S.input,flex:1}} type="number" placeholder="Length (ft)"
-                                value={rec.length} onChange={e=>setLanePattern(form.teamId||sessionLeague,sessionLeague,sessionDate,lane,{length:e.target.value})}/>
-                              <input style={{...S.input,flex:1}} type="number" placeholder="Volume (mL)"
-                                value={rec.volume} onChange={e=>setLanePattern(form.teamId||sessionLeague,sessionLeague,sessionDate,lane,{volume:e.target.value})}/>
-                              <input style={{...S.input,flex:1}} placeholder="Ratio (e.g. 3:1)"
-                                value={rec.ratio} onChange={e=>setLanePattern(form.teamId||sessionLeague,sessionLeague,sessionDate,lane,{ratio:e.target.value})}/>
-                            </div>
-                          </div>
-                        )}
-                        {/* Notes, on any pattern -- house shot included.
-
-                            An average tells a bowler a pattern is hard.
-                            "Played 4th arrow, ball rolled out, should
-                            have moved right" tells them what to do about
-                            it next time, and that is the thing they keep
-                            in a phone notes app today. Here it sits next
-                            to the score it explains. */}
-                        <textarea style={{...S.input,marginTop:"6px",minHeight:"52px",resize:"vertical"}}
-                          placeholder="How it played — line, ball, what you'd do differently"
-                          value={rec.notes||""}
-                          onChange={e=>setLanePattern(form.teamId||sessionLeague,sessionLeague,sessionDate,lane,{notes:e.target.value})}/>
-                      </div>
-                    );
-                  };
-                  return(
-                    <div style={{marginBottom:"12px"}}>
-                      <div style={S.label}>Lane Conditions</div>
-                      {lanesToShow.map(renderLaneRow)}
-                    </div>
-                  );
-                })()}
-
-                {sessionLeague&&(
-                  <>
-                    {/* Points won — moved here from Stats' Log Match Results,
-                        since you naturally mark these as the night wraps up. */}
-                    {sessionLeague&&(()=>{
-                      const matchKey=form.teamId||sessionLeague;
-                      const m=getMatch(matchKey,sessionDate,sessionLeague)||{games:[null,null,null],series:null};
-                      const pointsWon=m.games.filter(v=>v===true).length+(m.series===true?1:0);
-                      const pointsMarked=m.games.filter(v=>v!==null).length+(m.series!==null?1:0);
-                      const resultChip=(val,onTap,label)=>(
-                        <button key={label} onClick={onTap} style={{
-                          padding:"6px 10px",borderRadius:"8px",border:`1px solid ${val===true?C.strike:val===false?C.miss:C.border}`,
-                          backgroundColor:val===true?C.strike+"22":val===false?C.miss+"22":"transparent",
-                          color:val===true?C.strike:val===false?C.miss:C.textMuted,
-                          fontSize:"12px",fontWeight:600,cursor:"pointer",WebkitTapHighlightColor:"transparent",
-                        }}>{label}{val===true?" ✓":val===false?" ✗":""}</button>
-                      );
-                      return(
-                        <div style={{marginBottom:"10px"}}>
-                          <div style={S.label}>Points Won</div>
-                          <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"8px"}}>4 points per night — 1 per game, 1 for total pinfall. Tap to cycle: not marked → won → lost.</div>
-                          <div style={{display:"flex",gap:"6px",flexWrap:"wrap",marginBottom:"6px"}}>
-                            {[0,1,2].map(idx=>resultChip(m.games[idx]??null,()=>cycleGameResult(matchKey,sessionLeague,sessionDate,idx),`G${idx+1}`))}
-                            {resultChip(m.series??null,()=>cycleSeriesResult(matchKey,sessionLeague,sessionDate),"Pinfall")}
-                          </div>
-                          {pointsMarked>0&&(
-                            <div style={{fontSize:"12px",fontWeight:600,color:C.accent}}>{pointsWon} of 4 points</div>
-                          )}
-                        </div>
-                      );
-                    })()}
-
-                    {/* Save moved to the bottom of Enter Game Scores.
-
-                         It sat here, in Tonight's SETUP -- above the card
-                         where the scores are actually typed. You finished
-                         the third game and then scrolled back up past the
-                         entry fields to save. The action belongs where the
-                         work ends. */}
-                  </>
-                )}
-              </CollapsibleCard>
-            )}
 
             {/* Import moved to the header. It was here, gated on the
                 current environment and on a league already being chosen --
@@ -1559,17 +1568,38 @@ export default function LogView({
                 and game to game, and resets only for a new session. */}
             {onTab("scoring")&&showShotContext&&logBalls.length>0&&(
               <div style={{...S.card,padding:"10px 12px",marginBottom:"8px",
-                display:"flex",alignItems:"center",gap:"10px"}}>
-                <div style={{...S.label,marginBottom:0,flexShrink:0}}>Ball</div>
-                <select style={{...S.sel,padding:"8px 10px",fontSize:"14px"}}
-                  value={form.ball||""}
-                  onChange={e=>editingId?toggle("ball",e.target.value):handleBallChange(e.target.value)}>
-                  <option value="">— pick a ball —</option>
-                  {logBalls.map(b=>{
-                    const layout=formatLayout(ballLayouts?.[`${form.bowler}|${b}`]);
-                    return <option key={b} value={b}>{layout?`${b} · ${layout}`:b}</option>;
-                  })}
-                </select>
+                display:"grid",gridTemplateColumns:"repeat(2, minmax(0, 1fr))",gap:"10px"}}>
+                {/* Ball and surface, side by side.
+                    
+                    They are one decision -- which ball, in what state --
+                    and surface was a whole collapsible card of chips two
+                    screens further down. A dropdown costs one row and the
+                    pair now reads as the equipment line it always was.
+                    
+                    minmax(0, 1fr) rather than 1fr: a long ball name has a
+                    min-content width that pushes an even split sideways
+                    off a phone. */}
+                <div style={{minWidth:0}}>
+                  <div style={{...S.label,marginBottom:"4px"}}>Ball</div>
+                  <select style={{...S.sel,width:"100%",padding:"8px 10px",fontSize:"14px"}}
+                    value={form.ball||""}
+                    onChange={e=>editingId?toggle("ball",e.target.value):handleBallChange(e.target.value)}>
+                    <option value="">\u2014 pick a ball \u2014</option>
+                    {logBalls.map(b=>{
+                      const layout=formatLayout(ballLayouts?.[`${form.bowler}|${b}`]);
+                      return <option key={b} value={b}>{layout?`${b} \u00b7 ${layout}`:b}</option>;
+                    })}
+                  </select>
+                </div>
+                <div style={{minWidth:0}}>
+                  <div style={{...S.label,marginBottom:"4px"}}>Surface</div>
+                  <select style={{...S.sel,width:"100%",padding:"8px 10px",fontSize:"14px"}}
+                    value={form.surface||""}
+                    onChange={e=>set("surface",e.target.value)}>
+                    <option value="">\u2014</option>
+                    {SURFACES.map(s=><option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
               </div>
             )}
 
@@ -1588,7 +1618,15 @@ export default function LogView({
                   the GAME, so it belongs under the frames rather than
                   above the buttons for a single shot. */}
               <div style={{...S.label,marginBottom:"8px"}}>Result</div>
-              <div style={S.chips}>
+              {/* One row, four equal columns.
+                  
+                  S.chips wraps, so four results spilled onto two rows at
+                  phone width -- and the four are one choice, which reads
+                  wrong split across lines. A grid keeps them level and
+                  each cell stays above the touch minimum at 380px. */}
+              <div style={{display:"grid",
+                gridTemplateColumns:"repeat(4, minmax(0, 1fr))",
+                gap:"6px",marginBottom:"12px"}}>
                 {resultsForHandedness(activeBowlerLeftHanded).map(label=>{
                   // `label` is what the bowler sees (e.g. "Weak 7" for a
                   // lefty); `stored` is what actually gets saved, which is
@@ -1774,29 +1812,6 @@ export default function LogView({
                 bowler tapping a dead button with the reason somewhere
                 off-screen. */}
 
-            {onTab("scoring")&&(editingId||(leagueReady&&env!=="casual"
-              &&!(preferences.environment==="practice"&&practiceMode==="drill")
-              /* Tournament: Scoring tab only. Saving a shot from the
-                 Brackets or Results tab is not a thing a bowler means to
-                 do, and it appeared on all four. */
-              &&(env!=="tournament"||tournamentTab==="scoring")))&&(
-              <div ref={saveShotRef} style={{marginBottom:"12px"}}>
-                <button style={S.btn("primary")} onClick={submitShot} disabled={!form.result||!form.bowler||needsSpareMade||needsPins}>
-                  {saved?(editingId?"\u2713 Shot Updated":"\u2713 Shot Saved"):(editingId?"Update Shot":"Save Shot")}
-                </button>
-                {/* Why the button is disabled, next to the button.
-                    Pins first: it is the earlier question, and answering
-                    it is what makes Spare Made worth asking. */}
-                {needsPins?(
-                  <div style={{fontSize:"12px",color:C.spare,marginTop:"8px",textAlign:"center"}}>
-                    Tap the pins you left, or enter how many you knocked down.
-                  </div>
-                ):needsSpareMade&&(
-                  <div style={{fontSize:"12px",color:C.spare,marginTop:"8px",textAlign:"center"}}>Answer "Spare Made" above to save.</div>
-                )}
-
-              </div>
-            )}
 
             {/* Enter game scores directly, without shot-by-shot logging.
                 Two cases: a screenshot that only showed game totals, and
@@ -2472,18 +2487,6 @@ export default function LogView({
               );
             })()}
 
-            {/* Surface */}
-            {preferences.trackedFields.surface&&(
-              <CollapsibleCard
-                title="Surface"
-                summary={form.surface||""}
-                expanded={editingId?true:expandedSections.surface}
-                onToggle={()=>toggleSection("surface")}>
-                <div style={S.chips}>
-                  {SURFACES.map(s=><Chip key={s} label={s} selected={form.surface===s} onToggle={()=>toggle("surface",s)}/>)}
-                </div>
-              </CollapsibleCard>
-            )}
 
             {/* The whole shot-logging form only appears in shot-by-shot
                 mode. In game mode it's replaced by the score entry card
@@ -2574,28 +2577,42 @@ export default function LogView({
                 summary={[preferences.trackedFields.release?form.release:"",preferences.trackedFields.miss&&form.miss.length?`${form.miss.length} miss`:""].filter(Boolean).join(", ")}
                 expanded={editingId?true:expandedSections.releaseMiss}
                 onToggle={()=>toggleSection("releaseMiss")}>
-                {preferences.trackedFields.release&&(
-                  <>
-                    <div style={S.label}>Release</div>
-                    <div style={S.chips}>
-                      {RELEASES.map(r=>(
-                        <Chip key={r} label={r} selected={form.release===r} onToggle={()=>toggle("release",r)}
-                          color={r==="Good"?C.strike:r==="Bad"?C.miss:C.spare}/>
-                      ))}
+                {/* Release and miss, side by side.
+                    
+                    Two stacks of chips took four rows between them for
+                    what is one question each. Equal columns, so neither
+                    reads as the more important of the pair.
+                    
+                    Miss still STORES an array even though it picks one.
+                    A delivery misses in one direction, but the field has
+                    always been a list and everything downstream reads it
+                    as one -- changing the shape to match the control
+                    would be a data migration dressed as a layout tweak. */}
+                <div style={{display:"grid",
+                  gridTemplateColumns:"repeat(2, minmax(0, 1fr))",gap:"10px"}}>
+                  {preferences.trackedFields.release&&(
+                    <div style={{minWidth:0}}>
+                      <div style={{...S.label,marginBottom:"4px"}}>Release</div>
+                      <select style={{...S.sel,width:"100%",padding:"8px 10px",fontSize:"14px"}}
+                        value={form.release||""}
+                        onChange={e=>set("release",e.target.value)}>
+                        <option value="">\u2014</option>
+                        {RELEASES.map(r=><option key={r} value={r}>{r}</option>)}
+                      </select>
                     </div>
-                  </>
-                )}
-                {preferences.trackedFields.release&&preferences.trackedFields.miss&&<div style={S.divider}/>}
-                {preferences.trackedFields.miss&&(
-                  <>
-                    <div style={S.label}>Miss</div>
-                    <div style={S.chips}>
-                      {MISSES.map(m=>(
-                        <Chip key={m} label={m} selected={form.miss.includes(m)} onToggle={()=>toggleMulti("miss",m)} color={C.miss}/>
-                      ))}
+                  )}
+                  {preferences.trackedFields.miss&&(
+                    <div style={{minWidth:0}}>
+                      <div style={{...S.label,marginBottom:"4px"}}>Miss</div>
+                      <select style={{...S.sel,width:"100%",padding:"8px 10px",fontSize:"14px"}}
+                        value={form.miss?.[0]||""}
+                        onChange={e=>set("miss",e.target.value?[e.target.value]:[])}>
+                        <option value="">\u2014</option>
+                        {MISSES.map(m=><option key={m} value={m}>{m}</option>)}
+                      </select>
                     </div>
-                  </>
-                )}
+                  )}
+                </div>
               </CollapsibleCard>
             )}
 
@@ -2611,6 +2628,36 @@ export default function LogView({
                   <input style={{...S.input,flex:1}} placeholder="Sole #"
                     value={form.soleNumber} onChange={e=>set("soleNumber",e.target.value)}/>
                 </div>
+              </div>
+            )}
+
+            {/* Save Shot sits AFTER the detail cards, not before them.
+                
+                It led the screen, so the button came before the fields it
+                saves -- a bowler filling in ball, surface, line and speed
+                scrolled past Save to reach them, then scrolled back up.
+                Last is where a submit belongs. */}
+            {onTab("scoring")&&(editingId||(leagueReady&&env!=="casual"
+              &&!(preferences.environment==="practice"&&practiceMode==="drill")
+              /* Tournament: Scoring tab only. Saving a shot from the
+                 Brackets or Results tab is not a thing a bowler means to
+                 do, and it appeared on all four. */
+              &&(env!=="tournament"||tournamentTab==="scoring")))&&(
+              <div ref={saveShotRef} style={{marginBottom:"12px"}}>
+                <button style={S.btn("primary")} onClick={submitShot} disabled={!form.result||!form.bowler||needsSpareMade||needsPins}>
+                  {saved?(editingId?"\u2713 Shot Updated":"\u2713 Shot Saved"):(editingId?"Update Shot":"Save Shot")}
+                </button>
+                {/* Why the button is disabled, next to the button.
+                    Pins first: it is the earlier question, and answering
+                    it is what makes Spare Made worth asking. */}
+                {needsPins?(
+                  <div style={{fontSize:"12px",color:C.spare,marginTop:"8px",textAlign:"center"}}>
+                    Tap the pins you left, or enter how many you knocked down.
+                  </div>
+                ):needsSpareMade&&(
+                  <div style={{fontSize:"12px",color:C.spare,marginTop:"8px",textAlign:"center"}}>Answer "Spare Made" above to save.</div>
+                )}
+
               </div>
             )}
 
