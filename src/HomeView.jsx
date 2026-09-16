@@ -77,33 +77,60 @@ export default function HomeView({
         </div>
       </button>
 
-      {/* Journey, as a recap rather than a target.
+      {/* Journey -- the app's name, so it should not look like a row.
           
-          The most recent milestone EARNED -- a recap that asks for
-          something is a demand, not a recap. The whole card opens
-          Journey. */}
+          It was a label, a line and a chevron: the dullest card on a
+          screen carrying the name of the product. The milestone is the
+          content, so it gets the size, and the accent wash separates it
+          from the reference cards around it without a second colour.
+          
+          The count is a quiet achievement line rather than a progress
+          bar. A bar implies a finish, and a bowling life does not have
+          one. */}
       <button onClick={onOpenJourney}
         style={{
           ...S.card, width: "100%", textAlign: "left", cursor: "pointer",
-          display: "flex", alignItems: "center", gap: "12px",
           fontFamily: "inherit",
+          backgroundColor: C.accentDim,
+          border: `1px solid ${C.accent}33`,
         }}>
-        <span style={{ flex: 1, minWidth: 0 }}>
-          <span style={{ display: "block", fontSize: "13px", color: C.textMuted }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ fontSize: "12px", color: C.accent, letterSpacing: "0.02em" }}>
             My journey
           </span>
-          <span style={{ display: "block", fontSize: "15px", color: C.text, marginTop: "2px" }}>
-            {recap ? recap.label : "Log a night and your journey starts here"}
+          <span aria-hidden="true" style={{ color: C.accent, fontSize: "18px" }}>
+            {"\u203A"}
           </span>
-          {recap && (
-            <span style={{ display: "block", fontSize: "12px", color: C.textMuted, marginTop: "2px" }}>
-              {recap.date} {"\u00b7"} {recap.total} milestone{recap.total === 1 ? "" : "s"} so far
-            </span>
-          )}
-        </span>
-        <span aria-hidden="true" style={{ color: C.textMuted, fontSize: "18px" }}>
-          {"\u203A"}
-        </span>
+        </div>
+
+        {recap ? (
+          <>
+            {/* The milestone itself, at headline size. */}
+            <div style={{ fontSize: "20px", fontWeight: 500, color: C.text, marginTop: "8px", lineHeight: 1.25 }}>
+              {recap.label}
+            </div>
+            <div style={{ fontSize: "12px", color: C.textMuted, marginTop: "4px" }}>
+              {recap.date}
+            </div>
+            <div style={{
+              marginTop: "12px", paddingTop: "10px",
+              borderTop: `1px solid ${C.accent}22`,
+              fontSize: "13px", color: C.text,
+            }}>
+              {recap.total} milestone{recap.total === 1 ? "" : "s"} on your road so far
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ fontSize: "18px", fontWeight: 500, color: C.text, marginTop: "8px", lineHeight: 1.3 }}>
+              Your road starts with one night
+            </div>
+            <div style={{ fontSize: "13px", color: C.textMuted, marginTop: "6px", lineHeight: 1.5 }}>
+              Every first lands here with the date you did it {"\u2014"} first
+              strike, first spare, first 200.
+            </div>
+          </>
+        )}
       </button>
 
       {/* The four modes ARE the way in.

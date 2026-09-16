@@ -5822,12 +5822,24 @@ export default function BowlingTracker(){
   // back except the tab they can't see. Same for the Coach tab if the
   // last coaching relationship is ended while viewing it.
   useEffect(()=>{
-    // Screens reached from a header icon rather than the nav. They're
-    // legitimate views, so they must not be treated as "not in the nav"
-    // and bounced -- which would have thrown a coach off Settings the
-    // moment they flipped coach view.
-    const iconViews=["profile","settings","inbox","social","coaching","import","help"];
-    if(!navTabs.some(t=>t.id===view)&&!iconViews.includes(view))setView("log");
+    // Screens reached from a header icon or a Home card rather than the
+    // nav. They're legitimate views, so they must not be treated as "not
+    // in the nav" and bounced -- which would have thrown a coach off
+    // Settings the moment they flipped coach view.
+    //
+    // journey and data joined this list when the nav went to five tabs:
+    // both are now reached from cards on Home, and without them here the
+    // guard threw you straight back to logging the moment you tapped
+    // either card. A destination is not illegitimate just because it has
+    // no tab.
+    // "log" is here for the same reason: picking a mode on Home sets it,
+    // and it has no tab either. Without it the mode rows bounced you
+    // back to Home the instant you tapped one.
+    const iconViews=["profile","settings","inbox","social","coaching","import","help",
+      // badges too: a shared badge link opens it directly, and a link
+      // that lands on Home is a broken link.
+      "journey","data","log","badges"];
+    if(!navTabs.some(t=>t.id===view)&&!iconViews.includes(view))setView("home");
   },[view,coachViewOn,showCoachingTab]);
 
   // Every tab opens at the top.
