@@ -1287,7 +1287,7 @@ export default function LogView({
                 backgroundColor:C.surface,borderRadius:"10px",
                 border:`1px solid ${C.border}`,
               }}>
-                Scores above are enough. Frames below add leave and ball data.
+                Scores above are enough. Frames below add shot and ball data.
               </div>
             )}
 
@@ -1764,10 +1764,16 @@ export default function LogView({
                         ));
                       }}
                       color={C.miss}/>
-                    <Chip label="9 Pin No-Tap"
-                      selected={Array.isArray(form.otherLeave)&&form.otherLeave.includes("9 Pin No-Tap")}
-                      onToggle={()=>handleLeaveToggle("9 Pin No-Tap")}
-                      color={C.strike}/>
+                    {/* The "9 Pin No-Tap" chip is gone.
+                        
+                        No-tap is a property of the LEAGUE, set when the
+                        format is defined, and scoring applies it
+                        automatically from there. Marking it per shot asked
+                        the bowler to restate a rule the app already knows,
+                        and let them disagree with it.
+                        
+                        Practice never had a format to disagree with, so it
+                        was pure noise there. */}
                   </div>
                   <PinDeck
                     selected={Array.isArray(form.otherLeave)?form.otherLeave:[]}

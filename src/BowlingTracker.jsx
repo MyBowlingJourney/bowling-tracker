@@ -3914,14 +3914,32 @@ export default function BowlingTracker(){
   // Depends on everything that changes whether the footer renders or how
   // tall it is, and reserves the default when it isn't rendered at all.
   useEffect(()=>{
-    const el=footerRef.current;
-    if(!el){setFooterHeight(0);return;}
-    const measure=()=>setFooterHeight(el.offsetHeight);
-    measure();
-    if(typeof ResizeObserver==="undefined")return;
-    const ro=new ResizeObserver(measure);
-    ro.observe(el);
-    return()=>ro.disconnect();
+    let raf=0,ro=null,cancelled=false;
+    const attach=()=>{
+      if(cancelled)return;
+      const el=footerRef.current;
+      if(!el){
+        // The footer has not rendered yet.
+        //
+        // This used to set 0 and return, which left no observer and no
+        // retry -- so the spacer stayed at zero and the last cards sat
+        // under the sticky bar until something else changed a dependency
+        // and re-ran the effect. That is why it came right as soon as you
+        // tapped anything, and only then.
+        //
+        // Waiting a frame and looking again costs nothing and fixes the
+        // first paint, which is the one every bowler sees.
+        raf=requestAnimationFrame(attach);
+        return;
+      }
+      const measure=()=>setFooterHeight(el.offsetHeight);
+      measure();
+      if(typeof ResizeObserver==="undefined")return;
+      ro=new ResizeObserver(measure);
+      ro.observe(el);
+    };
+    attach();
+    return()=>{cancelled=true;cancelAnimationFrame(raf);if(ro)ro.disconnect();};
   },[view,preferences.trackingMode,preferences.environment,practiceMode,editingId,needsSpareMade]);
   const showPinCount=hasLeave&&form.spareMade==="No"&&!isSinglePin&&standingPins>0;
 
