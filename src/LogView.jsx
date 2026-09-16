@@ -2504,6 +2504,25 @@ export default function LogView({
             {onTab("scoring")&&(editingId||(leagueReady&&env!=="casual"&&!(preferences.environment==="practice"&&practiceMode==="drill")))&&(<>
             </>)}
 
+            {/* The accessory details, in two columns.
+                
+                Stacked they measured 698px with the save button, against
+                612px of usable screen below the result -- so a bowler who
+                filled anything in was scrolling, every shot.
+                
+                Paired by height rather than by subject: Line (198) with
+                Measurements (154) against Shoes (102) with Execution
+                (146) gives 366 and 262, so the columns come out close to
+                even and the grid is 422px. Grouping "equipment" together
+                would have made one column twice the other and wasted the
+                space beside the short one.
+                
+                minmax(0, 1fr) so a long input does not push the split
+                sideways off a narrow screen. */}
+            <div style={{display:"grid",
+              gridTemplateColumns:"repeat(2, minmax(0, 1fr))",
+              gap:"10px",alignItems:"start"}}>
+              <div style={{minWidth:0}}>
             {/* Line */}
             {preferences.trackedFields.line&&(
               <div style={S.card}>
@@ -2541,37 +2560,6 @@ export default function LogView({
                 })()}
               </div>
             )}
-
-            {/* Ball Speed — an accessory field like the others: on by
-                default in Practice (where comparing speed against outcomes
-                is the point), off elsewhere, but opt-in either way. */}
-
-            {/* Rev rate and axis rotation are self-reported estimates -- there's
-                no way to measure them without a sensor -- so they're labelled
-                as such rather than presented as data. Off by default. */}
-            {preferences.trackedFields.shoes&&(
-              <div style={S.card}>
-                <div style={S.label}>Shoes</div>
-                <div style={S.row}>
-                  <input style={{...S.input,flex:1}} placeholder="Heel #"
-                    value={form.heelNumber} onChange={e=>set("heelNumber",e.target.value)}/>
-                  <input style={{...S.input,flex:1}} placeholder="Sole #"
-                    value={form.soleNumber} onChange={e=>set("soleNumber",e.target.value)}/>
-                </div>
-              </div>
-            )}
-
-            {/* Release Measurements -- speed, revs, rotation and tilt.
-                
-                Ball speed was its own card directly above this one, which
-                split four numbers describing the same delivery across two
-                cards for no reason.
-                
-                "Measurements" rather than "Estimates": a bowler with a
-                ball-tracking system has real figures, and calling their
-                data an estimate is wrong. The old subtitle told everyone
-                these cannot be measured without a sensor, which is both
-                untrue for those bowlers and unhelpful for the rest. */}
             {(preferences.trackedFields.ballSpeed||preferences.trackedFields.revRate
               ||preferences.trackedFields.axisRotation||preferences.trackedFields.axisTilt)&&(
               <div style={S.card}>
@@ -2601,7 +2589,19 @@ export default function LogView({
                 </div>
               </div>
             )}
-
+              </div>
+              <div style={{minWidth:0}}>
+            {preferences.trackedFields.shoes&&(
+              <div style={S.card}>
+                <div style={S.label}>Shoes</div>
+                <div style={S.row}>
+                  <input style={{...S.input,flex:1}} placeholder="Heel #"
+                    value={form.heelNumber} onChange={e=>set("heelNumber",e.target.value)}/>
+                  <input style={{...S.input,flex:1}} placeholder="Sole #"
+                    value={form.soleNumber} onChange={e=>set("soleNumber",e.target.value)}/>
+                </div>
+              </div>
+            )}
             {/* Execution -- how the shot came out. */}
             {(preferences.trackedFields.release||preferences.trackedFields.miss)&&(
               <CollapsibleCard
@@ -2651,6 +2651,30 @@ export default function LogView({
                 </div>
               </CollapsibleCard>
             )}
+              </div>
+            </div>
+
+
+            {/* Ball Speed — an accessory field like the others: on by
+                default in Practice (where comparing speed against outcomes
+                is the point), off elsewhere, but opt-in either way. */}
+
+            {/* Rev rate and axis rotation are self-reported estimates -- there's
+                no way to measure them without a sensor -- so they're labelled
+                as such rather than presented as data. Off by default. */}
+
+            {/* Release Measurements -- speed, revs, rotation and tilt.
+                
+                Ball speed was its own card directly above this one, which
+                split four numbers describing the same delivery across two
+                cards for no reason.
+                
+                "Measurements" rather than "Estimates": a bowler with a
+                ball-tracking system has real figures, and calling their
+                data an estimate is wrong. The old subtitle told everyone
+                these cannot be measured without a sensor, which is both
+                untrue for those bowlers and unhelpful for the rest. */}
+
 
             {/* Shoes — heel and sole numbers. Interchangeable soles get
                 swapped for approach conditions, so this isn't constant for
