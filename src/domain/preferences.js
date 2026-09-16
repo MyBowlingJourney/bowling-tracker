@@ -148,7 +148,12 @@ const ORDER_BY_ENVIRONMENT = {
     "splits", "nonSplitLeaves", "loneFivePin", "firstBallAverage",
     "framePosition", "strikeStreak", "strikeQuality", "byBall",
     "releaseQuality", "missDistribution", "ballChangeTriggers", "byCenter",
-    "progress", "consistency", "scoreDistribution", "money",
+    // seasonCompare sits with the other "am I improving" cards.
+    //
+    // It was defined and ungated but absent from EVERY mode's default
+    // set, so the only way to see it was to know it existed and turn it
+    // on -- which is the same discovery problem the redesign is for.
+    "progress", "consistency", "seasonCompare", "scoreDistribution", "money",
     "threeSixNine",
   ],
   // Practice: execution quality and what to change, since that's the
