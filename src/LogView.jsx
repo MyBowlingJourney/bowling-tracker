@@ -485,6 +485,238 @@ export default function LogView({
               </div>
             )}
 
+            {/* Game scores FIRST, directly under the chips.
+                
+                This sat below the shot form, so a bowler whose night is
+                three numbers had to scroll past every frame-tracking
+                control to reach the only thing they came to do. The
+                order now matches what the note above the frame section
+                says: type your scores here, go further down if you want
+                the detail. */}
+            {onTab("scoring")&&!editingId&&activeBowler&&effectiveSessionLeague&&preferences.environment!=="casual"&&preferences.environment!=="tournament"&&!(preferences.environment==="practice"&&practiceMode==="drill")&&(()=>{
+              // How many game rows to show.
+              //
+              // Was hardcoded to 3, which is right for a league night and
+              // wrong for practice -- people bowl one game, or five, or
+              // stop after two. Derived from what's actually been entered
+              // so it grows with real data, with a floor of 1 rather than
+              // three empty boxes on a fresh session.
+              //
+              // League and tournament keep a floor of 3, because a
+              // standard night IS three games and pre-showing them saves
+              // two taps.
+              const standardGames=preferences.environment==="practice"||preferences.environment==="casual"?1:3;
+              const highestEntered=[1,2,3,4,5,6,7,8,9,10].reduce((hi,g)=>
+                getManualScore(manualScores,activeBowler,effectiveSessionLeague,sessionDate,g)!=null?g:hi,0);
+              const gameCount=Math.max(standardGames,highestEntered,extraGames);
+              const gameNums=Array.from({length:gameCount},(_,i)=>i+1);
+              const entered=gameNums.map(g=>getManualScore(manualScores,activeBowler,effectiveSessionLeague,sessionDate,g));
+              const total=seriesTotal(entered);
+              // The card is defaulted OPEN in BowlingTracker's
+              // expandedSections. Reaching it means a league is chosen and
+              // the bowler is here to enter scores -- a closed card is one
+              // more tap between them and the thing they opened the app to
+              // do. Collapsing it by hand still sticks.
+              return(
+                <CollapsibleCard
+                  title="Enter Game Scores"
+                  summary={total!=null?`${total} series`:""}
+                  expanded={expandedSections.manualScores}
+
+                  onToggle={()=>toggleSection("manualScores")}>
+                  {/* Which bag, asked ONCE rather than per game.
+
+                      Only when there is a choice to make: with one bag it
+                      is already the answer, and with none every ball is
+                      offered. */}
+                  {envBags.length>1&&(
+                    <div style={{marginBottom:"10px"}}>
+                      <div style={{...S.label,marginBottom:"4px"}}>Which bag tonight?</div>
+                      <select style={{...S.sel,width:"100%"}}
+                        value={selectedBagId||""}
+                        onChange={e=>setSelectedBagId(e.target.value)}>
+                        <option value="">All my balls</option>
+                        {envBags.map(bag=>(<option key={bag.id} value={bag.id}>{bag.name}</option>))}
+                      </select>
+                    </div>
+                  )}
+                  {/* The explanatory paragraph is gone.
+
+                      It said the series total adds itself (visible), that
+                      this is for people not logging shot by shot (they
+                      chose that mode), that manual entry wins over shot
+                      data (true, and irrelevant until it happens), and
+                      what noting a ball is for. Four sentences of
+                      instruction above three number fields. */}
+                  {/* Round 7, finding 7.
+ 
+                      Removing the old four-sentence paragraph was right, but
+                      it was the only place explaining that noting a ball
+                      attributes the WHOLE game to it. Nobody could work out
+                      how to record a ball change mid-game, and the answer --
+                      shot-by-shot -- was nowhere on the screen.
+ 
+                      One line, and only when a ball can actually be chosen. */}
+                  {logBalls.length>0&&(
+                    <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"10px",lineHeight:1.5}}>
+                      A ball counts for the whole game. Switch to frame tracking to record a ball change mid-game.
+                    </div>
+                  )}
+                  {/* Shown only when there is a derived score to protect.
+                      
+                      Was keyed to shot mode, which no longer exists. The
+                      honest condition is whether any game actually has
+                      frames -- with no frames there is nothing to
+                      override, and the control would be pure friction. */}
+                  {gameScores.some(v=>v!=null)&&(
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",
+                                 padding:"8px 10px",marginBottom:"10px",borderRadius:"8px",
+                                 backgroundColor:C.surface,border:`1px solid ${C.border}`}}>
+                      <span style={{fontSize:"12px",color:C.textMuted,flex:1,lineHeight:1.4}}>
+                        {scoresUnlocked
+                          ?"Game scores now come from what you type here, not from your shots."
+                          :"Tired of logging every shot? Switch to entering game scores instead."}
+                      </span>
+                      <button style={{...S.btn(),padding:"6px 12px",fontSize:"12px",flexShrink:0}}
+                        onClick={()=>setScoresUnlocked(v=>!v)}>
+                        {scoresUnlocked?"Back to shots":"Switch to game scores"}
+                      </button>
+                    </div>
+                  )}
+                  {gameNums.map(g=>{
+                    // Per-game ball is offered EVERYWHERE now, not only in
+                    // practice. Lane transition is exactly as real on a
+                    // league night: the same ball can average 210 in game
+                    // one and 190 in game three, and recording which ball
+                    // bowled which game is what makes that visible in
+                    // Trends without shot-by-shot logging.
+                    const isPracticeGames=preferences.environment!=="casual";
+                    const arsenal=(arsenals?.[activeBowler]||[]);
+                    const equip=isPracticeGames?getGameEquipment(gameEquipment,activeBowler,effectiveSessionLeague,sessionDate,g):null;
+                    // One real ball means no choice to make -- it's pre-filled.
+                    // Plastic never defaults but is always offered.
+                    const defaultBall=defaultPracticeBall(arsenal,PLASTIC_BALL);
+                    const shownBall=equip?(equip.ball||defaultBall):"";
+                    // Plastic is always offered -- it is a spare ball, not
+                    // part of a bag -- and a ball already recorded stays
+                    // listed even if it has since left the bag, so an old
+                    // game never loses what it was bowled with.
+                    const gameBalls=plasticLast([...new Set([
+                      ...(logBalls||[]),
+                      ...(arsenal.includes(PLASTIC_BALL)?[PLASTIC_BALL]:[]),
+                      ...(shownBall?[shownBall]:[]),
+                    ])],PLASTIC_BALL);
+                    return(
+                    <div key={g} style={{marginBottom:isPracticeGames?"12px":"6px"}}>
+                      <div style={{display:"flex",gap:"8px",alignItems:"center",marginBottom:"6px"}}>
+                        <div style={{fontSize:"12px",color:C.textMuted,width:"28px"}}>G{g}</div>
+                        {(()=>{
+                          // Locked only when THIS game has frames logged.
+                          //
+                          // The condition used to be "tracking mode is
+                          // shot", which no longer exists -- both ways of
+                          // logging are always available now, so keying
+                          // the lock to a mode would have disabled score
+                          // entry for everyone.
+                          //
+                          // The real rule is narrower and always was: a
+                          // game whose frames are recorded has a computed
+                          // score, and letting someone type a different
+                          // one leaves two answers for the same game.
+                          // Games with no frames stay typable.
+                          const locked=gameScores[g-1]!=null&&!scoresUnlocked;
+                          return(
+                            <input style={{...S.input,flex:1,opacity:locked?0.5:1}}
+                              type="number" inputMode="numeric" placeholder="Score"
+                              disabled={locked}
+                              value={entered[g-1]==null?"":String(entered[g-1])}
+                              onChange={e=>updateManualScore(activeBowler,effectiveSessionLeague,sessionDate,g,e.target.value)}/>
+                          );
+                        })()}
+                      </div>
+                      {/* Ball and surface per game, because that's what a
+                          practice is for: which ball, which surface, what
+                          did it average -- and how it held up as the lanes
+                          transitioned across the block. */}
+                      {isPracticeGames&&gameBalls.length>0&&(
+                        <div style={{paddingLeft:"36px"}}>
+                          {/* A dropdown, not a chip row.
+
+                              One chip per ball meant a full arsenal wrapped
+                              across several lines under EVERY game -- three
+                              or four times over on one screen, burying the
+                              score fields it sits between.
+
+                              The list is the selected league bag's balls
+                              (logBalls), not the whole arsenal: the balls
+                              actually carried that night are the only ones
+                              that can have bowled the game. With no bag
+                              defined it falls back to everything, so nobody
+                              is forced to pack one first. */}
+                          <select style={{...S.sel,width:"100%",marginBottom:"4px"}}
+                            value={shownBall||""}
+                            onChange={e=>updateGameEquipment(activeBowler,effectiveSessionLeague,sessionDate,g,{ball:e.target.value})}>
+                            <option value="">Ball used…</option>
+                            {gameBalls.map(b=>(<option key={b} value={b}>{b}</option>))}
+                          </select>
+                          {shownBall&&shownBall!==PLASTIC_BALL&&(
+                            <div style={S.chips}>
+                              {SURFACES.map(sf=>(
+                                <Chip key={sf} label={sf} selected={equip.surface===sf}
+                                  onToggle={()=>updateGameEquipment(activeBowler,effectiveSessionLeague,sessionDate,g,{surface:equip.surface===sf?"":sf})}/>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    );
+                  })}
+
+                  {/* Add and remove game rows. Practice especially isn't
+                      always three games -- people bowl one, or five, or
+                      stop after two. Removing clears that game's score so
+                      the row and its data go together; without that a
+                      "deleted" game would still count toward the series. */}
+                  <div style={{display:"flex",gap:"8px",marginTop:"4px"}}>
+                    <button style={{...S.btn(),flex:1,fontSize:"13px",padding:"9px"}}
+                      onClick={()=>setExtraGames(gameCount+1)}>
+                      + Add game
+                    </button>
+                    {/* "Remove game N" is gone.
+                        
+                        It deleted the last game's score and dropped the
+                        count in one tap, with no confirmation, sitting
+                        right beside "Add game" -- a destructive action
+                        the width of a thumb from the one you meant.
+                        
+                        Clearing the box does the same thing and is
+                        already how every other score is removed. */}
+                  </div>
+                  {total!=null&&(
+                    <div style={{display:"flex",gap:"6px",marginTop:"10px"}}>
+                      <div style={{...S.statBox,border:`1px solid ${C.accent}44`}}>
+                        <div style={{...S.statNum,fontSize:"20px",color:C.accent}}>{total}</div>
+                        <div style={S.statLbl}>Series</div>
+                      </div>
+                      <div style={S.statBox}>
+                        <div style={{...S.statNum,fontSize:"20px"}}>
+                          {Math.round(total/entered.filter(v=>v!=null).length)}
+                        </div>
+                        <div style={S.statLbl}>Average</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* No save button here any more -- the sticky bar at
+                      the bottom of the screen is the one place a session
+                      ends, in every mode. Three buttons for one idea was
+                      the problem. */}
+
+                </CollapsibleCard>
+              );
+            })()}
+
 
             {/* Shot-by-shot, offered at the moment it means something.
 
@@ -1705,229 +1937,6 @@ export default function LogView({
               );
             })()}
 
-            {onTab("scoring")&&!editingId&&activeBowler&&effectiveSessionLeague&&preferences.environment!=="casual"&&preferences.environment!=="tournament"&&!(preferences.environment==="practice"&&practiceMode==="drill")&&(()=>{
-              // How many game rows to show.
-              //
-              // Was hardcoded to 3, which is right for a league night and
-              // wrong for practice -- people bowl one game, or five, or
-              // stop after two. Derived from what's actually been entered
-              // so it grows with real data, with a floor of 1 rather than
-              // three empty boxes on a fresh session.
-              //
-              // League and tournament keep a floor of 3, because a
-              // standard night IS three games and pre-showing them saves
-              // two taps.
-              const standardGames=preferences.environment==="practice"||preferences.environment==="casual"?1:3;
-              const highestEntered=[1,2,3,4,5,6,7,8,9,10].reduce((hi,g)=>
-                getManualScore(manualScores,activeBowler,effectiveSessionLeague,sessionDate,g)!=null?g:hi,0);
-              const gameCount=Math.max(standardGames,highestEntered,extraGames);
-              const gameNums=Array.from({length:gameCount},(_,i)=>i+1);
-              const entered=gameNums.map(g=>getManualScore(manualScores,activeBowler,effectiveSessionLeague,sessionDate,g));
-              const total=seriesTotal(entered);
-              // The card is defaulted OPEN in BowlingTracker's
-              // expandedSections. Reaching it means a league is chosen and
-              // the bowler is here to enter scores -- a closed card is one
-              // more tap between them and the thing they opened the app to
-              // do. Collapsing it by hand still sticks.
-              return(
-                <CollapsibleCard
-                  title="Enter Game Scores"
-                  summary={total!=null?`${total} series`:""}
-                  expanded={expandedSections.manualScores}
-
-                  onToggle={()=>toggleSection("manualScores")}>
-                  {/* Which bag, asked ONCE rather than per game.
-
-                      Only when there is a choice to make: with one bag it
-                      is already the answer, and with none every ball is
-                      offered. */}
-                  {envBags.length>1&&(
-                    <div style={{marginBottom:"10px"}}>
-                      <div style={{...S.label,marginBottom:"4px"}}>Which bag tonight?</div>
-                      <select style={{...S.sel,width:"100%"}}
-                        value={selectedBagId||""}
-                        onChange={e=>setSelectedBagId(e.target.value)}>
-                        <option value="">All my balls</option>
-                        {envBags.map(bag=>(<option key={bag.id} value={bag.id}>{bag.name}</option>))}
-                      </select>
-                    </div>
-                  )}
-                  {/* The explanatory paragraph is gone.
-
-                      It said the series total adds itself (visible), that
-                      this is for people not logging shot by shot (they
-                      chose that mode), that manual entry wins over shot
-                      data (true, and irrelevant until it happens), and
-                      what noting a ball is for. Four sentences of
-                      instruction above three number fields. */}
-                  {/* Round 7, finding 7.
- 
-                      Removing the old four-sentence paragraph was right, but
-                      it was the only place explaining that noting a ball
-                      attributes the WHOLE game to it. Nobody could work out
-                      how to record a ball change mid-game, and the answer --
-                      shot-by-shot -- was nowhere on the screen.
- 
-                      One line, and only when a ball can actually be chosen. */}
-                  {logBalls.length>0&&(
-                    <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"10px",lineHeight:1.5}}>
-                      A ball counts for the whole game. Switch to frame tracking to record a ball change mid-game.
-                    </div>
-                  )}
-                  {/* Shown only when there is a derived score to protect.
-                      
-                      Was keyed to shot mode, which no longer exists. The
-                      honest condition is whether any game actually has
-                      frames -- with no frames there is nothing to
-                      override, and the control would be pure friction. */}
-                  {gameScores.some(v=>v!=null)&&(
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",
-                                 padding:"8px 10px",marginBottom:"10px",borderRadius:"8px",
-                                 backgroundColor:C.surface,border:`1px solid ${C.border}`}}>
-                      <span style={{fontSize:"12px",color:C.textMuted,flex:1,lineHeight:1.4}}>
-                        {scoresUnlocked
-                          ?"Game scores now come from what you type here, not from your shots."
-                          :"Tired of logging every shot? Switch to entering game scores instead."}
-                      </span>
-                      <button style={{...S.btn(),padding:"6px 12px",fontSize:"12px",flexShrink:0}}
-                        onClick={()=>setScoresUnlocked(v=>!v)}>
-                        {scoresUnlocked?"Back to shots":"Switch to game scores"}
-                      </button>
-                    </div>
-                  )}
-                  {gameNums.map(g=>{
-                    // Per-game ball is offered EVERYWHERE now, not only in
-                    // practice. Lane transition is exactly as real on a
-                    // league night: the same ball can average 210 in game
-                    // one and 190 in game three, and recording which ball
-                    // bowled which game is what makes that visible in
-                    // Trends without shot-by-shot logging.
-                    const isPracticeGames=preferences.environment!=="casual";
-                    const arsenal=(arsenals?.[activeBowler]||[]);
-                    const equip=isPracticeGames?getGameEquipment(gameEquipment,activeBowler,effectiveSessionLeague,sessionDate,g):null;
-                    // One real ball means no choice to make -- it's pre-filled.
-                    // Plastic never defaults but is always offered.
-                    const defaultBall=defaultPracticeBall(arsenal,PLASTIC_BALL);
-                    const shownBall=equip?(equip.ball||defaultBall):"";
-                    // Plastic is always offered -- it is a spare ball, not
-                    // part of a bag -- and a ball already recorded stays
-                    // listed even if it has since left the bag, so an old
-                    // game never loses what it was bowled with.
-                    const gameBalls=plasticLast([...new Set([
-                      ...(logBalls||[]),
-                      ...(arsenal.includes(PLASTIC_BALL)?[PLASTIC_BALL]:[]),
-                      ...(shownBall?[shownBall]:[]),
-                    ])],PLASTIC_BALL);
-                    return(
-                    <div key={g} style={{marginBottom:isPracticeGames?"12px":"6px"}}>
-                      <div style={{display:"flex",gap:"8px",alignItems:"center",marginBottom:"6px"}}>
-                        <div style={{fontSize:"12px",color:C.textMuted,width:"28px"}}>G{g}</div>
-                        {(()=>{
-                          // Locked only when THIS game has frames logged.
-                          //
-                          // The condition used to be "tracking mode is
-                          // shot", which no longer exists -- both ways of
-                          // logging are always available now, so keying
-                          // the lock to a mode would have disabled score
-                          // entry for everyone.
-                          //
-                          // The real rule is narrower and always was: a
-                          // game whose frames are recorded has a computed
-                          // score, and letting someone type a different
-                          // one leaves two answers for the same game.
-                          // Games with no frames stay typable.
-                          const locked=gameScores[g-1]!=null&&!scoresUnlocked;
-                          return(
-                            <input style={{...S.input,flex:1,opacity:locked?0.5:1}}
-                              type="number" inputMode="numeric" placeholder="Score"
-                              disabled={locked}
-                              value={entered[g-1]==null?"":String(entered[g-1])}
-                              onChange={e=>updateManualScore(activeBowler,effectiveSessionLeague,sessionDate,g,e.target.value)}/>
-                          );
-                        })()}
-                      </div>
-                      {/* Ball and surface per game, because that's what a
-                          practice is for: which ball, which surface, what
-                          did it average -- and how it held up as the lanes
-                          transitioned across the block. */}
-                      {isPracticeGames&&gameBalls.length>0&&(
-                        <div style={{paddingLeft:"36px"}}>
-                          {/* A dropdown, not a chip row.
-
-                              One chip per ball meant a full arsenal wrapped
-                              across several lines under EVERY game -- three
-                              or four times over on one screen, burying the
-                              score fields it sits between.
-
-                              The list is the selected league bag's balls
-                              (logBalls), not the whole arsenal: the balls
-                              actually carried that night are the only ones
-                              that can have bowled the game. With no bag
-                              defined it falls back to everything, so nobody
-                              is forced to pack one first. */}
-                          <select style={{...S.sel,width:"100%",marginBottom:"4px"}}
-                            value={shownBall||""}
-                            onChange={e=>updateGameEquipment(activeBowler,effectiveSessionLeague,sessionDate,g,{ball:e.target.value})}>
-                            <option value="">Ball used…</option>
-                            {gameBalls.map(b=>(<option key={b} value={b}>{b}</option>))}
-                          </select>
-                          {shownBall&&shownBall!==PLASTIC_BALL&&(
-                            <div style={S.chips}>
-                              {SURFACES.map(sf=>(
-                                <Chip key={sf} label={sf} selected={equip.surface===sf}
-                                  onToggle={()=>updateGameEquipment(activeBowler,effectiveSessionLeague,sessionDate,g,{surface:equip.surface===sf?"":sf})}/>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    );
-                  })}
-
-                  {/* Add and remove game rows. Practice especially isn't
-                      always three games -- people bowl one, or five, or
-                      stop after two. Removing clears that game's score so
-                      the row and its data go together; without that a
-                      "deleted" game would still count toward the series. */}
-                  <div style={{display:"flex",gap:"8px",marginTop:"4px"}}>
-                    <button style={{...S.btn(),flex:1,fontSize:"13px",padding:"9px"}}
-                      onClick={()=>setExtraGames(gameCount+1)}>
-                      + Add game
-                    </button>
-                    {gameCount>1&&(
-                      <button style={{...S.btn(),flex:1,fontSize:"13px",padding:"9px"}}
-                        onClick={()=>{
-                          updateManualScore(activeBowler,effectiveSessionLeague,sessionDate,gameCount,"");
-                          setExtraGames(gameCount-1);
-                        }}>
-                        − Remove game {gameCount}
-                      </button>
-                    )}
-                  </div>
-                  {total!=null&&(
-                    <div style={{display:"flex",gap:"6px",marginTop:"10px"}}>
-                      <div style={{...S.statBox,border:`1px solid ${C.accent}44`}}>
-                        <div style={{...S.statNum,fontSize:"20px",color:C.accent}}>{total}</div>
-                        <div style={S.statLbl}>Series</div>
-                      </div>
-                      <div style={S.statBox}>
-                        <div style={{...S.statNum,fontSize:"20px"}}>
-                          {Math.round(total/entered.filter(v=>v!=null).length)}
-                        </div>
-                        <div style={S.statLbl}>Average</div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* No save button here any more -- the sticky bar at
-                      the bottom of the screen is the one place a session
-                      ends, in every mode. Three buttons for one idea was
-                      the problem. */}
-
-                </CollapsibleCard>
-              );
-            })()}
 
             {/* Casual and practice get their own recap instead of the
                 league summary below: both are scores-only, and the league
@@ -2408,28 +2417,18 @@ export default function LogView({
                   )}
                 </>
               )}
-              <div style={S.label}>Ball</div>
-              <div style={S.chips}>
-                {/* Layout shown alongside the name -- picking a ball is
-                    exactly when its drilling matters, and it saves a trip
-                    to the profile screen to remember what's what. */}
-                {logBalls.map(b=>{
-                  const layout=formatLayout(ballLayouts?.[`${form.bowler}|${b}`]);
-                  return(
-                    <Chip key={b} label={layout?`${b} · ${layout}`:b} selected={form.ball===b}
-                      onToggle={()=>editingId?toggle("ball",b):handleBallChange(b)}/>
-                  );
-                })}
-              </div>
-              {logBalls.length===0&&(
-                <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"12px"}}>
-                  {!form.bowler
-                    ?"Select a bowler to see their arsenal."
-                    :envBags.length>0&&selectedBagId
-                      ?"That bag is empty — add balls to it on the Profile screen."
-                      :`No balls in ${form.bowler}'s arsenal yet — add them on the Profile screen.`}
-                </div>
-              )}
+              {/* The ball chips are gone from here.
+                  
+                  The shot form above already picks the ball for this
+                  delivery, so this was the same choice a second time in
+                  the same screen -- and the two could disagree, since
+                  tapping a chip set form.ball while the dropdown set it
+                  too.
+                  
+                  The empty-arsenal message went with them: it explained
+                  why the picker was empty, and there is no picker now.
+                  Bag, surface, line and speed stay -- those are about the
+                  shot, not about which ball. */}
             </CollapsibleCard>
 
             {/* Ball Change Reason — only relevant when the ball actually
@@ -2600,16 +2599,6 @@ export default function LogView({
                 carries its own day notes and overall notes. Two notes
                 fields on one screen is a question about which one to
                 use. */}
-            {onTab("scoring")&&env!=="tournament"&&(
-            <CollapsibleCard
-              title="Notes"
-              summary={form.notes?"✓":""}
-              expanded={editingId?true:expandedSections.notes}
-              onToggle={()=>toggleSection("notes")}>
-              <textarea style={{...S.input,minHeight:"60px",resize:"vertical"}}
-                placeholder="Optional notes..." value={form.notes} onChange={e=>set("notes",e.target.value)}/>
-            </CollapsibleCard>
-            )}
 
 
             </>)}
@@ -2649,6 +2638,26 @@ export default function LogView({
               Tournament on the Results tab, and two buttons that both
               end something is a question about which one finishes the
               event. */}
+            {/* Notes live at the END of Results, in every mode.
+                
+                They were on Scoring and hidden in tournaments: a box for
+                what you noticed, sitting in the middle of the screen you
+                use between shots, and absent from the mode where a block
+                is most worth writing down.
+                
+                Results is where you look back, and last is where a note
+                belongs -- after the numbers it is about.*/}
+            {onTab("results")&&(
+            <CollapsibleCard
+              title="Notes"
+              summary={form.notes?"✓":""}
+              expanded={editingId?true:expandedSections.notes}
+              onToggle={()=>toggleSection("notes")}>
+              <textarea style={{...S.input,minHeight:"60px",resize:"vertical"}}
+                placeholder="Optional notes..." value={form.notes} onChange={e=>set("notes",e.target.value)}/>
+            </CollapsibleCard>
+            )}
+
           {!editingId&&activeBowler&&effectiveSessionLeague&&env!=="tournament"&&(
           <div ref={footerRef} style={{position:"fixed",bottom:"calc(64px + env(safe-area-inset-bottom, 0px))",left:0,right:0,zIndex:50,padding:"10px 14px",backgroundColor:C.bg,borderTop:`1px solid ${C.border}`}}>
             <button style={S.btn("primary")} onClick={submitSession}>
