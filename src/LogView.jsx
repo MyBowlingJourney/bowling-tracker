@@ -438,7 +438,39 @@ export default function LogView({
 
 
             {/* Everything below waits for the prompt to be answered. */}
-            {!(!editingId&&showSessionStart)&&(<>
+            {/* Everything below used to be hidden while the "Bowling
+                today?" card was up, so the card had the screen to itself.
+                
+                That card is gone -- Home asks the question now -- but the
+                gate stayed, and it was hiding the league tabs and the
+                game-score entry on any night the prompt would have
+                fired. The card it deferred to no longer exists, so
+                deferring to it is just a blank screen. */}
+            {(<>
+
+            {/* League tabs, restored.
+                
+                They were lost with the "Bowling today?" block they sat
+                inside -- removing that card took the strip with it, so
+                league lost Set up, Scoring, Side games and Results in one
+                go while tournaments kept theirs.
+                
+                The tab is DERIVED, not stored: with no league chosen it
+                forces Set up, because every other tab is about a night
+                that does not exist yet. */}
+            {leagueTabs&&!editingId&&(
+              <div style={{...S.card,padding:"10px 12px"}}>
+                <div style={{...S.chips,flexWrap:"nowrap",overflowX:"auto",marginBottom:0}}>
+                  {[["setup","Set up"],["scoring","Scoring"],
+                    ["side","Side games"],["results","Results"]].map(([id,label])=>(
+                    <Chip key={id} label={label} dense
+                      selected={leagueTab===id}
+                      onToggle={()=>setLeagueTab(id)} />
+                  ))}
+                </div>
+              </div>
+            )}
+
 
             {/* Shot-by-shot, offered at the moment it means something.
 
@@ -516,22 +548,13 @@ export default function LogView({
                     Log tab shows tonight and nothing in Settings, so a
                     scores-only practice can't quietly turn a league night
                     into scores-only too. */}
-                {practiceMode==="games"&&(
-                  <>
-                    <div style={{fontSize:"12px",color:C.textMuted,margin:"10px 0 6px"}}>Tracking tonight</div>
-                    <div style={S.chips}>
-                      <Chip label="Frame tracking" selected={preferences.trackingMode==="shot"}
-                        onToggle={()=>setPracticeTracking("shot")}/>
-                      <Chip label="Scores only" selected={preferences.trackingMode==="game"}
-                        onToggle={()=>setPracticeTracking("game")}/>
-                    </div>
-                    {practiceTracking&&(
-                      <div style={{fontSize:"10px",color:C.textMuted,marginTop:"4px"}}>
-                        Just for this practice — your Settings are unchanged.
-                      </div>
-                    )}
-                  </>
-                )}
+                {/* The "tracking tonight" question is gone.
+                    
+                    It asked frame or scores-only for this practice. Both
+                    are always available now -- game entry on top, frames
+                    below -- so the question had nothing left to switch
+                    and the answer changed nothing on screen. */}
+
               </div>
             )}
             {!editingId&&activeBowler&&preferences.environment==="practice"&&practiceMode==="drill"&&activeDrill&&(
@@ -1473,7 +1496,7 @@ export default function LogView({
                 bowler tapping a dead button with the reason somewhere
                 off-screen. */}
 
-            {onTab("scoring")&&(editingId||(leagueReady
+            {onTab("scoring")&&(editingId||(leagueReady&&env!=="casual"
               &&!(preferences.environment==="practice"&&practiceMode==="drill")
               /* Tournament: Scoring tab only. Saving a shot from the
                  Brackets or Results tab is not a thing a bowler means to
@@ -2422,7 +2445,7 @@ export default function LogView({
                 above -- showing both would imply you need to do both.
                 Editing an existing shot always shows the form, since
                 that's how a logged shot gets corrected. */}
-            {onTab("scoring")&&(editingId||(leagueReady&&!(preferences.environment==="practice"&&practiceMode==="drill")))&&(<>
+            {onTab("scoring")&&(editingId||(leagueReady&&env!=="casual"&&!(preferences.environment==="practice"&&practiceMode==="drill")))&&(<>
             </>)}
 
             {/* Line */}

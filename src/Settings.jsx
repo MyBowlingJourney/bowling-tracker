@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { C, S, Chip, CollapsibleCard, ActionRow } from "./ui.jsx";
+import { C, S, Chip, CollapsibleCard } from "./ui.jsx";
 import { THEMES, DARK_THEME_IDS, LIGHT_THEME_IDS } from "./domain/themes.js";
 import { useAuth } from "./AuthProvider.jsx";
 import CalendarView from "./CalendarView.jsx";
@@ -15,9 +15,6 @@ import { errorLogSummary, errorLogText, clearErrorLog } from "./errorLogStore.js
 import {
   ENVIRONMENT_LABELS,
   ENVIRONMENT_DESCRIPTIONS,
-  ENVIRONMENTS,
-  applyEnvironment,
-  setTrackingMode,
   MONEY_GAMES,
   MONEY_GAME_LABELS,
   isMoneyGameShown,
@@ -31,9 +28,7 @@ import {
   moveStatsCard,
   toggleStatsCardHidden,
   reconcileCardOrder,
-  ENVIRONMENT_ICONS,
-  ENVIRONMENT_COLORS,
-} from "./domain/preferences.js";
+  } from "./domain/preferences.js";
 
 const FIELD_LABELS = { surface: "Ball Surface", line: "Line (Board & Arrows)", release: "Release", miss: "Miss Direction", ballSpeed: "Ball Speed", shoes: "Shoes (Heel & Sole)", revRate: "Rev Rate (estimate)", axisRotation: "Axis Rotation (estimate)" };
 const CARD_LABEL_BY_ID = Object.fromEntries(MOVABLE_STATS_CARDS.map(c => [c.id, c.label]));
@@ -368,47 +363,18 @@ export default function Settings({
           different things, so switching here changes what the rest of the app offers.
         </div>
 
-        <div style={S.label}>What are you doing today?</div>
-        {/* The SAME rows as the session question, from the same source.
-            
-            Settings had text chips while the question screen had tinted
-            rows, so the four modes looked like different things in the
-            two places a bowler meets them -- which is the confusion the
-            rows were built to remove, reintroduced one screen over. */}
-        {ENVIRONMENTS.map(env => (
-          <ActionRow key={env}
-            icon={ENVIRONMENT_ICONS[env]}
-            color={ENVIRONMENT_COLORS[env]}
-            label={ENVIRONMENT_LABELS[env]}
-            onClick={() => apply(prev => applyEnvironment(prev, env))} />
-        ))}
-        {/* The same one-line description the question shows, from the
-            same source. Settings had the chips and no description at
-            all, so the only place explaining what a mode does was the
-            screen you see once. */}
-        <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "-6px", marginBottom: "12px", lineHeight: 1.4 }}>
-          {ENVIRONMENT_DESCRIPTIONS[preferences.environment]}
-        </div>
+        {/* Mode and tracking style are no longer set here.
+
+            Home asks what you are doing with four tinted rows, and
+            picking one sets the mode -- so Settings offering the same
+            choice was a second place for it to drift out of step, which
+            is exactly what happened in the first round of this redesign.
+
+            Tracking style is gone outright: game entry and frame tracking
+            are both always available now, so there was nothing left to
+            choose. */}
 
         {/* Casual has no tracking choice: it's scores-only by
-            definition, and offering a switch that does nothing would be
-            worse than not offering it. */}
-        {preferences.environment !== "casual" && (
-          <>
-            <div style={S.label}>Tracking style</div>
-            <div style={S.chips}>
-              <Chip label="Frame tracking" selected={preferences.trackingMode === "shot"}
-                onToggle={() => apply(prev => setTrackingMode(prev, "shot"))} />
-              <Chip label="Scores only" selected={preferences.trackingMode === "game"}
-                onToggle={() => apply(prev => setTrackingMode(prev, "game"))} />
-            </div>
-            <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "8px", lineHeight: 1.4 }}>
-              {preferences.trackingMode === "shot"
-                ? "Every ball: which pins fell, which you left, the ball you threw. Powers spare stats and the scoresheet."
-                : "Just the final score for each game. Faster, and you can switch mid-night."}
-            </div>
-          </>
-        )}
 
         {/* The extra Open bowling paragraph is gone.
 
