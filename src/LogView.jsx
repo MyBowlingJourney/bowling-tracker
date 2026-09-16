@@ -398,6 +398,19 @@ export default function LogView({
   }));
 
   // The fields a result reveals, so the next tap is already on screen.
+  // A label above each field, and smaller text inside it.
+  //
+  // Placeholders vanish the moment a bowler types, so a filled form was a
+  // row of numbers with nothing saying which was which -- fine while you
+  // are filling it in, useless when you come back to check. Release and
+  // miss already had headers; heel, sole and every measurement did not.
+  //
+  // The input text drops to 13px because these are short values -- two
+  // digits, a decimal -- and 15px in a half-width column left no room
+  // for the header above it.
+  const fieldHead={fontSize:"11px",color:C.textMuted,marginBottom:"3px"};
+  const smallInput={fontSize:"13px",padding:"9px 10px"};
+
   const strikeDescRef=useRef(null);
   const pinsStandingRef=useRef(null);
   const spareMadeRef=useRef(null);
@@ -2529,23 +2542,36 @@ export default function LogView({
               gridTemplateColumns:"repeat(2, minmax(0, 1fr))",
               gap:"10px",alignItems:"start"}}>
               <div style={{minWidth:0}}>
+              <div style={{minWidth:0}}>
             {/* Line */}
             {preferences.trackedFields.line&&(
               <div style={S.card}>
                 <div style={S.label}>Line{!editingId&&currentLane?` · Lane ${currentLane}`:""}{!editingId&&form.startingBoard&&form.targetArrows?" (stored)":""}</div>
                 <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"4px"}}>Target</div>
                 <div style={S.row}>
-                  <input style={{...S.input,flex:1}} placeholder="Starting Board" type="number" inputMode="decimal"
-                    value={form.startingBoard} onChange={e=>editingId?set("startingBoard",e.target.value):handleLineChange("startingBoard",e.target.value)}/>
-                  <input style={{...S.input,flex:1}} placeholder="Arrow Target" type="number" inputMode="decimal"
-                    value={form.targetArrows} onChange={e=>editingId?set("targetArrows",e.target.value):handleLineChange("targetArrows",e.target.value)}/>
+                  <div style={{flex:1,minWidth:0}}>
+                      <div style={fieldHead}>Board</div>
+                      <input style={{...S.input,...smallInput,width:"100%"}} type="number" inputMode="decimal"
+                        value={form.startingBoard} onChange={e=>editingId?set("startingBoard",e.target.value):handleLineChange("startingBoard",e.target.value)}/>
+                    </div>
+                  <div style={{flex:1,minWidth:0}}>
+                      <div style={fieldHead}>Arrow</div>
+                      <input style={{...S.input,...smallInput,width:"100%"}} type="number" inputMode="decimal"
+                        value={form.targetArrows} onChange={e=>editingId?set("targetArrows",e.target.value):handleLineChange("targetArrows",e.target.value)}/>
+                    </div>
                 </div>
                 <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"4px",marginTop:"8px"}}>Actual</div>
                 <div style={S.row}>
-                  <input style={{...S.input,flex:1}} placeholder="Actual Board" type="number" inputMode="decimal"
-                    value={form.actualBoard} onChange={e=>set("actualBoard",e.target.value)}/>
-                  <input style={{...S.input,flex:1}} placeholder="Actual Arrow" type="number" inputMode="decimal"
-                    value={form.actualArrows} onChange={e=>set("actualArrows",e.target.value)}/>
+                  <div style={{flex:1,minWidth:0}}>
+                      <div style={fieldHead}>Board</div>
+                      <input style={{...S.input,...smallInput,width:"100%"}} type="number" inputMode="decimal"
+                        value={form.actualBoard} onChange={e=>set("actualBoard",e.target.value)}/>
+                    </div>
+                  <div style={{flex:1,minWidth:0}}>
+                      <div style={fieldHead}>Arrow</div>
+                      <input style={{...S.input,...smallInput,width:"100%"}} type="number" inputMode="decimal"
+                        value={form.actualArrows} onChange={e=>set("actualArrows",e.target.value)}/>
+                    </div>
                 </div>
                 {(()=>{
                   // The gap between target and actual is the whole point of
@@ -2566,6 +2592,28 @@ export default function LogView({
                 })()}
               </div>
             )}
+            {preferences.trackedFields.shoes&&(
+              <div style={S.card}>
+                <div style={S.label}>Shoes</div>
+                <div style={{display:"grid",
+                  gridTemplateColumns:"repeat(2, minmax(0, 1fr))",gap:"8px"}}>
+                  <div style={{minWidth:0}}>
+                    <div style={fieldHead}>Heel</div>
+                    <input style={{...S.input,...smallInput,width:"100%"}}
+                      inputMode="numeric"
+                      value={form.heelNumber} onChange={e=>set("heelNumber",e.target.value)}/>
+                  </div>
+                  <div style={{minWidth:0}}>
+                    <div style={fieldHead}>Sole</div>
+                    <input style={{...S.input,...smallInput,width:"100%"}}
+                      inputMode="numeric"
+                      value={form.soleNumber} onChange={e=>set("soleNumber",e.target.value)}/>
+                  </div>
+                </div>
+              </div>
+            )}
+              </div>
+              <div style={{minWidth:0}}>
             {(preferences.trackedFields.ballSpeed||preferences.trackedFields.revRate
               ||preferences.trackedFields.axisRotation||preferences.trackedFields.axisTilt)&&(
               <div style={S.card}>
@@ -2573,52 +2621,50 @@ export default function LogView({
                 <div style={{display:"grid",
                   gridTemplateColumns:"repeat(2, minmax(0, 1fr))",gap:"8px"}}>
                   {preferences.trackedFields.ballSpeed&&(
-                    <input style={{...S.input,width:"100%"}} placeholder="Speed (mph)"
-                      type="number" step="0.1" inputMode="decimal"
-                      value={form.ballSpeed} onChange={e=>set("ballSpeed",e.target.value)}/>
+                    <div style={{minWidth:0}}>
+                      <div style={fieldHead}>Speed (mph)</div>
+                      <input style={{...S.input,...smallInput,width:"100%"}}
+                        type="number" step="0.1" inputMode="decimal"
+                        value={form.ballSpeed} onChange={e=>set("ballSpeed",e.target.value)}/>
+                    </div>
                   )}
                   {preferences.trackedFields.revRate&&(
-                    <input style={{...S.input,width:"100%"}} placeholder="Rev rate (rpm)"
-                      type="number" inputMode="numeric"
-                      value={form.revRate} onChange={e=>set("revRate",e.target.value)}/>
+                    <div style={{minWidth:0}}>
+                      <div style={fieldHead}>Rev rate (rpm)</div>
+                      <input style={{...S.input,...smallInput,width:"100%"}}
+                        type="number" inputMode="numeric"
+                        value={form.revRate} onChange={e=>set("revRate",e.target.value)}/>
+                    </div>
                   )}
                   {preferences.trackedFields.axisRotation&&(
-                    <input style={{...S.input,width:"100%"}} placeholder="Axis rotation (°)"
-                      type="number" inputMode="numeric"
-                      value={form.axisRotation} onChange={e=>set("axisRotation",e.target.value)}/>
+                    <div style={{minWidth:0}}>
+                      <div style={fieldHead}>Axis rotation (°)</div>
+                      <input style={{...S.input,...smallInput,width:"100%"}}
+                        type="number" inputMode="numeric"
+                        value={form.axisRotation} onChange={e=>set("axisRotation",e.target.value)}/>
+                    </div>
                   )}
                   {preferences.trackedFields.axisTilt&&(
-                    <input style={{...S.input,width:"100%"}} placeholder="Axis tilt (°)"
-                      type="number" inputMode="numeric"
-                      value={form.axisTilt} onChange={e=>set("axisTilt",e.target.value)}/>
+                    <div style={{minWidth:0}}>
+                      <div style={fieldHead}>Axis tilt (°)</div>
+                      <input style={{...S.input,...smallInput,width:"100%"}}
+                        type="number" inputMode="numeric"
+                        value={form.axisTilt} onChange={e=>set("axisTilt",e.target.value)}/>
+                    </div>
                   )}
-                </div>
-              </div>
-            )}
-              </div>
-              <div style={{minWidth:0}}>
-            {preferences.trackedFields.shoes&&(
-              <div style={S.card}>
-                <div style={S.label}>Shoes</div>
-                <div style={S.row}>
-                  <input style={{...S.input,flex:1}} placeholder="Heel #"
-                    value={form.heelNumber} onChange={e=>set("heelNumber",e.target.value)}/>
-                  <input style={{...S.input,flex:1}} placeholder="Sole #"
-                    value={form.soleNumber} onChange={e=>set("soleNumber",e.target.value)}/>
                 </div>
               </div>
             )}
             {/* Execution -- how the shot came out. */}
             {(preferences.trackedFields.release||preferences.trackedFields.miss)&&(
-              <CollapsibleCard
-                title="Execution"
-                summary={[preferences.trackedFields.release?form.release:"",preferences.trackedFields.miss&&form.miss.length?`${form.miss.length} miss`:""].filter(Boolean).join(", ")}
-                // Open by default. Release and miss are two dropdowns now, not two
-                // stacks of chips -- the card costs one row collapsed and three
-                // open, and collapsing a field a bowler fills every shot just
-                // adds a tap.
-                expanded={editingId?true:(expandedSections.releaseMiss!==false)}
-                onToggle={()=>toggleSection("releaseMiss")}>
+              <div style={S.card}>
+                {/* Always open, no collapse.
+                    
+                    Release and miss are two dropdowns -- one row. A
+                    collapse header costs about as much height as the
+                    content it hides, so the toggle only ever added a
+                    tap to a field filled every shot. */}
+                <div style={S.label}>Execution</div>
                 {/* Release and miss, side by side.
                     
                     Two stacks of chips took four rows between them for
@@ -2634,8 +2680,8 @@ export default function LogView({
                   gridTemplateColumns:"repeat(2, minmax(0, 1fr))",gap:"10px"}}>
                   {preferences.trackedFields.release&&(
                     <div style={{minWidth:0}}>
-                      <div style={{...S.label,marginBottom:"4px"}}>Release</div>
-                      <select style={{...S.sel,width:"100%",padding:"8px 10px",fontSize:"14px"}}
+                      <div style={fieldHead}>Release</div>
+                      <select style={{...S.sel,...smallInput,width:"100%"}}
                         value={form.release||""}
                         onChange={e=>set("release",e.target.value)}>
                         <option value="">—</option>
@@ -2645,8 +2691,8 @@ export default function LogView({
                   )}
                   {preferences.trackedFields.miss&&(
                     <div style={{minWidth:0}}>
-                      <div style={{...S.label,marginBottom:"4px"}}>Miss</div>
-                      <select style={{...S.sel,width:"100%",padding:"8px 10px",fontSize:"14px"}}
+                      <div style={fieldHead}>Miss</div>
+                      <select style={{...S.sel,...smallInput,width:"100%"}}
                         value={form.miss?.[0]||""}
                         onChange={e=>set("miss",e.target.value?[e.target.value]:[])}>
                         <option value="">—</option>
@@ -2655,8 +2701,11 @@ export default function LogView({
                     </div>
                   )}
                 </div>
-              </CollapsibleCard>
+              </div>
             )}
+              </div>
+              </div>
+              <div style={{minWidth:0}}>
               </div>
             </div>
 
