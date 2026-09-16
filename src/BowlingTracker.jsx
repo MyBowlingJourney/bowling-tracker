@@ -6913,6 +6913,11 @@ export default function BowlingTracker(){
                 // The same mistake once started the Open bowling tour
                 // when a bowler picked Practice.
                 updatePreferences(prev=>applyEnvironment(prev,env));
+                // The launch prompt asks which mode you are in. You have
+                // just answered that on Home, so showing it again on
+                // arrival asks the same question twice -- and it is the
+                // first thing on the screen you were sent to.
+                dismissSessionStart();
                 setView("log");
               }} />
           </Suspense>

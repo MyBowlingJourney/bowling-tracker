@@ -235,7 +235,7 @@ export default function LogView({
   // per shot, so carry-by-ball will have nothing from those nights. If
   // that turns out to matter, the fix is to gate it to the Scoring tab
   // the way Shot Context is, rather than to drop it.
-  const showEquipment=leagueReady&&env!=="casual"&&env!=="tournament"&&!isDrill&&preferences.trackingMode==="shot";
+  const showEquipment=leagueReady&&env!=="casual"&&env!=="tournament"&&!isDrill;
 
   // Shot Context (game/frame/lane) is meaningless without shots -- a
   // scores-only night has games, not frames. It had no gate at all.
@@ -359,7 +359,19 @@ export default function LogView({
   // beside the tournament card rather than inside it, so without this it
   // appeared under Set up, Brackets and Results as well -- three places
   // where "which frame are you on" is not a question.
-  const showShotContext=leagueReady&&env!=="casual"&&!isDrill&&preferences.trackingMode==="shot"
+  // BOTH ways of logging are always available now.
+  //
+  // Asking "frame or scores?" up front made a bowler choose before they
+  // knew what either gave them, and 38 of 50 league bowlers never found
+  // frame tracking at all -- the setting WAS the discovery problem.
+  //
+  // So game entry sits on top and frame tracking below it, always. A
+  // bowler types three scores and leaves, or carries on down the screen
+  // and records the frames. No mode, no setting, no wrong choice.
+  //
+  // Casual is still excluded: open bowling is the mode for not keeping
+  // score seriously, and drills have their own screen.
+  const showShotContext=leagueReady&&env!=="casual"&&!isDrill
     &&(env!=="tournament"||tournamentTab==="scoring");
 
   // In BAKER, the name follows the FRAME, not the session.
@@ -939,6 +951,30 @@ export default function LogView({
                 </div>
               )}
 
+            {/* Says what the second half is for.
+                
+                Game entry above, frame tracking below, and without a line
+                between them a bowler who has typed three scores has no
+                reason to scroll -- which is how frame tracking stayed
+                undiscovered when it was a setting.
+                
+                Names what it BUYS rather than what it is. "Shot-by-shot
+                tracking" is a feature; "which leaves keep costing you" is
+                a reason. */}
+            {onTab("scoring")&&showShotContext&&(
+              <div style={{
+                fontSize:"12px",color:C.textMuted,lineHeight:1.5,
+                padding:"10px 12px",marginBottom:"10px",
+                backgroundColor:C.surface,borderRadius:"10px",
+                border:`1px solid ${C.border}`,
+              }}>
+                Typing your game scores above is all you need to keep a
+                record. Log the frames below and the app can also tell you
+                which leaves keep costing you and how each ball is
+                carrying.
+              </div>
+            )}
+
             {onTab("scoring")&&showShotContext&&(
             <div style={S.card}>
               <div style={S.label}>
@@ -1468,7 +1504,7 @@ export default function LogView({
                 bowler tapping a dead button with the reason somewhere
                 off-screen. */}
 
-            {onTab("scoring")&&(editingId||(leagueReady&&preferences.trackingMode==="shot"
+            {onTab("scoring")&&(editingId||(leagueReady
               &&!(preferences.environment==="practice"&&practiceMode==="drill")
               /* Tournament: Scoring tab only. Saving a shot from the
                  Brackets or Results tab is not a thing a bowler means to
@@ -1719,10 +1755,13 @@ export default function LogView({
                       A ball counts for the whole game. Switch to frame tracking to record a ball change mid-game.
                     </div>
                   )}
-                  {/* Only shown in shot mode -- in scores-only mode there is
-                      no derived score to protect, so a lock would be pure
-                      friction. */}
-                  {preferences.trackingMode==="shot"&&(
+                  {/* Shown only when there is a derived score to protect.
+                      
+                      Was keyed to shot mode, which no longer exists. The
+                      honest condition is whether any game actually has
+                      frames -- with no frames there is nothing to
+                      override, and the control would be pure friction. */}
+                  {gameScores.some(v=>v!=null)&&(
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",
                                  padding:"8px 10px",marginBottom:"10px",borderRadius:"8px",
                                  backgroundColor:C.surface,border:`1px solid ${C.border}`}}>
@@ -1765,7 +1804,20 @@ export default function LogView({
                       <div style={{display:"flex",gap:"8px",alignItems:"center",marginBottom:"6px"}}>
                         <div style={{fontSize:"12px",color:C.textMuted,width:"28px"}}>G{g}</div>
                         {(()=>{
-                          const locked=preferences.trackingMode==="shot"&&!scoresUnlocked;
+                          // Locked only when THIS game has frames logged.
+                          //
+                          // The condition used to be "tracking mode is
+                          // shot", which no longer exists -- both ways of
+                          // logging are always available now, so keying
+                          // the lock to a mode would have disabled score
+                          // entry for everyone.
+                          //
+                          // The real rule is narrower and always was: a
+                          // game whose frames are recorded has a computed
+                          // score, and letting someone type a different
+                          // one leaves two answers for the same game.
+                          // Games with no frames stay typable.
+                          const locked=gameScores[g-1]!=null&&!scoresUnlocked;
                           return(
                             <input style={{...S.input,flex:1,opacity:locked?0.5:1}}
                               type="number" inputMode="numeric" placeholder="Score"
@@ -2401,7 +2453,7 @@ export default function LogView({
                 above -- showing both would imply you need to do both.
                 Editing an existing shot always shows the form, since
                 that's how a logged shot gets corrected. */}
-            {onTab("scoring")&&(editingId||(leagueReady&&preferences.trackingMode==="shot"&&!(preferences.environment==="practice"&&practiceMode==="drill")))&&(<>
+            {onTab("scoring")&&(editingId||(leagueReady&&!(preferences.environment==="practice"&&practiceMode==="drill")))&&(<>
             </>)}
 
             {/* Line */}
