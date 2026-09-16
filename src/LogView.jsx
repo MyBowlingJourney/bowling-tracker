@@ -345,6 +345,10 @@ export default function LogView({
     ? Math.min(12, Math.max(3, (parseInt(form.game)||1)+1))
     : 3;
 
+  // Kept as a scroll anchor for the disabled-reason hint, which stays in
+  // flow where the button used to be. The button itself is sticky now, so
+  // there is nothing to scroll TO -- the old scrollToSave helper went
+  // with it rather than sitting unused.
   const saveShotRef=useRef(null);
 
   // Scroll the MINIMUM needed to bring a section fully into view above
@@ -373,7 +377,6 @@ export default function LogView({
     if(delta>2)window.scrollBy({top:delta,behavior:"smooth"});
   }));
 
-  const scrollToSave=()=>scrollTo(saveShotRef);
 
   // Put an element's TOP just under the header.
   //
@@ -399,6 +402,7 @@ export default function LogView({
   const pinsStandingRef=useRef(null);
   const spareMadeRef=useRef(null);
   const totalPinsRef=useRef(null);
+  const detailsRef=useRef(null);
 
 
   // Shot Context (game/frame/lane) is meaningless without shots -- a
@@ -1802,11 +1806,13 @@ export default function LogView({
                           handleSpareMadeToggle(s);
                           // "No" opens the total-pins field, so that is the
                           // next thing to answer and it goes to the top.
-                          // "Yes" asks nothing more, so the bowler is done
-                          // with the frame -- send them to the save button,
-                          // which brings the accessory details up with it.
+                          // "Yes" asks nothing more about the frame, so the
+                          // bowler moves on to the optional detail. The save
+                          // button used to be the target, but it is sticky
+                          // now and always on screen -- scrolling to
+                          // something already visible does nothing.
                           if(s==="No")scrollToTopOf(totalPinsRef);
-                          else scrollToSave();
+                          else scrollToTopOf(detailsRef);
                         }}
                         color={s==="Yes"?C.strike:C.miss}/>
                     ))}
@@ -2519,7 +2525,7 @@ export default function LogView({
                 
                 minmax(0, 1fr) so a long input does not push the split
                 sideways off a narrow screen. */}
-            <div style={{display:"grid",
+            <div ref={detailsRef} style={{display:"grid",
               gridTemplateColumns:"repeat(2, minmax(0, 1fr))",
               gap:"10px",alignItems:"start"}}>
               <div style={{minWidth:0}}>
@@ -2692,10 +2698,7 @@ export default function LogView({
                  Brackets or Results tab is not a thing a bowler means to
                  do, and it appeared on all four. */
               &&(env!=="tournament"||tournamentTab==="scoring")))&&(
-              <div ref={saveShotRef} style={{marginBottom:"12px"}}>
-                <button style={S.btn("primary")} onClick={submitShot} disabled={!form.result||!form.bowler||needsSpareMade||needsPins}>
-                  {saved?(editingId?"✓ Shot Updated":"✓ Shot Saved"):(editingId?"Update Shot":"Save Shot")}
-                </button>
+              <div ref={saveShotRef} style={{marginBottom:"4px"}}>
                 {/* Why the button is disabled, next to the button.
                     Pins first: it is the earlier question, and answering
                     it is what makes Spare Made worth asking. */}
@@ -2840,17 +2843,35 @@ export default function LogView({
             )}
 
           {!editingId&&activeBowler&&effectiveSessionLeague&&env!=="tournament"&&(
-          <div ref={footerRef} style={{position:"fixed",bottom:"calc(64px + env(safe-area-inset-bottom, 0px))",left:0,right:0,zIndex:50,padding:"10px 14px",backgroundColor:C.bg,borderTop:`1px solid ${C.border}`}}>
-            <button style={S.btn("primary")} onClick={submitSession}>
+          <div ref={footerRef} style={{position:"fixed",bottom:"calc(64px + env(safe-area-inset-bottom, 0px))",left:0,right:0,zIndex:50,padding:"10px 14px",display:"flex",gap:"8px",backgroundColor:C.bg,borderTop:`1px solid ${C.border}`}}>
+            {/* Save Shot, sticky, left of the session button.
+                
+                In flow it sat below the accessory details, so it scrolled
+                off as soon as a bowler opened anything -- the one control
+                they press every single shot. Here it is always reachable,
+                and the two buttons sit in the order the night runs: save
+                this shot, over and over, then end the session once.
+                
+                Only when there is a shot to save. In game-scores-only
+                logging there is no shot form, and a permanent disabled
+                button would be a control that never does anything. */}
+            {onTab("scoring")&&showShotContext&&(
+              <button style={{...S.btn("primary"),flex:1}}
+                onClick={submitShot}
+                disabled={!form.result||!form.bowler||needsPins||needsSpareMade}>
+                {saved?(editingId?"✓ Saved":"✓ Saved"):(editingId?"Update":"Save Shot")}
+              </button>
+            )}
+            <button style={{...S.btn("primary"),flex:1}} onClick={submitSession}>
               {sessionSaveMessage?sessionSaveMessage:sessionSaved
                 ?"✓ Session Saved"
                 :preferences.environment==="practice"
-                  ?"End Practice & View Summary"
+                  ?"End Practice"
                   :preferences.environment==="tournament"
-                    ?"End Block & View Summary"
+                    ?"End Block"
                     :preferences.environment==="league"
-                      ?"End Session & View Summary"
-                      :"Finish & View Summary"}
+                      ?"End Session"
+                      :"Finish"}
             </button>
           </div>
           )}
