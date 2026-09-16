@@ -24,6 +24,9 @@ import { plasticLast } from "./domain/bags.js";
 import { tenthBall3Earned, maxPossibleScore } from "./domain/scoring.js";
 
 import { isBaker, bakerBowlerFor } from "./domain/tournamentFormats.js";
+
+import { practiceSummary } from "./domain/practiceSummary.js";
+import { targetLabel } from "./domain/drills.js";
 export default function LogView({
   // Was used free at the night-achievements block below and never
   // declared anywhere, so rendering a completed session threw
@@ -2638,6 +2641,72 @@ export default function LogView({
               Tournament on the Results tab, and two buttons that both
               end something is a question about which one finishes the
               event. */}
+            {/* Practice results: games AND drills, one night.
+                
+                The two chips each only knew about themselves, so a bowler
+                who shot three games and then worked the 10 pin for
+                twenty minutes could only ever see half of what they did.
+                
+                Each half is shown only if it happened -- an empty drills
+                section reads as a broken feature rather than a thing you
+                did not do that night. */}
+            {env==="practice"&&onTab("results")&&!editingId&&activeBowler&&(()=>{
+              const ps=practiceSummary({
+                sessions, liveScores:gameScores, drills,
+                bowler:activeBowler, date:sessionDate,
+              });
+              if(ps.didNothing) return (
+                <div style={{...S.card,fontSize:"13px",color:C.textMuted}}>
+                  Nothing logged yet tonight. Shoot a game or run a drill and it lands here.
+                </div>
+              );
+              return (
+                <div style={S.card}>
+                  {ps.didGames&&(
+                    <>
+                      <div style={S.label}>Games</div>
+                      <div style={{display:"flex",gap:"6px",marginBottom:"4px"}}>
+                        <div style={S.statBox}>
+                          <div style={{fontSize:"18px",fontWeight:500}}>{ps.games.average}</div>
+                          <div style={{fontSize:"11px",color:C.textMuted}}>average</div>
+                        </div>
+                        <div style={S.statBox}>
+                          <div style={{fontSize:"18px",fontWeight:500}}>{ps.games.best}</div>
+                          <div style={{fontSize:"11px",color:C.textMuted}}>best</div>
+                        </div>
+                        <div style={S.statBox}>
+                          <div style={{fontSize:"18px",fontWeight:500}}>{ps.games.total}</div>
+                          <div style={{fontSize:"11px",color:C.textMuted}}>total</div>
+                        </div>
+                      </div>
+                      <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"12px"}}>
+                        {ps.games.games.join(" \u00b7 ")}
+                      </div>
+                    </>
+                  )}
+                  {ps.didDrills&&(
+                    <>
+                      <div style={S.label}>Drills</div>
+                      {ps.targets.map(t=>(
+                        <div key={t.target}
+                          style={{display:"flex",justifyContent:"space-between",
+                            alignItems:"baseline",marginBottom:"6px"}}>
+                          <span style={{fontSize:"14px"}}>{targetLabel(t.target)}</span>
+                          <span style={{fontSize:"13px",color:C.textMuted}}>
+                            {t.made}/{t.attempts} {"\u00b7"} {t.rate}%
+                          </span>
+                        </div>
+                      ))}
+                      <div style={{fontSize:"12px",color:C.textMuted,marginTop:"6px"}}>
+                        {ps.drillAttempts} attempts overall {"\u00b7"} {ps.drillRate}%
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })()}
+
+
             {/* Notes live at the END of Results, in every mode.
                 
                 They were on Scoring and hidden in tournaments: a box for
