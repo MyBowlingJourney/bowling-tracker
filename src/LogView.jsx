@@ -814,7 +814,7 @@ export default function LogView({
                       One line, and only when a ball can actually be chosen. */}
                   {logBalls.length>0&&(
                     <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"10px",lineHeight:1.5}}>
-                      A ball counts for the whole game. Switch to frame tracking to record a ball change mid-game.
+                      One ball per game here. Log frames below to record a mid-game change.
                     </div>
                   )}
                   {/* Shown only when there is a derived score to protect.
@@ -1584,10 +1584,10 @@ export default function LogView({
                   <select style={{...S.sel,width:"100%",padding:"8px 10px",fontSize:"14px"}}
                     value={form.ball||""}
                     onChange={e=>editingId?toggle("ball",e.target.value):handleBallChange(e.target.value)}>
-                    <option value="">\u2014 pick a ball \u2014</option>
+                    <option value="">— pick a ball —</option>
                     {logBalls.map(b=>{
                       const layout=formatLayout(ballLayouts?.[`${form.bowler}|${b}`]);
-                      return <option key={b} value={b}>{layout?`${b} \u00b7 ${layout}`:b}</option>;
+                      return <option key={b} value={b}>{layout?`${b} · ${layout}`:b}</option>;
                     })}
                   </select>
                 </div>
@@ -1596,7 +1596,7 @@ export default function LogView({
                   <select style={{...S.sel,width:"100%",padding:"8px 10px",fontSize:"14px"}}
                     value={form.surface||""}
                     onChange={e=>set("surface",e.target.value)}>
-                    <option value="">\u2014</option>
+                    <option value="">—</option>
                     {SURFACES.map(s=><option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
@@ -2061,7 +2061,7 @@ export default function LogView({
                         both halves -- the same mistake as counting a Baker
                         game as a personal high game, in the heading. */}
                     {bakerTeamName
-                      ? `${bakerTeamName} \u2014 tonight`
+                      ? `${bakerTeamName} — tonight`
                       : (cs.bowler?`${cs.bowler}'s night`:"Tonight")}
                     {/* The DISPLAY name. A container league's stored name
                         carries the user id -- "Tournament·Tourny 5·c3e40233-
@@ -2427,43 +2427,12 @@ export default function LogView({
             {/* Ball — collapsible. Once a bowler settles on a ball they may
                 throw it for a dozen frames, so a permanently-expanded grid
                 of every ball in the bag is wasted screen. */}
-            <CollapsibleCard
-              title={form.ball?`Ball · ${form.ball}`:"Ball"}
-              summary={form.ball?(formatLayout(ballLayouts?.[`${form.bowler}|${form.ball}`])||""):`${logBalls.length} available`}
-              expanded={expandedSections.ballPick}
-              onToggle={()=>toggleSection("ballPick")}>
-              {/* League and tournament are bag-constrained: you only have
-                  what you carried. Practice isn't, so it shows everything
-                  and the selector is hidden entirely. */}
-              {envBags.length>0&&(
-                <>
-                  <div style={S.label}>Bag</div>
-                  <div style={S.chips}>
-                    {envBags.map(bag=>(
-                      <Chip key={bag.id} label={bag.name} selected={selectedBagId===bag.id}
-                        onToggle={()=>setSelectedBagId(selectedBagId===bag.id?"":bag.id)}/>
-                    ))}
-                  </div>
-                  {!selectedBagId&&(
-                    <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"10px"}}>
-                      Pick the bag you brought to see its balls.
-                    </div>
-                  )}
-                </>
-              )}
-              {/* The ball chips are gone from here.
-                  
-                  The shot form above already picks the ball for this
-                  delivery, so this was the same choice a second time in
-                  the same screen -- and the two could disagree, since
-                  tapping a chip set form.ball while the dropdown set it
-                  too.
-                  
-                  The empty-arsenal message went with them: it explained
-                  why the picker was empty, and there is no picker now.
-                  Bag, surface, line and speed stay -- those are about the
-                  shot, not about which ball. */}
-            </CollapsibleCard>
+            {/* The second ball picker is gone.
+                
+                Ball is chosen in the row beside Surface, above. This card
+                was the same choice again, further down the same screen,
+                writing the same field -- so the two could show different
+                balls for one delivery. */}
 
             {/* Ball Change Reason — only relevant when the ball actually
                 changed from the previous shot; collapsed by default. */}
@@ -2596,7 +2565,7 @@ export default function LogView({
                       <select style={{...S.sel,width:"100%",padding:"8px 10px",fontSize:"14px"}}
                         value={form.release||""}
                         onChange={e=>set("release",e.target.value)}>
-                        <option value="">\u2014</option>
+                        <option value="">—</option>
                         {RELEASES.map(r=><option key={r} value={r}>{r}</option>)}
                       </select>
                     </div>
@@ -2607,7 +2576,7 @@ export default function LogView({
                       <select style={{...S.sel,width:"100%",padding:"8px 10px",fontSize:"14px"}}
                         value={form.miss?.[0]||""}
                         onChange={e=>set("miss",e.target.value?[e.target.value]:[])}>
-                        <option value="">\u2014</option>
+                        <option value="">—</option>
                         {MISSES.map(m=><option key={m} value={m}>{m}</option>)}
                       </select>
                     </div>
@@ -2645,7 +2614,7 @@ export default function LogView({
               &&(env!=="tournament"||tournamentTab==="scoring")))&&(
               <div ref={saveShotRef} style={{marginBottom:"12px"}}>
                 <button style={S.btn("primary")} onClick={submitShot} disabled={!form.result||!form.bowler||needsSpareMade||needsPins}>
-                  {saved?(editingId?"\u2713 Shot Updated":"\u2713 Shot Saved"):(editingId?"Update Shot":"Save Shot")}
+                  {saved?(editingId?"✓ Shot Updated":"✓ Shot Saved"):(editingId?"Update Shot":"Save Shot")}
                 </button>
                 {/* Why the button is disabled, next to the button.
                     Pins first: it is the earlier question, and answering
@@ -2743,7 +2712,7 @@ export default function LogView({
                         </div>
                       </div>
                       <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"12px"}}>
-                        {ps.games.games.join(" \u00b7 ")}
+                        {ps.games.games.join(" · ")}
                       </div>
                     </>
                   )}
@@ -2756,12 +2725,12 @@ export default function LogView({
                             alignItems:"baseline",marginBottom:"6px"}}>
                           <span style={{fontSize:"14px"}}>{targetLabel(t.target)}</span>
                           <span style={{fontSize:"13px",color:C.textMuted}}>
-                            {t.made}/{t.attempts} {"\u00b7"} {t.rate}%
+                            {t.made}/{t.attempts} {"·"} {t.rate}%
                           </span>
                         </div>
                       ))}
                       <div style={{fontSize:"12px",color:C.textMuted,marginTop:"6px"}}>
-                        {ps.drillAttempts} attempts overall {"\u00b7"} {ps.drillRate}%
+                        {ps.drillAttempts} attempts overall {"·"} {ps.drillRate}%
                       </div>
                     </>
                   )}
@@ -2794,7 +2763,7 @@ export default function LogView({
           <div ref={footerRef} style={{position:"fixed",bottom:"calc(64px + env(safe-area-inset-bottom, 0px))",left:0,right:0,zIndex:50,padding:"10px 14px",backgroundColor:C.bg,borderTop:`1px solid ${C.border}`}}>
             <button style={S.btn("primary")} onClick={submitSession}>
               {sessionSaveMessage?sessionSaveMessage:sessionSaved
-                ?"\u2713 Session Saved"
+                ?"✓ Session Saved"
                 :preferences.environment==="practice"
                   ?"End Practice & View Summary"
                   :preferences.environment==="tournament"

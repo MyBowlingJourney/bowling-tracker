@@ -163,7 +163,7 @@ export function ActionRow({icon,label,detail,color,onClick,disabled,compact}){
         )}
       </span>
       <span aria-hidden="true" style={{color:C.textMuted,fontSize:"17px",flexShrink:0}}>
-        {"\u203A"}
+        {"›"}
       </span>
     </button>
   );
@@ -216,7 +216,7 @@ export function CollapsibleCard({title,summary,expanded,onToggle,children,cardSt
           unrelated columns. On the left it is one control: marker, then
           name. */}
       <div style={{display:"flex",alignItems:"center",gap:"6px",cursor:"pointer",WebkitTapHighlightColor:"transparent"}} onClick={onToggle}>
-        <span style={{color:C.textMuted,fontSize:"11px",lineHeight:1}}>{expanded?"\u25be":"\u25b8"}</span>
+        <span style={{color:C.textMuted,fontSize:"11px",lineHeight:1}}>{expanded?"▾":"▸"}</span>
         <div style={{...S.label,marginBottom:0}}>
           {title}
           {summary&&<span style={{color:C.textMuted,fontWeight:400,textTransform:"none",letterSpacing:"normal"}}> · {summary}</span>}

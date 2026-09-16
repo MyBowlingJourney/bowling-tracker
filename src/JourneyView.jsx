@@ -109,7 +109,7 @@ export default function JourneyView({ onOpenBadges, sessions = [], tournaments =
                 strokeWidth={m.state === "reach" ? 2 : 1.25} />
               <text x={p.x} y={p.y + 4} textAnchor="middle"
                 style={{ fontSize: "12px", fontWeight: 600, fill: col }}>
-                {m.kind === "count" ? (m.state === "earned" ? "\u2713" : m.target) : m.target}
+                {m.kind === "count" ? (m.state === "earned" ? "✓" : m.target) : m.target}
               </text>
               <text x={labelLeft ? p.x - r - 10 : p.x + r + 10} y={p.y - 2}
                 textAnchor={labelLeft ? "end" : "start"}
@@ -149,8 +149,8 @@ export default function JourneyView({ onOpenBadges, sessions = [], tournaments =
               style={{ background: "none", border: "none", padding: 0, width: "100%",
                 textAlign: "left", cursor: "pointer", color: C.textMuted,
                 fontSize: "12px" }}>
-              {isOpen ? "\u25be" : "\u25b8"} {band.label}
-              {" \u00b7 "}{band.milestones.length}
+              {isOpen ? "▾" : "▸"} {band.label}
+              {" · "}{band.milestones.length}
             </button>
             {isOpen && (
               <div style={{ marginTop: "6px" }}>

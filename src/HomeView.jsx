@@ -33,7 +33,7 @@ export default function HomeView({
       // happen to be adjacent rather than one figure in three parts.
     }}>
       <div style={{ fontSize: "20px", fontWeight: 500, color: C.text }}>
-        {value === null || value === undefined ? "\u2014" : value}
+        {value === null || value === undefined ? "—" : value}
       </div>
       <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "2px" }}>
         {label}
@@ -64,7 +64,7 @@ export default function HomeView({
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <span style={{ fontSize: "13px", color: C.textMuted }}>This league season</span>
           <span aria-hidden="true" style={{ color: C.textMuted, fontSize: "18px" }}>
-            {"\u203A"}
+            {"›"}
           </span>
         </div>
         <div style={{ display: "flex", gap: "10px", marginTop: "12px" }}>
@@ -139,7 +139,7 @@ export default function HomeView({
             </span>
           </span>
           <span aria-hidden="true" style={{ color: C.accent, fontSize: "18px" }}>
-            {"\u203A"}
+            {"›"}
           </span>
         </div>
 
@@ -151,7 +151,7 @@ export default function HomeView({
             </div>
 
             <div style={{ fontSize: "12px", color: C.textMuted, marginTop: "6px" }}>
-              {recap.date} {"\u00b7"} {recap.total} milestone{recap.total === 1 ? "" : "s"} so far
+              {recap.date} {"·"} {recap.total} milestone{recap.total === 1 ? "" : "s"} so far
             </div>
           </>
         ) : (
@@ -160,7 +160,7 @@ export default function HomeView({
               Your road starts with one night
             </div>
             <div style={{ fontSize: "13px", color: C.textMuted, marginTop: "6px", lineHeight: 1.5 }}>
-              Every first lands here with the date you did it {"\u2014"} first
+              Every first lands here with the date you did it {"—"} first
               strike, first spare, first 200.
             </div>
           </>
