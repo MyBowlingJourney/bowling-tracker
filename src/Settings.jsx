@@ -796,8 +796,13 @@ export default function Settings({
           setTimeout(() => URL.revokeObjectURL(url), 1000);
         };
         return (
-          <div style={S.card}>
-            <div style={S.label}>Export</div>
+          <CollapsibleCard title="Export"
+            summary=""
+            // Collapsed by default: exporting a CSV is a rare, deliberate
+            // act, and an open card put two buttons nobody presses above
+            // the settings people actually change.
+            expanded={expanded.exportCsv === true}
+            onToggle={() => toggle("exportCsv")}>
             <div style={{ fontSize: "11px", color: C.textMuted, marginBottom: "8px" }}>
               Your data, as spreadsheets. Sessions is one row per night; shots is one row per delivery.
             </div>
@@ -811,7 +816,7 @@ export default function Settings({
                 Shots CSV
               </button>
             </div>
-          </div>
+          </CollapsibleCard>
         );
       })()}
 

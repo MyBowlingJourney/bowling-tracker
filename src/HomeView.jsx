@@ -16,7 +16,7 @@ import { ENVIRONMENTS, ENVIRONMENT_ICONS, ENVIRONMENT_COLORS, ENVIRONMENT_LABELS
 // the Stats screen, that is a bug rather than a second opinion.
 export default function HomeView({
   sessions = [], shots = [], tournaments = [], bowler = "",
-  leagues = [], onOpenJourney, onOpenStats, onPickMode,
+  leagues = [], onOpenJourney, onOpenStats, onPickMode, badgeCount = 0,
 }) {
   const figures = seasonFigures(sessions, { bowler, leagues });
   const recap = journeyRecap(journeyMilestones(
@@ -138,8 +138,24 @@ export default function HomeView({
               My journey
             </span>
           </span>
-          <span aria-hidden="true" style={{ color: C.accent, fontSize: "18px" }}>
-            {"›"}
+          <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            {/* Badges earned, on the right of the row.
+                
+                Badges live inside Journey, so the count belongs on the
+                card that leads there -- it says the collection exists and
+                that there is something in it, which a chevron alone does
+                not.
+                
+                Hidden at zero: "0 badges" on a new bowler's first screen
+                reads as a scoreboard they are losing. */}
+            {badgeCount > 0 && (
+              <span style={{ fontSize: "12px", color: C.accent }}>
+                {badgeCount} badge{badgeCount === 1 ? "" : "s"}
+              </span>
+            )}
+            <span aria-hidden="true" style={{ color: C.accent, fontSize: "18px" }}>
+              {"›"}
+            </span>
           </span>
         </div>
 

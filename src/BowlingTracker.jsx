@@ -956,7 +956,16 @@ export default function BowlingTracker(){
   // Which tab the Log screen is showing, owned HERE rather than in
   // LogView, because ending a session has to move it -- and a child
   // cannot be told to change its own state from the outside.
-  const[leagueTabChoice,setLeagueTabChoice]=useState("scoring");
+  // League opens on Set up, not Scoring.
+  //
+  // Arriving from Home means the night has not started: no league picked,
+  // no lane, no team. Scoring first showed an empty sheet and hid the
+  // questions that make it work, so a bowler had to find the Set up chip
+  // before anything they typed would file correctly.
+  //
+  // The derived leagueTab still forces Set up when no league is chosen;
+  // this makes the DEFAULT agree with that rather than fighting it.
+  const[leagueTabChoice,setLeagueTabChoice]=useState("setup");
   const[tournamentTab,setTournamentTab]=useState("setup");
   const setLeagueTab=setLeagueTabChoice;
   const[sessionSaveMessage,setSessionSaveMessage]=useState(null);
@@ -5852,7 +5861,32 @@ export default function BowlingTracker(){
   };
   const parentView=PARENT_VIEW[view]||null;
 
-  const casualMode=preferences.environment==="casual";
+  // The casual nav applies only while a casual night is actually running.
+  //
+  // It keyed on the preference alone, which survives the night -- so
+  // finishing an open-bowling session left a bowler on Home with three
+  // tabs and no way to reach Team, Stats, Improve or History. They were
+  // not bowling casually any more; the app just still thought so.
+  //
+  // Home already asks what you are doing next, so once the night is filed
+  // the full nav is the honest one.
+  // How many badges the bowler has actually earned.
+  //
+  // The same source the Badges screen uses -- a history entry with a
+  // count above zero -- rather than a second way of deciding what
+  // "earned" means, which is how two screens end up disagreeing about the
+  // same collection.
+  const earnedBadgeCount=(()=>{
+    try{
+      const hist=allCompetitiveBadges({
+        sessions,shots,matches,drills,teams,leagueDates,
+        bowler:activeBowler,
+      });
+      return Object.values(hist||{}).filter(r=>r&&r.count).length;
+    }catch{ return 0; }
+  })();
+
+  const casualMode=preferences.environment==="casual"&&nightLive;
   const navTabs=casualMode?[
     // Home first, so open bowling is never a dead end.
     //
@@ -7061,6 +7095,8 @@ export default function BowlingTracker(){
               leagues={leagues}
               onOpenJourney={()=>setView("journey")}
               onOpenStats={()=>setView("data")}
+
+              badgeCount={earnedBadgeCount}
               onPickMode={env=>{
                 // Set the mode, then go straight to scoring.
                 //
