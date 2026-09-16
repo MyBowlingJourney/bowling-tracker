@@ -345,3 +345,35 @@ export function cellModes(nights) {
   }
   return seen.slice(0, 2);
 }
+
+// The notes written during a night, in the order they were written.
+//
+// Notes ride on SHOTS -- the box on the Results tab writes form.notes and
+// it is saved with the delivery -- so a night's notes are scattered
+// across its shots rather than stored once on the session. The calendar
+// only ever read the session, which is why a bowler who wrote "moved
+// left 2 after game one" could never find it again.
+//
+// Deduplicated because the notes box keeps its text between shots: bowl
+// three more balls without clearing it and the same line is saved three
+// times. Showing it three times would read as three separate thoughts.
+export function nightNotes(shots, opts) {
+  // A default parameter only covers undefined, not null.
+  const { bowler, league, date } = (opts && typeof opts === "object") ? opts : {};
+  const clean = v => String(v ?? "").trim();
+  const who = clean(bowler), lg = clean(league), when = clean(date);
+  if (!when) return [];
+  const seen = new Set();
+  const out = [];
+  for (const sh of (Array.isArray(shots) ? shots : [])) {
+    if (!sh || typeof sh !== "object") continue;
+    if (clean(sh.date) !== when) continue;
+    if (who && clean(sh.bowler) !== who) continue;
+    if (lg && clean(sh.league) !== lg) continue;
+    const note = clean(sh.notes);
+    if (!note || seen.has(note)) continue;
+    seen.add(note);
+    out.push(note);
+  }
+  return out;
+}

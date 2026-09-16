@@ -12,8 +12,7 @@ import {
   tournamentNights,
   sessionMode,
   shotNights,
-  drillNights,
-} from './calendar.js';
+  drillNights, nightNotes } from './calendar.js';
 
 const n = (date, scores, league = 'Tue', bowler = 'Ryan') => ({ bowler, league, date, scores });
 const FEB = [
@@ -299,5 +298,57 @@ describe('nights the calendar used to miss', () => {
 
   it('still drops an empty session row', () => {
     expect(nightSummary({ bowler: B, league: 'T', date: '2026-09-05', scores: [] })).toBe(null);
+  });
+});
+
+describe('the notes written during a night', () => {
+  const shot = (over) => ({ bowler: 'R', league: 'Tuesday', date: 'd1', ...over });
+
+  // Notes ride on shots -- the box saves with each delivery -- so they
+  // were written during the night and then had nowhere to be read.
+  it('collects them in the order written', () => {
+    const notes = nightNotes([
+      shot({ notes: 'moved left 2' }),
+      shot({ notes: 'ball reading early' }),
+    ], { bowler: 'R', league: 'Tuesday', date: 'd1' });
+    expect(notes).toEqual(['moved left 2', 'ball reading early']);
+  });
+
+  // The notes box keeps its text between shots, so bowling three more
+  // balls without clearing it saves the same line three times. Showing it
+  // three times would read as three separate thoughts.
+  it('does not repeat a note kept between shots', () => {
+    const notes = nightNotes([
+      shot({ notes: 'moved left 2' }),
+      shot({ notes: 'moved left 2' }),
+      shot({ notes: 'moved left 2' }),
+    ], { bowler: 'R', league: 'Tuesday', date: 'd1' });
+    expect(notes).toEqual(['moved left 2']);
+  });
+
+  it('ignores shots with no note', () => {
+    expect(nightNotes([shot({}), shot({ notes: '   ' })],
+      { bowler: 'R', league: 'Tuesday', date: 'd1' })).toEqual([]);
+  });
+
+  it('stays on one bowler, one league, one night', () => {
+    const rows = [
+      shot({ notes: 'mine' }),
+      shot({ notes: 'theirs', bowler: 'Maggie' }),
+      shot({ notes: 'other league', league: 'Thursday' }),
+      shot({ notes: 'other night', date: 'd2' }),
+    ];
+    expect(nightNotes(rows, { bowler: 'R', league: 'Tuesday', date: 'd1' })).toEqual(['mine']);
+  });
+
+  it('needs a date to mean anything', () => {
+    expect(nightNotes([shot({ notes: 'x' })], { bowler: 'R' })).toEqual([]);
+  });
+
+  it('survives junk', () => {
+    for (const j of [null, undefined, 'x', 42, [null]]) {
+      expect(() => nightNotes(j, j)).not.toThrow();
+      expect(nightNotes(j, j)).toEqual([]);
+    }
   });
 });
