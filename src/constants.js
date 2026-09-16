@@ -42,7 +42,19 @@ export function practiceLeagueCloudName(userId) {
 }
 
 export function isPracticeLeagueName(name) {
-  return typeof name === "string" && name.startsWith(`${PRACTICE_SESSION_KEY}\u00b7`);
+  // The bare key counts too, not just the per-user form.
+  //
+  // These only matched "Practice\u00b7<id>", so a session stored
+  // under the plain key slipped through every caller -- and the callers
+  // are the ones deciding what counts as real bowling. A 300 shot in
+  // practice was showing as a season high game because its league
+  // was the bare key.
+  //
+  // Each caller had grown its own `|| name === "..."` patch. Fixing it
+  // here means the next caller does not have to remember.
+  return typeof name === "string"
+    && (name === PRACTICE_SESSION_KEY
+      || name.startsWith(`${PRACTICE_SESSION_KEY}\u00b7`));
 }
 
 // Casual gets the same treatment, for the same reason.
@@ -56,7 +68,19 @@ export function casualLeagueCloudName(userId) {
 }
 
 export function isCasualLeagueName(name) {
-  return typeof name === "string" && name.startsWith(`${CASUAL_SESSION_KEY}\u00b7`);
+  // The bare key counts too, not just the per-user form.
+  //
+  // These only matched "Casual\u00b7<id>", so a session stored
+  // under the plain key slipped through every caller -- and the callers
+  // are the ones deciding what counts as real bowling. A 300 shot in
+  // open bowling was showing as a season high game because its league
+  // was the bare key.
+  //
+  // Each caller had grown its own `|| name === "..."` patch. Fixing it
+  // here means the next caller does not have to remember.
+  return typeof name === "string"
+    && (name === CASUAL_SESSION_KEY
+      || name.startsWith(`${CASUAL_SESSION_KEY}\u00b7`));
 }
 
 // Any per-user league reads back as its plain display name.
@@ -86,7 +110,19 @@ export function tournamentLeagueCloudName(eventName, userId) {
 }
 
 export function isTournamentLeagueName(name) {
-  return typeof name === "string" && name.startsWith(`${TOURNAMENT_SESSION_KEY}\u00b7`);
+  // The bare key counts too, not just the per-user form.
+  //
+  // These only matched "Tournament\u00b7<id>", so a session stored
+  // under the plain key slipped through every caller -- and the callers
+  // are the ones deciding what counts as real bowling. A 300 shot in
+  // tournament was showing as a season high game because its league
+  // was the bare key.
+  //
+  // Each caller had grown its own `|| name === "..."` patch. Fixing it
+  // here means the next caller does not have to remember.
+  return typeof name === "string"
+    && (name === TOURNAMENT_SESSION_KEY
+      || name.startsWith(`${TOURNAMENT_SESSION_KEY}\u00b7`));
 }
 
 // "Tournament\u00b7City Open\u00b7abc123" -> "City Open"
@@ -96,8 +132,17 @@ export function tournamentLeagueEventName(name) {
   return parts.length >= 3 ? parts.slice(1, -1).join("\u00b7") : "";
 }
 
+// What open bowling is CALLED, as opposed to what it is stored as.
+//
+// CASUAL_SESSION_KEY is "Just Bowling" and has to stay that way: it is
+// the league name on every casual session already saved, so renaming it
+// would orphan that data. The mode has been called Open bowling
+// everywhere else for a while, and History was the one place still
+// showing the storage key to the bowler.
+export const CASUAL_DISPLAY_NAME = "Open bowling";
+
 export function practiceLeagueDisplayName(name) {
-  if (isCasualLeagueName(name)) return CASUAL_SESSION_KEY;
+  if (isCasualLeagueName(name)) return CASUAL_DISPLAY_NAME;
   // The event name, not "Tournament" -- the whole point of a league per
   // event is that History and Stats can tell them apart.
   if (isTournamentLeagueName(name)) return tournamentLeagueEventName(name) || TOURNAMENT_SESSION_KEY;

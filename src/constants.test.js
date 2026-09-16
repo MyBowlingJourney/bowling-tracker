@@ -9,6 +9,8 @@ import { strikeDescriptionsForHand, storedStrikeDescriptionFor,
   casualLeagueCloudName,
   isCasualLeagueName,
   CASUAL_SESSION_KEY,
+  isTournamentLeagueName,
+  CASUAL_DISPLAY_NAME,
 } from './constants.js';
 
 
@@ -118,7 +120,11 @@ describe('casual league container', () => {
   });
 
   it('reads back as its display name', () => {
-    expect(practiceLeagueDisplayName(casualLeagueCloudName('a'))).toBe(CASUAL_SESSION_KEY);
+    // The DISPLAY name, which is deliberately not the storage key: the
+    // key stays "Just Bowling" so existing sessions still resolve, while
+    // the bowler sees "Open bowling" like everywhere else in the app.
+    expect(practiceLeagueDisplayName(casualLeagueCloudName('a'))).toBe(CASUAL_DISPLAY_NAME);
+    expect(CASUAL_SESSION_KEY).toBe('Just Bowling');
   });
 
   // The two containers must not be confused for each other -- a casual
@@ -131,5 +137,40 @@ describe('casual league container', () => {
   it('leaves a real league alone', () => {
     expect(isCasualLeagueName('Tuesday House Shot')).toBe(false);
     expect(practiceLeagueDisplayName('Tuesday House Shot')).toBe('Tuesday House Shot');
+  });
+});
+
+describe('reserved league names, bare and per-user', () => {
+  // These only matched the "Key·<id>" form, so a session stored under the
+  // plain key slipped past every caller -- and the callers decide what
+  // counts as real bowling. A 300 shot in open bowling showed as a season
+  // high game because its league was the bare key.
+  //
+  // Three separate bugs came from this one gap, each patched at its own
+  // call site before the cause was found.
+  it('recognises the bare key as well as the per-user form', () => {
+    expect(isPracticeLeagueName('Practice')).toBe(true);
+    expect(isPracticeLeagueName(practiceLeagueCloudName('a'))).toBe(true);
+
+    expect(isCasualLeagueName('Just Bowling')).toBe(true);
+    expect(isCasualLeagueName(casualLeagueCloudName('a'))).toBe(true);
+
+    expect(isTournamentLeagueName('Tournament')).toBe(true);
+  });
+
+  it('does not claim an ordinary league', () => {
+    for (const name of ['Tuesday Night', 'Practice Makes Perfect', 'Just Bowling Club']) {
+      expect(isPracticeLeagueName(name)).toBe(false);
+      expect(isCasualLeagueName(name)).toBe(false);
+      expect(isTournamentLeagueName(name)).toBe(false);
+    }
+  });
+
+  it('survives junk', () => {
+    for (const j of [null, undefined, 42, {}, []]) {
+      expect(isPracticeLeagueName(j)).toBe(false);
+      expect(isCasualLeagueName(j)).toBe(false);
+      expect(isTournamentLeagueName(j)).toBe(false);
+    }
   });
 });
