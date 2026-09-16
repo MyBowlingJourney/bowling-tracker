@@ -154,3 +154,76 @@ export function scoreStats(sessions, bowler, bookAverage) {
     formVsBook: form ? { ...form, sampleSize: form.nights } : null,
   };
 }
+
+// This season against last, for one league.
+//
+// The "This Season vs Last" card has been listed in Settings -- movable,
+// hideable, sitting in the default order -- while nothing rendered it.
+// A bowler could reorder a card that did not exist.
+//
+// Seasons are bounded by the league's own startDate. Everything on or
+// after it is this season; the year before that is last season. That is a
+// simplification -- a league that ran ten months has a two-month gap
+// nobody bowled in -- but it never misattributes a night, which matters
+// more than tidiness at the edges.
+//
+// Returns null when there is nothing to compare against. A card that says
+// "no data for last season" is worse than a card that is not there.
+export function seasonComparison(sessions, opts) {
+  // A default parameter only covers undefined, not null. Sixth module to
+  // hit this; the pattern never varies.
+  const { bowler, league, seasonStart } = (opts && typeof opts === "object") ? opts : {};
+  const clean = v => String(v ?? "").trim();
+  const who = clean(bowler);
+  const lg = clean(league);
+  const start = clean(seasonStart);
+  if (!start) return null;
+
+  const scoresOf = s => (Array.isArray(s?.scores) ? s.scores : [])
+    .map(Number).filter(v => Number.isFinite(v) && v > 0);
+
+  const mine = (Array.isArray(sessions) ? sessions : []).filter(s =>
+    s && typeof s === "object"
+    && (!who || clean(s.bowler) === who)
+    && (!lg || clean(s.league) === lg)
+    && scoresOf(s).length > 0);
+
+  // A year back from the season start, to the day before it.
+  const prevStart = (() => {
+    const d = new Date(`${start}T00:00:00`);
+    if (Number.isNaN(d.getTime())) return "";
+    d.setFullYear(d.getFullYear() - 1);
+    return d.toISOString().slice(0, 10);
+  })();
+  if (!prevStart) return null;
+
+  const figures = rows => {
+    const games = rows.flatMap(scoresOf);
+    if (!games.length) return null;
+    const total = games.reduce((a, b) => a + b, 0);
+    const series = rows.map(scoresOf).filter(g => g.length >= 3)
+      .map(g => g.reduce((a, b) => a + b, 0));
+    return {
+      games: games.length,
+      average: Math.round((total / games.length) * 10) / 10,
+      highGame: Math.max(...games),
+      highSeries: series.length ? Math.max(...series) : null,
+    };
+  };
+
+  const current = figures(mine.filter(s => clean(s.date) >= start));
+  const previous = figures(mine.filter(s => {
+    const d = clean(s.date);
+    return d >= prevStart && d < start;
+  }));
+
+  // Nothing to compare against is not a comparison.
+  if (!current || !previous) return null;
+
+  return {
+    current,
+    previous,
+    // Signed, so the view does not have to work out which way is better.
+    averageChange: Math.round((current.average - previous.average) * 10) / 10,
+  };
+}
