@@ -31,7 +31,7 @@ import {
   reconcileCardOrder,
   } from "./domain/preferences.js";
 
-const FIELD_LABELS = { surface: "Ball Surface", line: "Line (Board & Arrows)", release: "Release", miss: "Miss Direction", ballSpeed: "Ball Speed", shoes: "Shoes (Heel & Sole)", revRate: "Rev Rate (estimate)", axisRotation: "Axis Rotation (estimate)" };
+const FIELD_LABELS = { surface: "Ball Surface", line: "Line (Board & Arrows)", release: "Release", miss: "Miss Direction", ballSpeed: "Ball Speed", shoes: "Shoes (Heel & Sole)", revRate: "Rev Rate (estimate)", axisRotation: "Axis Rotation (estimate)" , axisTilt: "Axis Tilt (estimate)" };
 const CARD_LABEL_BY_ID = Object.fromEntries(MOVABLE_STATS_CARDS.map(c => [c.id, c.label]));
 
 export default function Settings({
@@ -331,22 +331,6 @@ export default function Settings({
                   </div>
                 )}
 
-                <div style={S.card}>
-                  <div style={S.label}>Export</div>
-                  <div style={{ fontSize: "11px", color: C.textMuted, marginBottom: "10px" }}>
-                    Your data, as spreadsheets. Sessions is one row per night; shots is every delivery.
-                  </div>
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    <button style={{ ...S.btn(), flex: 1 }}
-                      onClick={() => download(`sessions-${bowler || "all"}.csv`, sessionsToCsv(sessions || [], bowler))}>
-                      Sessions CSV
-                    </button>
-                    <button style={{ ...S.btn(), flex: 1 }}
-                      onClick={() => download(`shots-${bowler || "all"}.csv`, shotsToCsv(shots || [], bowler))}>
-                      Shots CSV
-                    </button>
-                  </div>
-                </div>
               </>
             );
           })()}
@@ -367,38 +351,10 @@ export default function Settings({
           
           Two places to find the same switch beats one place nobody
           thinks of. */}
-      {showCard("session") && (
-      <CollapsibleCard title="What you're bowling"
-        summary={`${ENVIRONMENT_LABELS[preferences.environment] || "League"}${
-          preferences.environment === "casual" ? "" : ` · ${TRACKING_MODE_LABELS[preferences.trackingMode] || ""}`}`}
-        expanded={expanded.session} onToggle={() => toggle("session")}>
-        <div style={{ fontSize: "12px", color: C.textMuted, marginBottom: "10px", lineHeight: 1.5 }}>
-          You can also change these at the top of the Bowl tab. Each mode shows
-          different things, so switching here changes what the rest of the app offers.
-        </div>
-
-        {/* Mode and tracking style are no longer set here.
-
-            Home asks what you are doing with four tinted rows, and
-            picking one sets the mode -- so Settings offering the same
-            choice was a second place for it to drift out of step, which
-            is exactly what happened in the first round of this redesign.
-
-            Tracking style is gone outright: game entry and frame tracking
-            are both always available now, so there was nothing left to
-            choose. */}
-
-        {/* Casual has no tracking choice: it's scores-only by
-
-        {/* The extra Open bowling paragraph is gone.
-
-            ENVIRONMENT_DESCRIPTIONS.casual already says the views are
-            hidden rather than deleted, directly above this. Two sentences
-            making the same promise read as a warning being laboured --
-            and this one still named "the Vault", a tab that no longer
-            exists, which is what a second copy of a fact does. */}
-      </CollapsibleCard>
-      )}
+      {/* "What you're bowling" removed.
+          
+          Mode and tracking style moved to Home, leaving a card whose
+          only job was to announce which mode you were in. */}
 
       {showCard("look") && (
       <CollapsibleCard title="App appearance" summary={THEMES[preferences.theme]?.label || THEMES.lane.label}
@@ -819,6 +775,45 @@ export default function Settings({
         })}
       </CollapsibleCard>
       )}
+
+      {/* Export lives in Settings, not under History › Season.
+          
+          It is a data tool, not a way of looking back at a season -- and
+          it sat at the foot of a tab a bowler opens to read their nights,
+          where nobody thinks to look for a CSV.
+          
+          Written fresh rather than relocated: the History copy leaned on
+          a `download` helper and a `bowler` name declared inside that
+          tab's own scope, and carrying the markup across without them was
+          the slow way to a broken file. */}
+      {(() => {
+        const who = statsBowler || activeBowler;
+        const saveCsv = (name, text) => {
+          const blob = new Blob([text], { type: "text/csv" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url; a.download = name; a.click();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        };
+        return (
+          <div style={S.card}>
+            <div style={S.label}>Export</div>
+            <div style={{ fontSize: "11px", color: C.textMuted, marginBottom: "8px" }}>
+              Your data, as spreadsheets. Sessions is one row per night; shots is one row per delivery.
+            </div>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button style={{ ...S.btn(), flex: 1 }}
+                onClick={() => saveCsv(`sessions-${who || "all"}.csv`, sessionsToCsv(sessions || [], who))}>
+                Sessions CSV
+              </button>
+              <button style={{ ...S.btn(), flex: 1 }}
+                onClick={() => saveCsv(`shots-${who || "all"}.csv`, shotsToCsv(shots || [], who))}>
+                Shots CSV
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {showCard("backup") && (
       <CollapsibleCard title="Backup &amp; Restore" summary={hasData ? "" : "No data yet"}
