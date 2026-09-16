@@ -5604,24 +5604,15 @@ export default function BowlingTracker(){
       gamesLogged:gameCount,
       nightsLogged:new Set(mySessions.map(x=>x.date)).size||null,
 
-      // Drills. buildAnalysisPayload has gated these at 25 attempts since
-      // it was written -- the consumer was complete and nothing ever fed
-      // it, so the practice group's richest data reached neither the
-      // analysis nor Brooklyn.
-      drills:(()=>{
-        const by={};
-        for(const d of drills.filter(x=>x&&x.bowler===who)){
-          const key=d.target==="custom"?(d.customTarget||"custom"):d.target;
-          if(!key)continue;
-          (by[key]=by[key]||{made:0,att:0});
-          by[key].made+=Number(d.made)||0;
-          by[key].att+=(Number(d.made)||0)+(Number(d.missed)||0);
-        }
-        return Object.entries(by).map(([label,v])=>({
-          label,attempts:v.att,rate:v.att?Math.round((v.made/v.att)*100):null,
-        }));
-      })(),
-
+      // The hand-rolled drill aggregation that sat here is gone.
+      //
+      // The same object already sets drills: from drillLines() further
+      // down, and a duplicate key in an object literal is not a tie -- the
+      // later one wins silently. So this block computed a result nothing
+      // ever read, while Vite refused to build it at all.
+      //
+      // drillLines is the better half anyway: it carries proper target
+      // labels rather than raw ids like "3-6-10".
       // Fed to buildAnalysisPayload, which gates each one on its own
 
       // threshold -- so these appear in the analysis as the sample for
