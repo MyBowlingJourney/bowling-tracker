@@ -130,3 +130,72 @@ export function practiceSummary(opts) {
     didNothing: games.games.length === 0 && drillAttempts === 0,
   };
 }
+
+// What the frames say about the games bowled tonight.
+//
+// A practice summary of average, best and series is the same summary any
+// scoresheet gives -- and the reason to log frame by frame is that the app
+// can say things a scoresheet cannot. If a bowler took the trouble to
+// record every delivery, the recap should show what that bought them.
+//
+// Everything here needs shots. A scores-only practice gets null and the
+// card falls back to the plain figures, because inventing detail from
+// three numbers would be worse than not having it.
+export function practiceShotStats(shots, opts) {
+  // A default parameter only covers undefined, not null. Fifth time.
+  const { bowler, league, date, isSplit } =
+    (opts && typeof opts === "object") ? opts : {};
+  const who = clean(bowler), lg = clean(league), when = clean(date);
+  const mine = rows(shots).filter(sh =>
+    (!who || clean(sh.bowler) === who)
+    && (!lg || clean(sh.league) === lg)
+    && (!when || clean(sh.date) === when));
+  if (!mine.length) return null;
+
+  // First balls only: a strike rate counts opportunities, and the second
+  // ball of a frame was never one.
+  const first = mine.filter(sh => String(sh.ballNum ?? "1") === "1" || sh.ballNum == null);
+  if (!first.length) return null;
+
+  const strikes = first.filter(sh => clean(sh.result) === "Strike").length;
+
+  // Spare chances are first balls that left something, excluding the ones
+  // that cannot be converted in the normal run of play.
+  const leaves = first.filter(sh => clean(sh.result) !== "Strike");
+  const converted = leaves.filter(sh => clean(sh.spareMade) === "Yes").length;
+
+  const splits = typeof isSplit === "function"
+    ? leaves.filter(sh => isSplit(sh)).length
+    : null;
+
+  // Which ball carried best, when more than one was thrown.
+  //
+  // One ball is not a comparison, so it reports nothing rather than
+  // "your only ball is your best ball".
+  const byBall = new Map();
+  for (const sh of first) {
+    const b = clean(sh.ball);
+    if (!b) continue;
+    const cur = byBall.get(b) || { ball: b, first: 0, strikes: 0 };
+    cur.first += 1;
+    if (clean(sh.result) === "Strike") cur.strikes += 1;
+    byBall.set(b, cur);
+  }
+  const balls = [...byBall.values()]
+    .filter(b => b.first >= 3)
+    .map(b => ({ ...b, rate: Math.round((b.strikes / b.first) * 100) }))
+    .sort((a, b) => b.rate - a.rate);
+
+  return {
+    firstBalls: first.length,
+    strikes,
+    strikeRate: Math.round((strikes / first.length) * 100),
+    spareChances: leaves.length,
+    sparesMade: converted,
+    spareRate: leaves.length ? Math.round((converted / leaves.length) * 100) : null,
+    splits,
+    // Clean means struck or spared -- the frames that cost nothing.
+    cleanRate: Math.round(((strikes + converted) / first.length) * 100),
+    bestBall: balls.length > 1 ? balls[0] : null,
+  };
+}
