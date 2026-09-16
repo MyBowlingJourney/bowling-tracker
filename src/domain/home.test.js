@@ -90,3 +90,53 @@ describe('what home says', () => {
     }
   });
 });
+
+describe('what counts toward a season figure', () => {
+  const night = (league, date, scores) => ({ bowler: 'R', league, date, scores });
+
+  // These are the numbers a bowler quotes -- their average, their high
+  // game -- and those mean league play. A practice night spent working
+  // the 10 pin scores 120s by design.
+  it('ignores practice', () => {
+    const f = seasonFigures([
+      night('Tuesday', 'd1', [210, 200, 220]),
+      night('Practice\u00b7u1', 'd2', [120, 130, 140]),
+    ], { bowler: 'R' });
+    expect(f.games).toBe(3);
+    expect(f.average).toBe(210);
+  });
+
+  // The classifier misses a bare "Practice", which is why the calendar
+  // checks for it separately.
+  it('ignores a bare "Practice" league too', () => {
+    const f = seasonFigures([
+      night('Tuesday', 'd1', [210, 200, 220]),
+      night('Practice', 'd2', [110, 115, 120]),
+    ], { bowler: 'R' });
+    expect(f.games).toBe(3);
+  });
+
+  it('ignores open bowling', () => {
+    const f = seasonFigures([
+      night('Tuesday', 'd1', [210, 200, 220]),
+      night('Just Bowling\u00b7u1', 'd2', [90, 95, 100]),
+    ], { bowler: 'R' });
+    expect(f.games).toBe(3);
+  });
+
+  // Tournaments are real competition and belong in the figures.
+  it('keeps tournaments', () => {
+    const f = seasonFigures([
+      night('Tuesday', 'd1', [200, 200, 200]),
+      night('City Championship', 'd2', [230, 240, 250]),
+    ], { bowler: 'R' });
+    expect(f.games).toBe(6);
+    expect(f.highGame).toBe(250);
+  });
+
+  it('has nothing to show from practice alone', () => {
+    const f = seasonFigures([night('Practice\u00b7u1', 'd1', [120, 130, 140])], { bowler: 'R' });
+    expect(f.average).toBe(null);
+    expect(f.games).toBe(0);
+  });
+});

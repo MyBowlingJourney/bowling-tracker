@@ -1,3 +1,5 @@
+import { isPracticeLeagueName, isCasualLeagueName } from "../constants.js";
+
 // What the home screen says, before anyone taps anything.
 //
 // The app opened on a setup form -- a question -- which is the wrong
@@ -55,6 +57,20 @@ export function seasonFigures(sessions, opts) {
   const who = clean(bowler);
   const inScope = rows(sessions).filter(s => {
     if (who && clean(s.bowler) !== who) return false;
+    // Practice and open bowling never count toward a season average.
+    //
+    // These are the headline figures a bowler quotes -- their average,
+    // their high game, their high series -- and those mean league play.
+    // A practice night spent working the 10 pin scores 120s by design,
+    // and it was dragging the season average down as if it were a bad
+    // league night.
+    //
+    // Filtered HERE rather than by whatever list the caller passes,
+    // because "season figures" means league figures whatever the caller
+    // believes. Tournaments stay: those are real competition.
+    const lg = clean(s.league);
+    if (isPracticeLeagueName(lg) || lg === "Practice") return false;
+    if (isCasualLeagueName(lg)) return false;
     if (Array.isArray(leagues) && leagues.length
       && !leagues.map(clean).includes(clean(s.league))) return false;
     if (since && clean(s.date) < clean(since)) return false;
