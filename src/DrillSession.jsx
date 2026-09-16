@@ -29,12 +29,21 @@ export default function DrillSession({ drill, onChange, onSave, saved, balls, dr
     <div>
       <div style={S.card}>
         <div style={S.label}>Drill</div>
-        <div style={S.chips}>
+        {/* A dropdown, like the ball below it.
+            
+            Twelve targets as chips wrapped to four rows, and with the pin
+            deck under them the drill's own controls -- made, missed,
+            notes -- started below the fold. A bowler mid-practice was
+            scrolling to reach the two buttons they came for.
+            
+            One target at a time, so this was always a select. */}
+        <select style={{ ...S.sel, width: "100%" }}
+          value={drill.target || ""}
+          onChange={e => onChange({ ...drill, target: e.target.value, made: 0, missed: 0 })}>
           {DRILL_TARGETS.map(t => (
-            <Chip key={t.id} label={targetShortLabel(t.id, leftHanded)} dense selected={drill.target === t.id}
-              onToggle={() => onChange({ ...drill, target: t.id, made: 0, missed: 0 })} />
+            <option key={t.id} value={t.id}>{targetShortLabel(t.id, leftHanded)}</option>
           ))}
-        </div>
+        </select>
         {drill.target === "custom" && (
           <>
             <input style={{ ...S.input, marginTop: "6px" }} placeholder="Name it (optional)"
