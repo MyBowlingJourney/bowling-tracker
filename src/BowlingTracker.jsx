@@ -13,6 +13,8 @@ const Tour = lazyScreen("Tour", () => import("./Tour.jsx"));
 
 // Lazy like the others -- see lazyScreen for the stale-chunk recovery.
 const JourneyScreen = lazyScreen("Journey", () => import("./JourneyView.jsx"));
+
+const HomeScreen = lazyScreen("Home", () => import("./HomeView.jsx"));
 import { tourSteps, tourToOffer, markTourSeen, hasSeenTour, pendingModeTour, needsLeagueSetup, availableTours } from "./domain/tour.js";
 import HelpView from "./HelpView.jsx";
 import CasualLeaderboard from "./CasualLeaderboard.jsx";
@@ -101,6 +103,8 @@ import { retireBall, unretireBall, activeBalls, retiredBallNames, retiredBallSum
 import { hasDuplicateIdentity, mergedBowlers, movedRecords, movedKeyedMap, handleFromEmail } from "./domain/bowlerIdentity.js";
 
 import { leaveCauseProfile, missingCauseFields } from "./domain/leaveCauses.js";
+
+import { sessionIsLive } from "./domain/home.js";
 const StatsView = lazyScreen("StatsView", () => import("./StatsView.jsx"));
 const ImportScorecard = lazyScreen("ImportScorecard", () => import("./ImportScorecard.jsx"));
 const Settings = lazyScreen("Settings", () => import("./Settings.jsx"));
@@ -391,7 +395,7 @@ export default function BowlingTracker(){
   // deleting-and-recreating it (which would cascade-delete every team in
   // that league, since teams.league_id references leagues.id).
   const leagueIdsRef=useRef({});
-  const[view,setView]=useState("log");
+  const[view,setView]=useState("home");
 
   // Stats and Trends are one nav tab ("Data") with a sub-tab, rather than
   // two top-level tabs. They already share statsBowler/statsLeague, so the
@@ -5062,6 +5066,13 @@ export default function BowlingTracker(){
   //
   // computeSessionStats is the same function endSession uses, so the
   // in-progress view and the saved one cannot disagree.
+  // Is a night under way? Home shows scoring while it is.
+  //
+  // Reads SHOTS rather than a session row: a row is only written by
+  // "End session", so waiting for one would mean Home never took over
+  // during the night it is meant to cover.
+  const nightLive=sessionIsLive(shots,{bowler:nightBowler,league:nightLeague,date:nightDate});
+
   const curSession=(()=>{
     const saved=[...sessions].reverse().find(s=>s.bowler===nightBowler
       &&s.league===nightLeague&&s.date===nightDate);
@@ -5739,33 +5750,25 @@ export default function BowlingTracker(){
     {id:"log",    label:"Bowl",    icon:"🎳"},
     {id:"badges", label:"Badges",  icon:"🏅"},
   ]:[
-    // FIVE tabs, and Journey is one of them.
+    // HOME first, and Home becomes the night while one is live.
     //
-    // Seven was the count that made this app hard to learn: the feature a
-    // bowler wanted was always behind a label they had to guess at, and
-    // 38 of 50 league bowlers never found shot tracking at all. Tutorials
-    // do not fix that -- most people will not watch one.
+    // Bowling is the most frequent thing anyone does here, so a Bowl tab
+    // looks obvious -- but a tab spends a permanent slot on something
+    // that is only relevant a few hours a week. Instead Home IS the
+    // scoring screen while a night is under way, and the dashboard the
+    // rest of the time. No resume step, and no tab sitting idle.
     //
-    // What fixes it is fewer places and putting depth INSIDE the thing it
-    // describes. A ball's carry belongs in that ball, not in a Gear tab;
-    // standings belong in the league; money belongs in the night. Those
-    // moves are separate work -- this is the shell they hang off.
+    // That also fixes the real cost of dropping Bowl: leaving scoring to
+    // check a ball or the standings and getting straight back. Home is
+    // where you already are.
     //
-    // Journey is promoted from a chip three taps inside History. It is
-    // the app's name and the reason someone keeps it for years, and it
-    // was the hardest thing here to find.
-    //
-    // Badges and Improve fold into Journey and Stats respectively; Teams
-    // moves under a league. Measured at 360px: five labels sit at ~72px
-    // each, comfortably above the 44px touch minimum.
-    {id:"log",     label:"Bowl",    icon:"🎳"},
-    {id:"data",    label:"Stats",   icon:"📈"},
-    // Improve (id "insights") no longer has a tab. It is reached from
-    // Stats, where the coaching is about the numbers on that screen --
-    // which is where a bowler is already asking "why". Nothing else
-    // linked to it, so without this it would be orphaned.
-    {id:"journey", label:"Journey", icon:"🛤️"},
+    // Journey moves to a card on Home rather than a tab. It is more
+    // prominent there, not less -- it is the first thing under the
+    // headline numbers instead of one of five icons.
+    {id:"home",    label:"Home",    icon:"🏠"},
     {id:"locker",  label:"Gear",    icon:"🎒"}, // internal id stays "locker" -- plumbing, not shown
+    {id:"teams",   label:"Team",    icon:"👥"},
+    {id:"insights",label:"Improve", icon:"🎯"},
     {id:"history", label:"History", icon:"📖"},
   ];
   // Icons go inline beside the title until the nav genuinely needs the
@@ -6362,7 +6365,12 @@ export default function BowlingTracker(){
       <div style={S.header}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"8px",minWidth:0,width:"100%"}}>
           <div style={{minWidth:0,display:"flex",alignItems:"baseline",gap:"8px"}}>
-            {view==="log"
+            {/* The app name on HOME and while scoring.
+                
+                Home is the front door and the screen the app opens on --
+                showing "Home" there names the tab rather than the app,
+                which is the one place the name belongs. */}
+            {(view==="home"||view==="log")
               ? <div style={S.title}>🎳 {APP_NAME}</div>
               : <div style={S.title}>{navTabs.find(t=>t.id===view)?.label
                   ||(view==="settings"?"Settings":view==="profile"?"Profile"
@@ -6865,7 +6873,30 @@ export default function BowlingTracker(){
           />
         )}
 
-        {view==="log"&&(
+        {/* Home IS the night while one is live.
+            
+            Scoring gets the screen from the first shot until "End
+            session", then Home reverts to the dashboard. That is why
+            there is no Bowl tab: leaving scoring to check a ball and
+            coming back is one tap, not two, because Home is where you
+            already were.
+            
+            sessionIsLive reads SHOTS, not a session row -- a row is only
+            written by "End session", so waiting for one would mean Home
+            never took over. */}
+        {view==="home"&&!nightLive&&(
+          <Suspense fallback={null}>
+            <HomeScreen
+              sessions={sessions} shots={shots} tournaments={tournaments}
+              bowler={displayName||activeBowler}
+              leagues={leagues}
+              onOpenJourney={()=>setView("journey")}
+              onOpenStats={()=>setView("data")}
+              onStartBowling={()=>setView("log")} />
+          </Suspense>
+        )}
+
+        {(view==="log"||(view==="home"&&nightLive))&&(
           <LogView
             profiles={profiles}
             shots={shots} sessions={sessions} bowlers={bowlers} footerHeight={footerHeight} footerRef={footerRef} teams={teams} leagues={activeLeagues} startEdit={startEdit} deleteShot={deleteShot}
