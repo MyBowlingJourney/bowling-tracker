@@ -150,17 +150,20 @@ export function buildGenieContext(summary) {
     lines.push(`${label}: ${value}`);
   };
 
-  // The bowler's own name and their team's.
+  // The bowler's own name is NOT sent.
   //
-  // Their own name is their own data, and they invoked this themselves.
-  // A team name is a team, not a person. Neither is another
-  // individual's record, which is the line the team aggregates below
-  // are drawn to respect.
+  // It used to be, on the reasoning that a genie who can say "you and the
+  // Alley Cats" is answering a bowler rather than filling in a form. That
+  // reasoning died when Brooklyn was told never to use the bowler's name:
+  // the reply said "Ryan, your 58% strike rate..." and reading your own
+  // name back at you is the thing that made it sound like a sales call.
   //
-  // Worth the tokens: a genie that can say "you and the Alley Cats" is
-  // answering a bowler, and one that says "the user" is filling in a
-  // form.
-  add("Bowler", s.bowlerName);
+  // So the name now travels to a third party, costs tokens, and is
+  // explicitly forbidden from appearing in the answer. Data that cannot
+  // change the output should not leave the device.
+  //
+  // The team name stays: it is a team rather than a person, it is not
+  // another individual's record, and nothing forbids using it.
   add("Team", s.teamName);
   add("Average", s.average);
 
