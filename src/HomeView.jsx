@@ -1,3 +1,4 @@
+import journeyIcon from "../journey-icon.png";
 import { C, S, ActionRow } from "./ui.jsx";
 import { seasonFigures, journeyRecap } from "./domain/home.js";
 import { journeyMilestones } from "./domain/journey.js";
@@ -111,8 +112,23 @@ export default function HomeView({
                 
                 No alt text: the label already says "My journey", and a
                 screen reader announcing the logo twice is noise. */}
-            <img src={`${(import.meta.env && import.meta.env.BASE_URL) || "./"}journey-icon.png`}
-              alt="" aria-hidden="true"
+            {/* The app's own logo, IMPORTED rather than path-built.
+                
+                There is no public/ folder and no publicDir override, so
+                Vite only emits assets it can see. A runtime string like
+                `${BASE_URL}journey-icon.png` is invisible to the bundler:
+                the file never reaches dist, the request 404s, and the
+                onError below hides it -- an icon that silently never
+                appears, with nothing to debug.
+                
+                The import makes it a real dependency. Vite hashes it,
+                copies it, and hands back the correct URL under the Pages
+                sub-path.
+                
+                No alt text: the label beside it already says "My
+                journey", and a screen reader announcing it twice is
+                noise. */}
+            <img src={journeyIcon} alt="" aria-hidden="true"
               onError={e => { e.currentTarget.style.display = "none"; }}
               style={{
                 width: "26px", height: "26px", borderRadius: "7px",
