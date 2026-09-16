@@ -410,7 +410,25 @@ export function normalizePreferences(raw) {
   return {
     environment: ENVIRONMENTS.includes(raw.environment) ? raw.environment : base.environment,
     trackingMode: TRACKING_MODES.includes(raw.trackingMode) ? raw.trackingMode : base.trackingMode,
-    trackedFields: { ...base.trackedFields, ...(raw.trackedFields || {}) },
+    trackedFields: (() => {
+      const merged = { ...base.trackedFields, ...(raw.trackedFields || {}) };
+      // axisTilt inherits axisRotation when it has never been set.
+      //
+      // A key added after someone saved their preferences is absent from
+      // their stored object, so the spread leaves the base default --
+      // false. That meant every bowler who had already turned rev rate
+      // and axis rotation ON did not get tilt, and the new field looked
+      // broken rather than off.
+      //
+      // Rotation is the closest existing field: same card, same kind of
+      // measurement, same reason to care. Someone tracking one wants the
+      // other. A bowler who has explicitly set axisTilt keeps their
+      // choice, because the stored value wins the spread.
+      if (raw.trackedFields && !("axisTilt" in raw.trackedFields)) {
+        merged.axisTilt = !!merged.axisRotation;
+      }
+      return merged;
+    })(),
     showMoneyGames: typeof raw.showMoneyGames === "boolean" ? raw.showMoneyGames : base.showMoneyGames,
     // Which individual pots are hidden.
     //
