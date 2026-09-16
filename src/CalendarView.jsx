@@ -12,6 +12,7 @@ import {
   cellModes,
   shotNights,
   drillNights,
+  nightNotes,
 } from "./domain/calendar.js";
 
 // A month of bowling nights.
@@ -245,6 +246,35 @@ export default function CalendarView({
           <div style={{ fontSize: "11px", color: C.textMuted }}>
             {night.series} series · {night.average} average · {night.high} high
           </div>
+          {/* What you wrote that night.
+              
+              Notes ride on shots -- the box saves with each delivery --
+              so they were written during the night and then had nowhere
+              to be read. The calendar is where a bowler goes to remember
+              a night, and "moved left 2 after game one" is the part worth
+              remembering. The scores are already in the book.
+              
+              Only rendered when there are any: an empty notes heading on
+              every night is noise on the nights you wrote nothing. */}
+          {(() => {
+            const notes = nightNotes(shots, {
+              bowler, league: night.league, date: night.date,
+            });
+            if (!notes.length) return null;
+            return (
+              <div style={{
+                marginTop: "6px", paddingTop: "6px",
+                borderTop: `1px solid ${C.border}`,
+              }}>
+                {notes.map((n, i) => (
+                  <div key={i} style={{
+                    fontSize: "12px", color: C.text,
+                    lineHeight: 1.45, marginBottom: "2px",
+                  }}>{n}</div>
+                ))}
+              </div>
+            );
+          })()}
 
           {/* Delete, behind a second tap.
 
