@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { C, S, Chip } from "./ui.jsx";
 import {
   catalogState, canVote, canEdit, isLocked, approvalsUntilNext,
@@ -22,6 +23,8 @@ export default function BallCatalogPanel({
   ballName, userId, entries, myOwnSpecs,
   onApply, onPublish, onVote,
 }) {
+  const [appliedTo, setAppliedTo] = useState("");
+
   const key = ballKey(ballName);
   const list = entries || [];
   const live = list.filter(e => catalogState(e) !== "rejected");
@@ -92,7 +95,23 @@ export default function BallCatalogPanel({
             </div>
 
             <div style={S.chips}>
-              <Chip label="Use These" dense onToggle={() => onApply(displaySpecs)} color={C.accent} />
+              {/* Say something happened.
+                  
+                  Applying wrote the specs and changed nothing on screen,
+                  so a success and a silently-rejected value looked
+                  identical -- the button read as broken either way.
+                  
+                  normalizeBallSpecs only accepts its own vocabulary
+                  ("pearl", not "Reactive Pearl"), so a catalog entry
+                  using different wording is dropped field by field
+                  without complaint. The confirmation reports what
+                  actually landed rather than that the tap registered. */}
+              <Chip label={appliedTo === entry.name ? "Applied" : "Use These"} dense
+                onToggle={() => {
+                  onApply(displaySpecs);
+                  setAppliedTo(entry.name);
+                }}
+                color={appliedTo === entry.name ? C.strike : C.accent} />
               {votable && (
                 <>
                   <Chip label={entry.myVote === "approve" ? "✓ Looks right" : "Looks right"} dense
