@@ -45,10 +45,17 @@ export function practiceGames(sessions, liveScores, opts) {
 
   // Only fall back when no session recorded scores: counting both would
   // double a night that has been ended and reopened.
+  // A zero is a game not bowled yet, not a game scored zero.
+  //
+  // gameScores is a fixed-length array with a slot per game, so a
+  // one-game practice arrives as [189, 0, 0] -- and counting those made
+  // the average 63 off a single 189. Nobody bowls a zero: ten gutters
+  // still scores 0 only in theory, and the real meaning here is "empty".
+  const usable = v => Number.isFinite(v) && v > 0;
   const games = fromSessions.length
-    ? fromSessions
+    ? fromSessions.filter(usable)
     : (Array.isArray(liveScores) ? liveScores : [])
-        .map(Number).filter(Number.isFinite);
+        .map(Number).filter(usable);
 
   if (!games.length) return empty;
   const total = games.reduce((a, b) => a + b, 0);
