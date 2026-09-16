@@ -2523,26 +2523,22 @@ export default function LogView({
             {onTab("scoring")&&(editingId||(leagueReady&&env!=="casual"&&!(preferences.environment==="practice"&&practiceMode==="drill")))&&(<>
             </>)}
 
-            {/* The accessory details, in two columns.
+            {/* The accessory details, as a real 2x2 grid.
                 
-                Stacked they measured 698px with the save button, against
-                612px of usable screen below the result -- so a bowler who
-                filled anything in was scrolling, every shot.
+                Two stacked columns did not line up: each column packed
+                its own cards, so Shoes began where Line ended (205px)
+                while Execution began where Measurements ended (180px)
+                and the second row was 25px out of step.
                 
-                Paired by height rather than by subject: Line (198) with
-                Measurements (154) against Shoes (102) with Execution
-                (146) gives 366 and 262, so the columns come out close to
-                even and the grid is 422px. Grouping "equipment" together
-                would have made one column twice the other and wasted the
-                space beside the short one.
+                One grid with four children places them row by row, so
+                Line sits beside Measurements and Shoes beside Execution,
+                actually level.
                 
-                minmax(0, 1fr) so a long input does not push the split
-                sideways off a narrow screen. */}
+                alignItems:"start" so a short card does not stretch to
+                match a tall neighbour. */}
             <div ref={detailsRef} style={{display:"grid",
               gridTemplateColumns:"repeat(2, minmax(0, 1fr))",
               gap:"10px",alignItems:"start"}}>
-              <div style={{minWidth:0}}>
-              <div style={{minWidth:0}}>
             {/* Line */}
             {preferences.trackedFields.line&&(
               <div style={S.card}>
@@ -2592,28 +2588,6 @@ export default function LogView({
                 })()}
               </div>
             )}
-            {preferences.trackedFields.shoes&&(
-              <div style={S.card}>
-                <div style={S.label}>Shoes</div>
-                <div style={{display:"grid",
-                  gridTemplateColumns:"repeat(2, minmax(0, 1fr))",gap:"8px"}}>
-                  <div style={{minWidth:0}}>
-                    <div style={fieldHead}>Heel</div>
-                    <input style={{...S.input,...smallInput,width:"100%"}}
-                      inputMode="numeric"
-                      value={form.heelNumber} onChange={e=>set("heelNumber",e.target.value)}/>
-                  </div>
-                  <div style={{minWidth:0}}>
-                    <div style={fieldHead}>Sole</div>
-                    <input style={{...S.input,...smallInput,width:"100%"}}
-                      inputMode="numeric"
-                      value={form.soleNumber} onChange={e=>set("soleNumber",e.target.value)}/>
-                  </div>
-                </div>
-              </div>
-            )}
-              </div>
-              <div style={{minWidth:0}}>
             {(preferences.trackedFields.ballSpeed||preferences.trackedFields.revRate
               ||preferences.trackedFields.axisRotation||preferences.trackedFields.axisTilt)&&(
               <div style={S.card}>
@@ -2622,7 +2596,7 @@ export default function LogView({
                   gridTemplateColumns:"repeat(2, minmax(0, 1fr))",gap:"8px"}}>
                   {preferences.trackedFields.ballSpeed&&(
                     <div style={{minWidth:0}}>
-                      <div style={fieldHead}>Speed (mph)</div>
+                      <div style={fieldHead}>Speed</div>
                       <input style={{...S.input,...smallInput,width:"100%"}}
                         type="number" step="0.1" inputMode="decimal"
                         value={form.ballSpeed} onChange={e=>set("ballSpeed",e.target.value)}/>
@@ -2630,7 +2604,7 @@ export default function LogView({
                   )}
                   {preferences.trackedFields.revRate&&(
                     <div style={{minWidth:0}}>
-                      <div style={fieldHead}>Rev rate (rpm)</div>
+                      <div style={fieldHead}>Rev rate</div>
                       <input style={{...S.input,...smallInput,width:"100%"}}
                         type="number" inputMode="numeric"
                         value={form.revRate} onChange={e=>set("revRate",e.target.value)}/>
@@ -2638,7 +2612,7 @@ export default function LogView({
                   )}
                   {preferences.trackedFields.axisRotation&&(
                     <div style={{minWidth:0}}>
-                      <div style={fieldHead}>Axis rotation (°)</div>
+                      <div style={fieldHead}>Axis rotation</div>
                       <input style={{...S.input,...smallInput,width:"100%"}}
                         type="number" inputMode="numeric"
                         value={form.axisRotation} onChange={e=>set("axisRotation",e.target.value)}/>
@@ -2646,12 +2620,32 @@ export default function LogView({
                   )}
                   {preferences.trackedFields.axisTilt&&(
                     <div style={{minWidth:0}}>
-                      <div style={fieldHead}>Axis tilt (°)</div>
+                      <div style={fieldHead}>Axis tilt</div>
                       <input style={{...S.input,...smallInput,width:"100%"}}
                         type="number" inputMode="numeric"
                         value={form.axisTilt} onChange={e=>set("axisTilt",e.target.value)}/>
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+            {preferences.trackedFields.shoes&&(
+              <div style={S.card}>
+                <div style={S.label}>Shoes</div>
+                <div style={{display:"grid",
+                  gridTemplateColumns:"repeat(2, minmax(0, 1fr))",gap:"8px"}}>
+                  <div style={{minWidth:0}}>
+                    <div style={fieldHead}>Heel #</div>
+                    <input style={{...S.input,...smallInput,width:"100%"}}
+                      inputMode="numeric"
+                      value={form.heelNumber} onChange={e=>set("heelNumber",e.target.value)}/>
+                  </div>
+                  <div style={{minWidth:0}}>
+                    <div style={fieldHead}>Sole #</div>
+                    <input style={{...S.input,...smallInput,width:"100%"}}
+                      inputMode="numeric"
+                      value={form.soleNumber} onChange={e=>set("soleNumber",e.target.value)}/>
+                  </div>
                 </div>
               </div>
             )}
@@ -2703,11 +2697,8 @@ export default function LogView({
                 </div>
               </div>
             )}
-              </div>
-              </div>
-              <div style={{minWidth:0}}>
-              </div>
             </div>
+
 
 
             {/* Ball Speed — an accessory field like the others: on by
