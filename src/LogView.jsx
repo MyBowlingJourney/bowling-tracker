@@ -2818,7 +2818,12 @@ export default function LogView({
                 still fixed at bottom:0 -- so gating this out with the
                 bar left the Save Tournament button tucked under it.
                 The nav needs clearing either way. */}
-          {!editingId&&activeBowler&&effectiveSessionLeague&&(
+          {/* Matches the footer's own condition exactly.
+              
+              It carried !editingId while the bar now shows when editing,
+              so the bar would have covered the bottom of the form -- the
+              same class of bug as the one above, one element over. */}
+          {(editingId||(activeBowler&&effectiveSessionLeague))&&(
             <div style={{height:env==="tournament"?"76px":`${footerHeight}px`}}/>
           )}
           </>
@@ -2924,7 +2929,16 @@ export default function LogView({
             </CollapsibleCard>
             )}
 
-          {!editingId&&activeBowler&&effectiveSessionLeague&&env!=="tournament"&&(
+          {/* The bar shows while EDITING too.
+              
+              !editingId hid the whole footer, so the Update button inside
+              it could never render however its own condition read -- which
+              is why fixing that condition changed nothing.
+              
+              Editing needs the bar for Update; it does not need the
+              session button, because there is no night in progress to
+              end. Each button decides for itself below. */}
+          {(editingId||(activeBowler&&effectiveSessionLeague&&env!=="tournament"))&&(
           <div ref={footerRef} style={{position:"fixed",bottom:"calc(64px + env(safe-area-inset-bottom, 0px))",left:0,right:0,zIndex:50,padding:"10px 14px",display:"flex",gap:"8px",backgroundColor:C.bg,borderTop:`1px solid ${C.border}`}}>
             {/* Save Shot, sticky, left of the session button.
                 
@@ -2952,6 +2966,10 @@ export default function LogView({
                 {saved?(editingId?"✓ Updated":"✓ Saved"):(editingId?"Update":"Save Shot")}
               </button>
             )}
+            {/* Not while editing: there is no session in progress to
+                end, and "End Practice" beside "Update" invites a bowler to
+                finish a night they are not in. */}
+            {!editingId&&(
             <button style={{...S.btn("primary"),flex:1}} onClick={submitSession}>
               {sessionSaveMessage?sessionSaveMessage:sessionSaved
                 ?"✓ Session Saved"
@@ -2963,6 +2981,7 @@ export default function LogView({
                       ?"End Session"
                       :"Finish"}
             </button>
+            )}
           </div>
           )}
     </>
