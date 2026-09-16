@@ -6400,7 +6400,14 @@ export default function BowlingTracker(){
           - The permanent "Saved & backed up" line. Confirming success
             on every screen forever trains people to stop reading it.
             It now speaks up only when something is actually pending. */}
-      <div style={S.header}>
+      {/* Marked so scroll targets can measure it.
+          
+          The header is sticky, so anything scrolled to the top of the
+          page lands underneath it. LogView measures this element to
+          offset by its real height -- which matters because the title
+          wraps to two lines on a narrow screen, making a hardcoded
+          guess wrong by a whole line. */}
+      <div data-app-header style={S.header}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"8px",minWidth:0,width:"100%"}}>
           <div style={{minWidth:0,display:"flex",alignItems:"baseline",gap:"8px"}}>
             {/* The app name on HOME and while scoring.

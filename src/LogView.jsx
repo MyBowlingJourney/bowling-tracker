@@ -93,7 +93,6 @@ export default function LogView({
   // One lock for all games, not one per game: a bowler switching to
   // manual entry mid-night is switching for the rest of the night, and
   // three separate padlocks is three times the friction for no benefit.
-  const [scoresUnlocked,setScoresUnlocked]=useState(false);
 
   // League needs a league picked before anything else is worth showing.
   //
@@ -375,6 +374,31 @@ export default function LogView({
   }));
 
   const scrollToSave=()=>scrollTo(saveShotRef);
+
+  // Put an element's TOP just under the header.
+  //
+  // scrollTo above pulls an element's BOTTOM above the nav, which is what
+  // you want for a save button. For the field a bowler is about to fill,
+  // the opposite is right: they should be looking at it with the rest of
+  // the form below, not at the bottom edge of the screen.
+  //
+  // The header is sticky, so its height has to come off or the element
+  // lands underneath it.
+  const scrollToTopOf=ref=>requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    const el=ref.current;
+    if(!el)return;
+    const header=document.querySelector("header")
+      ||document.querySelector("[data-app-header]");
+    const headerH=header?header.getBoundingClientRect().height:64;
+    const delta=el.getBoundingClientRect().top-(headerH+8);
+    if(Math.abs(delta)>2)window.scrollBy({top:delta,behavior:"smooth"});
+  }));
+
+  // The fields a result reveals, so the next tap is already on screen.
+  const strikeDescRef=useRef(null);
+  const pinsStandingRef=useRef(null);
+  const spareMadeRef=useRef(null);
+  const totalPinsRef=useRef(null);
 
 
   // Shot Context (game/frame/lane) is meaningless without shots -- a
@@ -831,21 +855,14 @@ export default function LogView({
                       honest condition is whether any game actually has
                       frames -- with no frames there is nothing to
                       override, and the control would be pure friction. */}
-                  {gameScores.some(v=>v!=null)&&(
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",
-                                 padding:"8px 10px",marginBottom:"10px",borderRadius:"8px",
-                                 backgroundColor:C.surface,border:`1px solid ${C.border}`}}>
-                      <span style={{fontSize:"12px",color:C.textMuted,flex:1,lineHeight:1.4}}>
-                        {scoresUnlocked
-                          ? "Typed scores are overriding the frames for this game."
-                          : "This game's score comes from its frames."}
-                      </span>
-                      <button style={{...S.btn(),padding:"6px 12px",fontSize:"12px",flexShrink:0}}
-                        onClick={()=>setScoresUnlocked(v=>!v)}>
-                        {scoresUnlocked?"Back to shots":"Switch to game scores"}
-                      </button>
-                    </div>
-                  )}
+                  {/* The lock notice and its "Switch to game scores"
+                      button are gone.
+                      
+                      Both ways of logging are always available now, so
+                      there is no mode to switch to -- the control offered
+                      a journey to where the bowler already was. The lock
+                      itself stays: a game with frames still computes its
+                      own score. */}
                   {gameNums.map(g=>{
                     // Per-game ball is offered EVERYWHERE now, not only in
                     // practice. Lane transition is exactly as real on a
@@ -887,7 +904,13 @@ export default function LogView({
                           // score, and letting someone type a different
                           // one leaves two answers for the same game.
                           // Games with no frames stay typable.
-                          const locked=gameScores[g-1]!=null&&!scoresUnlocked;
+                          // A game whose frames are logged computes its own score, so
+                          // typing a different one would leave two answers for
+                          // one game. The unlock escape hatch went with the
+                          // "switch to game scores" control -- nothing could set
+                          // it any more, so the flag was always false and this
+                          // read as a live choice that was not one.
+                          const locked=gameScores[g-1]!=null;
                           return(
                             <input style={{...S.input,flex:1,opacity:locked?0.5:1}}
                               type="number" inputMode="numeric" placeholder="Score"
@@ -1631,31 +1654,24 @@ export default function LogView({
                       onToggle={()=>{
                         const newResult=form.result===stored?"":stored;
 
-                        // Choosing a result scrolls the save button into
-                        // view. Deselecting does not -- that is a bowler
-                        // changing their mind, not finishing.
+                        // Go to the field this result just revealed.
                         //
-                        // A frame after paint, so the layout has settled:
-                        // picking a result can add the Spare Made row or
-                        // the pin picker, and scrolling before those
-                        // exist lands short.
-// Any result scrolls. With block:"end" the pin grid opens
-                        // below without hiding the scoresheet, so there is no
-                        // longer a reason to hold Other Leave back.
-// Every result scrolls to the save button.
+                        // Each result opens a different next question, and
+                        // the bowler should be looking AT it rather than at
+                        // the save button with the question off-screen
+                        // above. Anchored to the top so the rest of the form
+                        // sits below it, in reading order.
                         //
-                        //   Strike       -> description + button
-                        //   Weak/Ringing -> spare made + button
-                        //   Other Leave  -> spare made + button, with the
-                        //     pins above. Answering "Yes" needs no second
-                        //     scroll because the button is already there;
-                        //     "No" reveals the pin count and scrolls on.
+                        //   Strike        -> Strike Description
+                        //   Weak/Ringing  -> Spare Made (a corner pin is up)
+                        //   Other Leave   -> Pins Standing (which pins?)
                         //
-                        // Landing on the button rather than the pins is
-                        // deliberate: the pins are tall, and what the
-                        // bowler needs in view is the next question and
-                        // the way to finish.
-                        if(newResult)scrollToSave();
+                        // Clearing a result scrolls nowhere: nothing new
+                        // appeared, so moving the page would be the app
+                        // taking a decision the bowler did not make.
+                        if(newResult==="Strike")scrollToTopOf(strikeDescRef);
+                        else if(newResult==="Other Leave")scrollToTopOf(pinsStandingRef);
+                        else if(newResult)scrollToTopOf(spareMadeRef);
 
 
 
@@ -1697,7 +1713,7 @@ export default function LogView({
                   {/* Scroll target for Other Leave: the pins are the next
                       thing to answer, so this is what has to come into
                       view -- not the save button below it. */}
-                  <div style={S.label}>Pins Standing</div>
+                  <div ref={pinsStandingRef} style={S.label}>Pins Standing</div>
                   <div style={S.chips}>
                     {/* Gutter — a one-tap shortcut for all 10 pins standing,
                         rather than tapping each pin chip individually. Not a
@@ -1741,7 +1757,7 @@ export default function LogView({
                       the result and what follows, which read as the end
                       of the card rather than a change of subject inside
                       it -- the spacing already does that job. */}
-                  <div style={{...S.label,marginBottom:"8px"}}>Strike Description</div>
+                  <div ref={strikeDescRef} style={{...S.label,marginBottom:"8px"}}>Strike Description</div>
                   {/* Eight options in two rows, sized to their words.
                       
                       Equal columns forced "Messenger" and "Half Pocket"
@@ -1771,7 +1787,7 @@ export default function LogView({
               {hasLeave&&!(inTenth&&form.ballNum===3)&&(
                 <>
                   <div style={S.divider}/>
-                  <div style={S.label}>Spare Made</div>
+                  <div ref={spareMadeRef} style={S.label}>Spare Made</div>
                   <div style={S.chips}>
                     {/* Scrolls again after answering.
 
@@ -1782,7 +1798,16 @@ export default function LogView({
                         scrolling by hand. */}
                     {["Yes","No"].map(s=>(
                       <Chip key={s} label={s} selected={form.spareMade===s}
-                        onToggle={()=>{handleSpareMadeToggle(s);if(s==="No")scrollToSave();}}
+                        onToggle={()=>{
+                          handleSpareMadeToggle(s);
+                          // "No" opens the total-pins field, so that is the
+                          // next thing to answer and it goes to the top.
+                          // "Yes" asks nothing more, so the bowler is done
+                          // with the frame -- send them to the save button,
+                          // which brings the accessory details up with it.
+                          if(s==="No")scrollToTopOf(totalPinsRef);
+                          else scrollToSave();
+                        }}
                         color={s==="Yes"?C.strike:C.miss}/>
                     ))}
                   </div>
@@ -1792,7 +1817,7 @@ export default function LogView({
               {showPinCount&&(
                 <>
                   <div style={S.divider}/>
-                  <div style={S.label}>Total Pins This Frame</div>
+                  <div ref={totalPinsRef} style={S.label}>Total Pins This Frame</div>
                   <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"8px"}}>
                     <button style={{...S.btn("sm"),padding:"10px 18px",fontSize:"20px"}} onClick={()=>stepPinCount(-1)}>−</button>
                     <div style={{flex:1,textAlign:"center",fontSize:"30px",fontWeight:700,color:C.spare}}>
@@ -2524,6 +2549,18 @@ export default function LogView({
             {/* Rev rate and axis rotation are self-reported estimates -- there's
                 no way to measure them without a sensor -- so they're labelled
                 as such rather than presented as data. Off by default. */}
+            {preferences.trackedFields.shoes&&(
+              <div style={S.card}>
+                <div style={S.label}>Shoes</div>
+                <div style={S.row}>
+                  <input style={{...S.input,flex:1}} placeholder="Heel #"
+                    value={form.heelNumber} onChange={e=>set("heelNumber",e.target.value)}/>
+                  <input style={{...S.input,flex:1}} placeholder="Sole #"
+                    value={form.soleNumber} onChange={e=>set("soleNumber",e.target.value)}/>
+                </div>
+              </div>
+            )}
+
             {/* Release Measurements -- speed, revs, rotation and tilt.
                 
                 Ball speed was its own card directly above this one, which
@@ -2565,10 +2602,10 @@ export default function LogView({
               </div>
             )}
 
-            {/* Release & Miss */}
+            {/* Execution -- how the shot came out. */}
             {(preferences.trackedFields.release||preferences.trackedFields.miss)&&(
               <CollapsibleCard
-                title={preferences.trackedFields.release&&preferences.trackedFields.miss?"Release & Miss":preferences.trackedFields.release?"Release":"Miss"}
+                title="Execution"
                 summary={[preferences.trackedFields.release?form.release:"",preferences.trackedFields.miss&&form.miss.length?`${form.miss.length} miss`:""].filter(Boolean).join(", ")}
                 // Open by default. Release and miss are two dropdowns now, not two
                 // stacks of chips -- the card costs one row collapsed and three
@@ -2618,17 +2655,6 @@ export default function LogView({
             {/* Shoes — heel and sole numbers. Interchangeable soles get
                 swapped for approach conditions, so this isn't constant for
                 a bowler the way shoe size would be. */}
-            {preferences.trackedFields.shoes&&(
-              <div style={S.card}>
-                <div style={S.label}>Shoes</div>
-                <div style={S.row}>
-                  <input style={{...S.input,flex:1}} placeholder="Heel #"
-                    value={form.heelNumber} onChange={e=>set("heelNumber",e.target.value)}/>
-                  <input style={{...S.input,flex:1}} placeholder="Sole #"
-                    value={form.soleNumber} onChange={e=>set("soleNumber",e.target.value)}/>
-                </div>
-              </div>
-            )}
 
             {/* Save Shot sits AFTER the detail cards, not before them.
                 
