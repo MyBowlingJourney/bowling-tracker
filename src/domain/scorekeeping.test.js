@@ -1,8 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   allowsOtherBowlers, otherBowlerSource, guestsAreLocalOnly,
-  scorekeepingOptions, addGuest, normalizeGuests,
-} from './scorekeeping.js';
+  scorekeepingOptions, addGuest, normalizeGuests, boardMiss } from './scorekeeping.js';
 
 describe('who you can keep score for', () => {
   const teams = [
@@ -61,5 +60,46 @@ describe('guest list', () => {
 
   it('discards non-string entries', () => {
     expect(normalizeGuests(['Dave', null, 42, '  ', 'Mike'])).toEqual(['Dave', 'Mike']);
+  });
+});
+
+describe('which way a shot missed, in boards', () => {
+  // Boards run 1 upward from the bowler's OWN gutter, so the same
+  // arithmetic means opposite directions for the two hands. The app
+  // called a higher number "right" for everyone, which is backwards for
+  // every right-handed bowler.
+  it('reads a higher board as left for a right-hander', () => {
+    expect(boardMiss(8, 10, false)).toEqual({ boards: 2, direction: 'left' });
+  });
+
+  it('reads a lower board as right for a right-hander', () => {
+    expect(boardMiss(8, 6, false)).toEqual({ boards: 2, direction: 'right' });
+  });
+
+  it('mirrors both for a left-hander', () => {
+    expect(boardMiss(8, 10, true)).toEqual({ boards: 2, direction: 'right' });
+    expect(boardMiss(8, 6, true)).toEqual({ boards: 2, direction: 'left' });
+  });
+
+  it('calls an exact hit on target, either hand', () => {
+    for (const hand of [true, false]) {
+      expect(boardMiss(8, 8, hand)).toEqual({ boards: 0, direction: 'on target' });
+    }
+  });
+
+  it('handles strings, since form fields are text', () => {
+    expect(boardMiss('8', '10', false)).toEqual({ boards: 2, direction: 'left' });
+  });
+
+  // A half-filled form should say nothing rather than guess.
+  it('says nothing without both boards', () => {
+    for (const [t, a] of [['', 10], [8, ''], [null, 10], [8, undefined], ['x', 10]]) {
+      expect(boardMiss(t, a, false)).toBe(null);
+    }
+  });
+
+  it('reports the distance, not the sign', () => {
+    expect(boardMiss(20, 5, false).boards).toBe(15);
+    expect(boardMiss(5, 20, false).boards).toBe(15);
   });
 });

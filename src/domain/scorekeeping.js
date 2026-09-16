@@ -115,3 +115,34 @@ export function removeGuest(guests, name) {
   guests = Array.isArray(guests) ? guests : [];
   return (guests || []).filter(g => g !== name);
 }
+
+// Which way a shot missed, in boards, for this bowler's handedness.
+//
+// Boards are numbered 1 upward from the bowler's own gutter: board 1 is
+// the right gutter for a right-hander and the left gutter for a
+// left-hander. So the SAME arithmetic means opposite directions.
+//
+// Right-hander aiming at 8 and hitting 10: the number went up, which is
+// further from their gutter, which is LEFT. The app called that "right"
+// for everyone, so it was telling every right-handed bowler the opposite
+// of what happened -- and the miss direction is one of the inputs the
+// leave analysis reads, so a wrong label here is a wrong explanation
+// later.
+//
+// Returns null when either board is missing or unreadable, so a
+// half-filled form says nothing rather than guessing.
+export function boardMiss(targetBoard, actualBoard, leftHanded = false) {
+  const t = parseFloat(targetBoard);
+  const a = parseFloat(actualBoard);
+  if (!Number.isFinite(t) || !Number.isFinite(a)) return null;
+  const delta = a - t;
+  if (delta === 0) return { boards: 0, direction: "on target" };
+  // Up the numbering is away from the bowler's gutter: left for a
+  // right-hander, right for a left-hander.
+  const awayFromGutter = leftHanded ? "right" : "left";
+  const towardGutter = leftHanded ? "left" : "right";
+  return {
+    boards: Math.abs(delta),
+    direction: delta > 0 ? awayFromGutter : towardGutter,
+  };
+}
