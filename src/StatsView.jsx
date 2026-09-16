@@ -12,6 +12,8 @@ import { totalMoney } from "./domain/money.js";
 import { isContainerLeague } from "./domain/leagueMembership.js";
 import { anyMoneyGameShown, visibleStatsCardOrder } from "./domain/preferences.js";
 
+
+import { seasonComparison } from "./domain/scoreInsights.js";
 export default function StatsView({
   onOpenImprove,
   centerStats,
@@ -1045,6 +1047,42 @@ sessions.length>0&&(()=>{
                   );
                 })()
                 );
+                // "This Season vs Last" -- listed in Settings since before it
+                // existed. It was movable and hideable there while nothing
+                // drew it, so a bowler could reorder a card that was never
+                // going to appear.
+                byId["seasonCompare"] = (()=>{
+                  const lgRow=(leagues||[]).find(l=>l&&(l.name===statsLeague||l===statsLeague));
+                  const start=lgRow&&typeof lgRow==="object"?lgRow.startDate:"";
+                  const cmp=seasonComparison(sessions,{
+                    bowler:statsBowler,league:statsLeague,seasonStart:start,
+                  });
+                  if(!cmp)return null;
+                  const up=cmp.averageChange>0;
+                  const flat=cmp.averageChange===0;
+                  const row=(label,a,b)=>(
+                    <div style={{display:"flex",justifyContent:"space-between",
+                      fontSize:"13px",marginBottom:"4px"}}>
+                      <span style={{color:C.textMuted}}>{label}</span>
+                      <span>{b==null?"\u2014":b}{"  \u2192  "}<strong>{a==null?"\u2014":a}</strong></span>
+                    </div>
+                  );
+                  return (
+                    <div style={S.card}>
+                      <div style={S.label}>This Season vs Last</div>
+                      <div style={{fontSize:"20px",fontWeight:500,marginBottom:"8px",
+                        color:flat?C.text:(up?C.strike:C.miss)}}>
+                        {flat?"Level":`${up?"+":""}${cmp.averageChange} pins`}
+                      </div>
+                      {row("Average",cmp.current.average,cmp.previous.average)}
+                      {row("High game",cmp.current.highGame,cmp.previous.highGame)}
+                      {row("High series",cmp.current.highSeries,cmp.previous.highSeries)}
+                      {row("Games",cmp.current.games,cmp.previous.games)}
+                    </div>
+                  );
+                })();
+
+
                 byId["progress"] = (
 (()=>{
                   const progress=avgProgress(sessions,statsBowler,statsLeague);
