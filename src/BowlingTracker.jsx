@@ -4857,7 +4857,15 @@ export default function BowlingTracker(){
     const pctOrNull=v=>(v===null||v===undefined?null:`${v}%`);
 
     return{
-      bowlerName:activeBowler||null,
+      // The bowler's name is deliberately absent.
+      //
+      // Nothing reads it since buildGenieContext stopped sending it, and
+      // leaving an unused name on the object that gets serialised to a
+      // third party is a leak waiting for the next person who adds a
+      // field to the payload and copies the shape.
+      //
+      // If a future feature genuinely needs it, add it back at the point
+      // of use rather than carrying it here on the chance.
       // The team the bowler is actually on, not every team in the league.
       teamName:(()=>{
         const mineTeams=(teams||[]).filter(t=>t&&Array.isArray(t.members)
