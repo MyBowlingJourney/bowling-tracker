@@ -394,6 +394,11 @@ export function drillComparison(drills, bowler, partners, date, leftHandedFor = 
 export function describeDrills(recap) {
   if (!recap) return "";
   const { made, attempts: n, targets, rate } = recap;
-  const base = `${made} of ${n} across ${targets} target${targets === 1 ? "" : "s"}`;
+  // "drills", not "targets".
+  //
+  // Target is the internal word for what a drill works on; nobody says it
+  // at the lanes. The practice recap already reads "across 3 drills" and
+  // the two sat on the same screen disagreeing.
+  const base = `${made} of ${n} across ${targets} drill${targets === 1 ? "" : "s"}`;
   return n < MIN_DRILL_ATTEMPTS ? `${base}.` : `${base} — ${rate}%.`;
 }
