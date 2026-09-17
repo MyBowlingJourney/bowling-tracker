@@ -35,7 +35,7 @@ export const SAMPLE_THRESHOLDS = {
   specificLeave: 25,
   // First balls with ONE ball before it may be compared with another.
   // Deliberately the highest bar -- see the note above.
-  ballComparison: 250,
+  ballComparison: 50,
   // Games at a center before its average is treated as meaningful.
   centerAverage: 9,
   // Sessions before a trend over time is claimed.

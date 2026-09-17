@@ -22,12 +22,23 @@ describe('analysis floor', () => {
 });
 
 describe('per-statistic thresholds', () => {
-  it('sets the highest bar on ball comparison', () => {
-    // Comparing two proportions compounds both their errors, so a ball
-    // needs far more data before it can be compared than an overall rate
-    // needs before it can be reported.
-    expect(SAMPLE_THRESHOLDS.ballComparison).toBeGreaterThan(SAMPLE_THRESHOLDS.overallStrikeRate);
-    expect(SAMPLE_THRESHOLDS.ballComparison).toBeGreaterThan(SAMPLE_THRESHOLDS.spareConversion);
+  it('needs a real sample on each ball before comparing them', () => {
+    // Lowered from 250 to 50 deliberately, and it is a trade.
+    //
+    // Comparing two proportions compounds both their errors. At 60 shots
+    // a ball, two balls have to differ by about 19 strike-rate points
+    // before the gap is distinguishable from noise; at 250 it was about
+    // 9. So the card now unlocks far sooner and will sometimes show a
+    // difference that is not real: at 50 a ball the gap has to exceed
+    // about 19 strike-rate points before it is distinguishable from
+    // chance.
+    //
+    // The case for it: 250 shots on ONE ball is most of a season for a
+    // league bowler, and a card nobody ever sees teaches nothing at all.
+    // 50 is roughly five games with one ball.
+    expect(SAMPLE_THRESHOLDS.ballComparison).toBe(50);
+    expect(SAMPLE_THRESHOLDS.ballComparison)
+      .toBeGreaterThanOrEqual(SAMPLE_THRESHOLDS.specificLeave);
   });
 
   it('fails safe for an unrecognised statistic', () => {
@@ -35,7 +46,7 @@ describe('per-statistic thresholds', () => {
   });
 
   it('reports the shortfall so the UI can explain the wait', () => {
-    expect(shortfall('ballComparison', 100)).toBe(SAMPLE_THRESHOLDS.ballComparison - 100);
+    expect(shortfall('ballComparison', 20)).toBe(SAMPLE_THRESHOLDS.ballComparison - 20);
   });
 });
 
@@ -49,20 +60,28 @@ describe('buildAnalysisPayload', () => {
     ],
   };
 
-  it('includes overall rates but withholds ball comparison at 30 games', () => {
-    // The case that matters: 30 games looks like plenty, but split across
-    // a rotation it cannot distinguish a 7-point carry difference from
-    // chance. Sending it would produce a confident story about noise.
+  it('compares balls at 30 games now the bar is 60 a ball', () => {
+    // This used to assert the opposite, and the reasoning was sound: 30
+    // games split across a rotation cannot distinguish a 7-point carry
+    // difference from chance.
+    //
+    // The bar moved to 60 anyway, because 250 shots on one ball is most
+    // of a season and a card nobody reaches teaches nothing. The cost is
+    // real and is written down on the threshold test above: at 60 a ball,
+    // a gap under ~18 points may be noise.
     const p = buildAnalysisPayload(thirtyGames);
     expect(p.included.strikeRate).toBeDefined();
-    expect(p.included.balls).toBeUndefined();
-    expect(p.canCompareBalls).toBe(false);
+    expect(p.canCompareBalls).toBe(true);
   });
 
   it('explains what was withheld and by how much', () => {
-    const p = buildAnalysisPayload(thirtyGames);
-    const held = p.withheld.find(w => w.key === 'ball:Phaze II');
-    expect(held.shortBy).toBe(SAMPLE_THRESHOLDS.ballComparison - 100);
+    // A ball below the bar, rather than the 100-shot one that now passes.
+    const p = buildAnalysisPayload({
+      ...thirtyGames,
+      balls: [{ name: 'Rarely Used', firstBalls: 20, strikeRate: 0.45 }],
+    });
+    const held = p.withheld.find(w => String(w.key).startsWith('ball:'));
+    expect(held.shortBy).toBe(SAMPLE_THRESHOLDS.ballComparison - 20);
   });
 
   it('includes balls once each has earned its own sample', () => {
