@@ -291,23 +291,77 @@ const SCREENS = {
     </Phone>
   ),
 
+  // The scoring screen as it opens: the mode chips across the top.
+  //
+  // "bowl" lost its mock when that slot was rebuilt as the Home screen --
+  // the step still existed and rendered with no picture.
+  bowl: () => (
+    <Phone title="Bowl">
+      <Spot>
+        <div style={{ ...card, marginBottom: "6px" }}>
+          <span style={chip(true)}>Games</span>{" "}
+          <span style={chip(false)}>Drill</span>{" "}
+          <span style={chip(false)}>Results</span>
+        </div>
+      </Spot>
+      <div style={card}>
+        <div style={label}>Enter Game Scores</div>
+        <div style={muted}>Game 1 {"·"} Frame 5 {"·"} Lane 8</div>
+      </div>
+    </Phone>
+  ),
+  // Added with the Journal step, which shipped without one.
+  journal: () => (
+    <Phone title="History">
+      <div style={{ ...card, marginBottom: "6px" }}>
+        <span style={chip(false)}>Sessions</span>{" "}
+        <span style={chip(false)}>Calendar</span>{" "}
+        <span style={chip(true)}>Journal</span>
+      </div>
+      <Spot>
+        {[["Night", "Tue 15 Sep", "Lanes broke down early"],
+          ["Drill", "10 Pin · 9/10", "Kept it in front"],
+          ["Shot", "Game 2, frame 6", "Moved left 2"]].map(([kind, ctx, note]) => (
+          <div key={note} style={{ ...card, marginBottom: "4px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ fontSize: "10px", color: C.accent }}>{kind}</span>
+              <span style={muted}>{ctx}</span>
+            </div>
+            <div style={{ fontSize: "11px", color: C.text }}>{note}</div>
+          </div>
+        ))}
+      </Spot>
+    </Phone>
+  ),
+  // Both ways of logging, on one screen.
+  //
+  // This drew the old "How much detail?" picker -- a setting that no
+  // longer exists, ending with "Switch any time". A bowler following the
+  // tour would have gone looking for a control that is not there.
   tracking: () => (
     <Phone title="Bowl">
-      <div style={card}>
-        <div style={label}>How much detail?</div>
-        <Spot style={{ marginBottom: "8px" }}>
-          <div style={{ ...S.input, padding: "8px 9px", borderColor: C.accent }}>
-            <div style={{ fontSize: "11px", fontWeight: 700, color: C.accent }}>Frame tracking</div>
-            <div style={muted}>Every ball · pins, ball, release</div>
-          </div>
-        </Spot>
-        <div style={{ ...S.input, padding: "8px 9px" }}>
-          <div style={{ fontSize: "11px", fontWeight: 600, color: C.textMuted }}>Scores only</div>
-          <div style={muted}>213 · 196 · 203</div>
+      <div style={{ ...card, marginBottom: "6px" }}>
+        <div style={label}>Enter Game Scores</div>
+        <div style={{ display: "flex", gap: "5px", marginTop: "4px" }}>
+          {["213", "196", "203"].map((g, n) => (
+            <div key={n} style={{ ...S.input, flex: 1, padding: "6px 8px",
+              fontSize: "11px", textAlign: "center" }}>{g}</div>
+          ))}
         </div>
+        <div style={{ ...muted, marginTop: "4px" }}>Three numbers and you're done.</div>
       </div>
-      <div style={muted}>Switch any time — even mid-game.</div>
-      <Nav active={0} />
+      <Spot>
+        <div style={card}>
+          <div style={label}>Shot Context</div>
+          <div style={muted}>Game 1 {"·"} Frame 5 {"·"} Lane 8</div>
+          <div style={{ display: "flex", gap: "5px", flexWrap: "wrap", marginTop: "6px" }}>
+            <span style={chip(true)}>Strike</span>
+            <span style={chip(false)}>Weak 10</span>
+            <span style={chip(false)}>Other Leave</span>
+          </div>
+          <div style={{ ...muted, marginTop: "4px" }}>Or log every ball for the detail.</div>
+        </div>
+      </Spot>
     </Phone>
   ),
 
@@ -413,8 +467,14 @@ const SCREENS = {
   history: () => (
     <Phone title="History">
       <div style={{ ...card, marginBottom: "6px" }}>
+        {/* The real chips: Sessions, Season, Calendar, Journal. It showed
+            "Sessions / Shots", which has not been the chip row for a
+            while and left Journal invisible in the one picture of History
+            a new bowler sees. */}
         <span style={chip(true)}>Sessions</span>{" "}
-        <span style={chip(false)}>Shots</span>
+        <span style={chip(false)}>Season</span>{" "}
+        <span style={chip(false)}>Calendar</span>{" "}
+        <span style={chip(false)}>Journal</span>
       </div>
       {[["Tue 15 Sep", "612", "213 · 196 · 203"], ["Tue 8 Sep", "587", "201 · 188 · 198"]].map(([d, tot, games]) => (
         <div key={d} style={card}>
