@@ -78,6 +78,9 @@ export function normalizeCenter(raw) {
     // than being stored as a rack type nobody can interpret.
     rackType: RACK_TYPE_IDS.includes(raw.rackType) ? raw.rackType
       : RACK_TYPE_IDS.includes(raw.rack_type) ? raw.rack_type : "",
+    // Carried so the client can tell a centre it created from one
+    // somebody else did. Read-only here -- the server sets it.
+    createdBy: String(raw.createdBy ?? raw.created_by ?? "").trim(),
     lat: numOrNull(raw.lat),
     lng: numOrNull(raw.lng),
   };
@@ -278,5 +281,12 @@ export function centerFromRow(row) {
     lat: row.lat,
     lng: row.lng,
     rackType: row.rack_type || "",
+    // Who created it.
+    //
+    // Written on every save and never read back, so the client had no way
+    // to know a centre belonged to someone else -- it would try to rewrite
+    // a shared row, get refused by RLS, and try again the next time. Six
+    // refusals in one day, all for a row it was never allowed to touch.
+    createdBy: row.created_by || "",
   });
 }
