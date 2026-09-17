@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  ballComparison, bestByMetric, ballLine, BALL_METRICS,
+  ballComparison, bestByMetric, ballLine, BALL_METRICS, trajectoryPath,
   ARROWS_FEET, BREAKPOINT_FEET,
 } from './ballComparison.js';
 import { isSplit, isCornerPinLeave } from './splits.js';
@@ -65,8 +65,8 @@ describe('the measures', () => {
   });
 
   // Weak and Ringing 10 carry an empty leave and mean one pin standing.
-  it('counts a named corner pin as one pin left', () => {
-    expect(ballComparison(night, opts)[0].leaveAvg).toBe(1.5);
+  it('reports pins knocked down on the first ball', () => {
+    expect(ballComparison(night, opts)[0].firstBallAvg).toBe(8.5);
   });
 
   it('counts corner pins and splits', () => {
@@ -84,8 +84,8 @@ describe('the measures', () => {
 
 describe('naming a leader', () => {
   const two = [
-    { ball: 'A', shots: 100, strikeRate: 72, leaveAvg: 2.0, cornerPinRate: 3, splitRate: 4 },
-    { ball: 'B', shots: 100, strikeRate: 71, leaveAvg: 3.4, cornerPinRate: 12, splitRate: 5 },
+    { ball: 'A', shots: 100, strikeRate: 72, firstBallAvg: 9.1, cornerPinRate: 3, splitRate: 4 },
+    { ball: 'B', shots: 100, strikeRate: 71, firstBallAvg: 7.8, cornerPinRate: 12, splitRate: 5 },
   ];
 
   // 72 against 71 is a coin flip. Naming a winner there invents a finding
@@ -96,16 +96,16 @@ describe('naming a leader', () => {
 
   it('names a leader when the gap is real', () => {
     expect(bestByMetric(two).cornerPinRate).toBe('A');
-    expect(bestByMetric(two).leaveAvg).toBe('A');
+    expect(bestByMetric(two).firstBallAvg).toBe('A');
   });
 
   it('knows lower is better for splits and leaves', () => {
     const worse = [
-      { ball: 'A', shots: 100, splitRate: 20, leaveAvg: 5 },
-      { ball: 'B', shots: 100, splitRate: 2, leaveAvg: 1 },
+      { ball: 'A', shots: 100, splitRate: 20, firstBallAvg: 6 },
+      { ball: 'B', shots: 100, splitRate: 2, firstBallAvg: 9 },
     ];
     expect(bestByMetric(worse).splitRate).toBe('B');
-    expect(bestByMetric(worse).leaveAvg).toBe('B');
+    expect(bestByMetric(worse).firstBallAvg).toBe('B');
   });
 
   it('says nothing with only one ball', () => {
@@ -151,6 +151,36 @@ describe('junk', () => {
       expect(() => ballComparison(j, j)).not.toThrow();
       expect(() => bestByMetric(j, j)).not.toThrow();
       expect(() => ballLine(j, j)).not.toThrow();
+    }
+  });
+});
+
+describe('the trajectory path', () => {
+  const x = b => b * 7;
+  const y = f => 200 - f * 3;
+
+  // A ball does not change direction at the arrows and again at the
+  // breakpoint. Straight segments read as three separate decisions.
+  it('draws curves, not straight segments', () => {
+    const d = trajectoryPath(
+      [{ feet: 0, board: 22 }, { feet: 15, board: 10 },
+       { feet: 40, board: 6 }, { feet: 60, board: 17.5 }], x, y);
+    expect((d.match(/C /g) || []).length).toBe(3);
+  });
+
+  it('falls back to a line for two points', () => {
+    const d = trajectoryPath([{ feet: 0, board: 22 }, { feet: 15, board: 10 }], x, y);
+    expect(d).toContain('L');
+  });
+
+  it('returns nothing for too few points', () => {
+    expect(trajectoryPath([], x, y)).toBe('');
+    expect(trajectoryPath([{ feet: 0, board: 5 }], x, y)).toBe('');
+  });
+
+  it('survives junk', () => {
+    for (const j of [null, undefined, 'x', 42]) {
+      expect(() => trajectoryPath(j, x, y)).not.toThrow();
     }
   });
 });

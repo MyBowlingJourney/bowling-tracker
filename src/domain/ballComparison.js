@@ -29,7 +29,7 @@ const num = v => {
 // that a high split rate is bad.
 export const BALL_METRICS = [
   { id: "strikeRate", label: "Strike", unit: "%", better: "higher" },
-  { id: "leaveAvg", label: "Leave avg", unit: "", better: "lower" },
+  { id: "firstBallAvg", label: "First ball", unit: "", better: "higher" },
   { id: "cornerPinRate", label: "Corner pin", unit: "%", better: "lower" },
   { id: "splitRate", label: "Splits", unit: "%", better: "lower" },
 ];
@@ -96,11 +96,17 @@ export function ballComparison(shots, opts) {
     cur.shots += 1;
     if (clean(s.result) === "Strike") cur.strikes += 1;
     else {
-      // Pins left standing, which is what a leave average measures. Weak
-      // and Ringing 10 carry an empty leave and mean one pin.
+      // Pins KNOCKED DOWN on the first ball, not pins left standing.
+      //
+      // The By Ball card already showed this and called it "Leave Avg",
+      // which is wrong twice over: 6.8 is not a leave, and my card
+      // computed the opposite quantity under the same name. The two
+      // disagreed by construction -- they summed to ten.
+      //
+      // First-ball average is the standard stat and says what it is.
       const named = clean(s.result) === "Weak 10" || clean(s.result) === "Ringing 10";
       const standing = named ? 1 : (Array.isArray(s.otherLeave) ? s.otherLeave.length : null);
-      if (standing !== null) { cur.leaveTotal += standing; cur.leaveCount += 1; }
+      if (standing !== null) { cur.leaveTotal += (10 - standing); cur.leaveCount += 1; }
       if (isCorner(s, leftHanded)) cur.corner += 1;
       if (isSplit(s)) cur.splits += 1;
     }
@@ -121,7 +127,7 @@ export function ballComparison(shots, opts) {
       ball: b.ball,
       shots: b.shots,
       strikeRate: pct(b.strikes, b.shots),
-      leaveAvg: avg(b.leaveTotal, b.leaveCount),
+      firstBallAvg: avg(b.leaveTotal, b.leaveCount),
       cornerPinRate: pct(b.corner, b.shots),
       splitRate: pct(b.splits, b.shots),
       startBoard: avg(b.startTotal, b.startCount),
@@ -215,4 +221,37 @@ export function ballColors(comparison) {
     if (b && b.ball) out[b.ball] = BALL_PALETTE[i % BALL_PALETTE.length];
   });
   return out;
+}
+
+// The trajectory as a smooth path, not a dot-to-dot.
+//
+// A bowling ball does not change direction at the arrows and again at the
+// breakpoint -- it runs fairly straight, then arcs. Straight segments
+// between the four points read as three separate decisions.
+//
+// A cubic through the points with the control handles pulled toward the
+// straight early section gives the shape a thrown ball actually makes:
+// little curve to the arrows, most of it after the breakpoint.
+export function trajectoryPath(points, x, y) {
+  const p = (Array.isArray(points) ? points : []).filter(q => q && typeof q === "object");
+  if (p.length < 2) return "";
+  if (p.length === 2) return `M ${x(p[0].board)} ${y(p[0].feet)} L ${x(p[1].board)} ${y(p[1].feet)}`;
+
+  let d = `M ${x(p[0].board)} ${y(p[0].feet)}`;
+  for (let i = 0; i < p.length - 1; i++) {
+    const a = p[i], b = p[i + 1];
+    // Earlier in the lane the ball is straighter, so the handles sit
+    // closer to the line; later they let it bend.
+    const bend = i === 0 ? 0.12 : i === 1 ? 0.3 : 0.55;
+    const c1 = {
+      bx: a.board + (b.board - a.board) * bend,
+      f: a.feet + (b.feet - a.feet) * 0.5,
+    };
+    const c2 = {
+      bx: b.board - (b.board - a.board) * bend,
+      f: a.feet + (b.feet - a.feet) * 0.5,
+    };
+    d += ` C ${x(c1.bx)} ${y(c1.f)}, ${x(c2.bx)} ${y(c2.f)}, ${x(b.board)} ${y(b.feet)}`;
+  }
+  return d;
 }
