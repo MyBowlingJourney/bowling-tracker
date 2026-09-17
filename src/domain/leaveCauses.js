@@ -89,6 +89,17 @@ export function leaveCauseProfile(shots, pins, minSample = 8) {
     ["ballSpeed", "ball speed", "mph"],
     ["revRate", "rev rate", "rpm"],
     ["axisRotation", "axis rotation", "\u00b0"],
+    // Axis tilt sits in the same card as speed, revs and rotation, and is
+    // the same kind of measurement -- it was added to the form and never
+    // added here, so a bowler could record it every shot and the analysis
+    // would never mention it.
+    ["axisTilt", "axis tilt", "\u00b0"],
+    // Heel and sole: the shoe setting. They change how the slide ends,
+    // which changes the release -- a bowler who switches to a slicker
+    // heel on a dry approach is changing a variable, and the analysis
+    // should be able to see it alongside the rest.
+    ["heelNumber", "heel setting", ""],
+    ["soleNumber", "sole setting", ""],
     ["actualBoard", "board at the arrows", ""],
   ];
   for (const [key, label, unit] of numeric) {
