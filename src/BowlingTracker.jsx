@@ -7386,6 +7386,8 @@ export default function BowlingTracker(){
             lanePatterns={lanePatterns}
             statsGroup={dataTab}
 
+            leftHandedForBowler={leftHandedForBowler}
+
             onImportCsv={importCsvNights}
 
             centers={centers}

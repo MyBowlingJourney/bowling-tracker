@@ -20,11 +20,13 @@ import { patternAverages, patternVersusOverall } from "./domain/oilPatterns.js";
 import { statsByRackType } from "./domain/centers.js";
 
 import { cardsInGroup } from "./domain/statsGroups.js";
+import BallCompare from "./BallCompare.jsx";
 
 import { SAMPLE_THRESHOLDS } from "./domain/insightGating.js";
 export default function StatsView({
   // Already passed by BowlingTracker, never read until now.
   lanePatterns = [], tournaments = [], centers = [], statsGroup = "overview",
+  leftHandedForBowler,
   onOpenImprove,
   centerStats,
   preferences,
@@ -922,39 +924,18 @@ fivePinAttempts.length>0&&(
                   </div>
                 )
                 );
+                // The comparison card leads the Ball group. The By Ball
+                // list below it is the per-ball detail; this is the
+                // answer to "which one should I be throwing".
+                byId["ballCompare"] = (
+                  <BallCompare shots={shots} bowler={statsBowler}
+                    league={statsLeague}
+                    leftHanded={leftHandedForBowler?.(statsBowler)||false} />
+                );
                 byId["byBall"] = (
 !hideIndividualOnly&&(
                   <div style={S.card}>
                     <div style={S.label}>By Ball</div>
-                    {/* The comparison itself, stated.
-                        
-                        Five balls with five strike rates is the raw
-                        material for a comparison, not a comparison -- the
-                        bowler still has to scan and subtract. This says
-                        which one carries best.
-                        
-                        Only balls with enough shots to rank, and only when
-                        two of them clear it: one ball is not a comparison,
-                        and a gap under ~20 points at this sample size may
-                        be noise, so a near-tie says so rather than naming
-                        a winner on a rounding error. */}
-                    {(()=>{
-                      const ranked=bStats
-                        .filter(b=>b.total>=SAMPLE_THRESHOLDS.ballComparison&&b.rate!=null)
-                        .sort((a,b)=>b.rate-a.rate);
-                      if(ranked.length<2)return null;
-                      const top=ranked[0], next=ranked[1];
-                      const gap=top.rate-next.rate;
-                      return (
-                        <div style={{fontSize:"13px",color:C.text,marginBottom:"10px"}}>
-                          {gap>=20
-                            ? <>Best carry: <strong>{top.ball}</strong> at {top.rate}%, {gap} points
-                                clear of {next.ball}.</>
-                            : <>{top.ball} and {next.ball} are carrying about the same
-                                ({top.rate}% and {next.rate}%) {"—"} too close to call apart yet.</>}
-                        </div>
-                      );
-                    })()}
                     {/* The static caption about a 20-shot threshold is gone.
                         
                         It rendered unconditionally, so a bowler with 150
