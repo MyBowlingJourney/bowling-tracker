@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   ballComparison, bestByMetric, ballLine, BALL_METRICS, trajectoryPath,
+  catmullRomSegments,
   ARROWS_FEET, BREAKPOINT_FEET,
 } from './ballComparison.js';
 import { isSplit, isCornerPinLeave } from './splits.js';
@@ -168,16 +169,32 @@ describe('the trajectory path', () => {
   // A ball runs straight through the oil then hooks once. It does not
   // weave -- curving every segment made an S, three direction changes
   // where a real shot makes one.
-  it('runs straight then arcs once', () => {
+  it('is one continuous curve with no kinks', () => {
     const d = trajectoryPath(
       [{ feet: 0, board: 22 }, { feet: 15, board: 10 },
        { feet: 40, board: 6 }, { feet: 60, board: 17.5 }], x, y);
-    expect(d).toContain('Q');
+    expect((d.match(/C /g) || []).length).toBe(3);
   });
 
-  it('falls back to a line for two points', () => {
+  it('still curves with only two points', () => {
     const d = trajectoryPath([{ feet: 0, board: 22 }, { feet: 15, board: 10 }], x, y);
-    expect(d).toContain('L');
+    expect(d).toContain('C');
+  });
+
+
+  // A ball does not make angular moves. Straight segments then a
+  // quadratic put a visible corner at the breakpoint -- the tangent
+  // changed direction in a single point, and the eye sees that as a kink.
+  it('carries curvature across every join', () => {
+    const segs = catmullRomSegments([
+      { feet: 0, board: 22 }, { feet: 15, board: 10 },
+      { feet: 40, board: 6 }, { feet: 60, board: 17.5 }]);
+    for (let i = 0; i < segs.length - 1; i++) {
+      const a = segs[i], b = segs[i + 1];
+      const cross = (a.to.board - a.c2.board) * (b.c1.feet - b.from.feet)
+                  - (a.to.feet - a.c2.feet) * (b.c1.board - b.from.board);
+      expect(Math.abs(cross)).toBeLessThan(1e-9);
+    }
   });
 
   it('returns nothing for too few points', () => {

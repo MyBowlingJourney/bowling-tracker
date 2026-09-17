@@ -233,39 +233,58 @@ export function ballColors(comparison) {
   return out;
 }
 
-// The trajectory, shaped like a thrown ball.
+// The trajectory, as one continuous curve.
 //
-// A ball runs fairly straight through the oil and then hooks once it
-// reaches the dry. It does not weave. My first attempt curved every
-// segment and produced an S -- three direction changes where a real shot
-// makes one.
+// A ball does not make angular moves. My first attempt drew straight
+// segments then a quadratic, which put a visible corner at the
+// breakpoint -- the tangent changed direction in a single point, and the
+// eye sees that as a kink.
 //
-// So: straight from the feet through the arrows to the breakpoint, then a
-// single arc into the pocket whose control point CONTINUES the straight
-// line. That is what makes the hook look like it comes off the same shot
-// rather than being tacked on.
-export function trajectoryPath(points, x, y) {
+// A Catmull-Rom spline passes through every point with the tangent at
+// each one derived from its neighbours, so curvature carries across the
+// joins. Converted to cubic Beziers because SVG has no Catmull-Rom.
+//
+// Where the points are nearly collinear -- the long oiled run from the
+// feet to the breakpoint -- it stays nearly straight of its own accord.
+// The bend appears where the points actually bend, which is the hook.
+export function catmullRomSegments(points) {
   const p = (Array.isArray(points) ? points : []).filter(q => q && typeof q === "object");
-  if (p.length < 2) return "";
+  if (p.length < 2) return [];
 
-  let d = `M ${x(p[0].board)} ${y(p[0].feet)}`;
-  // Everything up to the last point is the straight run.
-  for (let i = 1; i < p.length - 1; i++) {
-    d += ` L ${x(p[i].board)} ${y(p[i].feet)}`;
+  // Phantom points at each end so the first and last real points get a
+  // tangent too, rather than starting flat.
+  const ext = [
+    { board: p[0].board * 2 - p[1].board, feet: p[0].feet * 2 - p[1].feet },
+    ...p,
+    { board: p[p.length - 1].board * 2 - p[p.length - 2].board,
+      feet: p[p.length - 1].feet * 2 - p[p.length - 2].feet },
+  ];
+
+  const out = [];
+  for (let i = 1; i < ext.length - 2; i++) {
+    const p0 = ext[i - 1], p1 = ext[i], p2 = ext[i + 1], p3 = ext[i + 2];
+    // The standard conversion: control points sit a sixth of the way
+    // along each neighbour-to-neighbour vector.
+    out.push({
+      from: p1,
+      to: p2,
+      c1: { board: p1.board + (p2.board - p0.board) / 6,
+            feet: p1.feet + (p2.feet - p0.feet) / 6 },
+      c2: { board: p2.board - (p3.board - p1.board) / 6,
+            feet: p2.feet - (p3.feet - p1.feet) / 6 },
+    });
   }
+  return out;
+}
 
-  const from = p[p.length - 2];
-  const to = p[p.length - 1];
-  if (p.length === 2) return `${d} L ${x(to.board)} ${y(to.feet)}`;
-
-  // The handle sits where the ball WOULD have gone had it not turned,
-  // about a third of the way on. Extending the previous heading is what
-  // gives the arc its direction.
-  const prev = p[p.length - 3];
-  // Clamped to the lane: an unclamped handle sat off the edge and bent
-  // the arc through a board that does not exist.
-  const ctrlBoard = Math.max(1, Math.min(39,
-    from.board + (from.board - prev.board) * 0.45));
-  const ctrlFeet = from.feet + (to.feet - from.feet) * 0.45;
-  return `${d} Q ${x(ctrlBoard)} ${y(ctrlFeet)}, ${x(to.board)} ${y(to.feet)}`;
+// One SVG path from a run of those segments.
+export function trajectoryPath(points, x, y) {
+  const segs = catmullRomSegments(points);
+  if (!segs.length) return "";
+  let d = `M ${x(segs[0].from.board)} ${y(segs[0].from.feet)}`;
+  for (const s of segs) {
+    d += ` C ${x(s.c1.board)} ${y(s.c1.feet)}, ${x(s.c2.board)} ${y(s.c2.feet)},`
+      + ` ${x(s.to.board)} ${y(s.to.feet)}`;
+  }
+  return d;
 }
