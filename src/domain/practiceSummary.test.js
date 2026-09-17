@@ -191,3 +191,23 @@ describe('what the frames say about tonight', () => {
     }
   });
 });
+
+describe('a gutter game is a real score', () => {
+  const night = { bowler: 'R', date: 'd1' };
+
+  // CSV import makes this reachable: 0 is valid in a file, and a bowler
+  // who actually shot one should see it in their average.
+  it('keeps a zero in a filed session', () => {
+    const g = practiceGames([{ ...night, scores: [0, 190, 230] }], [], night);
+    expect(g.games).toEqual([0, 190, 230]);
+    expect(g.average).toBe(140);
+  });
+
+  // liveScores is fixed-length with a slot per game, so an unbowled game
+  // arrives as 0 -- that is padding, not a gutter game.
+  it('still drops padding from the live array', () => {
+    const g = practiceGames([], [189, 0, 0], night);
+    expect(g.games).toEqual([189]);
+    expect(g.average).toBe(189);
+  });
+});

@@ -196,12 +196,18 @@ export function validateImport(text, opts) {
     }
     seen.add(date.value);
 
-    if (already.has(date.value)) {
-      rejected.push({ line, reason: `you already have a night on ${date.value}` });
-      return;
-    }
-
-    accepted.push({ line, date: date.value, scores: real });
+    // A night you already have is a QUESTION, not a rejection.
+    //
+    // It used to be dropped with a reason, which quietly decided for the
+    // bowler that their existing night was the right one. It might be:
+    // they may also have re-exported a season they had already typed in,
+    // or be fixing scores they got wrong. Only they know.
+    //
+    // So it lands in accepted, flagged, and the caller asks.
+    accepted.push({
+      line, date: date.value, scores: real,
+      conflict: already.has(date.value),
+    });
   });
 
   return {
@@ -211,4 +217,35 @@ export function validateImport(text, opts) {
     rejected,
     rows: body.length,
   };
+}
+
+
+// What the bowler is being asked, once a file validates.
+//
+// Three answers, because there are three reasonable things to want:
+// replace the nights you already have, keep them and import only what is
+// new, or stop and go look at the file first.
+export const CONFLICT_CHOICES = ["overwrite", "skip", "abort"];
+
+export function conflictSummary(plan) {
+  const accepted = Array.isArray(plan && plan.accepted) ? plan.accepted : [];
+  const clashing = accepted.filter(r => r && r.conflict);
+  return {
+    total: accepted.length,
+    conflicts: clashing.length,
+    fresh: accepted.length - clashing.length,
+    dates: clashing.map(r => r.date),
+    // No question to ask when nothing clashes.
+    needsAnswer: clashing.length > 0,
+  };
+}
+
+// The rows to actually write, given the bowler's answer.
+export function rowsToImport(plan, choice) {
+  const accepted = Array.isArray(plan && plan.accepted) ? plan.accepted : [];
+  if (choice === "abort") return [];
+  if (choice === "skip") return accepted.filter(r => r && !r.conflict);
+  if (choice === "overwrite") return accepted.slice();
+  // No answer given: safe only when nothing needed one.
+  return accepted.some(r => r && r.conflict) ? [] : accepted.slice();
 }

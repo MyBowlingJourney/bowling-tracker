@@ -56,8 +56,12 @@ export function isContainerLeague(name) {
   // The bare names are kept because data written before the per-user
   // naming still uses them.
   const base = name.split("\u00b7")[0];
+  // "Imported" too: CSV rows land there when no league was chosen, so it
+  // holds real nights -- but nobody bowls a night IN it, and offering it
+  // as somewhere to file tonight's scores would be as wrong as offering
+  // Practice.
   return base === "Practice" || base === "Just Bowling" || base === "Casual"
-    || base === "Tournament";
+    || base === "Tournament" || base === "Imported";
 
 
 }

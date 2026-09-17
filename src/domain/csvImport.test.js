@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   parseCsv, mapHeader, validateDate, validateScore, validateImport, MAX_ROWS,
+  conflictSummary, rowsToImport,
 } from './csvImport.js';
 
 const file = (...lines) => ['date,game1,game2,game3', ...lines].join('\n');
@@ -164,11 +165,40 @@ describe('validating a whole file', () => {
     expect(r.rejected[0].reason).toContain('twice');
   });
 
-  it('will not import a night already logged', () => {
+  // A night you already have is a question, not a rejection. Dropping it
+  // would decide for the bowler that their existing night is the right
+  // one -- they may be fixing scores they got wrong.
+  it('flags a night already logged instead of dropping it', () => {
     const r = validateImport(file('2026-09-01,210,190,230'),
       { ...TODAY, existingDates: ['2026-09-01'] });
-    expect(r.accepted).toHaveLength(0);
-    expect(r.rejected[0].reason).toContain('already have a night');
+    expect(r.accepted).toHaveLength(1);
+    expect(r.accepted[0].conflict).toBe(true);
+  });
+
+  it('asks only when something clashes', () => {
+    const clean = validateImport(file('2026-09-01,210,190,230'), TODAY);
+    expect(conflictSummary(clean).needsAnswer).toBe(false);
+    const clash = validateImport(file('2026-09-01,210,190,230'),
+      { ...TODAY, existingDates: ['2026-09-01'] });
+    expect(conflictSummary(clash).needsAnswer).toBe(true);
+    expect(conflictSummary(clash).conflicts).toBe(1);
+  });
+
+  it('honours each answer', () => {
+    const plan = validateImport(
+      file('2026-09-01,210,190,230', '2026-09-08,205,195,215'),
+      { ...TODAY, existingDates: ['2026-09-01'] });
+    expect(rowsToImport(plan, 'overwrite').map(r => r.date))
+      .toEqual(['2026-09-01', '2026-09-08']);
+    expect(rowsToImport(plan, 'skip').map(r => r.date)).toEqual(['2026-09-08']);
+    expect(rowsToImport(plan, 'abort')).toEqual([]);
+  });
+
+  // No answer where one was needed must import nothing, not everything.
+  it('imports nothing when a needed answer is missing', () => {
+    const plan = validateImport(file('2026-09-01,210,190,230'),
+      { ...TODAY, existingDates: ['2026-09-01'] });
+    expect(rowsToImport(plan, null)).toEqual([]);
   });
 
   it('names the columns it needs', () => {

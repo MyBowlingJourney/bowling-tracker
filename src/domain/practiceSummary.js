@@ -51,9 +51,20 @@ export function practiceGames(sessions, liveScores, opts) {
   // one-game practice arrives as [189, 0, 0] -- and counting those made
   // the average 63 off a single 189. Nobody bowls a zero: ten gutters
   // still scores 0 only in theory, and the real meaning here is "empty".
-  const usable = v => Number.isFinite(v) && v > 0;
-  const live = (Array.isArray(liveScores) ? liveScores : []).map(Number).filter(usable);
-  const filed = fromSessions.filter(usable);
+  // Two different filters, because the two arrays mean different things.
+  //
+  // liveScores is fixed-length with a slot per game, so an unbowled game
+  // arrives as 0 and has to be dropped -- that is what made a one-game
+  // practice average 63 off a single 189.
+  //
+  // A filed session's scores array holds only games actually bowled, so
+  // a 0 in it is a real gutter game. Dropping it there was wrong: it
+  // removed a score the bowler earned and quietly raised their average.
+  // CSV import makes this reachable -- 0 is a valid score in a file.
+  const bowled = v => Number.isFinite(v) && v >= 0;
+  const notPadding = v => Number.isFinite(v) && v > 0;
+  const live = (Array.isArray(liveScores) ? liveScores : []).map(Number).filter(notPadding);
+  const filed = fromSessions.filter(bowled);
 
   // The LIVE scores win whenever there are any.
   //
