@@ -84,7 +84,7 @@ import { casualNightsFrom, setGameEquipment as setGameEquipmentIn, gameEquipment
 import { bowlerHighGame, bowlerHighSeries, hangAssistCounts, teamDateGroups, teamHighGame, teamHighSeries, seasonRecord, weeklyPointsData, gameAvg, teamGameTotalAvg, teamGameTotalAvgAt, rAvg, cAvg, avgProgress, cumulativeAvgBeforeDate, hungCounts, beatHighBowlerStats, scoreValues, scoreConsistency, histogramBuckets } from "./domain/stats.js";
 import { lineupSort, renameLeagueInRecords } from "./domain/leagues.js";
 import { C, S, F, Chip, applyTheme } from "./ui.jsx";
-import { PLASTIC_BALL, DEFAULT_ARSENAL, MISSES, DEFAULT_LEAGUES, localDateString, APP_NAME, PRACTICE_SESSION_KEY, CASUAL_SESSION_KEY , practiceLeagueCloudName, casualLeagueCloudName, practiceLeagueDisplayName, isPracticeLeagueName, isCasualLeagueName , TOURNAMENT_SESSION_KEY, tournamentLeagueCloudName} from "./constants.js";
+import { PLASTIC_BALL, DEFAULT_ARSENAL, MISSES, DEFAULT_LEAGUES, localDateString, APP_NAME, PRACTICE_SESSION_KEY, CASUAL_SESSION_KEY, practiceLeagueCloudName, casualLeagueCloudName, practiceLeagueDisplayName, isPracticeLeagueName, isCasualLeagueName, TOURNAMENT_SESSION_KEY, tournamentLeagueCloudName, IMPORTED_SESSION_KEY } from "./constants.js";
 import { validTeamId,
   shotToSupabaseRow, shotFromSupabaseRow, sessionToSupabaseRow, sessionFromSupabaseRow,
   matchToSupabaseRow, matchFromSupabaseRow, lanePatternToSupabaseRow, lanePatternFromSupabaseRow,
@@ -3523,6 +3523,43 @@ export default function BowlingTracker(){
   //
   // Returns what it removed, so the caller can say so rather than
   // claiming success blindly.
+  // Writing an imported CSV.
+  //
+  // One save, not one per night: a file of eighty nights saved
+  // individually is eighty round trips and eighty chances to half
+  // finish. The rows were validated and the bowler has answered the
+  // overwrite question before this runs.
+  async function importCsvNights({rows,league,overwrite}){
+    const list=Array.isArray(rows)?rows:[];
+    if(!list.length)return;
+    const who=activeBowler;
+    const lg=String(league||"").trim()||IMPORTED_SESSION_KEY;
+
+    // Replacing means the old night goes first. Filtering by date rather
+    // than by id because an imported night has no id in common with the
+    // one it replaces.
+    const replacing=new Set(overwrite?list.map(r=>r.date):[]);
+    const kept=(sessions||[]).filter(sn=>
+      !(sn&&sn.bowler===who&&replacing.has(sn.date)));
+
+    const made=list.map(r=>{
+      const scores=(r.scores||[]).map(Number).filter(Number.isFinite);
+      const total=scores.reduce((a,b)=>a+b,0);
+      return {
+        id:crypto.randomUUID(),
+        bowler:who,
+        teamId:"",
+        league:lg,
+        date:r.date,
+        scores,
+        total,
+        average:scores.length?Math.round(total/scores.length):null,
+        notes:"",
+      };
+    });
+    await saveSessions([...kept,...made]);
+  }
+
   async function deleteNight(bowler,league,date){
     if(!bowler||!league||!date)return {sessions:0,shots:0,scores:0};
 
@@ -7281,6 +7318,8 @@ export default function BowlingTracker(){
             onOpenImprove={()=>setView("insights")}
             centerStats={centerStats}
             lanePatterns={lanePatterns}
+
+            onImportCsv={importCsvNights}
 
             centers={centers}
 

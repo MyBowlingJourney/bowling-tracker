@@ -3,6 +3,7 @@ import { C, S, Chip, CollapsibleCard } from "./ui.jsx";
 import { THEMES, DARK_THEME_IDS, LIGHT_THEME_IDS } from "./domain/themes.js";
 import { useAuth } from "./AuthProvider.jsx";
 import CalendarView from "./CalendarView.jsx";
+import ImportCsv from "./ImportCsv.jsx";
 import JournalView from "./JournalView.jsx";
 import { LEAGUE_FORMATS, leagueFormat, isNoTapLeague } from "./domain/leagueSeasons.js";
 import { availableTours } from "./domain/tour.js";
@@ -51,7 +52,7 @@ export default function Settings({
   leagueDates, setLeagueDates, renameLeague,
   leagueFormats = {}, setLeagueFormat,
   updateCenter,
-  tournaments = [], deleteNight,
+  tournaments = [], deleteNight, onImportCsv,
   hiddenLeagues, leagueIds, toggleLeagueHidden, teams, activeBowler, leaveTeam, onCreateTeam,
   shots, leftHandedForBowler,
 }) {
@@ -819,6 +820,24 @@ export default function Settings({
           </CollapsibleCard>
         );
       })()}
+
+      {/* Import sits with Export: they are the same job in two
+          directions, and a bowler looking for one will look here for the
+          other. Collapsed, because importing a season is something you do
+          once. */}
+      <CollapsibleCard title="Import scores"
+        summary=""
+        expanded={expanded.importCsv === true}
+        onToggle={() => toggle("importCsv")}>
+        <ImportCsv
+          leagues={leagues || []}
+          leagueDates={leagueDates || {}}
+          existingDates={(sessions || [])
+            .filter(x => x && x.bowler === (statsBowler || activeBowler))
+            .map(x => x.date)}
+          today={localDateString()}
+          onImport={onImportCsv} />
+      </CollapsibleCard>
 
       {showCard("backup") && (
       <CollapsibleCard title="Backup &amp; Restore" summary={hasData ? "" : "No data yet"}
