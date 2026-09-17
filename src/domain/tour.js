@@ -146,7 +146,7 @@ const ALL_STEPS = [
     id: "practice-modes",
     tab: "log",
     title: "Games or drills",
-    body: "Practice splits two ways. Games is a normal night you happen to be bowling alone — full frames, real scores. Drill is targeted work: pick one thing, throw at it repeatedly, and the app counts makes and misses without pretending it's a game.",
+    body: "Three chips at the top. Games is a normal night you happen to be bowling alone — full frames, real scores. Drill is targeted work: pick one thing, throw at it repeatedly, and the app counts makes and misses without pretending it's a game. Results is how the night went.",
     envs: ["practice"],
   },
   {
@@ -175,7 +175,7 @@ const ALL_STEPS = [
     id: "practice-recap",
     tab: "log",
     title: "Your practice summary",
-    body: "End the session and you get what actually happened: how the drill went against last week, which spares you converted, and whether the thing you came to work on moved. It's saved, so next week starts with a comparison rather than a guess.",
+    body: "End the session and you get what actually happened: how each drill went, which spares you converted, and how you struck and spared across the games. It's saved, so next week starts with a record rather than a guess.",
     envs: ["practice"],
   },
 
