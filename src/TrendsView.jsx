@@ -8,6 +8,8 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { isContainerLeague } from "./domain/leagueMembership.js";
 import { C, S, Chip } from "./ui.jsx";
 import ShareButton from "./ShareButton.jsx";
+
+import { applyTrendWindow, describeTrendWindow, defaultTrendWindow, TREND_WINDOW_MODES, GAME_CHOICES, DAY_CHOICES } from "./domain/trendWindow.js";
 import { allGamesSeries, allGamesSummary,
   trendMetricsFor, trendMetricFor, seriesFor, trendDirection, describeTrend, seriesReliability,
 } from "./domain/trends.js";
@@ -36,6 +38,9 @@ export default function TrendsView({
   // same point. Off by default because the averaged view is the better
   // read for a TREND; this is for looking at the scatter.
   const [everyGame, setEveryGame] = useState(false);
+  // How far back the chart reaches. Local: it is where you are looking,
+  // not a preference about how the app behaves.
+  const [trendWindow, setTrendWindow] = useState(defaultTrendWindow());
   const metrics = trendMetricsFor(leftHanded);
   const metric = trendMetricFor(metricId, leftHanded);
 
@@ -66,9 +71,19 @@ export default function TrendsView({
   const points = showEveryGame
     ? gamePoints
     : seriesFor(metricId, { sessions, shots, bowler: statsBowler, league: statsLeague, isSplit, isCornerPinLeave, ball: ballFilter, gameEquipment });
-  const direction = trendDirection(points);
-  const reliability = seriesReliability(metricId, points);
-  const summary = describeTrend(metricId, points);
+  // The window is applied AFTER the series is built, not before.
+  //
+  // Building the series needs every night -- a running average over the
+  // last ten games is still an average of everything up to each point.
+  // Filtering first would change what each point means, not just which
+  // points are shown.
+  const allPoints = points;
+  const shownPoints = applyTrendWindow(allPoints, trendWindow);
+  const windowNote = describeTrendWindow(trendWindow, shownPoints.length, allPoints.length);
+
+  const direction = trendDirection(shownPoints);
+  const reliability = seriesReliability(metricId, shownPoints);
+  const summary = describeTrend(metricId, shownPoints);
 
   // Shot-sourced metrics need shot-by-shot data. A bowler tracking game
   // scores only has none, and saying so beats an empty chart that looks
@@ -170,13 +185,14 @@ export default function TrendsView({
           <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "6px" }}>{metric.help}</div>
         )}
 
-        {/* Only offered on Average: every-game plots raw scores, which is
-            meaningless for a rate like strike %. */}
+        {/* "Every game" now sits in the chart header, not here.
+            It changes what the chart draws, so it belongs on the chart
+            rather than in a list of settings above it. */}
+        {/* The every-game SUMMARY stays here: it is prose about the
+            spread, not a control. Only on Average, because every-game
+            plots raw scores and that is meaningless for a rate. */}
         {metricId === "average" && (
           <>
-            <div style={{ ...S.chips, marginTop: "10px" }}>
-              <Chip label="Every game" selected={everyGame} onToggle={() => setEveryGame(v => !v)} />
-            </div>
             {showEveryGame && gameSummary && (
               <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "6px", lineHeight: 1.5 }}>
                 {gameSummary.games} games{statsLeague ? ` in ${!statsBowler ? teamNameForLeague(statsLeague) : statsLeague.replace(" House Shot", "")}` : " across every league"} ·
@@ -185,6 +201,49 @@ export default function TrendsView({
               </div>
             )}
           </>
+        )}
+
+        {/* How far back. Three ways to say it, because bowlers ask in
+            all three: the last N games, the last N days, or a season
+            between two dates. */}
+        <div style={{ ...S.label, marginTop: "12px" }}>Show</div>
+        <div style={{ ...S.chips, flexWrap: "nowrap", gap: "5px" }}>
+          {TREND_WINDOW_MODES.map(m => (
+            <Chip key={m.id} label={m.label} dense fill
+              selected={trendWindow.mode === m.id}
+              onToggle={() => setTrendWindow(w => ({ ...w, mode: m.id }))} />
+          ))}
+        </div>
+
+        {trendWindow.mode === "games" && (
+          <select style={{ ...S.input, marginTop: "6px" }} value={trendWindow.games}
+            onChange={e => setTrendWindow(w => ({ ...w, games: Number(e.target.value) }))}>
+            {GAME_CHOICES.map(n => (
+              <option key={n} value={n}>Last {n} nights</option>
+            ))}
+          </select>
+        )}
+
+        {trendWindow.mode === "days" && (
+          <select style={{ ...S.input, marginTop: "6px" }} value={trendWindow.days}
+            onChange={e => setTrendWindow(w => ({ ...w, days: Number(e.target.value) }))}>
+            {DAY_CHOICES.map(n => (
+              <option key={n} value={n}>Last {n} days</option>
+            ))}
+          </select>
+        )}
+
+        {trendWindow.mode === "range" && (
+          <div style={{ display: "flex", gap: "6px", marginTop: "6px" }}>
+            {/* Either end can be left blank: everything since a date, or
+                everything up to one, are both things people want. */}
+            <input type="date" style={{ ...S.input, flex: 1, minWidth: 0 }}
+              value={trendWindow.from}
+              onChange={e => setTrendWindow(w => ({ ...w, from: e.target.value }))} />
+            <input type="date" style={{ ...S.input, flex: 1, minWidth: 0 }}
+              value={trendWindow.to}
+              onChange={e => setTrendWindow(w => ({ ...w, to: e.target.value }))} />
+          </div>
         )}
 
         {leagues.length > 0 && (
@@ -215,15 +274,32 @@ export default function TrendsView({
           <div style={{ fontSize: "12px", color: C.textMuted, textAlign: "center", padding: "24px 0" }}>
             This one needs frame tracking. You're on game tracking, so there's nothing to plot here yet.
           </div>
-        ) : points.length < 2 ? (
+        ) : shownPoints.length < 2 ? (
           <div style={{ fontSize: "12px", color: C.textMuted, textAlign: "center", padding: "24px 0" }}>
             Need at least 2 nights logged before there's a line to draw.
           </div>
         ) : (
           <>
+            {/* Chart header: the title on the left, the control that
+                changes what is drawn on the right.
+                
+                "Every game" used to sit in the settings list above,
+                where it read as another filter. It is not -- it changes
+                the chart's resolution, so it belongs on the chart. */}
+            <div style={{ display: "flex", alignItems: "center",
+              justifyContent: "space-between", gap: "8px", marginBottom: "4px" }}>
+              <span style={{ fontSize: "12px", color: C.textMuted }}>
+                {showEveryGame ? "Per game" : "Per night"}
+                {" · "}{windowNote}
+              </span>
+              {metricId === "average" && (
+                <Chip label="Every game" dense selected={everyGame}
+                  onToggle={() => setEveryGame(v => !v)} />
+              )}
+            </div>
             <div style={{ height: "220px", marginBottom: "10px" }}>
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={points} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+                <LineChart data={shownPoints} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
                   <CartesianGrid stroke={C.border} strokeDasharray="3 3" />
                   <XAxis dataKey={showEveryGame ? "x" : "date"} tick={{ fill: C.textMuted, fontSize: 10 }}
                     tickFormatter={v => showEveryGame ? "" : String(v).slice(5)} />

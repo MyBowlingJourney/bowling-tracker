@@ -169,8 +169,18 @@ export function ActionRow({icon,label,detail,color,onClick,disabled,compact}){
   );
 }
 
-export function Chip({label,selected,onToggle,color,dense}){
-  const style=dense?{...S.chip(selected,color),padding:"5px 9px"}:S.chip(selected,color);
+export function Chip({label,selected,onToggle,color,dense,fill}){
+  // fill: share the row equally instead of sizing to the text.
+  //
+  // Six chips sized to their labels come to more than a phone's width,
+  // and estimating whether they fit has been wrong twice. Sharing the
+  // width is not an estimate -- flex:1 with min-width:0 cannot overflow,
+  // whatever the labels say.
+  const base=dense?{...S.chip(selected,color),padding:"5px 9px"}:S.chip(selected,color);
+  const style=fill
+    ?{...base,flex:"1 1 0",minWidth:0,padding:dense?"5px 4px":"9px 6px",
+      textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}
+    :base;
   return <button style={style} onClick={onToggle}>{label}</button>;
 }
 

@@ -7344,18 +7344,20 @@ export default function BowlingTracker(){
                 the same row.
                 
                 Trends is still its own screen; the rest filter StatsView. */}
-            {/* One row, no scroll.
+            {/* One row, and it cannot scroll.
                 
-                Six chips fit ~351px of the ~364 a phone gives, which is
-                only true because the first one is "You" rather than
-                "Overview" -- the longer word pushed the row to about 390
-                and forced it to scroll or wrap. Keep them short if any
-                more are added. */}
-            <div style={{...S.chips,flexWrap:"nowrap",overflowX:"auto",
-              WebkitOverflowScrolling:"touch"}}>
+                Twice I worked out that six chips "should" fit and twice
+                they did not -- a label's rendered width depends on the
+                font the device actually has, which is not something to
+                compute from character counts.
+                
+                So they share the row instead: each takes an equal slice
+                and truncates if its label is too long. A guarantee
+                rather than an estimate. */}
+            <div style={{...S.chips,flexWrap:"nowrap",gap:"5px"}}>
               {STATS_GROUPS.map(g=>(
                 <Chip key={g.id} label={g.label} selected={dataTab===g.id}
-                  onToggle={()=>setDataTab(g.id)}/>
+                  dense fill onToggle={()=>setDataTab(g.id)}/>
               ))}
             </div>
           </div>
