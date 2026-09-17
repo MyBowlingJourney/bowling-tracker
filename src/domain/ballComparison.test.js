@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   ballComparison, bestByMetric, ballLine, BALL_METRICS, trajectoryPath,
-  catmullRomSegments,
+  catmullRomSegments, laydownBoard,
   ARROWS_FEET, BREAKPOINT_FEET,
 } from './ballComparison.js';
 import { isSplit, isCornerPinLeave } from './splits.js';
@@ -206,5 +206,47 @@ describe('the trajectory path', () => {
     for (const j of [null, undefined, 'x', 42]) {
       expect(() => trajectoryPath(j, x, y)).not.toThrow();
     }
+  });
+});
+
+describe('where the ball lands', () => {
+  // Standing on 16, drifting 2 toward the middle, with a 6-board swing:
+  // slide on 18, lay the ball down on 12.
+  it('works the worked example', () => {
+    expect(laydownBoard(16, { drift: 2, lateralOffset: 6 }))
+      .toEqual({ slide: 18, laydown: 12 });
+  });
+
+  // Both are in the bowler's own board numbering, counted from their own
+  // gutter, so the arithmetic needs no handedness term at all.
+  it('needs no handedness', () => {
+    const a = laydownBoard(16, { drift: 2, lateralOffset: 6 });
+    const b = laydownBoard(16, { drift: 2, lateralOffset: 6, leftHanded: true });
+    expect(a).toEqual(b);
+  });
+
+  it('defaults by style when unset', () => {
+    expect(laydownBoard(20, {}).laydown).toBe(19);              // 20 +5 -6
+    expect(laydownBoard(20, { twoHanded: true }).laydown).toBe(28); // 20 +10 -2
+  });
+
+  // Zero drift is a real answer; not having measured it is not.
+  it('treats an explicit zero as a real value', () => {
+    expect(laydownBoard(20, { drift: 0, lateralOffset: 6 }).slide).toBe(20);
+  });
+
+  it('keeps the lay-down on the lane', () => {
+    expect(laydownBoard(2, { drift: 0, lateralOffset: 20 }).laydown).toBe(1);
+  });
+
+  it('returns nothing without a start board', () => {
+    expect(laydownBoard('', {})).toBe(null);
+  });
+
+  // The feet board is where you stand, not where the ball touches down.
+  it('starts the drawn line at the lay-down board', () => {
+    const line = ballLine({ ball: 'Z', startBoard: 16, arrowBoard: 10 },
+      { drift: 2, lateralOffset: 6 });
+    expect(line.points[0].board).toBe(12);
   });
 });

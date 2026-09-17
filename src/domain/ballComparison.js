@@ -195,14 +195,24 @@ export function ballLine(entry, opts) {
   // A fifth of the rate puts the breakpoint a few boards outside the
   // arrows, which is what the line actually looks like. Floored at 3 --
   // the ball rides the dry, it does not leave the lane.
-  const perFoot = (arrows - start) / ARROWS_FEET;
+  // Angle measured from the LAYDOWN board, not the feet: the ball never
+  // travels the drift-and-swing part, so including it exaggerated the
+  // angle and pushed the projected breakpoint out too far.
+  const spot = laydownBoard(start, {
+    drift: o.drift, lateralOffset: o.lateralOffset, twoHanded: o.twoHanded,
+  });
+  const lay = spot ? spot.laydown : start;
+  const perFoot = (arrows - lay) / ARROWS_FEET;
   const projected = arrows + perFoot * (BREAKPOINT_FEET - ARROWS_FEET) * 0.2;
   const breakpoint = Math.max(3, Math.min(37, projected));
 
   return {
     ball: e.ball,
     points: [
-      { feet: 0, board: start, known: true },
+      // The foul line point is where the ball LANDS, not where the feet
+      // are. Drawing from the feet board put the whole path several
+      // boards inside the real one.
+      { feet: 0, board: lay, known: true },
       { feet: ARROWS_FEET, board: arrows, known: true },
       { feet: BREAKPOINT_FEET, board: breakpoint, known: false },
       { feet: FOUL_LINE_TO_PINS, board: POCKET_BOARD, known: false },
@@ -287,4 +297,45 @@ export function trajectoryPath(points, x, y) {
       + ` ${x(s.to.board)} ${y(s.to.feet)}`;
   }
   return d;
+}
+
+// Where the ball actually touches the lane.
+//
+// The feet board is where the bowler STANDS, which is not where the ball
+// lands. Two things sit between them:
+//
+//   DRIFT -- bowlers do not slide where they start. Someone standing on
+//   16 who drifts two boards toward the middle slides on 18.
+//
+//   LATERAL OFFSET -- the swing is outside the slide foot, so the ball
+//   lays down outside the slide. Usually 4 to 8 boards for a one-hander;
+//   much less for a two-hander, whose swing is closer to the body.
+//
+// Both are in the bowler's OWN board numbering, counted from their own
+// gutter, which is why neither needs a handedness term: drift toward the
+// middle raises the number for either hand, and the ball lays down
+// outside the slide for either hand.
+//
+//   slide   = start + drift
+//   laydown = slide - lateralOffset
+//
+// Standing on 16, drifting 2, with a 6-board swing: slide 18, lay down 12.
+export const DEFAULT_LATERAL_OFFSET = { one: 6, two: 2 };
+export const DEFAULT_DRIFT = { one: 5, two: 10 };
+
+export function laydownBoard(startBoard, opts) {
+  const o = (opts && typeof opts === "object") ? opts : {};
+  const { drift, lateralOffset, twoHanded } = o;
+  // num() rejects empty and null before converting -- Number("") is 0,
+  // which is finite, so a blank board came through as board zero.
+  const start = num(startBoard);
+  if (start === null) return null;
+  const style = twoHanded ? "two" : "one";
+  const d = Number.isFinite(Number(drift)) ? Number(drift) : DEFAULT_DRIFT[style];
+  const off = Number.isFinite(Number(lateralOffset))
+    ? Number(lateralOffset) : DEFAULT_LATERAL_OFFSET[style];
+  const slide = start + d;
+  // Clamped to the lane: an extreme drift should not put the ball in a
+  // board that does not exist.
+  return { slide, laydown: Math.max(1, Math.min(39, slide - off)) };
 }

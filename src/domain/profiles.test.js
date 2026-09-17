@@ -161,7 +161,7 @@ describe('home centers', () => {
 describe('supabase round trip', () => {
   it('preserves every field in both directions', () => {
     const full = {
-      bowlerName: 'Ryan', leftHanded: true, twoHanded: true, isCoach: false, aliases: [],
+      bowlerName: 'Ryan', leftHanded: true, twoHanded: true, driftBoards: '', lateralOffset: '', isCoach: false, aliases: [],
       homeCenters: ['Bowlero'], notes: 'thumb tape',
       bookAverage: '213', allTimeHighGame: '279', allTimeHighSeries: '742',
       bookGames: '90', bookSeason: '2025-26 Winter', bookAverageAsOf: '2026-08-01',
@@ -175,7 +175,7 @@ describe('supabase round trip', () => {
   // survives the round trip.
   it('preserves the coach flag when it is set', () => {
     const coach = {
-      bowlerName: 'Dave', leftHanded: false, twoHanded: false, isCoach: true, aliases: [],
+      bowlerName: 'Dave', leftHanded: false, twoHanded: false, driftBoards: '', lateralOffset: '', isCoach: true, aliases: [],
       homeCenters: [], notes: '',
       bookAverage: '', allTimeHighGame: '', allTimeHighSeries: '',
       bookGames: '', bookSeason: '', bookAverageAsOf: '',
@@ -192,7 +192,7 @@ describe('supabase round trip', () => {
     // A profile built before these fields existed has them undefined.
     // Number(undefined) is NaN, which Postgres rejects -- so the row must
     // carry null, and the round trip must come back as "".
-    const legacy = { bowlerName: 'Ryan', leftHanded: false, twoHanded: false, homeCenters: [], notes: '' };
+    const legacy = { bowlerName: 'Ryan', leftHanded: false, twoHanded: false, driftBoards: '', lateralOffset: '', homeCenters: [], notes: '' };
     const row = profileToRow(legacy, 'user-1');
     expect(row.book_average).toBeNull();
     expect(row.book_games).toBeNull();

@@ -223,19 +223,19 @@ export const MOVABLE_STATS_CARD_IDS = MOVABLE_STATS_CARDS.map(c => c.id);
 // convention that usually doesn't apply in tournament play.
 export const ENVIRONMENT_PRESETS = {
   practice: {
-    trackedFields: { surface: true, line: true, release: true, miss: true, ballSpeed: true, shoes: true, revRate: false, axisRotation: false, axisTilt: false },
+    trackedFields: { surface: true, line: true, release: true, miss: true, ballSpeed: true, shoes: true, revRate: true, axisRotation: true, axisTilt: true },
     showMoneyGames: false,
   },
   league: {
-    trackedFields: { surface: false, line: false, release: false, miss: false, ballSpeed: false, shoes: false, revRate: false, axisRotation: false, axisTilt: false },
+    trackedFields: { surface: true, line: true, release: true, miss: true, ballSpeed: true, shoes: true, revRate: true, axisRotation: true, axisTilt: true },
     showMoneyGames: true,
   },
   tournament: {
-    trackedFields: { surface: false, line: false, release: false, miss: false, ballSpeed: false, shoes: false, revRate: false, axisRotation: false, axisTilt: false },
+    trackedFields: { surface: true, line: true, release: true, miss: true, ballSpeed: true, shoes: true, revRate: true, axisRotation: true, axisTilt: true },
     showMoneyGames: false,
   },
   casual: {
-    trackedFields: { surface: false, line: false, release: false, miss: false, ballSpeed: false, shoes: false, revRate: false, axisRotation: false, axisTilt: false },
+    trackedFields: { surface: true, line: true, release: true, miss: true, ballSpeed: true, shoes: true, revRate: true, axisRotation: true, axisTilt: true },
     showMoneyGames: false,
   },
 };
@@ -414,7 +414,19 @@ export function normalizePreferences(raw) {
     environment: ENVIRONMENTS.includes(raw.environment) ? raw.environment : base.environment,
     trackingMode: TRACKING_MODES.includes(raw.trackingMode) ? raw.trackingMode : base.trackingMode,
     trackedFields: (() => {
-      const merged = { ...base.trackedFields, ...(raw.trackedFields || {}) };
+      // Always on, and no longer optional.
+      //
+      // These were nine chips in Settings that every bowler had to find
+      // and switch on before the fields appeared. The log screen scrolls
+      // to the next field now, so the cost of having them all present is
+      // small and the cost of not knowing they exist was large.
+      //
+      // The stored value is IGNORED rather than merged: someone who
+      // turned them off still has false in storage, and with the setting
+      // gone there would be no way back on.
+      const merged = Object.fromEntries(
+        Object.keys({ ...base.trackedFields, ...(raw.trackedFields || {}) })
+          .map(k => [k, true]));
       // axisTilt inherits axisRotation when it has never been set.
       //
       // A key added after someone saved their preferences is absent from
@@ -562,9 +574,17 @@ export function resetToEnvironmentDefaults(prefs) {
   return defaultPreferences(prefs.environment);
 }
 
+// Kept for anything that still imports it, but it can no longer turn a
+// field OFF: normalizePreferences forces every accessory field on, so a
+// false written here was overridden on the next read anyway. A setter
+// that silently does nothing is worse than one that plainly ignores the
+// value, which is what this now does.
+//
+// (My first attempt wrote `value !== false`, which evaluates to FALSE
+// when value is false -- precisely the case it was meant to prevent.)
 export function setTrackedField(prefs, field, value) {
   if (!prefs || typeof prefs !== "object" || Array.isArray(prefs)) return prefs;
-  return { ...prefs, trackedFields: { ...prefs.trackedFields, [field]: value } };
+  return { ...prefs, trackedFields: { ...prefs.trackedFields, [field]: true } };
 }
 
 export function setShowMoneyGames(prefs, value) {

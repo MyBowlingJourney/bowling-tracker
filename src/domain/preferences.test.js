@@ -62,13 +62,13 @@ describe('defaultPreferences', () => {
 
   it('league starts with every accessory field off, money games shown', () => {
     const p = defaultPreferences('league');
-    expect(p.trackedFields).toEqual({ surface: false, line: false, release: false, miss: false, ballSpeed: false, shoes: false, revRate: false, axisRotation: false, axisTilt: false });
+    expect(p.trackedFields).toEqual({ surface: true, line: true, release: true, miss: true, ballSpeed: true, shoes: true, revRate: true, axisRotation: true, axisTilt: true });
     expect(p.showMoneyGames).toBe(true);
   });
 
   it('practice starts with every accessory field on, money games hidden', () => {
     const p = defaultPreferences('practice');
-    expect(p.trackedFields).toEqual({ surface: true, line: true, release: true, miss: true, ballSpeed: true, shoes: true, revRate: false, axisRotation: false, axisTilt: false });
+    expect(p.trackedFields).toEqual({ surface: true, line: true, release: true, miss: true, ballSpeed: true, shoes: true, revRate: true, axisRotation: true, axisTilt: true });
     expect(p.showMoneyGames).toBe(false);
   });
 
@@ -80,7 +80,7 @@ describe('defaultPreferences', () => {
     // turn it on. Money games are league side-pot conventions that don't
     // apply in tournament play.
     const p = defaultPreferences('tournament');
-    expect(p.trackedFields).toEqual({ surface: false, line: false, release: false, miss: false, ballSpeed: false, shoes: false, revRate: false, axisRotation: false, axisTilt: false });
+    expect(p.trackedFields).toEqual({ surface: true, line: true, release: true, miss: true, ballSpeed: true, shoes: true, revRate: true, axisRotation: true, axisTilt: true });
     expect(p.showMoneyGames).toBe(false);
   });
 
@@ -115,7 +115,7 @@ describe('defaultPreferences', () => {
 describe('normalizePreferences', () => {
   it('fills in missing tracked-field keys rather than dropping them', () => {
     const result = normalizePreferences({ environment: 'league', trackedFields: { surface: true } });
-    expect(result.trackedFields).toEqual({ surface: true, line: false, release: false, miss: false, ballSpeed: false, shoes: false, revRate: false, axisRotation: false, axisTilt: false });
+    expect(result.trackedFields).toEqual({ surface: true, line: true, release: true, miss: true, ballSpeed: true, shoes: true, revRate: true, axisRotation: true, axisTilt: true });
   });
 
   it('returns full defaults for null/undefined input', () => {
@@ -140,7 +140,10 @@ describe('applyEnvironment', () => {
     const customized = setTrackedField(startedInLeague, 'miss', true); // manual override
     const switched = applyEnvironment(customized, 'tournament');
     // Tournament's preset should win outright, not merge with the override.
-    expect(switched.trackedFields.miss).toBe(false);
+    // Was false: switching environments used to reset the field presets.
+    // The accessory fields are always on now, so what this test still
+    // proves is that the ENVIRONMENT changes, not the fields.
+    expect(switched.trackedFields.miss).toBe(true);
     expect(switched.environment).toBe('tournament');
   });
 });
@@ -157,7 +160,7 @@ describe('setTrackedField / setShowMoneyGames', () => {
   it('setTrackedField only touches the one field named', () => {
     const p = defaultPreferences('league');
     const updated = setTrackedField(p, 'release', true);
-    expect(updated.trackedFields).toEqual({ surface: false, line: false, release: true, miss: false, ballSpeed: false, shoes: false, revRate: false, axisRotation: false, axisTilt: false });
+    expect(updated.trackedFields).toEqual({ surface: true, line: true, release: true, miss: true, ballSpeed: true, shoes: true, revRate: true, axisRotation: true, axisTilt: true });
   });
 
   it('setShowMoneyGames toggles independently of trackedFields', () => {
@@ -176,10 +179,14 @@ describe('casual environment', () => {
     expect(applyEnvironment(shot, 'casual').trackingMode).toBe('game');
   });
 
-  it('hides money games and every accessory field', () => {
+  it('hides money games; accessory fields are always on now', () => {
     const p = applyEnvironment(defaultPreferences('league'), 'casual');
     expect(p.showMoneyGames).toBe(false);
-    expect(Object.values(p.trackedFields).every(v => v === false)).toBe(true);
+    // Was every(false): the accessory fields used to be off in casual.
+    // They are always on now -- the Settings card that switched them on
+    // was a wall between a bowler and fields they did not know existed.
+    // What casual still turns off is money games, asserted above.
+    expect(Object.values(p.trackedFields).every(v => v === true)).toBe(true);
   });
 });
 
@@ -354,5 +361,36 @@ describe('hiddenMoneyGames survives a save', () => {
     let all = normalizePreferences({});
     for (const g of MONEY_GAMES) all = setMoneyGameHidden(all, g, true);
     expect(anyMoneyGameShown(all)).toBe(false);
+  });
+});
+
+describe('accessory fields are always on', () => {
+  // These were nine chips in Settings that a bowler had to find and
+  // switch on before the fields appeared at all.
+  it('turns them on in every environment', () => {
+    for (const env of ['practice', 'league', 'tournament', 'casual']) {
+      const p = applyEnvironment(defaultPreferences('league'), env);
+      expect(Object.values(p.trackedFields).every(v => v === true)).toBe(true);
+    }
+  });
+
+  // The stored value is IGNORED, not merged. Someone who switched them
+  // off still has false in storage, and with the setting gone there would
+  // be no way back on -- they would silently lose the fields forever.
+  it('overrides a stored false', () => {
+    const stored = {
+      environment: 'league',
+      trackedFields: { surface: false, line: false, release: false, miss: false,
+        ballSpeed: false, shoes: false, revRate: false, axisRotation: false, axisTilt: false },
+    };
+    const p = normalizePreferences(stored);
+    expect(Object.values(p.trackedFields).every(v => v === true)).toBe(true);
+    expect(Object.keys(p.trackedFields)).toHaveLength(9);
+  });
+
+  // A setter that silently does nothing is worse than one that refuses.
+  it('will not let the setter turn one off', () => {
+    const p = setTrackedField(defaultPreferences('league'), 'miss', false);
+    expect(p.trackedFields.miss).toBe(true);
   });
 });

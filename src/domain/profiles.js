@@ -26,6 +26,12 @@ export function emptyProfile(bowlerName = "") {
     bowlerName,
     leftHanded: false,
     twoHanded: false,
+    // Boards between where the feet start and where they slide, and how
+    // far outside the slide the ball lays down. Empty means "use the
+    // default for my style" rather than zero -- a bowler who has never
+    // measured their drift has not measured it as nought.
+    driftBoards: "",
+    lateralOffset: "",
     // Whether this person coaches. Gates the coach view -- someone who
     // isn't a coach never sees coaching UI at all, rather than seeing an
     // empty version of it.
@@ -81,6 +87,8 @@ export function normalizeProfile(raw, bowlerName = "") {
     bowlerName: raw.bowlerName || bowlerName,
     leftHanded: !!raw.leftHanded,
     twoHanded: !!raw.twoHanded,
+    driftBoards: raw.driftBoards === 0 ? "0" : String(raw.driftBoards ?? "").trim(),
+    lateralOffset: raw.lateralOffset === 0 ? "0" : String(raw.lateralOffset ?? "").trim(),
     isCoach: !!raw.isCoach,
     aliases: normalizeAliases(raw.aliases),
     homeCenters: Array.isArray(raw.homeCenters)
@@ -262,6 +270,10 @@ export function profileToRow(profile, userId) {
     bowler_name: profile.bowlerName,
     left_handed: !!profile.leftHanded,
     two_handed: !!profile.twoHanded,
+    // Stored as text so an unset value is "" rather than 0. Zero drift is
+    // a real answer; not having measured it is not.
+    drift_boards: String(profile.driftBoards ?? "").trim(),
+    lateral_offset: String(profile.lateralOffset ?? "").trim(),
     is_coach: !!profile.isCoach,
     aliases: (profile.aliases && profile.aliases.length) ? profile.aliases : null,
     home_centers: profile.homeCenters || [],
@@ -285,6 +297,8 @@ export function profileFromRow(row) {
     bowlerName: row.bowler_name || "",
     leftHanded: !!row.left_handed,
     twoHanded: !!row.two_handed,
+    driftBoards: String(row.drift_boards ?? "").trim(),
+    lateralOffset: String(row.lateral_offset ?? "").trim(),
     isCoach: !!row.is_coach,
     aliases: row.aliases,
     homeCenters: row.home_centers || [],
