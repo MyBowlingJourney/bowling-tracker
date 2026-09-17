@@ -108,6 +108,8 @@ export function describeTrendWindow(window, shown, total) {
   const n = Number(shown) || 0;
   const all = Number(total) || 0;
   if (w.mode === "all" || n >= all) return `${n} of ${all}`;
+  // "Last 10 nights" when plotting nights, but the same window plots
+  // games in every-game mode -- so it says neither and gives the count.
   if (w.mode === "games") return `Last ${w.games} — showing ${n} of ${all}`;
   if (w.mode === "days") return `Last ${w.days} days — showing ${n} of ${all}`;
   const from = clean(w.from) || "the start";
