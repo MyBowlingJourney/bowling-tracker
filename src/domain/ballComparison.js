@@ -193,3 +193,26 @@ export function ballLine(entry, opts) {
     ],
   };
 }
+
+// Colours for the comparison, assigned by position rather than hashed.
+//
+// The name hash ArsenalList uses snaps hues to 30-degree steps, and with
+// five balls three of them collided on the same purple. That is survivable
+// on a list where the name is right there; on a chart where the colour IS
+// the label it is useless.
+//
+// Fixed palette, taken in order, so distinctness is guaranteed rather
+// than hoped for. The order is the comparison's own -- best carry first
+// -- so the leading ball is always the same colour as the top row.
+export const BALL_PALETTE = [
+  "#2f7ed8", "#e07b39", "#4aa564", "#b5539c", "#d4a017",
+  "#3aa9a3", "#c2504a", "#7a6ff0",
+];
+
+export function ballColors(comparison) {
+  const out = {};
+  (Array.isArray(comparison) ? comparison : []).forEach((b, i) => {
+    if (b && b.ball) out[b.ball] = BALL_PALETTE[i % BALL_PALETTE.length];
+  });
+  return out;
+}
