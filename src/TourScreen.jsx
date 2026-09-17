@@ -249,30 +249,45 @@ function ScoreTable({ rows = [] }) {
 }
 
 const SCREENS = {
-  // Mirrors SessionStart's real card: same heading, same four options in
-  // the same order, and NOTHING selected -- this is the screen as it
-  // looks before the bowler has answered.
-  bowl: () => (
-    <Phone title="Bowl">
+  // Mirrors the real Home screen: season figures, the journey row, then
+  // the four mode rows in the same order.
+  //
+  // This used to draw SessionStart's "Bowling today?" card -- a screen
+  // that no longer exists. The tour was showing new bowlers a picture of
+  // something they would never find, which is worse than showing nothing.
+  home: () => (
+    <Phone title="My Bowling Journey">
       <Spot>
         <div style={card}>
-          <div style={{ fontSize: "12px", fontWeight: 700, color: C.text, marginBottom: "3px" }}>
-            Bowling today?
-          </div>
-          <div style={{ ...muted, marginBottom: "8px" }}>
-            Two quick questions and the app sets itself up for tonight.
-          </div>
-          <div style={label}>Where are you bowling?</div>
-          <div style={{ display: "flex", gap: "5px", flexWrap: "wrap" }}>
-            <span style={chip(false)}>Practice</span>
-            <span style={chip(false)}>League</span>
-            <span style={chip(false)}>Tournament</span>
-            <span style={chip(false)}>Open bowling</span>
+          <div style={label}>This league season</div>
+          <div style={{ display: "flex", gap: "6px", marginTop: "4px" }}>
+            <div style={{ flex: 1, textAlign: "center" }}>
+              <div style={{ fontSize: "15px", fontWeight: 700 }}>196</div>
+              <div style={muted}>Average</div>
+            </div>
+            <div style={{ flex: 1, textAlign: "center" }}>
+              <div style={{ fontSize: "15px", fontWeight: 700 }}>247</div>
+              <div style={muted}>High game</div>
+            </div>
+            <div style={{ flex: 1, textAlign: "center" }}>
+              <div style={{ fontSize: "15px", fontWeight: 700 }}>648</div>
+              <div style={muted}>High series</div>
+            </div>
           </div>
         </div>
+        <div style={{ ...card, marginTop: "6px" }}>
+          <div style={{ fontSize: "12px", fontWeight: 700 }}>My journey</div>
+          <div style={muted}>First 600 series · 4 badges</div>
+        </div>
+        <div style={{ marginTop: "6px" }}>
+          {["Practice", "League", "Tournament", "Open bowling"].map(m => (
+            <div key={m} style={{ ...card, marginBottom: "4px", display: "flex",
+              justifyContent: "space-between", fontSize: "12px" }}>
+              <span>{m}</span><span style={muted}>{"›"}</span>
+            </div>
+          ))}
+        </div>
       </Spot>
-      <Note>Answer this and everything else falls into place</Note>
-      <Nav active={0} />
     </Phone>
   ),
 

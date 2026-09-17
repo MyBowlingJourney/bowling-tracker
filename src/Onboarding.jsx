@@ -2,8 +2,7 @@ import { useState } from "react";
 import { C, S, Chip } from "./ui.jsx";
 import {
   ENVIRONMENTS, ENVIRONMENT_QUESTION_LABELS, ENVIRONMENT_REASSURANCE,
-  TRACKING_MODES, TRACKING_MODE_LABELS, TRACKING_MODE_DESCRIPTIONS,
-  applyEnvironment, setTrackingMode,
+  applyEnvironment,
 } from "./domain/preferences.js";
 import { APP_NAME } from "./constants.js";
 import { resolveHomeCenters } from "./domain/profiles.js";
@@ -262,34 +261,18 @@ export default function Onboarding({ preferences, onApply, onFinish, profile, on
 
         {step === 3 && (
           <>
-            <div style={{ fontSize: "19px", fontWeight: 600, color: C.text, marginBottom: "6px" }}>
-              How much do you want to track?
-            </div>
-            <div style={{ fontSize: "13px", color: C.textMuted, marginBottom: "18px" }}>
-              Frame tracking unlocks the detailed stats. Game tracking is faster, and you can switch whenever you like.
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "20px" }}>
-              {TRACKING_MODES.map(mode => {
-                const selected = preferences.trackingMode === mode;
-                return (
-                  <button key={mode}
-                    onClick={() => onApply(prev => setTrackingMode(prev, mode))}
-                    style={{
-                      textAlign: "left", padding: "12px 14px", borderRadius: "10px", cursor: "pointer",
-                      border: `1px solid ${selected ? C.accent : C.border}`,
-                      backgroundColor: selected ? C.accentDim : C.card,
-                      WebkitTapHighlightColor: "transparent",
-                    }}>
-                    <div style={{ fontSize: "15px", fontWeight: 600, color: selected ? C.accent : C.text, marginBottom: "2px" }}>
-                      {TRACKING_MODE_LABELS[mode]}
-                    </div>
-                    <div style={{ fontSize: "12px", color: C.textMuted }}>
-                      {TRACKING_MODE_DESCRIPTIONS[mode]}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+            {/* The tracking question is gone.
+                
+                It asked a bowler to choose frame-by-frame or scores-only
+                before they had used the app once -- and after the mode
+                picker moved to Home there was nowhere to change the
+                answer, so a wrong guess on day one was permanent.
+                
+                Both are available now wherever they make sense: the frame
+                form and the game-score card sit on the same screen in
+                practice, league and tournament, and open bowling stays
+                scores-only because that is what it is for. Nothing to
+                ask. */}
 
             {/* Signup code, for someone whose captain didn't have their
                 email. Optional and easy to skip -- most people arrive
