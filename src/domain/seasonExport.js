@@ -63,7 +63,7 @@ export function sessionsToCsv(sessions, bowler) {
 const SHOT_COLUMNS = [
   "date", "bowler", "league", "game", "frame", "ball_num", "lane", "ball",
   "result", "leave", "spare_made", "pin_count", "strike_description",
-  "surface", "starting_board", "target_arrows", "actual_board", "actual_arrows",
+  "surface", "starting_board", "target_arrows", "actual_board",
   "ball_speed", "release", "miss", "notes",
 ];
 
@@ -82,7 +82,7 @@ export function shotsToCsv(shots, bowler) {
       s._displayResult || s.result,
       (Array.isArray(s._displayLeave) ? s._displayLeave : s.otherLeave || []).filter(p => p !== "9 Pin No-Tap").join("-"),
       s.spareMade, s.pinCount, s.strikeDescription,
-      s.surface, s.startingBoard, s.targetArrows, s.actualBoard, s.actualArrows,
+      s.surface, s.startingBoard, s.targetArrows, s.actualBoard,
       s.ballSpeed, s.release, (Array.isArray(s.miss) ? s.miss : []).join("|"), s.notes,
     ]);
   return [SHOT_COLUMNS, ...rows].map(r => r.map(csvCell).join(",")).join("\n");
