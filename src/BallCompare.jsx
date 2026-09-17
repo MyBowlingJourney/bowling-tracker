@@ -30,7 +30,17 @@ export default function BallCompare({
 
   // Lane geometry. Sixty feet deep, thirty-nine boards across, drawn
   // looking down the lane from the approach.
-  const W = 300, H = 210, PAD = 8;
+  // Proportions. A lane is 41.5 inches wide and sixty feet long -- 1:17.3,
+  // which drawn honestly is a thread nobody can read on a phone. The
+  // reference diagrams bowlers actually use compress it to about 1:5.
+  //
+  // 1:3 here, capped at 190px wide so the card comes out around 570px
+  // tall. Still compressed, but the arrows now sit a quarter of the way
+  // up rather than two-thirds, which is what made the old one wrong.
+  //
+  // Depth runs to 63ft: the headpin is at 60 and the rack sits BEHIND it.
+  const W = 300, H = 900, PAD = 10;
+  const DEPTH = 63;
   // Board 1 is the bowler's OWN gutter. For a right-hander that is the
   // right-hand side of the lane, so low boards belong on the RIGHT of the
   // screen -- drawn the other way round, a right-hander's ball swung out
@@ -47,7 +57,7 @@ export default function BallCompare({
   // Down the lane is UP the screen: the bowler stands at the bottom and
   // the pins are at the far end. Drawn the other way it read as a ball
   // travelling towards you, which is nobody's view of a lane.
-  const y = feet => (H - PAD) - (feet / FOUL_LINE_TO_PINS) * (H - PAD * 2);
+  const y = feet => (H - PAD) - (feet / DEPTH) * (H - PAD * 2);
 
   return (
     <div style={S.card}>
@@ -111,28 +121,35 @@ export default function BallCompare({
             {/* The seven arrows, at fifteen feet. */}
             {[5, 10, 15, 20, 25, 30, 35].map(b => (
               <polygon key={b}
-                points={`${x(b)},${y(ARROWS_FEET) - 5} ${x(b) - 3},${y(ARROWS_FEET) + 2} ${x(b) + 3},${y(ARROWS_FEET) + 2}`}
+                points={`${x(b)},${y(ARROWS_FEET) - 9} ${x(b) - 4},${y(ARROWS_FEET) + 3} ${x(b) + 4},${y(ARROWS_FEET) + 3}`}
                 fill={C.border} />
             ))}
 
             {/* Breakpoint depth, marked because it is the assumption. */}
             <line x1={PAD} y1={y(BREAKPOINT_FEET)} x2={W - PAD} y2={y(BREAKPOINT_FEET)}
-              stroke={C.border} strokeDasharray="3 3" />
-            <text x={W - PAD - 2} y={y(BREAKPOINT_FEET) - 3} textAnchor="end"
-              fontSize="8" fill={C.textMuted}>breakpoint ~40ft</text>
+              stroke={C.border} strokeDasharray="6 5" />
+            <text x={W - PAD - 2} y={y(BREAKPOINT_FEET) - 6} textAnchor="end"
+              fontSize="13" fill={C.textMuted}>breakpoint ~40ft</text>
 
             {/* The pocket. */}
-            {/* The rack, at the top where the pins are. Ten dots in the
-                real triangle rather than one blob, so the far end of the
-                lane reads as pins. */}
-            {[[17.5, 60], [15.5, 58], [19.5, 58], [13.5, 56], [17.5, 56],
-              [21.5, 56], [11.5, 54], [15.5, 54], [19.5, 54], [23.5, 54]].map(([b, f], i) => (
-              <circle key={i} cx={x(b)} cy={y(f)} r="2" fill={C.textMuted} opacity="0.8" />
+            {/* The rack. The HEADPIN IS IN FRONT, nearest the bowler, with
+                the rows behind it -- I had the four-pin back row closest,
+                which is the rack upside down.
+                
+                Real geometry: pins are 12 inches apart, which is 11.3
+                boards on a 41.5-inch lane, and the rows are 10.4 inches
+                deep. Not a decorative triangle. */}
+            {[[[20], 60], [[14.4, 25.6], 60.87], [[8.7, 20, 31.3], 61.73],
+              [[3.1, 14.4, 25.6, 36.9], 62.6]].map(([boards, feet], r) => (
+              boards.map((b, i) => (
+                <circle key={`${r}-${i}`} cx={x(b)} cy={y(feet)} r="4.5"
+                  fill={C.textMuted} opacity={r === 0 ? 1 : 0.65} />
+              ))
             ))}
 
             {/* The foul line, just ahead of the feet. */}
             <line x1={PAD} y1={y(0)} x2={W - PAD} y2={y(0)} stroke={C.border} strokeWidth="1.5" />
-            <text x={PAD + 2} y={y(0) - 3} fontSize="8" fill={C.textMuted}>foul line</text>
+            <text x={PAD + 2} y={y(0) - 6} fontSize="13" fill={C.textMuted}>foul line</text>
 
             {lines.map(({ entry, line }) => {
               const pts = line.points;
@@ -146,13 +163,13 @@ export default function BallCompare({
               const rest = pts.filter(p => p.feet >= ARROWS_FEET);
               return (
                 <g key={entry.ball}>
-                  <path fill="none" stroke={colors[entry.ball]} strokeWidth="2.5"
+                  <path fill="none" stroke={colors[entry.ball]} strokeWidth="4"
                     strokeLinecap="round" d={trajectoryPath(known, x, y)} />
-                  <path fill="none" stroke={colors[entry.ball]} strokeWidth="2.5"
-                    strokeLinecap="round" strokeDasharray="5 4" opacity="0.75"
+                  <path fill="none" stroke={colors[entry.ball]} strokeWidth="4"
+                    strokeLinecap="round" strokeDasharray="9 7" opacity="0.75"
                     d={trajectoryPath(rest, x, y)} />
                   {/* The feet, at the bottom where the bowler stands. */}
-                  <circle cx={x(pts[0].board)} cy={y(0)} r="3.5"
+                  <circle cx={x(pts[0].board)} cy={y(0)} r="6"
                     fill={colors[entry.ball]} />
                 </g>
               );
