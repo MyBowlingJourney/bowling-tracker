@@ -178,24 +178,34 @@ export function ballLine(entry, opts) {
   const arrows = num(e.arrowBoard);
   if (start === null || arrows === null) return null;
 
-  // Boards run from the bowler's own gutter, so a left-hander's line is
-  // the mirror of the same numbers.
-  const board = b => (o.leftHanded ? 40 - b : b);
+  // Boards stay in the bowler's OWN numbering -- board 1 is their own
+  // gutter, whichever hand they throw with. The mirroring belongs in the
+  // drawing, not here: doing it in both places flipped a right-hander's
+  // line twice and sent the ball out to the wrong side.
 
   // Past the arrows the ball is still moving outward before it turns.
   // Continuing the same angle to the breakpoint is the simplest honest
   // guess, and it is flagged as a guess.
+  // Damped, not extended at full angle.
+  //
+  // Feet-to-arrows is steeper than the ball's actual path: it includes
+  // the angle of the approach. Continuing it at full rate sent a 22-to-10
+  // line into the gutter by forty feet, which no shot does.
+  //
+  // A fifth of the rate puts the breakpoint a few boards outside the
+  // arrows, which is what the line actually looks like. Floored at 3 --
+  // the ball rides the dry, it does not leave the lane.
   const perFoot = (arrows - start) / ARROWS_FEET;
-  const projected = arrows + perFoot * (BREAKPOINT_FEET - ARROWS_FEET);
-  const breakpoint = Math.max(1, Math.min(39, projected));
+  const projected = arrows + perFoot * (BREAKPOINT_FEET - ARROWS_FEET) * 0.2;
+  const breakpoint = Math.max(3, Math.min(37, projected));
 
   return {
     ball: e.ball,
     points: [
-      { feet: 0, board: board(start), known: true },
-      { feet: ARROWS_FEET, board: board(arrows), known: true },
-      { feet: BREAKPOINT_FEET, board: board(breakpoint), known: false },
-      { feet: FOUL_LINE_TO_PINS, board: board(POCKET_BOARD), known: false },
+      { feet: 0, board: start, known: true },
+      { feet: ARROWS_FEET, board: arrows, known: true },
+      { feet: BREAKPOINT_FEET, board: breakpoint, known: false },
+      { feet: FOUL_LINE_TO_PINS, board: POCKET_BOARD, known: false },
     ],
   };
 }
@@ -223,35 +233,39 @@ export function ballColors(comparison) {
   return out;
 }
 
-// The trajectory as a smooth path, not a dot-to-dot.
+// The trajectory, shaped like a thrown ball.
 //
-// A bowling ball does not change direction at the arrows and again at the
-// breakpoint -- it runs fairly straight, then arcs. Straight segments
-// between the four points read as three separate decisions.
+// A ball runs fairly straight through the oil and then hooks once it
+// reaches the dry. It does not weave. My first attempt curved every
+// segment and produced an S -- three direction changes where a real shot
+// makes one.
 //
-// A cubic through the points with the control handles pulled toward the
-// straight early section gives the shape a thrown ball actually makes:
-// little curve to the arrows, most of it after the breakpoint.
+// So: straight from the feet through the arrows to the breakpoint, then a
+// single arc into the pocket whose control point CONTINUES the straight
+// line. That is what makes the hook look like it comes off the same shot
+// rather than being tacked on.
 export function trajectoryPath(points, x, y) {
   const p = (Array.isArray(points) ? points : []).filter(q => q && typeof q === "object");
   if (p.length < 2) return "";
-  if (p.length === 2) return `M ${x(p[0].board)} ${y(p[0].feet)} L ${x(p[1].board)} ${y(p[1].feet)}`;
 
   let d = `M ${x(p[0].board)} ${y(p[0].feet)}`;
-  for (let i = 0; i < p.length - 1; i++) {
-    const a = p[i], b = p[i + 1];
-    // Earlier in the lane the ball is straighter, so the handles sit
-    // closer to the line; later they let it bend.
-    const bend = i === 0 ? 0.12 : i === 1 ? 0.3 : 0.55;
-    const c1 = {
-      bx: a.board + (b.board - a.board) * bend,
-      f: a.feet + (b.feet - a.feet) * 0.5,
-    };
-    const c2 = {
-      bx: b.board - (b.board - a.board) * bend,
-      f: a.feet + (b.feet - a.feet) * 0.5,
-    };
-    d += ` C ${x(c1.bx)} ${y(c1.f)}, ${x(c2.bx)} ${y(c2.f)}, ${x(b.board)} ${y(b.feet)}`;
+  // Everything up to the last point is the straight run.
+  for (let i = 1; i < p.length - 1; i++) {
+    d += ` L ${x(p[i].board)} ${y(p[i].feet)}`;
   }
-  return d;
+
+  const from = p[p.length - 2];
+  const to = p[p.length - 1];
+  if (p.length === 2) return `${d} L ${x(to.board)} ${y(to.feet)}`;
+
+  // The handle sits where the ball WOULD have gone had it not turned,
+  // about a third of the way on. Extending the previous heading is what
+  // gives the arc its direction.
+  const prev = p[p.length - 3];
+  // Clamped to the lane: an unclamped handle sat off the edge and bent
+  // the arc through a board that does not exist.
+  const ctrlBoard = Math.max(1, Math.min(39,
+    from.board + (from.board - prev.board) * 0.45));
+  const ctrlFeet = from.feet + (to.feet - from.feet) * 0.45;
+  return `${d} Q ${x(ctrlBoard)} ${y(ctrlFeet)}, ${x(to.board)} ${y(to.feet)}`;
 }

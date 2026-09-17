@@ -119,20 +119,24 @@ describe('the line down the lane', () => {
     expect(line.points.map(p => p.known)).toEqual([true, true, false, false]);
   });
 
-  it('projects the breakpoint along the same angle', () => {
-    // 22 to 10 over 15 feet is -0.8 a foot; 25 more feet is another -20,
-    // clamped to the lane.
+  // Feet-to-arrows is steeper than the ball's path -- it includes the
+  // approach angle. Extended at full rate, a 22-to-10 line reached the
+  // gutter by forty feet, which no shot does.
+  it('damps the breakpoint instead of extending the full angle', () => {
     const line = ballLine({ ball: 'Zen', startBoard: 22, arrowBoard: 10 });
     const bp = line.points.find(p => p.feet === BREAKPOINT_FEET);
     expect(bp.board).toBeLessThan(10);
-    expect(bp.board).toBeGreaterThanOrEqual(1);
+    expect(bp.board).toBeGreaterThanOrEqual(3);
   });
 
-  it('mirrors for a left-hander', () => {
+  // Boards are the bowler's own numbering either way. The mirroring is
+  // the drawing's job -- doing it here too flipped it twice.
+  it('does not mirror for a left-hander', () => {
     const right = ballLine({ ball: 'Z', startBoard: 22, arrowBoard: 10 });
     const left = ballLine({ ball: 'Z', startBoard: 22, arrowBoard: 10 }, { leftHanded: true });
-    expect(left.points[0].board).toBe(40 - right.points[0].board);
+    expect(left.points[0].board).toBe(right.points[0].board);
   });
+
 
   it('returns nothing without both known points', () => {
     expect(ballLine({ ball: 'Z', startBoard: 22 })).toBe(null);
@@ -161,11 +165,14 @@ describe('the trajectory path', () => {
 
   // A ball does not change direction at the arrows and again at the
   // breakpoint. Straight segments read as three separate decisions.
-  it('draws curves, not straight segments', () => {
+  // A ball runs straight through the oil then hooks once. It does not
+  // weave -- curving every segment made an S, three direction changes
+  // where a real shot makes one.
+  it('runs straight then arcs once', () => {
     const d = trajectoryPath(
       [{ feet: 0, board: 22 }, { feet: 15, board: 10 },
        { feet: 40, board: 6 }, { feet: 60, board: 17.5 }], x, y);
-    expect((d.match(/C /g) || []).length).toBe(3);
+    expect(d).toContain('Q');
   });
 
   it('falls back to a line for two points', () => {
