@@ -20,6 +20,8 @@ import { patternAverages, patternVersusOverall } from "./domain/oilPatterns.js";
 import { statsByRackType } from "./domain/centers.js";
 
 import { cardsInGroup } from "./domain/statsGroups.js";
+
+import { SAMPLE_THRESHOLDS } from "./domain/insightGating.js";
 export default function StatsView({
   // Already passed by BowlingTracker, never read until now.
   lanePatterns = [], tournaments = [], centers = [], statsGroup = "overview",
@@ -924,6 +926,35 @@ fivePinAttempts.length>0&&(
 !hideIndividualOnly&&(
                   <div style={S.card}>
                     <div style={S.label}>By Ball</div>
+                    {/* The comparison itself, stated.
+                        
+                        Five balls with five strike rates is the raw
+                        material for a comparison, not a comparison -- the
+                        bowler still has to scan and subtract. This says
+                        which one carries best.
+                        
+                        Only balls with enough shots to rank, and only when
+                        two of them clear it: one ball is not a comparison,
+                        and a gap under ~20 points at this sample size may
+                        be noise, so a near-tie says so rather than naming
+                        a winner on a rounding error. */}
+                    {(()=>{
+                      const ranked=bStats
+                        .filter(b=>b.total>=SAMPLE_THRESHOLDS.ballComparison&&b.rate!=null)
+                        .sort((a,b)=>b.rate-a.rate);
+                      if(ranked.length<2)return null;
+                      const top=ranked[0], next=ranked[1];
+                      const gap=top.rate-next.rate;
+                      return (
+                        <div style={{fontSize:"13px",color:C.text,marginBottom:"10px"}}>
+                          {gap>=20
+                            ? <>Best carry: <strong>{top.ball}</strong> at {top.rate}%, {gap} points
+                                clear of {next.ball}.</>
+                            : <>{top.ball} and {next.ball} are carrying about the same
+                                ({top.rate}% and {next.rate}%) {"—"} too close to call apart yet.</>}
+                        </div>
+                      );
+                    })()}
                     {/* The static caption about a 20-shot threshold is gone.
                         
                         It rendered unconditionally, so a bowler with 150
@@ -935,7 +966,7 @@ fivePinAttempts.length>0&&(
                       <div key={b.ball} style={{marginBottom:"14px"}}>
                         <div style={{display:"flex",justifyContent:"space-between",marginBottom:"4px"}}>
                           <span style={{fontSize:"13px",fontWeight:600}}>{b.ball}</span>
-                          <span style={{fontSize:"12px",color:b.reliable?C.textMuted:C.spare}}>n={b.total}{!b.reliable?" — low sample":""}</span>
+                          <span style={{fontSize:"12px",color:b.reliable?C.textMuted:C.spare}}>{b.total} shot{b.total===1?"":"s"}{!b.reliable?" · early days":""}</span>
                         </div>
                         <div style={{display:"flex",gap:"6px",marginBottom:"4px",flexWrap:"wrap"}}>
                           <span style={S.tag(b.reliable?C.strike:C.textMuted)}>Strike {b.rate}%</span>
@@ -944,6 +975,10 @@ fivePinAttempts.length>0&&(
                           <span style={S.tag(b.reliable?C.spare:C.textMuted)}>10-Pin {b.tenPinRate}%</span>
                           <span style={S.tag(b.reliable?C.miss:C.textMuted)}>Split {b.splitRate}%</span>
                         </div>
+                        {/* This bar is the STRIKE RATE, not progress
+                            toward anything. Unlabelled it reads as a
+                            sample gauge -- 66% looked like 173 of 250.
+                            Side by side the bars are the comparison. */}
                         <div style={{height:"6px",backgroundColor:C.surface,borderRadius:"3px",overflow:"hidden",opacity:b.reliable?1:0.4}}>
                           <div style={{height:"100%",width:`${b.rate}%`,backgroundColor:b.rate>=60?C.strike:b.rate>=40?C.spare:C.miss,borderRadius:"3px"}}/>
                         </div>
@@ -1177,7 +1212,7 @@ sessions.length>0&&(()=>{
                               :(p.versusOverall<0?C.miss:C.textMuted)}}>
                               {p.versusOverall>0?"+":""}{p.versusOverall}
                             </strong>
-                            {" \u00b7 "}{p.games} game{p.games===1?"":"s"}
+                            {" · "}{p.games} game{p.games===1?"":"s"}
                           </span>
                         </div>
                       ))}
@@ -1383,16 +1418,34 @@ anyMoneyGameShown(preferences)&&(()=>{
                         detail={`$${m.cost.toFixed(2)} paid in — ${m.net>=0?"up":"down"} ${fmt(Math.abs(m.net))} overall.`}/>
                       {rows.length>0&&(
                         <>
-                          <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"6px"}}>By Game</div>
+                          {/* A table with headers, not a sum per row.
+                              
+                              Each row used to read "$12.00 − $3.75" and
+                              leave the bowler to do the arithmetic, then
+                              printed the answer beside it anyway. Three
+                              labelled columns say the same thing without
+                              asking anyone to check the working. */}
+                          <div style={{display:"flex",justifyContent:"space-between",
+                            alignItems:"center",marginBottom:"6px",fontSize:"11px",color:C.textMuted}}>
+                            <span style={{flex:1,minWidth:0}}>By Game</span>
+                            <span style={{width:"62px",textAlign:"right"}}>Buy-in</span>
+                            <span style={{width:"62px",textAlign:"right"}}>Won</span>
+                            <span style={{width:"66px",textAlign:"right"}}>Net</span>
+                          </div>
                           {rows.map(r=>(
-                            <div key={r.label} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px",fontSize:"12px"}}>
-                              <span>{r.label}</span>
-                              <div style={{display:"flex",gap:"10px",alignItems:"center"}}>
-                                <span style={{color:C.textMuted}}>${r.data.gross.toFixed(2)} − ${r.data.cost.toFixed(2)}</span>
-                                <span style={{fontWeight:700,minWidth:"64px",textAlign:"right",color:r.data.net>=0?C.strike:C.miss}}>
-                                  {fmt(r.data.net)}
-                                </span>
-                              </div>
+                            <div key={r.label} style={{display:"flex",justifyContent:"space-between",
+                              alignItems:"center",marginBottom:"4px",fontSize:"13px"}}>
+                              <span style={{flex:1,minWidth:0}}>{r.label}</span>
+                              <span style={{width:"62px",textAlign:"right",color:C.textMuted}}>
+                                ${r.data.cost.toFixed(2)}
+                              </span>
+                              <span style={{width:"62px",textAlign:"right",color:C.textMuted}}>
+                                ${r.data.gross.toFixed(2)}
+                              </span>
+                              <span style={{width:"66px",textAlign:"right",fontWeight:700,
+                                color:r.data.net>=0?C.strike:C.miss}}>
+                                {fmt(r.data.net)}
+                              </span>
                             </div>
                           ))}
                         </>
