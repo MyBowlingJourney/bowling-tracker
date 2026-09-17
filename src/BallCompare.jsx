@@ -2,6 +2,7 @@ import { C, S } from "./ui.jsx";
 import {
   BALL_METRICS, ballComparison, bestByMetric, ballColors, ballLine,
   ARROWS_FEET, BREAKPOINT_FEET, FOUL_LINE_TO_PINS, catmullRomSegments,
+  ballByPhase, bestByPhase, GAME_PHASES,
 } from "./domain/ballComparison.js";
 import { isSplit, isCornerPinLeave } from "./domain/splits.js";
 
@@ -25,6 +26,11 @@ export default function BallCompare({
 
   const best = bestByMetric(comparison);
   const colors = ballColors(comparison);
+  const phases = ballByPhase(shots, {
+    bowler, league, isSplit, isCornerPinLeave, leftHanded, minShots,
+  });
+  const bestPhase = bestByPhase(phases);
+
   const lines = comparison
     .map(b => ({ entry: b, line: ballLine(b, { drift, lateralOffset, twoHanded }) }))
     .filter(x => x.line);
@@ -62,58 +68,77 @@ export default function BallCompare({
 
   return (
     <div style={S.card}>
-      <div style={S.label}>Ball vs Ball</div>
+      <div style={S.label}>Ball path</div>
       <div style={{ fontSize: "11px", color: C.textMuted, marginBottom: "10px" }}>
         First balls at a full rack only {"—"} what a strike ball is for.
       </div>
 
-      {/* The table. Every measure at once, because "which ball is best"
-          has four different answers and a bowler needs to see the trade:
-          the ball that carries may also be the one leaving splits. */}
-      <div style={{ display: "flex", fontSize: "11px", color: C.textMuted,
-        marginBottom: "4px" }}>
-        <span style={{ flex: 1, minWidth: 0 }} />
-        {BALL_METRICS.map(m => (
-          <span key={m.id} style={{ width: "58px", textAlign: "right" }}>{m.label}</span>
-        ))}
-      </div>
-
-      {comparison.map(b => (
-        <div key={b.ball} style={{ display: "flex", alignItems: "center",
-          fontSize: "13px", marginBottom: "6px" }}>
-          <span style={{ flex: 1, minWidth: 0, display: "flex",
-            alignItems: "center", gap: "6px", overflow: "hidden" }}>
-            <span style={{ width: "10px", height: "10px", borderRadius: "5px",
-              backgroundColor: colors[b.ball], flexShrink: 0 }} />
-            <span style={{ overflow: "hidden", textOverflow: "ellipsis",
-              whiteSpace: "nowrap" }}>{b.ball}</span>
-          </span>
-          {BALL_METRICS.map(m => {
-            const v = b[m.id];
-            // Bold marks the leader on that measure. bestByMetric returns
-            // null on a near-tie, so nothing is marked when nothing is
-            // genuinely ahead.
-            const leads = best[m.id] === b.ball;
-            return (
-              <span key={m.id} style={{ width: "58px", textAlign: "right",
-                fontWeight: leads ? 700 : 400,
-                color: leads ? C.strike : C.text }}>
-                {v === null || v === undefined ? "—" : `${v}${m.unit}`}
+      {/* Which ball, and when.
+          
+          A season average over every game answers none of the three
+          questions a bowler actually asks -- what to throw on the fresh,
+          through transition, and at the end when the heads are gone. It
+          averages three different lane conditions into one number.
+          
+          A phase is scored exactly the way the season is: fresh racks
+          only, same measures, the same function. No second
+          implementation to drift out of step. */}
+      {phases.length > 0 && (
+        <>
+          <div style={{ ...S.label, marginTop: "4px" }}>Through the night</div>
+          <div style={{ display: "flex", fontSize: "11px", color: C.textMuted,
+            marginBottom: "4px" }}>
+            <span style={{ flex: 1, minWidth: 0 }} />
+            {GAME_PHASES.map(p => (
+              <span key={p.id} style={{ width: "62px", textAlign: "right" }}>{p.label}</span>
+            ))}
+          </div>
+          {phases.map(b => (
+            <div key={b.ball} style={{ display: "flex", alignItems: "center",
+              fontSize: "13px", marginBottom: "6px" }}>
+              <span style={{ flex: 1, minWidth: 0, display: "flex",
+                alignItems: "center", gap: "6px", overflow: "hidden" }}>
+                <span style={{ width: "10px", height: "10px", borderRadius: "5px",
+                  backgroundColor: colors[b.ball], flexShrink: 0 }} />
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis",
+                  whiteSpace: "nowrap" }}>{b.ball}</span>
               </span>
-            );
-          })}
-        </div>
-      ))}
+              {GAME_PHASES.map(p => {
+                const e = b.phases[p.id];
+                const leads = bestPhase[p.id] === b.ball;
+                return (
+                  <span key={p.id} style={{ width: "62px", textAlign: "right",
+                    fontWeight: leads ? 700 : 400,
+                    color: leads ? C.strike : C.text }}>
+                    {/* A phase with almost nothing in it gets a dash, not
+                        a percentage -- two shots is not a strike rate. */}
+                    {!e || e.shots < 10 || e.strikeRate === null
+                      ? "—" : `${e.strikeRate}%`}
+                  </span>
+                );
+              })}
+            </div>
+          ))}
+          <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "2px",
+            marginBottom: "14px", lineHeight: 1.5 }}>
+            Strike rate by part of the night. Bold leads that phase; nothing
+            is bold when the gap is small enough to be chance.
+          </div>
+        </>
+      )}
 
-      <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "2px" }}>
-        {comparison.map(b => `${b.ball} ${b.shots}`).join(" · ")} shots
-      </div>
+      {/* The table that was here is gone: it showed the same numbers as
+          the By Ball card directly below, sorted the same way. Two places
+          showing one thing is how they end up disagreeing -- which they
+          already had, over the leave average.
+          
+          What only this card can show is the lane. */}
 
       {/* The lane. Same colours as the table, so a line is identified
           without a second legend to read. */}
       {lines.length > 0 && (
         <>
-          <div style={{ ...S.label, marginTop: "14px" }}>Where you throw them</div>
+          
           <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto",
             display: "block", marginBottom: "4px" }}>
             <rect x={PAD} y={PAD} width={W - PAD * 2} height={H - PAD * 2}
