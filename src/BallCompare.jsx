@@ -1,7 +1,7 @@
 import { C, S } from "./ui.jsx";
 import {
   BALL_METRICS, ballComparison, bestByMetric, ballColors, ballLine,
-  ARROWS_FEET, BREAKPOINT_FEET, FOUL_LINE_TO_PINS, trajectoryPath,
+  ARROWS_FEET, BREAKPOINT_FEET, FOUL_LINE_TO_PINS, catmullRomSegments,
 } from "./domain/ballComparison.js";
 import { isSplit, isCornerPinLeave } from "./domain/splits.js";
 
@@ -159,15 +159,30 @@ export default function BallCompare({
               //
               // Solid to the arrows is what was logged; dashed past them
               // is projected, because nothing records where it turns.
-              const known = pts.filter(p => p.feet <= ARROWS_FEET);
-              const rest = pts.filter(p => p.feet >= ARROWS_FEET);
+              // Solid before the arrows, dashed after -- but BOTH come
+              // from the same spline, so the join has no kink. Splitting
+              // the points and curving each half separately gave two
+              // curves that met at an angle.
+              const segs = catmullRomSegments(pts);
+              const draw = list => {
+                if (!list.length) return "";
+                let d = `M ${x(list[0].from.board)} ${y(list[0].from.feet)}`;
+                for (const g of list) {
+                  d += ` C ${x(g.c1.board)} ${y(g.c1.feet)},`
+                    + ` ${x(g.c2.board)} ${y(g.c2.feet)},`
+                    + ` ${x(g.to.board)} ${y(g.to.feet)}`;
+                }
+                return d;
+              };
+              const solid = segs.filter(g => g.to.feet <= ARROWS_FEET);
+              const dashed = segs.filter(g => g.to.feet > ARROWS_FEET);
               return (
                 <g key={entry.ball}>
                   <path fill="none" stroke={colors[entry.ball]} strokeWidth="4"
-                    strokeLinecap="round" d={trajectoryPath(known, x, y)} />
+                    strokeLinecap="round" d={draw(solid)} />
                   <path fill="none" stroke={colors[entry.ball]} strokeWidth="4"
                     strokeLinecap="round" strokeDasharray="9 7" opacity="0.75"
-                    d={trajectoryPath(rest, x, y)} />
+                    d={draw(dashed)} />
                   {/* The feet, at the bottom where the bowler stands. */}
                   <circle cx={x(pts[0].board)} cy={y(0)} r="6"
                     fill={colors[entry.ball]} />
