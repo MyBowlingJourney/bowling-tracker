@@ -5869,6 +5869,12 @@ export default function BowlingTracker(){
   //
   // Home already asks what you are doing next, so once the night is filed
   // the full nav is the honest one.
+  //
+  // Keyed on nightENDED, not nightLive: live means "has shots", so the
+  // nav went six tabs -> three on the first ball and back to six at the
+  // end. Changing the nav underneath a bowler mid-night is worse than
+  // either layout. Ended is a single transition, at the moment the night
+  // is actually over.
   // How many badges the bowler has actually earned.
   //
   // The same source the Badges screen uses -- a history entry with a
@@ -5885,7 +5891,7 @@ export default function BowlingTracker(){
     }catch{ return 0; }
   })();
 
-  const casualMode=preferences.environment==="casual"&&nightLive;
+  const casualMode=preferences.environment==="casual"&&!nightEnded;
   const navTabs=casualMode?[
     // Home first, so open bowling is never a dead end.
     //
