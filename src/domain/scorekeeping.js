@@ -146,3 +146,52 @@ export function boardMiss(targetBoard, actualArrows, leftHanded = false) {
     direction: delta > 0 ? awayFromGutter : towardGutter,
   };
 }
+
+// Board numbers, kept inside the lane.
+//
+// The three board fields -- where the feet start, the target at the
+// arrows, the board actually crossed -- are type="number" inputs with no
+// min or max, so -4 and 900 both went straight into the database. A
+// number input stops letters and nothing else.
+//
+// A lane is 39 boards wide, numbered 1 from the bowler's own gutter. Half
+// boards are real (a bowler does stand on 22 and a half), so this is not
+// integers-only.
+export const MIN_BOARD = 1;
+export const MAX_BOARD = 39;
+
+// Returns the value to store, or null when it cannot be stored.
+//
+// Empty is allowed and stays empty: these fields are optional, and an
+// unanswered question is not a validation failure.
+export function validateBoard(raw) {
+  const v = String(raw ?? "").trim();
+  if (!v) return { ok: true, value: "" };
+  if (!/^-?\d+(\.\d+)?$/.test(v)) {
+    return { ok: false, value: "", reason: "board must be a number" };
+  }
+  const n = Number(v);
+  if (n < MIN_BOARD || n > MAX_BOARD) {
+    return { ok: false, value: "", reason: `board must be ${MIN_BOARD} to ${MAX_BOARD}` };
+  }
+  return { ok: true, value: v };
+}
+
+// What to keep as someone types.
+//
+// Rejecting mid-typing is worse than allowing it: a bowler typing "22"
+// passes through "2", and clearing the field on every keystroke that is
+// not yet valid makes it impossible to type anything. So a value that is
+// merely INCOMPLETE is kept, and only one that can never become valid --
+// out of range, or not a number -- is refused.
+export function acceptBoardKeystroke(raw) {
+  const v = String(raw ?? "").trim();
+  if (!v) return "";
+  if (!/^-?\d*(\.\d*)?$/.test(v)) return null;
+  const n = Number(v);
+  if (!Number.isFinite(n)) return v.startsWith("-") ? null : v;
+  // Too big already, and more digits only make it worse.
+  if (n > MAX_BOARD) return null;
+  if (n < 0) return null;
+  return v;
+}

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   allowsOtherBowlers, otherBowlerSource, guestsAreLocalOnly,
-  scorekeepingOptions, addGuest, normalizeGuests, boardMiss } from './scorekeeping.js';
+  scorekeepingOptions, addGuest, normalizeGuests, boardMiss, validateBoard, acceptBoardKeystroke } from './scorekeeping.js';
 
 describe('who you can keep score for', () => {
   const teams = [
@@ -101,5 +101,64 @@ describe('which way a shot missed, in boards', () => {
   it('reports the distance, not the sign', () => {
     expect(boardMiss(20, 5, false).boards).toBe(15);
     expect(boardMiss(5, 20, false).boards).toBe(15);
+  });
+});
+
+describe('board numbers stay on the lane', () => {
+  // The three board fields were type="number" inputs with no min or max,
+  // so -4 and 900 both went straight into the database. A number input
+  // stops letters and nothing else.
+  it('accepts every board on the lane', () => {
+    for (const v of ['1', '22', '39']) {
+      expect(validateBoard(v)).toEqual({ ok: true, value: v });
+    }
+  });
+
+  // A bowler does stand on 22 and a half.
+  it('accepts half boards', () => {
+    expect(validateBoard('22.5').ok).toBe(true);
+  });
+
+  it('refuses boards off the lane', () => {
+    for (const v of ['0', '40', '-4', '900']) {
+      expect(validateBoard(v).ok).toBe(false);
+    }
+  });
+
+  // These fields are optional. An unanswered question is not a failure.
+  it('allows empty', () => {
+    expect(validateBoard('')).toEqual({ ok: true, value: '' });
+  });
+
+  it('refuses anything that is not a number', () => {
+    expect(validateBoard('abc').ok).toBe(false);
+  });
+});
+
+describe('typing a board', () => {
+  // Rejecting mid-typing is worse than allowing it: "22" passes through
+  // "2", and clearing the field on every not-yet-valid keystroke makes it
+  // impossible to type anything at all.
+  it('keeps every step of a valid entry', () => {
+    for (const v of ['2', '22', '22.', '22.5']) {
+      expect(acceptBoardKeystroke(v)).toBe(v);
+    }
+  });
+
+  it('refuses a keystroke that can never become valid', () => {
+    for (const v of ['40', '400', '-', '-4', 'abc']) {
+      expect(acceptBoardKeystroke(v)).toBe(null);
+    }
+  });
+
+  it('allows the field to be cleared', () => {
+    expect(acceptBoardKeystroke('')).toBe('');
+  });
+
+  it('survives junk', () => {
+    for (const j of [null, undefined, 42, {}, []]) {
+      expect(() => acceptBoardKeystroke(j)).not.toThrow();
+      expect(() => validateBoard(j)).not.toThrow();
+    }
   });
 });
