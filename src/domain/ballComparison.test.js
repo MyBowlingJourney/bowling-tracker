@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   ballComparison, bestByMetric, ballLine, BALL_METRICS, trajectoryPath,
-  catmullRomSegments, laydownBoard, phaseForGame, ballByPhase, bestByPhase,
+  catmullRomSegments, laydownBoard, phaseForGame, ballByPhase, bestByPhase, ballColors,
   ARROWS_FEET, BREAKPOINT_FEET,
 } from './ballComparison.js';
 import { isSplit, isCornerPinLeave } from './splits.js';
@@ -316,6 +316,24 @@ describe('how a ball behaves as the night goes on', () => {
     for (const j of [null, undefined, 'x', 42]) {
       expect(() => ballByPhase(j, j)).not.toThrow();
       expect(() => bestByPhase(j, j)).not.toThrow();
+    }
+  });
+});
+
+describe('junk rows, not just junk arrays', () => {
+  // The earlier junk test passed bad ARRAYS -- null, a string, a number.
+  // It never passed an array CONTAINING a bad row, so bestByPhase reading
+  // b.phases[id] on a row with no phases survived it and crashed in fuzz.
+  it('survives a row with no phases', () => {
+    for (const rows of [[{}], [null, { frame: 1 }], [{ phases: null }], [{ ball: 'x' }]]) {
+      expect(() => bestByPhase(rows)).not.toThrow();
+    }
+  });
+
+  it('survives junk rows in the comparison too', () => {
+    for (const rows of [[{}], [null], [{ ball: null }]]) {
+      expect(() => bestByMetric(rows)).not.toThrow();
+      expect(() => ballColors(rows)).not.toThrow();
     }
   });
 });

@@ -441,7 +441,9 @@ export function bestByPhase(byPhase, opts) {
   const out = {};
   for (const phase of GAME_PHASES) {
     const ranked = rows(byPhase)
-      .map(b => ({ ball: b.ball, entry: b.phases[phase.id] }))
+      // b.phases can be missing: the junk tests passed bad ARRAYS but
+      // never an array containing a bad ROW, so this survived them.
+      .map(b => ({ ball: b?.ball, entry: b?.phases?.[phase.id] }))
       .filter(x => x.entry && x.entry.strikeRate !== null && x.entry.shots >= 10)
       .sort((a, b) => b.entry.strikeRate - a.entry.strikeRate);
     out[phase.id] = ranked.length >= 2
