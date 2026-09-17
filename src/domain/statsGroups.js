@@ -12,7 +12,7 @@
 // "By Ball" costs three characters more than "Ball" for no meaning. The
 // row they sit in already says these are stats.
 export const STATS_GROUPS = [
-  // "You", not "Overview".
+  // "Mine", not "Overview".
   //
   // Shorter, and more accurate: this group is your own numbers, which is
   // exactly what makes it the counterpart to Team. "Overview" implied a
@@ -20,7 +20,7 @@ export const STATS_GROUPS = [
   // Center and Team were lifted out of it.
   //
   // Center last -- it is the slice a bowler reaches for least.
-  { id: "overview", label: "You" },
+  { id: "overview", label: "Mine" },
   { id: "trends", label: "Trends" },
   { id: "team", label: "Team" },
   { id: "ball", label: "Ball" },
