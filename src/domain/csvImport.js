@@ -249,3 +249,39 @@ export function rowsToImport(plan, choice) {
   // No answer given: safe only when nothing needed one.
   return accepted.some(r => r && r.conflict) ? [] : accepted.slice();
 }
+
+// Leagues to import into, labelled with their season.
+//
+// "Tuesday Night" twice in a picker is a coin flip -- a bowler with three
+// seasons of the same league has no way to tell them apart. The years
+// come from the league's own dates, so the label says what the bowler
+// would say: "Tuesday Night (2025-26)".
+//
+// Containers are excluded the same way every other league picker
+// excludes them: nobody imports a season into Practice.
+export function importLeagueOptions(leagues, leagueDates, { isContainer } = {}) {
+  const skip = typeof isContainer === "function" ? isContainer : () => false;
+  const names = (Array.isArray(leagues) ? leagues : [])
+    .map(l => (l && typeof l === "object" ? l.name : l))
+    .map(n => String(n ?? "").trim())
+    .filter(Boolean)
+    .filter(n => !skip(n));
+
+  const dates = leagueDates && typeof leagueDates === "object" ? leagueDates : {};
+  const seen = new Set();
+  const out = [];
+  for (const name of names) {
+    if (seen.has(name)) continue;
+    seen.add(name);
+    out.push({ value: name, label: name + seasonSuffix(dates[name]) });
+  }
+  return out;
+}
+
+function seasonSuffix(d) {
+  const start = String(d?.startDate ?? "").slice(0, 4);
+  const end = String(d?.endDate ?? "").slice(0, 4);
+  if (!start && !end) return "";
+  if (start && end && start !== end) return ` (${start}-${end.slice(2)})`;
+  return ` (${start || end})`;
+}
