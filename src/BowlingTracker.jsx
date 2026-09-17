@@ -4,7 +4,15 @@ import { useState, useEffect, useRef, Suspense } from "react";
 // for names that no longer exist. See src/lazyScreen.js.
 import { lazyScreen } from "./lazyScreen.js";
 import LogView from "./LogView.jsx";
-import SessionStart from "./SessionStart.jsx";
+// SessionStart is no longer rendered anywhere.
+//
+// Its card asked which mode you are bowling, and Home asks that now
+// with four tinted rows -- so both render sites were removed and the
+// import was the only thing keeping the file in the bundle.
+//
+// The file itself is left in place: showSessionStart and
+// dismissSessionStart still exist and still gate other cards, and the
+// component is the obvious home if a launch prompt is wanted again.
 import Onboarding from "./Onboarding.jsx";
 // Lazy: the tour is a full-screen takeover gated on activeTour, so a
 // returning bowler pays for none of it. Its TourScreen mock-ups are
