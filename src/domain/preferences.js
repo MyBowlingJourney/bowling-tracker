@@ -363,7 +363,9 @@ export function defaultPreferences(environment = "league") {
     // they'd pay for. Practice is the exception: its whole purpose is
     // examining your game, and all its accessory fields live in the shot
     // form, so scores-only there would show an empty screen.
-    trackingMode: ENVIRONMENT_DEFAULT_TRACKING[safeEnvironment] ?? "game",
+    // Same rule applyEnvironment uses -- the two disagreeing is how a
+    // bowler ends up in a mode nothing ever selected.
+    trackingMode: safeEnvironment === "casual" ? "game" : "shot",
     trackedFields: { ...preset.trackedFields },
     showMoneyGames: preset.showMoneyGames,
     // Every pot shown by default. Present here as well as in
@@ -534,11 +536,21 @@ export function applyEnvironment(prefs, environment) {
     // Order matters: casual's force wins outright; otherwise an explicit
     // choice for THIS environment wins; otherwise the environment's own
     // default; otherwise whatever was already set.
-    trackingMode:
-      ENVIRONMENT_FORCED_TRACKING[safeEnvironment]
-      ?? prefs?.trackingModeChoices?.[safeEnvironment]
-      ?? ENVIRONMENT_DEFAULT_TRACKING[safeEnvironment]
-      ?? prefs.trackingMode,
+    // Derived from the environment. Nobody is asked any more.
+    //
+    // Practice, league and tournament all get "shot", which is what makes
+    // the frame form appear -- the game-score card is there regardless, so
+    // both ways of logging are available and a bowler simply uses the one
+    // they want. Open bowling stays "game": it exists to hide detail.
+    //
+    // The question used to be asked in onboarding, once, and after the
+    // mode picker moved to Home there was nowhere to change the answer.
+    // Three quarters of bowlers never found shot tracking at all; making
+    // it present beats asking about it up front.
+    //
+    // trackingModeChoices is no longer consulted. It stays in the stored
+    // shape so an existing preferences blob still normalizes cleanly.
+    trackingMode: safeEnvironment === "casual" ? "game" : "shot",
     trackedFields: { ...preset.trackedFields },
     showMoneyGames: preset.showMoneyGames,
   };

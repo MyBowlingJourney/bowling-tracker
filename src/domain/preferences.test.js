@@ -21,9 +21,12 @@ describe('defaultPreferences', () => {
   });
 
   it('defaults new users to scores-only tracking', () => {
-    // Shot-by-shot is ~30 taps a game. Recreational bowlers bounced off it
-    // before finding the features they'd pay for, so it's opt-in.
-    expect(defaultPreferences('league').trackingMode).toBe('game');
+    // Shot-by-shot used to be opt-in, on the grounds that ~30 taps a game
+    // put recreational bowlers off. It is on everywhere but open bowling
+    // now: the game-score card sits beside the frame form, so a bowler who
+    // wants to log three numbers still can, without being asked which kind
+    // of bowler they are before they have used the app.
+    expect(defaultPreferences('league').trackingMode).toBe('shot');
   });
 
   it('opens Practice in shot-by-shot, because that is where its fields live', () => {
@@ -35,18 +38,26 @@ describe('defaultPreferences', () => {
   });
 
   it('keeps tracking mode independent of environment', () => {
-    // Someone can bowl league by-game and practice shot-by-shot, so
-    // switching environment must not silently reset how they log.
-    // League and tournament keep whatever the bowler chose; only practice
-    // and casual carry a mode of their own.
+    // The bowler is no longer asked, so there is no choice to remember.
+    //
+    // Practice, league and tournament all resolve to "shot", which is what
+    // shows the frame form; the game-score card is present regardless, so
+    // both ways of logging are available in all three. Open bowling stays
+    // "game" -- it exists to hide detail.
+    for (const env of ['practice', 'league', 'tournament']) {
+      expect(applyEnvironment(defaultPreferences('league'), env).trackingMode).toBe('shot');
+    }
+    expect(applyEnvironment(defaultPreferences('league'), 'casual').trackingMode).toBe('game');
+
+    // An old stored choice no longer overrides the environment.
     const byGame = setTrackingMode(defaultPreferences('practice'), 'game');
-    expect(applyEnvironment(byGame, 'league').trackingMode).toBe('game');
-    const byShot = setTrackingMode(defaultPreferences('league'), 'shot');
-    expect(applyEnvironment(byShot, 'tournament').trackingMode).toBe('shot');
+    expect(applyEnvironment(byGame, 'league').trackingMode).toBe('shot');
   });
 
   it('falls back to game mode for an unrecognized stored value', () => {
-    expect(normalizePreferences({ trackingMode: 'nonsense' }).trackingMode).toBe('game');
+    // Nothing selects this any more; it is derived from the environment, and
+    // an unrecognised stored value resolves the same way a missing one does.
+    expect(normalizePreferences({ trackingMode: 'nonsense' }).trackingMode).toBe('shot');
   });
 
   it('league starts with every accessory field off, money games shown', () => {
@@ -205,11 +216,15 @@ describe('remembering a tracking choice per environment', () => {
 
   // The bug: choosing game-score tracking in Practice, then re-selecting
   // Practice, silently reset it to shot -- so it could never stick.
-  it('keeps an explicit Practice choice when Practice is selected again', () => {
-    let p = applyEnvironment(defaultPreferences('league'), 'practice');
-    p = setTrackingMode(p, 'game');
-    p = applyEnvironment(p, 'league');
-    expect(applyEnvironment(p, 'practice').trackingMode).toBe('game');
+  // There is no explicit choice to keep any more.
+  //
+  // The bowler is never asked, in onboarding or anywhere else. Practice,
+  // league and tournament resolve to "shot" and open bowling to "game",
+  // and an old stored choice does not override that.
+  it('ignores a stored choice and follows the environment', () => {
+    const p = setTrackingMode(defaultPreferences('practice'), 'game');
+    expect(applyEnvironment(p, 'practice').trackingMode).toBe('shot');
+    expect(applyEnvironment(p, 'casual').trackingMode).toBe('game');
   });
 
   it('keeps the choice scoped to the environment it was made in', () => {

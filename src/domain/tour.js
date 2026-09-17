@@ -13,21 +13,35 @@ import { isContainerLeague } from "./leagueMembership.js";
 // A step's `when` decides whether it applies. Omitted means always.
 const ALL_STEPS = [
   {
+    id: "home",
+    tab: "home",
+    title: "Home",
+    // The first step points at Home because that is where a night now
+    // starts. It used to point at Bowl and say "everything starts here",
+    // which stopped being true when the mode rows moved -- the tour was
+    // teaching a screen the bowler no longer arrives at first.
+    body: "Everything starts here. Your season figures at the top, your journey below, then four rows: practice, league, tournament, open bowling. Tap one and you're bowling.",
+  },
+  {
     id: "bowl",
     tab: "log",
     title: "Bowl",
-    body: "Everything starts here. Choose how you're bowling tonight — practice, a league night, or a tournament — and the app sets itself up for it. Each one asks for different things, so you're never entering a lane pattern for a Sunday practice or a drill target on league night.",
+    body: "This is the scoring screen. Enter game scores, log ball by ball, or run a drill — the chips at the top switch between them.",
   },
   {
     id: "tracking",
     tab: "log",
-    title: "Two ways to track",
-    // The choice that shapes everything downstream, so it's worth its
-    // own step rather than a clause in the Bowl one. A bowler who
-    // doesn't understand this picks frame tracking, finds it slow, and
-    // concludes the app is heavy going -- when scores-only was there
-    // the whole time.
-    body: "Frame tracking records every ball — which pins fell, which ball you threw — and that's what powers spare stats and the scoresheet. Scores only just takes your final score for each game: 213, 196, 203. You can switch any time, and even start a night one way and finish the other.",
+    title: "Two ways to log a night",
+    // This used to explain a CHOICE -- a setting the bowler picked in
+    // onboarding and could never change. The setting is gone: both are on
+    // the same screen now, and the step's job is to point at them rather
+    // than ask for a decision.
+    //
+    // Still its own step rather than a clause in the Bowl one. The
+    // original finding holds: a bowler who does not realise scores-only
+    // exists tries to log every ball, finds it slow, and concludes the
+    // app is heavy going.
+    body: "Enter three game scores and you're done — or log ball by ball to unlock which pins you leave and which ball carries best. Both are on this screen; use whichever suits the night.",
   },
   {
     id: "shot-detail",
@@ -240,6 +254,15 @@ const ALL_STEPS = [
     footnote: "This needs about ten games of frame tracking logging before it can say anything even somewhat meaningful, so be patient — and the more you bowl, the more tailored to you and better it'll get. Scores from casual nights aren't included.",
   },
   {
+    id: "journal",
+    tab: "history",
+    title: "Your journal",
+    // Added with the feature. Notes are written in three places -- on a
+    // shot, on a drill, at the end of a night -- and a bowler who does not
+    // know they collect anywhere will not write them.
+    body: "Every note you write — on a shot, on a drill, at the end of a night — collects here under History, newest first, and you can search it.",
+  },
+  {
     id: "arsenal",
     tab: "locker",
     title: "Your balls and bags",
@@ -307,9 +330,9 @@ export const GENERAL_STEP_IDS = [
   // Order matters: this is the order they're shown in. Shot detail sits
   // third, right after the tracking choice, because it's what that
   // choice actually buys you.
-  "bowl", "tracking", "shot-detail", "scoresheet",
+  "home", "bowl", "tracking", "shot-detail", "scoresheet",
   "score-strike", "score-spare", "score-miss",
-  "import", "import-verify", "stats", "insights", "arsenal",
+  "import", "import-verify", "stats", "insights", "journal", "arsenal",
 ];
 
 export function generalSteps(preferences = {}) {

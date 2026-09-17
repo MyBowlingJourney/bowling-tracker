@@ -27,16 +27,21 @@ describe('tourSteps by environment', () => {
     // 'badges' added when Badges became its own tab -- the casual tour
     // still pointed at 'social', so it described badges while standing
     // on the standings screen.
-    const NAV = ['log', 'history', 'data', 'insights', 'locker', 'teams', 'coaching', 'social', 'badges'];
+    // 'home' added: it is a view and a nav tab, and the tour now opens
+    // there because that is where a night starts.
+    const NAV = ['home', 'log', 'history', 'data', 'insights', 'locker', 'teams', 'coaching', 'social', 'badges'];
     for (const prefs of [league, casual, practice, tournament]) {
       for (const s of tourSteps(prefs)) if (s.tab) expect(NAV).toContain(s.tab);
     }
     for (const s of COACH_STEPS) if (s.tab) expect(NAV).toContain(s.tab);
   });
 
-  it('starts on Bowl for every environment', () => {
+  it('starts on Home for every environment', () => {
     for (const prefs of [league, casual, practice, tournament]) {
-      expect(ids(prefs)[0]).toBe('bowl');
+      // Home, not Bowl. The first step used to say "everything starts
+      // here" about the scoring screen, which stopped being true when the
+      // mode rows moved to Home.
+      expect(ids(prefs)[0]).toBe('home');
     }
   });
 
@@ -120,7 +125,7 @@ describe('stepAt', () => {
   // Clamped, not wrapped: running off the end should stop, not send a
   // new bowler back to step one.
   it('clamps rather than wrapping', () => {
-    expect(stepAt(league, -5).id).toBe('bowl');
+    expect(stepAt(league, -5).id).toBe('home');
     expect(stepAt(league, 999).id).toBe(ids(league).at(-1));
   });
 
