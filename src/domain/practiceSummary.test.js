@@ -55,9 +55,25 @@ describe('a practice session, both halves', () => {
     expect(g.best).toBe(192);
   });
 
-  // Counting both would double a night that was ended and reopened.
-  it('prefers the session row over live scores', () => {
+  // Live scores win when there are any.
+  //
+  // Only one source is used either way, so neither choice double-counts a
+  // night that was ended and reopened -- that was the old reason given
+  // here and it does not decide between them.
+  //
+  // What decides it: the live array is literally what sits in the score
+  // boxes. Preferring the filed row meant this summary read 193.3 while
+  // the Games tab beside it read 210, for the same night. Reading live
+  // makes the two incapable of disagreeing.
+  it('prefers live scores over a filed session row', () => {
     const g = practiceGames([{ ...night, scores: [200, 200] }], [178, 192], night);
+    expect(g.games).toEqual([178, 192]);
+  });
+
+  // A night being looked back at has nothing live, so the row is all
+  // there is.
+  it('uses the filed row when nothing is live', () => {
+    const g = practiceGames([{ ...night, scores: [200, 200] }], [], night);
     expect(g.games).toEqual([200, 200]);
   });
 

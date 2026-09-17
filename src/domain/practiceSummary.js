@@ -52,10 +52,25 @@ export function practiceGames(sessions, liveScores, opts) {
   // the average 63 off a single 189. Nobody bowls a zero: ten gutters
   // still scores 0 only in theory, and the real meaning here is "empty".
   const usable = v => Number.isFinite(v) && v > 0;
-  const games = fromSessions.length
-    ? fromSessions.filter(usable)
-    : (Array.isArray(liveScores) ? liveScores : [])
-        .map(Number).filter(usable);
+  const live = (Array.isArray(liveScores) ? liveScores : []).map(Number).filter(usable);
+  const filed = fromSessions.filter(usable);
+
+  // The LIVE scores win whenever there are any.
+  //
+  // A filed session row used to win outright, so the moment one existed
+  // for tonight the live scores were discarded -- and this card showed
+  // 193.3 while the Games tab beside it showed 210, for the same night,
+  // on the same screen. Two averages, both presented as fact.
+  //
+  // Live is the right one: it is literally what is in the score boxes, so
+  // this card and those boxes can never disagree again. A filed row is
+  // the fallback for a night with nothing live -- an old night being
+  // looked back at, where the row is all there is.
+  //
+  // Count is not the tiebreak. Equal counts were the failing case, and
+  // "the longer list" would still have let a stale three-game row beat
+  // three freshly corrected scores.
+  const games = live.length ? live : filed;
 
   if (!games.length) return empty;
   const total = games.reduce((a, b) => a + b, 0);
