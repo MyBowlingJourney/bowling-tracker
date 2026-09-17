@@ -8,7 +8,9 @@ const ORDER = applyEnvironment(defaultPreferences('league'), 'league').statsCard
 
 describe('grouping the stats screen', () => {
   it('offers the five groups', () => {
-    expect(STATS_GROUP_IDS).toEqual(['overview', 'trends', 'ball', 'game', 'center', 'team']);
+    // Order is the row order on screen: your own numbers first, the house
+    // last -- it is the slice reached for least.
+    expect(STATS_GROUP_IDS).toEqual(['overview', 'trends', 'team', 'ball', 'game', 'center']);
   });
 
   // A card nobody filed should appear somewhere rather than vanish.
