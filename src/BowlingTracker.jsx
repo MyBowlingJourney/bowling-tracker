@@ -5346,7 +5346,7 @@ export default function BowlingTracker(){
   const activeLeagues=visibleLeagues(leagues,hiddenLeagues,leagueIdsRef.current);
 
   const leaguesWithCenters=leagues.map(name=>({name,centerId:leagueCenters[name]}));
-  const centerStats=statsByCenter(sessions,leaguesWithCenters,centers,statsBowler||activeBowler);
+  const centerStats=statsByCenter(sessions,leaguesWithCenters,centers,statsBowler||activeBowler,shots);
 
   // Whether the active bowler should be prompted to update their book
   // average, and what the app would suggest if so. Computed here rather
@@ -7389,6 +7389,8 @@ export default function BowlingTracker(){
             leftHandedForBowler={leftHandedForBowler}
 
             ballProfile={profiles[statsBowler]||myProfile}
+
+            SHOT_SAMPLE_THRESHOLD={SHOT_SAMPLE_THRESHOLD}
 
             onImportCsv={importCsvNights}
 

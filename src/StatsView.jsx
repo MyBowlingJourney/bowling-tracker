@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { C, S, F, Chip, CompareBadge, StatLead, StatRow, StatRows, ActionRow } from "./ui.jsx";
 import { PRACTICE_SESSION_KEY, CASUAL_SESSION_KEY, formatDate, STRIKE_DESCRIPTIONS, RELEASES, BALL_CHANGE_REASONS, strikeDescriptionsForHand, storedStrikeDescriptionFor } from "./constants.js";
@@ -17,16 +17,40 @@ import { seasonComparison } from "./domain/scoreInsights.js";
 
 import { patternAverages, patternVersusOverall } from "./domain/oilPatterns.js";
 
-import { statsByRackType } from "./domain/centers.js";
+import { statsByRackType, rackTypeLabel } from "./domain/centers.js";
 
 import { cardsInGroup } from "./domain/statsGroups.js";
 import BallCompare from "./BallCompare.jsx";
+
+// How the By Ball list can be ordered.
+//
+// "Best" depends on the question. The ball that carries is not always the
+// one that keeps you out of splits, and a bowler picking equipment for a
+// dry house is asking a different question from one picking for fresh oil.
+const BALL_SORTS = [
+  { id: "rate", label: "Strike", better: "higher" },
+  { id: "leaveAvg", label: "Knockdown", better: "higher" },
+  { id: "tenPinRate", label: "10-pin", better: "lower" },
+  { id: "splitRate", label: "Splits", better: "lower" },
+];
+
+function sortBalls(list, sortId) {
+  const opt = BALL_SORTS.find(o => o.id === sortId) || BALL_SORTS[0];
+  return [...(Array.isArray(list) ? list : [])].sort((a, b) => {
+    const av = a?.[opt.id], bv = b?.[opt.id];
+    // Balls with no value for this measure sink, whichever way it sorts.
+    if (av === null || av === undefined) return 1;
+    if (bv === null || bv === undefined) return -1;
+    return opt.better === "higher" ? bv - av : av - bv;
+  });
+}
 
 import { SAMPLE_THRESHOLDS } from "./domain/insightGating.js";
 export default function StatsView({
   // Already passed by BowlingTracker, never read until now.
   lanePatterns = [], tournaments = [], centers = [], statsGroup = "overview",
   leftHandedForBowler, ballProfile,
+  SHOT_SAMPLE_THRESHOLD = 20,
   onOpenImprove,
   centerStats,
   preferences,
@@ -97,6 +121,19 @@ export default function StatsView({
   // Records stranded further down, when it's the other half of "how do we
   // stack up" and belongs immediately after the comparison.
   const promoted = ["headToHead", "teamRecords"];
+  // Which measure the By Ball list is ordered by. Local: it is how you
+  // are looking right now, not a preference about the app.
+  // Team cards were gated on "no bowler selected", because team-wide
+  // numbers beside a single bowler's filter read as inconsistent.
+  //
+  // That made the Team CHIP nearly empty, since a bowler is almost
+  // always looking at their own stats -- five of the seven cards in that
+  // group vanished. Choosing the Team group IS the request for team
+  // data, so it overrides the filter rather than fighting it.
+  const teamCardsVisible = !statsBowler || statsGroup === "team";
+
+  const [ballSort, setBallSort] = useState("rate");
+
   const renderOrder = comparing
     ? ["viewing", ...promoted, ...baseOrder.filter(id => id !== "viewing" && !promoted.includes(id))]
     : baseOrder;
@@ -369,7 +406,7 @@ showTeamCompare&&(()=>{
                 })()
                 );
                 byId["seasonRecord"] = (
-!statsBowler&&(()=>{
+teamCardsVisible&&(()=>{
                   const rMain=seasonRecord(matches,statsLeague);
                   if(!rMain.gameWins&&!rMain.gameLosses&&!rMain.seriesWins&&!rMain.seriesLosses)return null;
                   const otherRecords=leagues.filter(l=>l!==statsLeague).map(league=>({league,record:seasonRecord(matches,league)})).filter(x=>x.record.gameWins+x.record.gameLosses+x.record.seriesWins+x.record.seriesLosses>0);
@@ -388,7 +425,7 @@ showTeamCompare&&(()=>{
                 })()
                 );
                 byId["weeklyPoints"] = (
-!statsBowler&&(()=>{
+teamCardsVisible&&(()=>{
                   const weekly=weeklyPointsData(matches,statsLeague);
                   if(weekly.length<2)return null;
                   return(
@@ -417,7 +454,7 @@ showTeamCompare&&(()=>{
                 })()
                 );
                 byId["handicapImpact"] = (
-!statsBowler&&(()=>{
+teamCardsVisible&&(()=>{
                   if(!statsLeague&&bowlers.length>1){
                     return(
                       <div style={S.card}>
@@ -467,7 +504,7 @@ showTeamCompare&&(()=>{
                 })()
                 );
                 byId["teamLeaderboard"] = (
-!statsBowler&&bowlers.length>1&&(()=>{
+teamCardsVisible&&bowlers.length>1&&(()=>{
                   // Who is ON the leaderboard: anyone with GAMES in this league.
                   //
                   // This filtered on shots, which meant a bowler who logs
@@ -512,7 +549,7 @@ showTeamCompare&&(()=>{
                 })()
                 );
                 byId["giantKiller"] = (
-!statsBowler&&bowlers.length>1&&(()=>{
+teamCardsVisible&&bowlers.length>1&&(()=>{
                   if(!statsLeague)return(
                     <div style={S.card}>
                       <div style={S.label}>Giant Killer</div>
@@ -555,7 +592,7 @@ showTeamCompare&&(()=>{
                 })()
                 );
                 byId["hung"] = (
-!statsBowler&&bowlers.length>1&&(()=>{
+teamCardsVisible&&bowlers.length>1&&(()=>{
                   if(!statsLeague)return(
                     <div style={S.card}>
                       <div style={S.label}>🎣 Hung</div>
@@ -588,7 +625,7 @@ showTeamCompare&&(()=>{
                 })()
                 );
                 byId["teamSeries"] = (
-!statsBowler&&bowlers.length>1&&(()=>{
+teamCardsVisible&&bowlers.length>1&&(()=>{
                   // Team Series: sum each bowler's session total for dates where 2+ bowlers share a league+date
                   const byKey={};
                   sessions.filter(s=>!statsLeague||s.league===statsLeague).forEach(s=>{
@@ -945,16 +982,22 @@ fivePinAttempts.length>0&&(
                         enough to trust the rate" -- a warning about data they
                         did not have. The per-ball reliable flag already marks
                         the individual balls that are short. */}
-                    {/* Sorted by strike rate, best first. Unsorted, the
-                        order came from whatever the map happened to
-                        produce, so the best ball could be anywhere in the
-                        list -- and the card above it ranks the same balls
-                        the same way. */}
-                    {[...bStats].sort((a,b)=>(b.rate??-1)-(a.rate??-1)).map(b=>(
+                    {/* Sortable. Which ball is "best" depends on what is
+                        being asked -- the one that carries is not always
+                        the one that keeps you out of splits. */}
+                    <div style={{...S.chips,flexWrap:"nowrap",gap:"5px",marginBottom:"10px"}}>
+                      {BALL_SORTS.map(o=>(
+                        <Chip key={o.id} label={o.label} dense fill
+                          selected={ballSort===o.id} onToggle={()=>setBallSort(o.id)}/>
+                      ))}
+                    </div>
+                    {sortBalls(bStats,ballSort).map(b=>(
                       <div key={b.ball} style={{marginBottom:"14px"}}>
                         <div style={{display:"flex",justifyContent:"space-between",marginBottom:"4px"}}>
                           <span style={{fontSize:"13px",fontWeight:600}}>{b.ball}</span>
-                          <span style={{fontSize:"12px",color:b.reliable?C.textMuted:C.spare}}>{b.total} shot{b.total===1?"":"s"}{!b.reliable?" · early days":""}</span>
+                          <span style={{fontSize:"12px",color:b.reliable?C.textMuted:C.spare}}>{b.reliable
+                              ? `${b.total} shot${b.total===1?"":"s"}`
+                              : `${Math.max(0,SHOT_SAMPLE_THRESHOLD-b.total)} more shots needed`}</span>
                         </div>
                         <div style={{display:"flex",gap:"6px",marginBottom:"4px",flexWrap:"wrap"}}>
                           <span style={S.tag(b.reliable?C.strike:C.textMuted)}>Strike {b.rate}%</span>
@@ -962,7 +1005,7 @@ fivePinAttempts.length>0&&(
                               KNOCKED DOWN -- 6.8 is not a leave, and the Ball vs
                               Ball card computed the opposite quantity under the
                               same name, so the two disagreed by construction. */}
-                          {b.leaveAvg!=null&&<span style={S.tag(b.reliable?C.accent:C.textMuted)}>First ball {b.leaveAvg}</span>}
+                          {b.leaveAvg!=null&&<span style={S.tag(b.reliable?C.accent:C.textMuted)}>Avg. knockdown {b.leaveAvg}</span>}
                           {/* Spare conversion removed: it measures spare shooting,
                               not which ball carries on a full rack. */}
                           <span style={S.tag(b.reliable?C.spare:C.textMuted)}>10-Pin {b.tenPinRate}%</span>
@@ -1496,12 +1539,34 @@ anyMoneyGameShown(preferences)&&statsBowler&&(()=>{
                     {(centerStats||[]).map(cs=>(
                       <div key={cs.centerId} style={{marginBottom:"10px"}}>
                         <div style={{display:"flex",justifyContent:"space-between",marginBottom:"4px"}}>
-                          <span style={{fontSize:"13px",fontWeight:600}}>{cs.center.name}</span>
+                          <span style={{fontSize:"13px",fontWeight:600,minWidth:0,
+                            overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                            {cs.center.name}
+                          </span>
                           <span style={{fontSize:"13px",fontWeight:700,color:C.accent}}>{cs.average}</span>
                         </div>
                         <div style={{display:"flex",flexWrap:"wrap",gap:"4px"}}>
                           <span style={S.tag()}>{cs.games} games</span>
                           <span style={S.tag(C.textMuted)}>{cs.sessions} sessions</span>
+                          {/* Which rack, and how the pins behaved.
+                              
+                              This card listed houses and averages with no
+                              hint of WHY one carries better than another,
+                              and the single biggest reason is right here:
+                              string pins are tethered, so they deflect
+                              differently and messengers are rare.
+                              
+                              A bowler comparing two houses without knowing
+                              which is string is comparing two different
+                              games. */}
+                          {cs.center.rackType&&(
+                            <span style={S.tag(cs.center.rackType==="string"?C.spare:C.accent)}>
+                              {rackTypeLabel(cs.center.rackType)}
+                            </span>
+                          )}
+                          {cs.messengerRate!=null&&cs.strikes>0&&(
+                            <span style={S.tag(C.strike)}>{cs.messengerRate}% messengers</span>
+                          )}
                           {cs.high!=null&&<span style={S.tag(C.strike)}>High {cs.high}</span>}
                         </div>
                       </div>
