@@ -131,9 +131,9 @@ export function removeGuest(guests, name) {
 //
 // Returns null when either board is missing or unreadable, so a
 // half-filled form says nothing rather than guessing.
-export function boardMiss(targetBoard, actualBoard, leftHanded = false) {
+export function boardMiss(targetBoard, actualArrows, leftHanded = false) {
   const t = parseFloat(targetBoard);
-  const a = parseFloat(actualBoard);
+  const a = parseFloat(actualArrows);
   if (!Number.isFinite(t) || !Number.isFinite(a)) return null;
   const delta = a - t;
   if (delta === 0) return { boards: 0, direction: "on target" };

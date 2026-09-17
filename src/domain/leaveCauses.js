@@ -100,7 +100,7 @@ export function leaveCauseProfile(shots, pins, minSample = 8) {
     // should be able to see it alongside the rest.
     ["heelNumber", "heel setting", ""],
     ["soleNumber", "sole setting", ""],
-    ["actualBoard", "board at the arrows", ""],
+    ["actualArrows", "board at the arrows", ""],
   ];
   for (const [key, label, unit] of numeric) {
     const a = avg(left.map(s => s[key]));
@@ -136,7 +136,7 @@ export function missingCauseFields(shots, pins) {
     ["ballSpeed", "ball speed"],
     ["revRate", "rev rate"],
     ["release", "release"],
-    ["actualBoard", "the board you actually hit"],
+    ["actualArrows", "the board you actually hit"],
   ];
   return fields
     .filter(([key]) => !left.some(s => clean(s[key])))

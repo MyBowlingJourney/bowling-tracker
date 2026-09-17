@@ -5,14 +5,15 @@ export function emptyShot(){
     id:crypto.randomUUID(),bowler:"",teamId:"",league:"",date:new Date().toISOString().slice(0,10),
     lane:"",game:"1",frame:"1",ballNum:null,
     ball:"",surface:"",startingBoard:"",targetArrows:"",
-    // actualBoard is the board the ball CROSSES AT THE ARROWS, fifteen
-    // feet down lane -- not where the feet started, and not what was
-    // aimed at. targetArrows is the aim; this is what happened.
+    // The board the ball CROSSES AT THE ARROWS, fifteen feet down lane --
+    // not where the feet started, and not what was aimed at.
     //
-    // There used to be an actualArrows beside it, which stored nothing
-    // the form wrote and nothing any stat read. Removed rather than left
-    // as a second name for the same idea.
-    actualBoard:"",ballSpeed:"",axisTilt:"",heelNumber:"",soleNumber:"",revRate:"",axisRotation:"",
+    // Named to match targetArrows: the pair is aim and outcome for the
+    // same point on the lane, and the difference between them is the
+    // drift the form reports and the leave analysis reads. It was
+    // actualBoard for a while, which broke that symmetry and read as if
+    // it belonged with startingBoard instead.
+    actualArrows:"",ballSpeed:"",axisTilt:"",heelNumber:"",soleNumber:"",revRate:"",axisRotation:"",
     result:"",otherLeave:[],spareMade:"",strikeDescription:"",
     release:"",miss:[],ballChangeReason:[],pinCount:"",notes:"",
   };
