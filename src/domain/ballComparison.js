@@ -92,6 +92,7 @@ export function ballComparison(shots, opts) {
       ball, shots: 0, strikes: 0, corner: 0, splits: 0,
       leaveTotal: 0, leaveCount: 0,
       startTotal: 0, startCount: 0, arrowTotal: 0, arrowCount: 0,
+      bpBoardTotal: 0, bpBoardCount: 0, bpFeetTotal: 0, bpFeetCount: 0,
     };
     cur.shots += 1;
     if (clean(s.result) === "Strike") cur.strikes += 1;
@@ -132,6 +133,8 @@ export function ballComparison(shots, opts) {
       splitRate: pct(b.splits, b.shots),
       startBoard: avg(b.startTotal, b.startCount),
       arrowBoard: avg(b.arrowTotal, b.arrowCount),
+      breakpointBoard: avg(b.bpBoardTotal, b.bpBoardCount),
+      breakpointFeet: avg(b.bpFeetTotal, b.bpFeetCount),
     }))
     .sort((a, b) => (b.strikeRate ?? -1) - (a.strikeRate ?? -1));
 }
@@ -203,8 +206,20 @@ export function ballLine(entry, opts) {
   });
   const lay = spot ? spot.laydown : start;
   const perFoot = (arrows - lay) / ARROWS_FEET;
+  // A MEASURED breakpoint wins outright. The projection below is a guess
+  // from the feet-to-arrows angle, and a poor one -- that angle includes
+  // the approach, so it had to be damped to a fifth to stay on the lane.
+  // Now that the log screen asks for the board and the distance, the
+  // guess is only a fallback for shots logged before it existed.
+  const measuredBoard = num(e.breakpointBoard);
+  const measuredFeet = num(e.breakpointFeet);
   const projected = arrows + perFoot * (BREAKPOINT_FEET - ARROWS_FEET) * 0.2;
-  const breakpoint = Math.max(3, Math.min(37, projected));
+  const breakpoint = measuredBoard !== null
+    ? Math.max(1, Math.min(39, measuredBoard))
+    : Math.max(3, Math.min(37, projected));
+  const bpFeet = measuredFeet !== null
+    ? Math.max(ARROWS_FEET + 1, Math.min(FOUL_LINE_TO_PINS - 1, measuredFeet))
+    : BREAKPOINT_FEET;
 
   return {
     ball: e.ball,
@@ -214,7 +229,7 @@ export function ballLine(entry, opts) {
       // boards inside the real one.
       { feet: 0, board: lay, known: true },
       { feet: ARROWS_FEET, board: arrows, known: true },
-      { feet: BREAKPOINT_FEET, board: breakpoint, known: false },
+      { feet: bpFeet, board: breakpoint, known: measuredBoard !== null },
       { feet: FOUL_LINE_TO_PINS, board: POCKET_BOARD, known: false },
     ],
   };

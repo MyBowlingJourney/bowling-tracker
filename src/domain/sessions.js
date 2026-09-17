@@ -5,6 +5,10 @@ export function emptyShot(){
     id:crypto.randomUUID(),bowler:"",teamId:"",league:"",date:new Date().toISOString().slice(0,10),
     lane:"",game:"1",frame:"1",ballNum:null,
     ball:"",surface:"",startingBoard:"",targetArrows:"",
+    // The breakpoint, MEASURED: which board the ball turned on and how
+    // far down the lane. The ball-path drawing used to project this from
+    // the feet-to-arrows angle, which is a guess dressed as data.
+    breakpointBoard:"",breakpointDistance:"",
     // The board the ball CROSSES AT THE ARROWS, fifteen feet down lane --
     // not where the feet started, and not what was aimed at.
     //
