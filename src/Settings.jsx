@@ -787,7 +787,7 @@ export default function Settings({
           a `download` helper and a `bowler` name declared inside that
           tab's own scope, and carrying the markup across without them was
           the slow way to a broken file. */}
-      {(() => {
+      {showCard("backup") && (() => {
         const who = statsBowler || activeBowler;
         const saveCsv = (name, text) => {
           const blob = new Blob([text], { type: "text/csv" });
@@ -825,6 +825,7 @@ export default function Settings({
           directions, and a bowler looking for one will look here for the
           other. Collapsed, because importing a season is something you do
           once. */}
+      {showCard("backup") && (
       <CollapsibleCard title="Import scores"
         summary=""
         expanded={expanded.importCsv === true}
@@ -838,6 +839,7 @@ export default function Settings({
           today={localDateString()}
           onImport={onImportCsv} />
       </CollapsibleCard>
+      )}
 
       {showCard("backup") && (
       <CollapsibleCard title="Backup &amp; Restore" summary={hasData ? "" : "No data yet"}

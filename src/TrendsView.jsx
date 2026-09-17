@@ -138,25 +138,27 @@ export default function TrendsView({
 
       <div style={S.card}>
         <div style={S.label}>Metric</div>
-        <div style={S.chips}>
+        {/* A dropdown, not chips. Nine metrics wrapped to three rows and
+            pushed the chart below the fold before it had said anything. */}
+        <select style={S.input} value={metricId}
+          onChange={e => setMetricId(e.target.value)}>
           {metrics.map(m => (
-            <Chip key={m.id} label={m.label} selected={metricId === m.id}
-              onToggle={() => setMetricId(m.id)} />
+            <option key={m.id} value={m.id}>{m.label}</option>
           ))}
-        </div>
+        </select>
         {/* Ball filter. Works on SCORE metrics too: a scores-only game can
             still name its ball, and a ball that averages 210 in game one
             and 190 in game three is exactly what a bowler wants to see. */}
         {ballOptions.length > 0 && (
           <>
             <div style={{ ...S.label, marginTop: "12px" }}>Ball</div>
-            <div style={S.chips}>
-              <Chip label="All balls" selected={!ballFilter} onToggle={() => setBallFilter("")} />
-              {ballOptions.map(b => (
-                <Chip key={b} label={b} selected={ballFilter === b}
-                  onToggle={() => setBallFilter(ballFilter === b ? "" : b)} />
-              ))}
-            </div>
+              <select style={S.input} value={ballFilter}
+                onChange={e => setBallFilter(e.target.value)}>
+                <option value="">All balls</option>
+                {ballOptions.map(b => (
+                  <option key={b} value={b}>{b}</option>
+                ))}
+              </select>
             {ballFilter && (
               <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "4px" }}>
                 Only games and shots recorded with this ball. Games with no ball noted are left out.
@@ -188,13 +190,15 @@ export default function TrendsView({
         {leagues.length > 0 && (
           <>
             <div style={{ ...S.label, marginTop: "12px" }}>League</div>
-            <div style={S.chips}>
-              <Chip label="All" selected={!statsLeague} onToggle={() => setStatsLeague("")} color={C.accent} />
+            <select style={S.input} value={statsLeague}
+              onChange={e => setStatsLeague(e.target.value)}>
+              <option value="">All</option>
               {leagues.filter(l => !isContainerLeague(l)).map(l => (
-                <Chip key={l} label={!statsBowler ? teamNameForLeague(l) : l.replace(" House Shot", "")} selected={statsLeague === l}
-                  onToggle={() => setStatsLeague(statsLeague === l ? "" : l)} color={C.accent} />
+                <option key={l} value={l}>
+                  {!statsBowler ? teamNameForLeague(l) : l.replace(" House Shot", "")}
+                </option>
               ))}
-            </div>
+            </select>
           </>
         )}
       </div>
