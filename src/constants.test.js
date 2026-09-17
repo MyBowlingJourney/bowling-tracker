@@ -174,3 +174,18 @@ describe('reserved league names, bare and per-user', () => {
     }
   });
 });
+
+describe('practiceLeagueDisplayName always returns a string', () => {
+  // It returned null and undefined straight through, and callers doing
+  // .replace(" House Shot", "") on the result took down the whole screen
+  // on a session whose league was not set.
+  it('never returns something without .replace', () => {
+    for (const v of ['Tuesday Classic', '', null, undefined, 42, {}, []]) {
+      expect(typeof practiceLeagueDisplayName(v).replace).toBe('function');
+    }
+  });
+
+  it('leaves a real name alone', () => {
+    expect(practiceLeagueDisplayName('Tuesday Classic')).toBe('Tuesday Classic');
+  });
+});

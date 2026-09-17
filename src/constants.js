@@ -146,7 +146,12 @@ export function practiceLeagueDisplayName(name) {
   // The event name, not "Tournament" -- the whole point of a league per
   // event is that History and Stats can tell them apart.
   if (isTournamentLeagueName(name)) return tournamentLeagueEventName(name) || TOURNAMENT_SESSION_KEY;
-  return isPracticeLeagueName(name) ? PRACTICE_SESSION_KEY : name;
+  // Always a string.
+  //
+  // This returned null and undefined straight through, and every caller
+  // that did .replace(" House Shot", "") on the result crashed the whole
+  // screen on a session whose league was not set.
+  return isPracticeLeagueName(name) ? PRACTICE_SESSION_KEY : String(name ?? "");
 }
 export const CASUAL_SESSION_KEY = "Just Bowling";
 
