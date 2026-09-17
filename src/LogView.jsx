@@ -222,26 +222,24 @@ export default function LogView({
 
 
   const showGoals=leagueReady&&(env==="league"||(env==="practice"&&!isDrill));
-  // Bug fix: showEquipment checked environment but never trackingMode, so
-  // switching League from shot-by-shot to game-scores-only left the Ball/
-  // Surface/Line cards showing -- there was nothing gating them on HOW
-  // the bowler is tracking, only WHERE they're bowling.
-  // Tournament CAN track shot by shot now. Most tournament bowlers won't
-  // -- there's no time between games -- but excluding the environment
-  // meant the option in Settings did nothing there, which is worse than
-  // not offering it. Casual stays excluded: scores-only is the entire
-  // point of that mode, so it doesn't get the choice at all.
-  // Ball, surface, release and the rest of the equipment block.
-  //
-  // Not in a tournament. The tournament card is already a dense screen
-  // and these appeared on every one of its tabs; the bowler asked for
-  // them gone.
-  //
-  // WORTH KNOWING: this means a frame-tracked tournament records no ball
-  // per shot, so carry-by-ball will have nothing from those nights. If
-  // that turns out to matter, the fix is to gate it to the Scoring tab
-  // the way Shot Context is, rather than to drop it.
-  const showEquipment=leagueReady&&env!=="casual"&&env!=="tournament"&&!isDrill;
+    // Ball, surface, line and the rest of the accessory fields.
+    //
+    // Everywhere except open bowling. Tournament and drills used to be
+    // excluded too -- tournament because its card was already dense, and
+    // the bowler had asked for them gone at the time.
+    //
+    // The comment that sat here predicted exactly what went wrong: "a
+    // frame-tracked tournament records no ball per shot, so carry-by-ball
+    // will have nothing from those nights". It did, and a tournament is
+    // the setting where the line matters MOST -- a fresh pattern you may
+    // never see again is worth writing down.
+    //
+    // Open bowling stays out: scores-only is the entire point of that
+    // mode, so it does not get the choice at all.
+    //
+    // leagueReady stays: in league play a session with no league picked
+    // has nowhere to file the shot.
+    const showEquipment=leagueReady&&env!=="casual";
 
   // Shot Context (game/frame/lane) is meaningless without shots -- a
   // scores-only night has games, not frames. It had no gate at all.
@@ -2627,39 +2625,66 @@ export default function LogView({
                     
                     Three fields in two rows measures 180px, matching the
                     Release Measurements card beside it exactly. */}
-                <div style={{marginBottom:"8px"}}>
-                  <div style={fieldHead}>Feet</div>
-                  <input style={{...S.input,...smallInput,width:"100%"}}
-                    type="number" inputMode="numeric" placeholder="board #"
-                    value={form.startingBoard}
-                    onChange={e=>{const v=acceptBoardKeystroke(e.target.value); if(v===null)return;
-                      editingId?set("startingBoard",v):handleLineChange("startingBoard",v);}}/>
-                </div>
-                <div style={{display:"grid",
-                  gridTemplateColumns:"repeat(2, minmax(0, 1fr))",gap:"8px"}}>
-                  <div style={{minWidth:0}}>
-                    <div style={fieldHead}>Target arrows</div>
-                    <input style={{...S.input,...smallInput,width:"100%"}}
-                      type="number" inputMode="numeric" placeholder="board #"
-                      value={form.targetArrows}
-                      onChange={e=>{const v=acceptBoardKeystroke(e.target.value); if(v===null)return;
-                      editingId?set("targetArrows",v):handleLineChange("targetArrows",v);}}/>
+                  {/* Start, then the arrows, then the breakpoint.
+                      
+                      "Feet" was a poor name -- it is the board the bowler
+                      STARTS on, and "feet" reads as a unit of distance on
+                      a card that now has a real distance field on it. */}
+                  <div style={{display:"grid",
+                    gridTemplateColumns:"repeat(2, minmax(0, 1fr))",gap:"8px",marginBottom:"8px"}}>
+                    <div style={{minWidth:0}}>
+                      <div style={fieldHead}>Start</div>
+                      <input style={{...S.input,...smallInput,width:"100%"}}
+                        type="number" inputMode="numeric" placeholder="board #"
+                        value={form.startingBoard}
+                        onChange={e=>{const v=acceptBoardKeystroke(e.target.value); if(v===null)return;
+                          editingId?set("startingBoard",v):handleLineChange("startingBoard",v);}}/>
+                    </div>
+                    <div style={{minWidth:0}} />
                   </div>
-                  <div style={{minWidth:0}}>
-                    <div style={fieldHead}>Actual arrows</div>
-                    {/* The board the ball crossed at the arrows.
-                        
-                        Not where the feet started, and not what was aimed
-                        at -- targetArrows beside it is the aim, this is
-                        what happened. The difference between them is the
-                        drift reported below, and it is what the leave
-                        analysis reads. */}
-                    <input style={{...S.input,...smallInput,width:"100%"}}
-                      type="number" inputMode="numeric" placeholder="board #"
-                      value={form.actualArrows}
-                      onChange={e=>{const v=acceptBoardKeystroke(e.target.value); if(v!==null)set("actualArrows",v);}}/>
+
+                  <div style={{display:"grid",
+                    gridTemplateColumns:"repeat(2, minmax(0, 1fr))",gap:"8px",marginBottom:"8px"}}>
+                    <div style={{minWidth:0}}>
+                      <div style={fieldHead}>Target arrows</div>
+                      <input style={{...S.input,...smallInput,width:"100%"}}
+                        type="number" inputMode="numeric" placeholder="board #"
+                        value={form.targetArrows}
+                        onChange={e=>{const v=acceptBoardKeystroke(e.target.value); if(v===null)return;
+                          editingId?set("targetArrows",v):handleLineChange("targetArrows",v);}}/>
+                    </div>
+                    <div style={{minWidth:0}}>
+                      <div style={fieldHead}>Actual arrows</div>
+                      <input style={{...S.input,...smallInput,width:"100%"}}
+                        type="number" inputMode="numeric" placeholder="board #"
+                        value={form.actualArrows}
+                        onChange={e=>{const v=acceptBoardKeystroke(e.target.value); if(v!==null)set("actualArrows",v);}}/>
+                    </div>
                   </div>
-                </div>
+
+                  {/* Breakpoint, measured rather than guessed.
+                      
+                      The ball path drawing used to PROJECT this from the
+                      feet-to-arrows angle, which was a guess dressed as
+                      data -- and a bad one, since that angle includes the
+                      approach. Two fields here and the drawing can stop
+                      inventing it. */}
+                  <div style={{...fieldHead,marginBottom:"4px"}}>Breakpoint</div>
+                  <div style={{display:"grid",
+                    gridTemplateColumns:"repeat(2, minmax(0, 1fr))",gap:"8px",marginBottom:"8px"}}>
+                    <div style={{minWidth:0}}>
+                      <input style={{...S.input,...smallInput,width:"100%"}}
+                        type="number" inputMode="numeric" placeholder="board #"
+                        value={form.breakpointBoard}
+                        onChange={e=>{const v=acceptBoardKeystroke(e.target.value); if(v!==null)set("breakpointBoard",v);}}/>
+                    </div>
+                    <div style={{minWidth:0}}>
+                      <input style={{...S.input,...smallInput,width:"100%"}}
+                        type="number" inputMode="numeric" placeholder="feet down lane"
+                        value={form.breakpointDistance}
+                        onChange={e=>set("breakpointDistance",e.target.value)}/>
+                    </div>
+                  </div>
                 {(()=>{
                   // The gap between target and actual is the whole point of
                   // recording both: consistently missing the same direction
