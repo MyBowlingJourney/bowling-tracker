@@ -1,7 +1,7 @@
 import { C, S } from "./ui.jsx";
 import {
   BALL_METRICS, ballComparison, bestByMetric, ballColors, ballLine,
-  ARROWS_FEET, BREAKPOINT_FEET, FOUL_LINE_TO_PINS,
+  ARROWS_FEET, BREAKPOINT_FEET, FOUL_LINE_TO_PINS, trajectoryPath,
 } from "./domain/ballComparison.js";
 import { isSplit, isCornerPinLeave } from "./domain/splits.js";
 
@@ -32,7 +32,10 @@ export default function BallCompare({
   // looking down the lane from the approach.
   const W = 300, H = 210, PAD = 8;
   const x = board => PAD + ((board - 1) / (LANE_BOARDS - 1)) * (W - PAD * 2);
-  const y = feet => PAD + (feet / FOUL_LINE_TO_PINS) * (H - PAD * 2);
+  // Down the lane is UP the screen: the bowler stands at the bottom and
+  // the pins are at the far end. Drawn the other way it read as a ball
+  // travelling towards you, which is nobody's view of a lane.
+  const y = feet => (H - PAD) - (feet / FOUL_LINE_TO_PINS) * (H - PAD * 2);
 
   return (
     <div style={S.card}>
@@ -107,22 +110,38 @@ export default function BallCompare({
               fontSize="8" fill={C.textMuted}>breakpoint ~40ft</text>
 
             {/* The pocket. */}
-            <circle cx={x(17.5)} cy={y(FOUL_LINE_TO_PINS)} r="3" fill={C.textMuted} />
+            {/* The rack, at the top where the pins are. Ten dots in the
+                real triangle rather than one blob, so the far end of the
+                lane reads as pins. */}
+            {[[17.5, 60], [15.5, 58], [19.5, 58], [13.5, 56], [17.5, 56],
+              [21.5, 56], [11.5, 54], [15.5, 54], [19.5, 54], [23.5, 54]].map(([b, f], i) => (
+              <circle key={i} cx={x(b)} cy={y(f)} r="2" fill={C.textMuted} opacity="0.8" />
+            ))}
+
+            {/* The foul line, just ahead of the feet. */}
+            <line x1={PAD} y1={y(0)} x2={W - PAD} y2={y(0)} stroke={C.border} strokeWidth="1.5" />
+            <text x={PAD + 2} y={y(0) - 3} fontSize="8" fill={C.textMuted}>foul line</text>
 
             {lines.map(({ entry, line }) => {
               const pts = line.points;
-              // Solid to the arrows, dashed past them: everything beyond
-              // fifteen feet is projected, not recorded.
+              // Two paths, not four straight segments. A ball does not
+              // change direction at the arrows and again at the
+              // breakpoint -- it runs fairly straight and then arcs.
+              //
+              // Solid to the arrows is what was logged; dashed past them
+              // is projected, because nothing records where it turns.
               const known = pts.filter(p => p.feet <= ARROWS_FEET);
+              const rest = pts.filter(p => p.feet >= ARROWS_FEET);
               return (
                 <g key={entry.ball}>
-                  <polyline fill="none" stroke={colors[entry.ball]} strokeWidth="2"
-                    points={known.map(p => `${x(p.board)},${y(p.feet)}`).join(" ")} />
-                  <polyline fill="none" stroke={colors[entry.ball]} strokeWidth="2"
-                    strokeDasharray="4 3" opacity="0.7"
-                    points={pts.filter(p => p.feet >= ARROWS_FEET)
-                      .map(p => `${x(p.board)},${y(p.feet)}`).join(" ")} />
-                  <circle cx={x(pts[0].board)} cy={y(0)} r="3" fill={colors[entry.ball]} />
+                  <path fill="none" stroke={colors[entry.ball]} strokeWidth="2.5"
+                    strokeLinecap="round" d={trajectoryPath(known, x, y)} />
+                  <path fill="none" stroke={colors[entry.ball]} strokeWidth="2.5"
+                    strokeLinecap="round" strokeDasharray="5 4" opacity="0.75"
+                    d={trajectoryPath(rest, x, y)} />
+                  {/* The feet, at the bottom where the bowler stands. */}
+                  <circle cx={x(pts[0].board)} cy={y(0)} r="3.5"
+                    fill={colors[entry.ball]} />
                 </g>
               );
             })}

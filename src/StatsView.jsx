@@ -943,7 +943,12 @@ fivePinAttempts.length>0&&(
                         enough to trust the rate" -- a warning about data they
                         did not have. The per-ball reliable flag already marks
                         the individual balls that are short. */}
-                    {bStats.map(b=>(
+                    {/* Sorted by strike rate, best first. Unsorted, the
+                        order came from whatever the map happened to
+                        produce, so the best ball could be anywhere in the
+                        list -- and the card above it ranks the same balls
+                        the same way. */}
+                    {[...bStats].sort((a,b)=>(b.rate??-1)-(a.rate??-1)).map(b=>(
                       <div key={b.ball} style={{marginBottom:"14px"}}>
                         <div style={{display:"flex",justifyContent:"space-between",marginBottom:"4px"}}>
                           <span style={{fontSize:"13px",fontWeight:600}}>{b.ball}</span>
@@ -951,8 +956,13 @@ fivePinAttempts.length>0&&(
                         </div>
                         <div style={{display:"flex",gap:"6px",marginBottom:"4px",flexWrap:"wrap"}}>
                           <span style={S.tag(b.reliable?C.strike:C.textMuted)}>Strike {b.rate}%</span>
-                          {b.leaveAvg!=null&&<span style={S.tag(b.reliable?C.accent:C.textMuted)}>Leave Avg {b.leaveAvg}</span>}
-                          {b.spareRate!=null&&<span style={S.tag(b.reliable?C.strike:C.textMuted)}>Spare {b.spareRate}%</span>}
+                          {/* "First ball", not "Leave Avg". The number is pins
+                              KNOCKED DOWN -- 6.8 is not a leave, and the Ball vs
+                              Ball card computed the opposite quantity under the
+                              same name, so the two disagreed by construction. */}
+                          {b.leaveAvg!=null&&<span style={S.tag(b.reliable?C.accent:C.textMuted)}>First ball {b.leaveAvg}</span>}
+                          {/* Spare conversion removed: it measures spare shooting,
+                              not which ball carries on a full rack. */}
                           <span style={S.tag(b.reliable?C.spare:C.textMuted)}>10-Pin {b.tenPinRate}%</span>
                           <span style={S.tag(b.reliable?C.miss:C.textMuted)}>Split {b.splitRate}%</span>
                         </div>
