@@ -2645,18 +2645,17 @@ export default function LogView({
                   </div>
                   <div style={{minWidth:0}}>
                     <div style={fieldHead}>Actual arrows</div>
-                    {/* Stores actualBoard, not actualArrows.
+                    {/* The board the ball crossed at the arrows.
                         
-                        actualBoard is what the leave analysis reads -- it is
-                        described there as "the board you actually hit",
-                        which is exactly what this asks. actualArrows went
-                        nowhere but storage and the CSV export, so writing to
-                        it filled in a number nothing could use while leaving
-                        the one that mattered empty. */}
+                        Not where the feet started, and not what was aimed
+                        at -- targetArrows beside it is the aim, this is
+                        what happened. The difference between them is the
+                        drift reported below, and it is what the leave
+                        analysis reads. */}
                     <input style={{...S.input,...smallInput,width:"100%"}}
                       type="number" inputMode="numeric" placeholder="board #"
-                      value={form.actualBoard}
-                      onChange={e=>set("actualBoard",e.target.value)}/>
+                      value={form.actualArrows}
+                      onChange={e=>set("actualArrows",e.target.value)}/>
                   </div>
                 </div>
                 {(()=>{
@@ -2668,7 +2667,7 @@ export default function LogView({
                   // maths lives in the domain with a test rather than
                   // inline here -- it was hardcoded as "right" for
                   // everyone, which is backwards for every right-hander.
-                  const miss=boardMiss(form.targetArrows,form.actualBoard,activeBowlerLeftHanded);
+                  const miss=boardMiss(form.targetArrows,form.actualArrows,activeBowlerLeftHanded);
                   if(!miss)return null;
                   if(miss.boards===0)return(
                     <div style={{fontSize:"12px",color:C.strike,fontWeight:600,marginTop:"6px",textAlign:"center"}}>On target</div>
