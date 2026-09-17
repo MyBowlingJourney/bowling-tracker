@@ -8,7 +8,7 @@ const ORDER = applyEnvironment(defaultPreferences('league'), 'league').statsCard
 
 describe('grouping the stats screen', () => {
   it('offers the five groups', () => {
-    expect(STATS_GROUP_IDS).toEqual(['overview', 'trends', 'ball', 'game', 'center']);
+    expect(STATS_GROUP_IDS).toEqual(['overview', 'trends', 'ball', 'game', 'center', 'team']);
   });
 
   // A card nobody filed should appear somewhere rather than vanish.
@@ -24,6 +24,7 @@ describe('grouping the stats screen', () => {
     expect(groupForCard('gameByGame')).toBe('game');
     expect(groupForCard('runningAverages')).toBe('trends');
     expect(groupForCard('headlineStats')).toBe('overview');
+    expect(groupForCard('teamLeaderboard')).toBe('team');
   });
 
   // Every card lands in exactly one group: one missing is a card the

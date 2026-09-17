@@ -8,12 +8,16 @@
 // underneath: what happened, how it is moving, and then the three things
 // a bowler slices by -- ball, game, house.
 
+// Short labels on purpose: six chips have to fit one row on a phone, and
+// "By Ball" costs three characters more than "Ball" for no meaning. The
+// row they sit in already says these are stats.
 export const STATS_GROUPS = [
   { id: "overview", label: "Overview" },
   { id: "trends", label: "Trends" },
-  { id: "ball", label: "By Ball" },
-  { id: "game", label: "By Game" },
-  { id: "center", label: "By Center" },
+  { id: "ball", label: "Ball" },
+  { id: "game", label: "Game" },
+  { id: "center", label: "Center" },
+  { id: "team", label: "Team" },
 ];
 
 export const STATS_GROUP_IDS = STATS_GROUPS.map(g => g.id);
@@ -40,7 +44,17 @@ const GROUP_BY_CARD = {
   // Where in the night, and where in the frame.
   gameByGame: "game",
   framePosition: "game",
-  weeklyPoints: "game",
+
+  // The team's night, not yours. These were the bulk of what made
+  // Overview twenty-one cards long -- a bowler looking for their own
+  // spare rate was scrolling past the team leaderboard to reach it.
+  teamSeries: "team",
+  teamLeaderboard: "team",
+  teamRecords: "team",
+  headToHead: "team",
+  giantKiller: "team",
+  weeklyPoints: "team",
+  handicapImpact: "team",
 
   // The house and what it was dressed with.
   byCenter: "center",
