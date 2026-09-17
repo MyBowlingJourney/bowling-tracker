@@ -79,7 +79,10 @@ export default function TrendsView({
   // points are shown.
   const allPoints = points;
   const shownPoints = applyTrendWindow(allPoints, trendWindow);
-  const windowNote = describeTrendWindow(trendWindow, shownPoints.length, allPoints.length);
+  // The unit follows what the chart is plotting, which every-game
+  // changes underneath it.
+  const windowNote = describeTrendWindow(trendWindow, shownPoints.length,
+    allPoints.length, showEveryGame ? "game" : "night");
 
   const direction = trendDirection(shownPoints);
   const reliability = seriesReliability(metricId, shownPoints);
