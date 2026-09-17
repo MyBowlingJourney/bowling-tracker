@@ -842,6 +842,9 @@ export default function BowlingTracker(){
   // afterwards, which on that tab they will not. It read as saved and
   // vanished.
   const[sessionNotes,setSessionNotes]=useState("");
+
+  // Shown once, after onboarding, instead of the tour.
+  const[showWelcome,setShowWelcome]=useState(false);
   const[sessionStartSeen,setSessionStartSeen]=useState(true);
   // Has the "where" question been answered in THIS prompt? Drives the
   // staged reveal -- the tracking question only appears afterwards.
@@ -3287,7 +3290,7 @@ export default function BowlingTracker(){
     // missing, on a different tab from the button. A refusal the
     // bowler cannot see is worse than the mistake it guards against.
     if(!activeTournament.name.trim()){
-      setTournamentSaveMessage("Give the tournament a name first \u2014 it's on the Set up tab.");
+      setTournamentSaveMessage("Give the tournament a name first — it's on the Set up tab.");
       setTimeout(()=>setTournamentSaveMessage(""),4000);
       return;
     }
@@ -6701,6 +6704,34 @@ export default function BowlingTracker(){
       {/* The walkthrough, over the top of the real app rather than
           instead of it -- a new bowler reads each step while looking at
           the tab it describes. */}
+      {/* Shown once, after onboarding, in place of the tour.
+          
+          Full screen rather than a card, because it is the only thing on
+          it: one sentence saying we are getting out of the way, and two
+          places to look if they get stuck. */}
+      {showWelcome&&onboarded&&!activeTour&&(
+        <div style={{position:"fixed",inset:0,zIndex:60,background:C.bg,
+          display:"flex",alignItems:"center",justifyContent:"center",padding:"24px"}}>
+          <div style={{maxWidth:"420px",width:"100%"}}>
+            <div style={{fontSize:"22px",fontWeight:600,color:C.text,marginBottom:"10px"}}>
+              You're all set
+            </div>
+            <div style={{fontSize:"15px",color:C.text,lineHeight:1.6,marginBottom:"16px"}}>
+              We know you're itching to bowl, so we won't hold you up.
+            </div>
+            <div style={{fontSize:"14px",color:C.textMuted,lineHeight:1.7,marginBottom:"24px"}}>
+              If you get stuck, there's a search at the top of every screen {"—"} ask it
+              anything and it'll take you there. And if you'd rather be shown around,
+              the tours are in Settings whenever you want them.
+            </div>
+            <button style={{...S.btn("primary"),width:"100%"}}
+              onClick={()=>{ setShowWelcome(false); setView("home"); }}>
+              Start bowling
+            </button>
+          </div>
+        </div>
+      )}
+
       {activeTour&&onboarded&&(
         // A dimmed backdrop rather than null while the chunk loads.
         //
@@ -7241,9 +7272,19 @@ export default function BowlingTracker(){
               // preferences updates on the next render, so reading it
               // here gave the previous mode -- switching from Open
               // bowling to Practice started the Open bowling tour.
+              // No tour, straight after onboarding.
+              //
+              // Launching a twelve-step walkthrough at someone who has
+              // just typed their name is asking them to read the manual
+              // before touching the ball. They came to log a score.
+              //
+              // Instead: one screen that says where help lives, shown
+              // once. The tours are still in Settings for anyone who
+              // wants them, and the search bar answers the actual
+              // question rather than all twelve.
               const env=chosenEnv||preferences.environment;
               const firstTour=env==="casual"?"casual":"general";
-              if(onboarded&&!hasSeenTour(toursSeen,firstTour))startTour(firstTour);
+              if(onboarded&&!hasSeenTour(toursSeen,firstTour))setShowWelcome(true);
             }}
             routineNote={routine.mode&&!showSessionStart?`Your usual ${DAY_NAMES_SHORT[routine.weekday]}`:""}
             updatePreferences={updatePreferences}

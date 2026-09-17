@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { C, S, F, Chip, CompareBadge, StatLead, StatRow, StatRows, ActionRow } from "./ui.jsx";
 import { PRACTICE_SESSION_KEY, CASUAL_SESSION_KEY, formatDate, STRIKE_DESCRIPTIONS, RELEASES, BALL_CHANGE_REASONS, strikeDescriptionsForHand, storedStrikeDescriptionFor } from "./constants.js";
@@ -18,6 +18,8 @@ import { seasonComparison } from "./domain/scoreInsights.js";
 import { patternAverages, patternVersusOverall } from "./domain/oilPatterns.js";
 
 import { statsByRackType } from "./domain/centers.js";
+
+import { visibleGroups, cardsInGroup } from "./domain/statsGroups.js";
 export default function StatsView({
   // Already passed by BowlingTracker, never read until now.
   lanePatterns = [], tournaments = [], centers = [],
@@ -91,6 +93,10 @@ export default function StatsView({
   // Records stranded further down, when it's the other half of "how do we
   // stack up" and belongs immediately after the comparison.
   const promoted = ["headToHead", "teamRecords"];
+  // Which group of stats is showing. Local, not a preference: it is
+  // where you are looking right now, not how you like the screen.
+  const [statsGroup, setStatsGroup] = useState("overview");
+
   const renderOrder = comparing
     ? ["viewing", ...promoted, ...baseOrder.filter(id => id !== "viewing" && !promoted.includes(id))]
     : baseOrder;
@@ -1421,7 +1427,35 @@ anyMoneyGameShown(preferences)&&statsBowler&&(()=>{
                   </div>
                   )
                 );
-                return (<>{renderOrder.map(id => <Fragment key={id}>{byId[id]}</Fragment>)}</>);
+                // Chips, then only that group's cards.
+                //
+                // Thirty-seven cards in one column is a scroll, not a
+                // screen -- a bowler looking for which ball is carrying
+                // should not pass their team's weekly points to get there.
+                //
+                // A group is a FILTER over the order the bowler arranged
+                // in Settings, not a second ordering to keep in step with
+                // it. And a chip only appears when its group has a card
+                // that actually rendered: a chip leading to an empty
+                // screen reads as one that failed to load.
+                const groups = visibleGroups(renderOrder, id => !!byId[id]);
+                const active = groups.some(g => g.id === statsGroup)
+                  ? statsGroup
+                  : (groups[0] ? groups[0].id : "overview");
+                const shown = cardsInGroup(renderOrder, active).filter(id => byId[id]);
+                return (
+                  <>
+                    {groups.length > 1 && (
+                      <div style={{ ...S.chips, marginBottom: "10px" }}>
+                        {groups.map(g => (
+                          <Chip key={g.id} label={g.label} selected={active === g.id}
+                            onToggle={() => setStatsGroup(g.id)} />
+                        ))}
+                      </div>
+                    )}
+                    {shown.map(id => <Fragment key={id}>{byId[id]}</Fragment>)}
+                  </>
+                );
               })()
             )}
             {onOpenImprove && (

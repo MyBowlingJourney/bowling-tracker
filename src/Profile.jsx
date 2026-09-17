@@ -405,6 +405,7 @@ export default function Profile({
 
         <ArsenalList
           ballStats={ballStats}
+          leftHanded={!!profile.leftHanded}
           activeBowler={profileBowler}
           retired={(retiredBalls || {})[profileBowler] || {}}
           setBallRetired={setBallRetired} shots={shots || []}

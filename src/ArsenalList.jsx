@@ -9,6 +9,8 @@ import BallCatalogPanel from "./BallCatalogPanel.jsx";
 import { rejectedBallsFor, ballKey } from "./domain/ballCatalog.js";
 
 import { activeBalls, retiredBallNames, retiredBallSummary, describeRetirement, isRetired } from "./domain/retiredBalls.js";
+
+import { pinForHand } from "./domain/splits.js";
 import {
   COVERSTOCKS, CORE_TYPES, COVERSTOCK_LABELS, CORE_TYPE_LABELS,
   GROUP_MODES, GROUP_MODE_LABELS, normalizeBallSpecs,
@@ -124,7 +126,7 @@ function LayoutEditor({ layout, onChange }) {
 // because removal deserves an explicit button rather than "tapping the
 // ball itself deletes it", which is easy to do by accident on a phone.
 export default function ArsenalList({
-  ballStats = [],
+  ballStats = [], leftHanded = false,
   activeBowler, balls, ballLayouts, setBallLayout, removeBall,
   retired = {}, setBallRetired, shots = [],
   ballSpecs, setBallSpec, ballGroups, seedDefaultGroups, saveBallGroup, deleteBallGroup,
@@ -232,8 +234,20 @@ export default function ArsenalList({
     if (!b || !b.total) return null;
     const bits = [`${b.total} shot${b.total === 1 ? "" : "s"}`];
     if (b.rate !== null && b.rate !== undefined) bits.push(`${b.rate}% strikes`);
+    // The corner pin, named for the bowler's hand.
+    //
+    // Stored as tenPinRate for everyone -- it is the storage key, and
+    // renaming it for lefties would orphan the data -- but a left-hander
+    // leaves the 7, and calling it a 10 pin on their own gear screen
+    // would be wrong about the one thing this line is for.
+    //
+    // It belongs here more than the spare rate does: which ball keeps
+    // leaving you a corner pin is a question about the ball.
+    if (b.tenPinRate !== null && b.tenPinRate !== undefined) {
+      bits.push(`${b.tenPinRate}% ${pinForHand(10, leftHanded)} pin`);
+    }
     if (b.spareRate !== null && b.spareRate !== undefined) bits.push(`${b.spareRate}% spares`);
-    return bits.join(" \u00b7 ");
+    return bits.join(" · ");
   }
 
   function renderBall(ball) {
