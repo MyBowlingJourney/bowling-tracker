@@ -31,7 +31,7 @@ export default function StatsView({
   compareFriendId, setCompareFriendId, friends=[], onLoadFriendData, onOpenFriends, compareSessions, displayName="",
   statsLeague, setStatsLeague,
   compareLeague, setCompareLeague, matches,
-  FRAME_POSITION_RELIABILITY_THRESHOLD, SHOT_SAMPLE_THRESHOLD, allFirstBalls, bStats, bowlerLeagueCount,
+  FRAME_POSITION_RELIABILITY_THRESHOLD, allFirstBalls, bStats, bowlerLeagueCount,
   cleanFrameCount, cleanFrameR, compareLabel, firstBallAvg, fivePinAttempts, fivePinMisses,
   framePosition, framePositionGamesLogged, framePositionReliable, frameShots, hideIndividualOnly,
   isTeamView, leaveAvg, mCounts, nonSplitLeaveList, nonStrikeFirstBalls, rng, showTeamCompare,
@@ -464,7 +464,19 @@ showTeamCompare&&(()=>{
                 );
                 byId["teamLeaderboard"] = (
 !statsBowler&&bowlers.length>1&&(()=>{
-                  const leagueBowlers=bowlers.filter(b=>shots.some(s=>s.bowler===b&&(!statsLeague||s.league===statsLeague)));
+                  // Who is ON the leaderboard: anyone with GAMES in this league.
+                  //
+                  // This filtered on shots, which meant a bowler who logs
+                  // game scores and not frames never appeared -- even
+                  // though the column they are ranked by is their average,
+                  // which comes from sessions and needs no shots at all.
+                  //
+                  // Shots are still what the strike-rate tag needs, so
+                  // that shows only for bowlers who have them.
+                  const inLeague=x=>!statsLeague||x.league===statsLeague;
+                  const leagueBowlers=bowlers.filter(b=>
+                    sessions.some(x=>x&&x.bowler===b&&inLeague(x))
+                    ||shots.some(x=>x&&x.bowler===b&&inLeague(x)));
                   if(!leagueBowlers.length)return null;
                   const sorted=[...leagueBowlers].sort((a,b)=>(cAvg(sessions,b,statsLeague)||0)-(cAvg(sessions,a,statsLeague)||0));
                   return(
@@ -479,7 +491,12 @@ showTeamCompare&&(()=>{
                           <div key={b} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"8px"}}>
                             <span style={{fontSize:"13px",fontWeight:600}}>{b}</span>
                             <div style={{display:"flex",gap:"6px",alignItems:"center"}}>
-                              <span style={S.tag(C.strike)}>{bStkR}% stk</span>
+                              {/* Only when there are shots behind it. 0% stk for a bowler
+                                  who logs scores only is a claim about their game,
+                                  not a gap in the data. */}
+                              {bShots.length>0&&(
+                                <span style={S.tag(C.strike)}>{bStkR}% stk</span>
+                              )}
                               <span style={{fontSize:"11px",color:C.textMuted}}>{bShots.length} shots</span>
                               <span style={{fontSize:"16px",fontWeight:700,color:avg!=null?C.accent:C.textMuted}}>{avg!=null?avg:"—"}</span>
                             </div>
@@ -898,7 +915,13 @@ fivePinAttempts.length>0&&(
 !hideIndividualOnly&&(
                   <div style={S.card}>
                     <div style={S.label}>By Ball</div>
-                    <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"10px"}}>Under {SHOT_SAMPLE_THRESHOLD} shots on a ball isn't enough to trust the rate yet — flagged rather than hidden, so you can watch it firm up.</div>
+                    {/* The static caption about a 20-shot threshold is gone.
+                        
+                        It rendered unconditionally, so a bowler with 150
+                        shots on every ball still read "under 20 shots isn't
+                        enough to trust the rate" -- a warning about data they
+                        did not have. The per-ball reliable flag already marks
+                        the individual balls that are short. */}
                     {bStats.map(b=>(
                       <div key={b.ball} style={{marginBottom:"14px"}}>
                         <div style={{display:"flex",justifyContent:"space-between",marginBottom:"4px"}}>

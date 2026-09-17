@@ -203,48 +203,6 @@ export default function TrendsView({
           </>
         )}
 
-        {/* How far back. Three ways to say it, because bowlers ask in
-            all three: the last N games, the last N days, or a season
-            between two dates. */}
-        <div style={{ ...S.label, marginTop: "12px" }}>Show</div>
-        <div style={{ ...S.chips, flexWrap: "nowrap", gap: "5px" }}>
-          {TREND_WINDOW_MODES.map(m => (
-            <Chip key={m.id} label={m.label} dense fill
-              selected={trendWindow.mode === m.id}
-              onToggle={() => setTrendWindow(w => ({ ...w, mode: m.id }))} />
-          ))}
-        </div>
-
-        {trendWindow.mode === "games" && (
-          <select style={{ ...S.input, marginTop: "6px" }} value={trendWindow.games}
-            onChange={e => setTrendWindow(w => ({ ...w, games: Number(e.target.value) }))}>
-            {GAME_CHOICES.map(n => (
-              <option key={n} value={n}>Last {n} nights</option>
-            ))}
-          </select>
-        )}
-
-        {trendWindow.mode === "days" && (
-          <select style={{ ...S.input, marginTop: "6px" }} value={trendWindow.days}
-            onChange={e => setTrendWindow(w => ({ ...w, days: Number(e.target.value) }))}>
-            {DAY_CHOICES.map(n => (
-              <option key={n} value={n}>Last {n} days</option>
-            ))}
-          </select>
-        )}
-
-        {trendWindow.mode === "range" && (
-          <div style={{ display: "flex", gap: "6px", marginTop: "6px" }}>
-            {/* Either end can be left blank: everything since a date, or
-                everything up to one, are both things people want. */}
-            <input type="date" style={{ ...S.input, flex: 1, minWidth: 0 }}
-              value={trendWindow.from}
-              onChange={e => setTrendWindow(w => ({ ...w, from: e.target.value }))} />
-            <input type="date" style={{ ...S.input, flex: 1, minWidth: 0 }}
-              value={trendWindow.to}
-              onChange={e => setTrendWindow(w => ({ ...w, to: e.target.value }))} />
-          </div>
-        )}
 
         {leagues.length > 0 && (
           <>
@@ -262,11 +220,69 @@ export default function TrendsView({
         )}
       </div>
 
+      {/* How far back, in its own card.
+          
+          It sat with metric, ball and league, which made it look like
+          another thing to filter BY. It is not -- those pick which
+          numbers, this picks how many. Sitting directly above the chart
+          puts it next to the thing it changes.
+          
+          Three ways to say it, because bowlers ask in all three. */}
+      <div style={{ ...S.card, marginBottom: "10px" }}>
+        <div style={S.label}>Show</div>
+          <div style={{ ...S.chips, flexWrap: "nowrap", gap: "5px" }}>
+            {TREND_WINDOW_MODES.map(m => (
+              <Chip key={m.id} label={m.label} dense fill
+                selected={trendWindow.mode === m.id}
+                onToggle={() => setTrendWindow(w => ({ ...w, mode: m.id }))} />
+            ))}
+          </div>
+
+          {trendWindow.mode === "games" && (
+            <select style={{ ...S.input, marginTop: "6px" }} value={trendWindow.games}
+              onChange={e => setTrendWindow(w => ({ ...w, games: Number(e.target.value) }))}>
+              {GAME_CHOICES.map(n => (
+                <option key={n} value={n}>Last {n}</option>
+              ))}
+            </select>
+          )}
+
+          {trendWindow.mode === "days" && (
+            <select style={{ ...S.input, marginTop: "6px" }} value={trendWindow.days}
+              onChange={e => setTrendWindow(w => ({ ...w, days: Number(e.target.value) }))}>
+              {DAY_CHOICES.map(n => (
+                <option key={n} value={n}>Last {n} days</option>
+              ))}
+            </select>
+          )}
+
+          {trendWindow.mode === "range" && (
+            <div style={{ display: "flex", gap: "6px", marginTop: "6px" }}>
+              {/* Either end can be left blank: everything since a date, or
+                  everything up to one, are both things people want. */}
+              <input type="date" style={{ ...S.input, flex: 1, minWidth: 0 }}
+                value={trendWindow.from}
+                onChange={e => setTrendWindow(w => ({ ...w, from: e.target.value }))} />
+              <input type="date" style={{ ...S.input, flex: 1, minWidth: 0 }}
+                value={trendWindow.to}
+                onChange={e => setTrendWindow(w => ({ ...w, to: e.target.value }))} />
+            </div>
+          )}
+      </div>
+
       <div style={S.card}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "8px" }}>
           <div style={S.label}>{metric?.label}</div>
+          {/* Counts what is DRAWN, not what exists.
+              
+              This read `points`, the unwindowed set, so it sat at the
+              full total however the window was narrowed -- and said
+              "nights" even when the chart was plotting a point per game.
+              
+              describeTrendWindow gives both numbers, so a bowler can tell
+              a short chart from a narrow window. */}
           <div style={{ fontSize: "11px", color: C.textMuted }}>
-            {points.length} night{points.length === 1 ? "" : "s"}
+            {windowNote}
           </div>
         </div>
 
