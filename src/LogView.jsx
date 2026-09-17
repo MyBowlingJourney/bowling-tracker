@@ -376,10 +376,21 @@ export default function LogView({
   const scrollTo=ref=>requestAnimationFrame(()=>requestAnimationFrame(()=>{
     const el=ref.current;
     if(!el)return;
+    // Wrapped, because this runs two frames later.
+    //
+    // By then the view may have unmounted -- ending a session navigates
+    // Home -- and an exception in a requestAnimationFrame callback has
+    // nothing above it to catch it: it surfaces as an unhandled error
+    // with a stack pointing at a timer, which tells a bowler nothing and
+    // told me nothing either until a harness hit it.
+    //
+    // Scrolling is a convenience. Failing to scroll is not worth an error.
+    try{
     const nav=document.querySelector("nav");
     const navTop=window.innerHeight-(nav?nav.getBoundingClientRect().height:64);
     const delta=el.getBoundingClientRect().bottom-(navTop-8);
     if(delta>2)window.scrollBy({top:delta,behavior:"smooth"});
+    }catch{ /* no DOM to scroll */ }
   }));
 
 
@@ -395,11 +406,13 @@ export default function LogView({
   const scrollToTopOf=ref=>requestAnimationFrame(()=>requestAnimationFrame(()=>{
     const el=ref.current;
     if(!el)return;
+    try{
     const header=document.querySelector("header")
       ||document.querySelector("[data-app-header]");
     const headerH=header?header.getBoundingClientRect().height:64;
     const delta=el.getBoundingClientRect().top-(headerH+8);
     if(Math.abs(delta)>2)window.scrollBy({top:delta,behavior:"smooth"});
+    }catch{ /* no DOM to scroll */ }
   }));
 
   // The fields a result reveals, so the next tap is already on screen.
