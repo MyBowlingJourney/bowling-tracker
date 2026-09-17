@@ -103,16 +103,22 @@ function shiftDays(iso, delta) {
 // Says what was EXCLUDED as well as what is in, because a bowler looking
 // at eight points needs to know whether that is all they have or all the
 // window allowed.
-export function describeTrendWindow(window, shown, total) {
+export function describeTrendWindow(window, shown, total, unit) {
   const w = normalizeTrendWindow(window);
   const n = Number(shown) || 0;
   const all = Number(total) || 0;
-  if (w.mode === "all" || n >= all) return `${n} of ${all}`;
+  // "10 of 10" is a number with no noun. The caller says what a point
+  // is, because only it knows -- the same window plots nights normally
+  // and games in every-game mode.
+  const one = clean(unit) || "night";
+  const many = one === "night" ? "nights" : `${one}s`;
+  const noun = all === 1 ? one : many;
+  if (w.mode === "all" || n >= all) return `${n} of ${all} ${noun}`;
   // "Last 10 nights" when plotting nights, but the same window plots
   // games in every-game mode -- so it says neither and gives the count.
-  if (w.mode === "games") return `Last ${w.games} — showing ${n} of ${all}`;
-  if (w.mode === "days") return `Last ${w.days} days — showing ${n} of ${all}`;
+  if (w.mode === "games") return `Last ${w.games} — showing ${n} of ${all} ${noun}`;
+  if (w.mode === "days") return `Last ${w.days} days — showing ${n} of ${all} ${noun}`;
   const from = clean(w.from) || "the start";
   const to = clean(w.to) || "now";
-  return `${from} to ${to} — showing ${n} of ${all}`;
+  return `${from} to ${to} — showing ${n} of ${all} ${noun}`;
 }

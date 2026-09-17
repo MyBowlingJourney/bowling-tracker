@@ -71,9 +71,23 @@ describe('how far back a trend reaches', () => {
 
   // A bowler looking at eight points needs to know whether that is all
   // they have or all the window allowed.
+  // "10 of 10" is a number with no noun, and the noun changes: the same
+  // window plots nights normally and games in every-game mode.
+  it('names what it is counting', () => {
+    expect(describeTrendWindow({ mode: 'all' }, 40, 40, 'night')).toBe('40 of 40 nights');
+    expect(describeTrendWindow({ mode: 'all' }, 120, 120, 'game')).toBe('120 of 120 games');
+    expect(describeTrendWindow({ mode: 'all' }, 1, 1, 'night')).toBe('1 of 1 night');
+    expect(describeTrendWindow({ mode: 'games', games: 10 }, 10, 40, 'game'))
+      .toContain('of 40 games');
+  });
+
+  it('defaults to nights when no unit is given', () => {
+    expect(describeTrendWindow({ mode: 'all' }, 5, 5)).toBe('5 of 5 nights');
+  });
+
   it('says what was left out', () => {
     expect(describeTrendWindow({ mode: 'games', games: 10 }, 10, 40)).toContain('of 40');
-    expect(describeTrendWindow({ mode: 'all' }, 40, 40)).toBe('40 of 40');
+    expect(describeTrendWindow({ mode: 'all' }, 40, 40)).toBe('40 of 40 nights');
   });
 
   it('survives junk', () => {
