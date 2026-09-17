@@ -16,7 +16,7 @@ import ShareButton from "./ShareButton.jsx";
 import { sessionHighlights } from "./domain/shareCard.js";
 import { getManualScore, seriesTotal, getGameEquipment, defaultPracticeBall } from "./domain/manualScores.js";
 import { formatLayout } from "./domain/layouts.js";
-import { otherBowlerSource, scorekeepingHelp, boardMiss } from "./domain/scorekeeping.js";
+import { otherBowlerSource, scorekeepingHelp, boardMiss, acceptBoardKeystroke } from "./domain/scorekeeping.js";
 import { plasticLast } from "./domain/bags.js";
 
 
@@ -2632,7 +2632,8 @@ export default function LogView({
                   <input style={{...S.input,...smallInput,width:"100%"}}
                     type="number" inputMode="numeric" placeholder="board #"
                     value={form.startingBoard}
-                    onChange={e=>editingId?set("startingBoard",e.target.value):handleLineChange("startingBoard",e.target.value)}/>
+                    onChange={e=>{const v=acceptBoardKeystroke(e.target.value); if(v===null)return;
+                      editingId?set("startingBoard",v):handleLineChange("startingBoard",v);}}/>
                 </div>
                 <div style={{display:"grid",
                   gridTemplateColumns:"repeat(2, minmax(0, 1fr))",gap:"8px"}}>
@@ -2641,7 +2642,8 @@ export default function LogView({
                     <input style={{...S.input,...smallInput,width:"100%"}}
                       type="number" inputMode="numeric" placeholder="board #"
                       value={form.targetArrows}
-                      onChange={e=>editingId?set("targetArrows",e.target.value):handleLineChange("targetArrows",e.target.value)}/>
+                      onChange={e=>{const v=acceptBoardKeystroke(e.target.value); if(v===null)return;
+                      editingId?set("targetArrows",v):handleLineChange("targetArrows",v);}}/>
                   </div>
                   <div style={{minWidth:0}}>
                     <div style={fieldHead}>Actual arrows</div>
@@ -2655,7 +2657,7 @@ export default function LogView({
                     <input style={{...S.input,...smallInput,width:"100%"}}
                       type="number" inputMode="numeric" placeholder="board #"
                       value={form.actualArrows}
-                      onChange={e=>set("actualArrows",e.target.value)}/>
+                      onChange={e=>{const v=acceptBoardKeystroke(e.target.value); if(v!==null)set("actualArrows",v);}}/>
                   </div>
                 </div>
                 {(()=>{
