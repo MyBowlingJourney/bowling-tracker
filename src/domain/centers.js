@@ -202,7 +202,7 @@ export function statsByRackType(sessions, shots, leagues, centers, bowler) {
     .filter(s => s.games > 0 || s.strikes > 0);
 }
 
-export function statsByCenter(sessions, leagues, centers, bowler) {
+export function statsByCenter(sessions, leagues, centers, bowler, shots) {
   // Null elements, and a non-list argument, both handled: these
   // lists come from the cloud and one bad row threw.
   leagues = (Array.isArray(leagues) ? leagues : []).filter(x => x && typeof x === "object");
@@ -217,6 +217,28 @@ export function statsByCenter(sessions, leagues, centers, bowler) {
   });
   const centerById = {};
   (centers || []).forEach(c => { centerById[c.id] = c; });
+
+  // Messengers per centre, from the shots.
+  //
+  // The card listed houses and averages with no hint of WHY one carries
+  // better than another, and the biggest reason is the rack: string pins
+  // are tethered, so they deflect differently and messengers are rare.
+  //
+  // shots is optional so existing callers keep working; without it the
+  // rate is simply absent rather than zero, because 0% off no data is not
+  // a fact about pins.
+  const msg = {};
+  (Array.isArray(shots) ? shots : [])
+    .filter(x => x && typeof x === "object")
+    .filter(x => !bowler || x.bowler === bowler)
+    .forEach(x => {
+      const centerId = centerByLeague[x.league];
+      if (!centerId) return;
+      const m = msg[centerId] = msg[centerId] || { strikes: 0, messengers: 0 };
+      if (x.result !== "Strike") return;
+      m.strikes += 1;
+      if (String(x.strikeDescription || "") === "Messenger") m.messengers += 1;
+    });
 
   const buckets = {};
   (sessions || [])
@@ -241,6 +263,11 @@ export function statsByCenter(sessions, leagues, centers, bowler) {
         ? Math.round((b.games.reduce((x, y) => x + y, 0) / b.games.length) * 10) / 10
         : null,
       high: b.games.length ? Math.max(...b.games) : null,
+      // Absent, not zero, when there are no strikes to take a rate of.
+      strikes: msg[centerId]?.strikes || 0,
+      messengerRate: msg[centerId]?.strikes
+        ? Math.round((msg[centerId].messengers / msg[centerId].strikes) * 100)
+        : null,
     }))
     .filter(s => s.center && s.games > 0)
     .sort((a, b) => (b.average ?? 0) - (a.average ?? 0));

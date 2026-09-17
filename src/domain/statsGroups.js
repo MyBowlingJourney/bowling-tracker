@@ -63,6 +63,11 @@ const GROUP_BY_CARD = {
   headToHead: "team",
   giantKiller: "team",
   weeklyPoints: "team",
+  // Win-loss record and hung games are about the MATCH, not the bowler.
+  // They sat in Overview and were gated on no-bowler-selected, so they
+  // were invisible in both places at once.
+  seasonRecord: "team",
+  hung: "team",
   handicapImpact: "team",
 
   // The house and what it was dressed with.
