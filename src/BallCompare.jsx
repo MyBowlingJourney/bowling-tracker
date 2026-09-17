@@ -31,7 +31,19 @@ export default function BallCompare({
   // Lane geometry. Sixty feet deep, thirty-nine boards across, drawn
   // looking down the lane from the approach.
   const W = 300, H = 210, PAD = 8;
-  const x = board => PAD + ((board - 1) / (LANE_BOARDS - 1)) * (W - PAD * 2);
+  // Board 1 is the bowler's OWN gutter. For a right-hander that is the
+  // right-hand side of the lane, so low boards belong on the RIGHT of the
+  // screen -- drawn the other way round, a right-hander's ball swung out
+  // to the left, which is backwards.
+  //
+  // This is the only place handedness is applied. ballLine used to mirror
+  // as well, which flipped it twice and cancelled out.
+  const x = board => {
+    const frac = (board - 1) / (LANE_BOARDS - 1);
+    return leftHanded
+      ? PAD + frac * (W - PAD * 2)
+      : (W - PAD) - frac * (W - PAD * 2);
+  };
   // Down the lane is UP the screen: the bowler stands at the bottom and
   // the pins are at the far end. Drawn the other way it read as a ball
   // travelling towards you, which is nobody's view of a lane.
