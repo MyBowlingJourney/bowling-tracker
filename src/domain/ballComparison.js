@@ -354,3 +354,99 @@ export function laydownBoard(startBoard, opts) {
   // board that does not exist.
   return { slide, laydown: Math.max(1, Math.min(39, slide - off)) };
 }
+
+// How a ball behaves as the night goes on.
+//
+// The question is real and specific: which ball to throw on the fresh,
+// which through transition, which at the end when the heads are gone.
+// A season average over every game answers none of those -- it averages
+// three different lane conditions into one number.
+//
+// Games are grouped into phases rather than reported one by one. Three
+// games is the common league night but not a rule -- some houses bowl
+// four, tournaments bowl more -- so the phases are derived from what was
+// actually bowled rather than hardcoded.
+export const GAME_PHASES = [
+  { id: "fresh", label: "Fresh" },
+  { id: "transition", label: "Transition" },
+  { id: "late", label: "Late" },
+];
+
+// Which phase a game number falls in, given how many were bowled.
+//
+// One game is all fresh. Two splits fresh and late with no transition to
+// speak of. Three or more divides into thirds, so a four-game night puts
+// games 1-2 on the fresh and a six-game block gets two games per phase.
+export function phaseForGame(game, gamesInNight) {
+  const g = num(game);
+  const total = num(gamesInNight);
+  if (g === null || total === null || g < 1 || total < 1) return null;
+  if (total === 1) return "fresh";
+  if (total === 2) return g === 1 ? "fresh" : "late";
+  const third = total / 3;
+  if (g <= third) return "fresh";
+  if (g <= third * 2) return "transition";
+  return "late";
+}
+
+// Per ball, per phase: the same measures the comparison reports.
+//
+// Returns { ball, phases: { fresh: {...}, transition: {...}, late: {...} } }
+// with a phase absent when that ball was not thrown in it.
+export function ballByPhase(shots, opts) {
+  const o = (opts && typeof opts === "object") ? opts : {};
+  const rowsIn = rows(shots);
+
+  // How many games each NIGHT had, so phases mean the same thing on a
+  // three-game league night and a six-game tournament block.
+  const gamesByNight = new Map();
+  for (const s of rowsIn) {
+    const key = `${clean(s.bowler)}|${clean(s.date)}|${clean(s.league)}`;
+    const g = num(s.game);
+    if (g === null) continue;
+    gamesByNight.set(key, Math.max(gamesByNight.get(key) || 0, g));
+  }
+
+  const byBall = new Map();
+  for (const phase of GAME_PHASES) {
+    const inPhase = rowsIn.filter(s => {
+      const key = `${clean(s.bowler)}|${clean(s.date)}|${clean(s.league)}`;
+      return phaseForGame(s.game, gamesByNight.get(key)) === phase.id;
+    });
+    // Reuse the comparison itself, so a phase is scored exactly the way
+    // the season is -- fresh racks only, same measures, no second
+    // implementation to drift out of step.
+    for (const entry of ballComparison(inPhase, { ...o, minShots: 0 })) {
+      const cur = byBall.get(entry.ball) || { ball: entry.ball, phases: {} };
+      cur.phases[phase.id] = entry;
+      byBall.set(entry.ball, cur);
+    }
+  }
+
+  const min = num(o.minShots) ?? 0;
+  return [...byBall.values()]
+    .map(b => ({
+      ...b,
+      total: GAME_PHASES.reduce((n, p) => n + (b.phases[p.id]?.shots || 0), 0),
+    }))
+    .filter(b => b.total >= min)
+    .sort((a, b) => b.total - a.total);
+}
+
+// Which ball leads each phase, when one clearly does.
+export function bestByPhase(byPhase, opts) {
+  // A default parameter covers undefined, not null. Ninth module to hit
+  // this; it never varies.
+  const margin = num((opts && typeof opts === "object") ? opts.margin : null) ?? 8;
+  const out = {};
+  for (const phase of GAME_PHASES) {
+    const ranked = rows(byPhase)
+      .map(b => ({ ball: b.ball, entry: b.phases[phase.id] }))
+      .filter(x => x.entry && x.entry.strikeRate !== null && x.entry.shots >= 10)
+      .sort((a, b) => b.entry.strikeRate - a.entry.strikeRate);
+    out[phase.id] = ranked.length >= 2
+      && (ranked[0].entry.strikeRate - ranked[1].entry.strikeRate) >= margin
+      ? ranked[0].ball : null;
+  }
+  return out;
+}

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   ballComparison, bestByMetric, ballLine, BALL_METRICS, trajectoryPath,
-  catmullRomSegments, laydownBoard,
+  catmullRomSegments, laydownBoard, phaseForGame, ballByPhase, bestByPhase,
   ARROWS_FEET, BREAKPOINT_FEET,
 } from './ballComparison.js';
 import { isSplit, isCornerPinLeave } from './splits.js';
@@ -248,5 +248,74 @@ describe('where the ball lands', () => {
     const line = ballLine({ ball: 'Z', startBoard: 16, arrowBoard: 10 },
       { drift: 2, lateralOffset: 6 });
     expect(line.points[0].board).toBe(12);
+  });
+});
+
+describe('how a ball behaves as the night goes on', () => {
+  // Three games is the common league night but not a rule -- some houses
+  // bowl four, tournaments bowl more -- so phases are derived from what
+  // was actually bowled rather than hardcoded.
+  it('divides a three-game night one game per phase', () => {
+    expect([1, 2, 3].map(g => phaseForGame(g, 3)))
+      .toEqual(['fresh', 'transition', 'late']);
+  });
+
+  it('handles nights that are not three games', () => {
+    expect(phaseForGame(1, 1)).toBe('fresh');
+    expect([1, 2].map(g => phaseForGame(g, 2))).toEqual(['fresh', 'late']);
+    expect([1, 2, 3, 4, 5, 6].map(g => phaseForGame(g, 6)))
+      .toEqual(['fresh', 'fresh', 'transition', 'transition', 'late', 'late']);
+  });
+
+  it('refuses nonsense', () => {
+    expect(phaseForGame(0, 3)).toBe(null);
+    expect(phaseForGame(1, 0)).toBe(null);
+    expect(phaseForGame('', '')).toBe(null);
+  });
+
+  const night = (date, ball, game, strikes) =>
+    Array.from({ length: 10 }, (_, i) => ({
+      bowler: 'R', league: 'L', date, ball, game: String(game),
+      frame: String(i + 1), ballNum: null,
+      result: i < strikes ? 'Strike' : 'Other Leave',
+      otherLeave: i < strikes ? [] : ['10'], spareMade: '',
+    }));
+
+  const shots = [];
+  for (let n = 1; n <= 10; n++) {
+    const d = `2026-01-${String(n).padStart(2, '0')}`;
+    shots.push(...night(d, 'Zen Master', 1, 8), ...night(d, 'Zen Master', 2, 4),
+      ...night(d, 'Zen Master', 3, 4));
+    shots.push(...night(d, 'IQ Tour', 1, 4), ...night(d, 'IQ Tour', 2, 4),
+      ...night(d, 'IQ Tour', 3, 8));
+  }
+  const opts2 = { bowler: 'R', league: 'L', isSplit, isCornerPinLeave };
+
+  it('separates a ball that carries on the fresh from one that carries late', () => {
+    const bp = ballByPhase(shots, opts2);
+    const zen = bp.find(b => b.ball === 'Zen Master');
+    const iq = bp.find(b => b.ball === 'IQ Tour');
+    expect(zen.phases.fresh.strikeRate).toBe(80);
+    expect(zen.phases.late.strikeRate).toBe(40);
+    expect(iq.phases.late.strikeRate).toBe(80);
+  });
+
+  it('names the ball for each phase', () => {
+    const best = bestByPhase(ballByPhase(shots, opts2));
+    expect(best.fresh).toBe('Zen Master');
+    expect(best.late).toBe('IQ Tour');
+  });
+
+  // Both balls strike 40% through transition. Naming one is inventing a
+  // finding from a tie.
+  it('says nothing when a phase is level', () => {
+    expect(bestByPhase(ballByPhase(shots, opts2)).transition).toBe(null);
+  });
+
+  it('survives junk', () => {
+    for (const j of [null, undefined, 'x', 42]) {
+      expect(() => ballByPhase(j, j)).not.toThrow();
+      expect(() => bestByPhase(j, j)).not.toThrow();
+    }
   });
 });
