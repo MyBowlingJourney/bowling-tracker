@@ -10,7 +10,7 @@ import {
 import { lineupSort } from "./domain/leagues.js";
 import { totalMoney } from "./domain/money.js";
 import { isContainerLeague } from "./domain/leagueMembership.js";
-import { anyMoneyGameShown, visibleStatsCardOrder } from "./domain/preferences.js";
+import { anyMoneyGameShown, visibleStatsCardOrder, MOVABLE_STATS_CARDS } from "./domain/preferences.js";
 
 
 import { seasonComparison } from "./domain/scoreInsights.js";
@@ -20,6 +20,12 @@ import { patternAverages, patternVersusOverall } from "./domain/oilPatterns.js";
 import { statsByRackType, rackTypeLabel } from "./domain/centers.js";
 
 import { cardsInGroup } from "./domain/statsGroups.js";
+import { cardHint } from "./domain/cardHints.js";
+
+// Card titles, taken from the same list Settings orders them by, so a
+// card is called one thing in both places.
+const CARD_LABELS = Object.fromEntries(
+  (MOVABLE_STATS_CARDS || []).map(c => [c.id, c.label]));
 import BallCompare from "./BallCompare.jsx";
 
 // How the By Ball list can be ordered.
@@ -1588,8 +1594,38 @@ anyMoneyGameShown(preferences)&&statsBowler&&(()=>{
                 // The chips live in the row above this screen, beside
                 // Trends -- two rows of chips stacked was worse than the
                 // long scroll they replaced.
-                const shown = cardsInGroup(renderOrder, statsGroup).filter(id => byId[id]);
-                return (<>{shown.map(id => <Fragment key={id}>{byId[id]}</Fragment>)}</>);
+                const inGroup = cardsInGroup(renderOrder, statsGroup);
+                const shown = inGroup.filter(id => byId[id]);
+                // Cards with nothing to show, and what would fill them.
+                //
+                // An absent card is indistinguishable from one that does
+                // not exist -- a bowler on the Team chip saw four cards
+                // and no sign that five more were waiting on match
+                // results. These say what each one is and what to do.
+                const empty = inGroup
+                  .filter(id => !byId[id])
+                  .map(id => ({ id, hint: cardHint(id), label: CARD_LABELS[id] }))
+                  .filter(x => x.hint && x.label);
+                return (
+                  <>
+                    {shown.map(id => <Fragment key={id}>{byId[id]}</Fragment>)}
+                    {empty.length > 0 && (
+                      <div style={{ ...S.card, opacity: 0.75 }}>
+                        <div style={S.label}>Not yet</div>
+                        {empty.map(x => (
+                          <div key={x.id} style={{ marginBottom: "8px" }}>
+                            <div style={{ fontSize: "13px", fontWeight: 600, color: C.text }}>
+                              {x.label}
+                            </div>
+                            <div style={{ fontSize: "11px", color: C.textMuted, lineHeight: 1.5 }}>
+                              {x.hint}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                );
               })()
             )}
             {onOpenImprove && (
