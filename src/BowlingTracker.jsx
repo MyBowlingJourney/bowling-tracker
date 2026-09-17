@@ -113,6 +113,8 @@ import { hasDuplicateIdentity, mergedBowlers, movedRecords, movedKeyedMap, handl
 import { leaveCauseProfile, missingCauseFields } from "./domain/leaveCauses.js";
 
 import { sessionIsLive } from "./domain/home.js";
+
+import { STATS_GROUPS } from "./domain/statsGroups.js";
 const StatsView = lazyScreen("StatsView", () => import("./StatsView.jsx"));
 const ImportScorecard = lazyScreen("ImportScorecard", () => import("./ImportScorecard.jsx"));
 const Settings = lazyScreen("Settings", () => import("./Settings.jsx"));
@@ -6717,12 +6719,12 @@ export default function BowlingTracker(){
               You're all set
             </div>
             <div style={{fontSize:"15px",color:C.text,lineHeight:1.6,marginBottom:"16px"}}>
-              We know you're itching to bowl, so we won't hold you up.
+              We know you're ready to bowl, so we won't hold you up.
             </div>
             <div style={{fontSize:"14px",color:C.textMuted,lineHeight:1.7,marginBottom:"24px"}}>
-              If you get stuck, there's a search at the top of every screen {"—"} ask it
-              anything and it'll take you there. And if you'd rather be shown around,
-              the tours are in Settings whenever you want them.
+              If you get stuck, there's a search at the top of the screen to help
+              you out. And if you'd rather be shown around, the tours are in
+              Settings whenever you want them.
             </div>
             <button style={{...S.btn("primary"),width:"100%"}}
               onClick={()=>{ setShowWelcome(false); setView("home"); }}>
@@ -7333,9 +7335,27 @@ export default function BowlingTracker(){
 
         {view==="data"&&(
           <div style={{...S.card,paddingTop:"12px",paddingBottom:"12px"}}>
-            <div style={S.chips}>
-              <Chip label="Stats" selected={dataTab==="stats"} onToggle={()=>setDataTab("stats")}/>
-              <Chip label="Trends" selected={dataTab==="trends"} onToggle={()=>setDataTab("trends")}/>
+            {/* One row, not two.
+                
+                "Stats" and "Trends" lived here while the group chips
+                lived inside StatsView, which put two chip rows on top of
+                each other. These are the same kind of choice -- which
+                slice of your numbers am I looking at -- so they belong in
+                the same row.
+                
+                Trends is still its own screen; the rest filter StatsView. */}
+            {/* One row that scrolls, rather than wrapping to two.
+                
+                Six chips come to about 390px and a phone has ~364, so
+                something has to give. Wrapping puts Team on a line of its
+                own under the others, which reads as a separate thing;
+                scrolling keeps them one row, which is what they are. */}
+            <div style={{...S.chips,flexWrap:"nowrap",overflowX:"auto",
+              WebkitOverflowScrolling:"touch"}}>
+              {STATS_GROUPS.map(g=>(
+                <Chip key={g.id} label={g.label} selected={dataTab===g.id}
+                  onToggle={()=>setDataTab(g.id)}/>
+              ))}
             </div>
           </div>
         )}
@@ -7352,13 +7372,16 @@ export default function BowlingTracker(){
             leftHanded={trendsLeftHanded}/>
         )}
 
-        {view==="data"&&dataTab==="stats"&&(
+        {/* Every group except Trends renders StatsView, filtered to that
+            group. Trends has its own screen above. */}
+        {view==="data"&&dataTab!=="trends"&&(
           <StatsView
             // Improve lost its tab; Stats is where a bowler is already
             // asking "why", so the coaching is reached from there.
             onOpenImprove={()=>setView("insights")}
             centerStats={centerStats}
             lanePatterns={lanePatterns}
+            statsGroup={dataTab}
 
             onImportCsv={importCsvNights}
 

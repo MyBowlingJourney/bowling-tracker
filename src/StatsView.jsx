@@ -1,4 +1,4 @@
-import { Fragment, useState } from "react";
+import { Fragment } from "react";
 import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { C, S, F, Chip, CompareBadge, StatLead, StatRow, StatRows, ActionRow } from "./ui.jsx";
 import { PRACTICE_SESSION_KEY, CASUAL_SESSION_KEY, formatDate, STRIKE_DESCRIPTIONS, RELEASES, BALL_CHANGE_REASONS, strikeDescriptionsForHand, storedStrikeDescriptionFor } from "./constants.js";
@@ -19,10 +19,10 @@ import { patternAverages, patternVersusOverall } from "./domain/oilPatterns.js";
 
 import { statsByRackType } from "./domain/centers.js";
 
-import { visibleGroups, cardsInGroup } from "./domain/statsGroups.js";
+import { cardsInGroup } from "./domain/statsGroups.js";
 export default function StatsView({
   // Already passed by BowlingTracker, never read until now.
-  lanePatterns = [], tournaments = [], centers = [],
+  lanePatterns = [], tournaments = [], centers = [], statsGroup = "overview",
   onOpenImprove,
   centerStats,
   preferences,
@@ -93,10 +93,6 @@ export default function StatsView({
   // Records stranded further down, when it's the other half of "how do we
   // stack up" and belongs immediately after the comparison.
   const promoted = ["headToHead", "teamRecords"];
-  // Which group of stats is showing. Local, not a preference: it is
-  // where you are looking right now, not how you like the screen.
-  const [statsGroup, setStatsGroup] = useState("overview");
-
   const renderOrder = comparing
     ? ["viewing", ...promoted, ...baseOrder.filter(id => id !== "viewing" && !promoted.includes(id))]
     : baseOrder;
@@ -177,7 +173,15 @@ bowlers.length>1&&(
                         </optgroup>
                       )}
                     </select>
-                    {(statsBowler||statsLeague)&&(
+                    {/* Comparison is offered from the default view too.
+                        
+                        This required a bowler or league filter first, so a
+                        bowler who had not narrowed anything never saw
+                        "Compare To" at all -- and narrowing is not a
+                        prerequisite for wanting to compare, it is a
+                        separate choice. The comparison already falls back
+                        to the active bowler when no filter is set. */}
+                    {(
                       <>
                         <div style={S.divider}/>
                         <div style={S.label}>Compare To</div>
@@ -1438,24 +1442,11 @@ anyMoneyGameShown(preferences)&&statsBowler&&(()=>{
                 // it. And a chip only appears when its group has a card
                 // that actually rendered: a chip leading to an empty
                 // screen reads as one that failed to load.
-                const groups = visibleGroups(renderOrder, id => !!byId[id]);
-                const active = groups.some(g => g.id === statsGroup)
-                  ? statsGroup
-                  : (groups[0] ? groups[0].id : "overview");
-                const shown = cardsInGroup(renderOrder, active).filter(id => byId[id]);
-                return (
-                  <>
-                    {groups.length > 1 && (
-                      <div style={{ ...S.chips, marginBottom: "10px" }}>
-                        {groups.map(g => (
-                          <Chip key={g.id} label={g.label} selected={active === g.id}
-                            onToggle={() => setStatsGroup(g.id)} />
-                        ))}
-                      </div>
-                    )}
-                    {shown.map(id => <Fragment key={id}>{byId[id]}</Fragment>)}
-                  </>
-                );
+                // The chips live in the row above this screen, beside
+                // Trends -- two rows of chips stacked was worse than the
+                // long scroll they replaced.
+                const shown = cardsInGroup(renderOrder, statsGroup).filter(id => byId[id]);
+                return (<>{shown.map(id => <Fragment key={id}>{byId[id]}</Fragment>)}</>);
               })()
             )}
             {onOpenImprove && (
