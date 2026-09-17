@@ -2470,7 +2470,18 @@ export default function BowlingTracker(){
     if(updated){
       (async()=>{
         const res=await cloudUpdate("bowling_centers",{id:centerId},centerToRow(updated,user?.id||null));
-        if(res&&res.synced&&res.affected===0){
+        // Only re-send a centre WE created.
+        //
+        // A zero-row update means one of two things: the row is missing,
+        // or it belongs to another bowler and RLS hid it. The upsert
+        // fixes the first and is refused for the second -- 42501 on the
+        // USING expression, six times in one day, because nothing stopped
+        // it trying again on the next save.
+        //
+        // createdBy is empty for a centre this device made and has not
+        // synced yet, which is exactly the case the upsert is for.
+        const mine=!updated.createdBy||updated.createdBy===(user?.id||"");
+        if(res&&res.synced&&res.affected===0&&mine){
           await cloudWrite("bowling_centers",centerToRow(updated,user?.id||null));
         }
       })();
