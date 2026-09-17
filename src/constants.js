@@ -150,6 +150,24 @@ export function practiceLeagueDisplayName(name) {
 }
 export const CASUAL_SESSION_KEY = "Just Bowling";
 
+// Where imported nights land when the bowler does not pick a league.
+//
+// A session has to belong to one, and a CSV has no column for it. This
+// is a container like Practice and Just Bowling -- it exists so the rows
+// have somewhere to live, and it is filtered out of league pickers for
+// the same reason: nobody bowls a night "in" it.
+export const IMPORTED_SESSION_KEY = "Imported";
+
+export function importedLeagueCloudName(userId) {
+  return `${IMPORTED_SESSION_KEY}\u00b7${userId}`;
+}
+
+export function isImportedLeagueName(name) {
+  return typeof name === "string"
+    && (name === IMPORTED_SESSION_KEY
+      || name.startsWith(`${IMPORTED_SESSION_KEY}\u00b7`));
+}
+
 // Domain/form constants shared across BowlingTracker.jsx and the view
 // files split out of it. Kept separate from ui.jsx, which is specifically
 // about styling/presentation -- these are actual data values (the set of
