@@ -255,11 +255,18 @@ export function competitiveBadgeHistory(nights, evaluate, seasonIds) {
 
   // Season badges have no single night to attribute, so they carry the
   // most recent night's date rather than a wrong one.
+  //
+  // "First night" is the exception: it has an obvious night, and it is the
+  // FIRST one. Grouped with the rest it was stamped with the most recent
+  // night, so the Journey card told a bowler their first league night was
+  // today -- every week.
   const lastDate = ordered.length ? (ordered[ordered.length - 1].date || null) : null;
+  const firstDate = ordered.length ? (ordered[0].date || null) : null;
+  const FIRST_NIGHT_IDS = new Set(["league-first-night"]);
   for (const id of (Array.isArray(seasonIds) ? seasonIds : [])) {
     if (!out[id] || out[id].count) continue;
     out[id].count = 1;
-    out[id].lastDate = lastDate;
+    out[id].lastDate = FIRST_NIGHT_IDS.has(id) ? firstDate : lastDate;
   }
 
   return out;
