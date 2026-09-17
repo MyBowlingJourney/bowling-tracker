@@ -648,7 +648,16 @@ showTeamCompare&&(()=>{
                       they keep the box row; it just belongs to a card now. */}
                   <div style={S.label}>This season</div>
                   <div style={{display:"flex",gap:"8px"}}>
-                    <div style={S.statBox}><div style={S.statNum}>{tot}</div><div style={S.statLbl}>Shots</div></div>
+                    {/* Average, not shot count.
+                        
+                        A shot total is a measure of how much you have
+                        logged, not how you are bowling -- and this is the
+                        first card on the screen, so it should lead with
+                        the number a bowler actually cares about. */}
+                    <div style={S.statBox}>
+                      <div style={S.statNum}>{cAvg(sessions,statsBowler,statsLeague) ?? "—"}</div>
+                      <div style={S.statLbl}>Average</div>
+                    </div>
                     <div style={S.statBox}>
                       <div style={{...S.statNum,color:C.strike}}>{stkR}%</div>
                       <div style={S.statLbl}>Strike</div>
@@ -1190,7 +1199,7 @@ sessions.length>0&&(()=>{
                     <div style={{display:"flex",justifyContent:"space-between",
                       fontSize:"13px",marginBottom:"4px"}}>
                       <span style={{color:C.textMuted}}>{label}</span>
-                      <span>{b==null?"\u2014":b}{"  \u2192  "}<strong>{a==null?"\u2014":a}</strong></span>
+                      <span>{b==null?"—":b}{"  \u2192  "}<strong>{a==null?"—":a}</strong></span>
                     </div>
                   );
                   return (
