@@ -26,13 +26,11 @@ import {
   MOVABLE_STATS_CARDS,
   TRACKING_MODE_LABELS,
   resetToEnvironmentDefaults,
-  setTrackedField,
   moveStatsCard,
   toggleStatsCardHidden,
   reconcileCardOrder,
   } from "./domain/preferences.js";
 
-const FIELD_LABELS = { surface: "Ball Surface", line: "Line (Board & Arrows)", release: "Release", miss: "Miss Direction", ballSpeed: "Ball Speed", shoes: "Shoes (Heel & Sole)", revRate: "Rev Rate (estimate)", axisRotation: "Axis Rotation (estimate)" , axisTilt: "Axis Tilt (estimate)" };
 const CARD_LABEL_BY_ID = Object.fromEntries(MOVABLE_STATS_CARDS.map(c => [c.id, c.label]));
 
 export default function Settings({
@@ -87,7 +85,7 @@ export default function Settings({
       // rewatch one, and it used to ride on the "reset" id -- so cutting
       // Reset silently cut the tours too.
       ? ["session", "look", "walkthroughs", "diagnostics", "backup", "dangerZone"]
-      : ["session", "look", "trackingDetail", "accessoryFields", "moneyGames", "statsLayout", "backup", "walkthroughs", "diagnostics", "reset", "dangerZone"],
+      : ["session", "look", "trackingDetail", "moneyGames", "statsLayout", "backup", "walkthroughs", "diagnostics", "reset", "dangerZone"],
   };
   const allowed = mode === "leagues" ? cardsFor.leagues : (mode === "settings" ? cardsFor.settings : null);
   const showCard = id => !allowed || allowed.includes(id);
@@ -116,7 +114,7 @@ export default function Settings({
 
   const [expanded, setExpanded] = useState({
     session: true, look: false, trackingDetail: false,
-    accessoryFields: false, moneyGames: false, statsLayout: false,
+    moneyGames: false, statsLayout: false,
     backup: false, reset: false, dangerZone: false,
     // Open by default. The other cards are settings you go
     // looking for; this is the one a lost bowler needs to SEE.
@@ -692,22 +690,10 @@ export default function Settings({
       {/* Not offered in casual: "Just Bowling" exists to be scores-only,
           so a tracking choice there is a control that does nothing. */}
 
-      {showCard("accessoryFields") && (
-      <CollapsibleCard title="Accessory Fields"
-        summary={`${TRACKED_FIELD_KEYS.filter(k => preferences.trackedFields[k]).length} of ${TRACKED_FIELD_KEYS.length} on`}
-        expanded={expanded.accessoryFields} onToggle={() => toggle("accessoryFields")}>
-        <div style={{ fontSize: "12px", color: C.textMuted, marginBottom: "10px" }}>
-          Extra detail per shot. Off by default outside Practice — turn on whichever you actually want to track.
-        </div>
-        <div style={S.chips}>
-          {TRACKED_FIELD_KEYS.map(key => (
-            <Chip key={key} label={FIELD_LABELS[key]} selected={!!preferences.trackedFields[key]}
-              onToggle={() => apply(prev => setTrackedField(prev, key, !prev.trackedFields[key]))}
-              color={C.spare} />
-          ))}
-        </div>
-      </CollapsibleCard>
-      )}
+      {/* The accessory fields card is gone: those nine fields are always
+          on now. They were chips a bowler had to find and switch on
+          before the fields appeared at all, and the log screen scrolls to
+          the next field, so having them present costs little. */}
 
       {showCard("moneyGames") && (
       <CollapsibleCard title="Money Games" summary={preferences.showMoneyGames ? "Shown" : "Hidden"}

@@ -212,6 +212,37 @@ export default function Profile({
           <Chip label="Two-handed / no thumb" selected={profile.twoHanded}
             onToggle={() => update(setProfileField(profile, "twoHanded", true))} />
         </div>
+
+        {/* Where the ball actually lands.
+            
+            The feet board is where you stand, not where the ball touches
+            down. Drift is how far you move between your start and your
+            slide; lateral offset is how far outside the slide the swing
+            puts the ball. Both shift the drawn line by several boards.
+            
+            Blank uses the default for the style, which is why the
+            placeholders show what that default is rather than "0" -- a
+            bowler who has never measured their drift has not measured it
+            as nought. */}
+        <div style={{ ...S.label, marginTop: "14px" }}>Drift (boards)</div>
+        <div style={{ fontSize: "11px", color: C.textMuted, marginBottom: "6px" }}>
+          Boards between where you start and where you slide, counting
+          toward the middle.
+        </div>
+        <input style={S.input} type="number" inputMode="numeric"
+          placeholder={profile.twoHanded ? "10" : "5"}
+          value={profile.driftBoards}
+          onChange={e => update(setProfileField(profile, "driftBoards", e.target.value))} />
+
+        <div style={{ ...S.label, marginTop: "12px" }}>Lateral offset (boards)</div>
+        <div style={{ fontSize: "11px", color: C.textMuted, marginBottom: "6px" }}>
+          How far outside your slide the ball lays down. Usually 4 to 8
+          one-handed, less two-handed.
+        </div>
+        <input style={S.input} type="number" inputMode="numeric"
+          placeholder={profile.twoHanded ? "2" : "6"}
+          value={profile.lateralOffset}
+          onChange={e => update(setProfileField(profile, "lateralOffset", e.target.value))} />
       </CollapsibleCard>
       )}
 

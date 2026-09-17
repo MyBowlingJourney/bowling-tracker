@@ -26,7 +26,7 @@ import { SAMPLE_THRESHOLDS } from "./domain/insightGating.js";
 export default function StatsView({
   // Already passed by BowlingTracker, never read until now.
   lanePatterns = [], tournaments = [], centers = [], statsGroup = "overview",
-  leftHandedForBowler,
+  leftHandedForBowler, ballProfile,
   onOpenImprove,
   centerStats,
   preferences,
@@ -930,7 +930,9 @@ fivePinAttempts.length>0&&(
                 byId["ballCompare"] = (
                   <BallCompare shots={shots} bowler={statsBowler}
                     league={statsLeague}
-                    leftHanded={leftHandedForBowler?.(statsBowler)||false} />
+                    leftHanded={leftHandedForBowler?.(statsBowler)||false}
+                    drift={ballProfile?.driftBoards} twoHanded={!!ballProfile?.twoHanded}
+                    lateralOffset={ballProfile?.lateralOffset} />
                 );
                 byId["byBall"] = (
 !hideIndividualOnly&&(

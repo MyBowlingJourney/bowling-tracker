@@ -7388,6 +7388,8 @@ export default function BowlingTracker(){
 
             leftHandedForBowler={leftHandedForBowler}
 
+            ballProfile={profiles[statsBowler]||myProfile}
+
             onImportCsv={importCsvNights}
 
             centers={centers}
