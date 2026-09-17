@@ -7344,12 +7344,13 @@ export default function BowlingTracker(){
                 the same row.
                 
                 Trends is still its own screen; the rest filter StatsView. */}
-            {/* One row that scrolls, rather than wrapping to two.
+            {/* One row, no scroll.
                 
-                Six chips come to about 390px and a phone has ~364, so
-                something has to give. Wrapping puts Team on a line of its
-                own under the others, which reads as a separate thing;
-                scrolling keeps them one row, which is what they are. */}
+                Six chips fit ~351px of the ~364 a phone gives, which is
+                only true because the first one is "You" rather than
+                "Overview" -- the longer word pushed the row to about 390
+                and forced it to scroll or wrap. Keep them short if any
+                more are added. */}
             <div style={{...S.chips,flexWrap:"nowrap",overflowX:"auto",
               WebkitOverflowScrolling:"touch"}}>
               {STATS_GROUPS.map(g=>(
