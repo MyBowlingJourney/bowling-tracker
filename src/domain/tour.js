@@ -76,7 +76,7 @@ const ALL_STEPS = [
     track: "look",
     tab: "history",
     title: "Calendar and journal",
-    body: "History keeps every night you've bowled, on a calendar you can scroll back through. The journal is yours to write in — what the lanes did, what you changed, what to try next week.",
+    body: "History keeps every night you've bowled, on a calendar you can scroll back through. The journal holds all of your notes from every bowling session, gathered in one place and searchable.",
   },
 
   {
