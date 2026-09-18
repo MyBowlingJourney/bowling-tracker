@@ -6798,12 +6798,11 @@ export default function BowlingTracker(){
           display:"flex",alignItems:"center",justifyContent:"center",padding:"24px"}}>
           <div style={{maxWidth:"420px",width:"100%"}}>
             <div style={{fontSize:"22px",fontWeight:600,color:C.text,marginBottom:"10px"}}>
-              Welcome to {APP_NAME}
+              You're all set
             </div>
             <div style={{fontSize:"15px",color:C.text,lineHeight:1.6,marginBottom:"16px"}}>
-              You're all set, and we know you're keen to get started — so we
-              won't hold you up for long. We'd just like to show you around
-              first.
+              We know you're keen to get started — so we won't hold you up
+              for long. We'd just like to show you around first.
             </div>
             {/* The bargain, stated plainly.
                 
@@ -6812,8 +6811,8 @@ export default function BowlingTracker(){
                 worth it and that none of it is required -- a bowler who
                 logs scores only still gets a working app. */}
             <div style={{fontSize:"14px",color:C.text,lineHeight:1.6,marginBottom:"24px"}}>
-              Document as much or as little as you want. The more you tell
-              us, the more we can give back.
+              And remember, you can document as much or as little as you
+              want. The more you tell us, the more we can give back.
             </div>
             <button style={{...S.btn("primary"),width:"100%"}}
               onClick={()=>{ setShowWelcome(false); startTour(FIRST_TOUR); }}>
@@ -6823,7 +6822,7 @@ export default function BowlingTracker(){
               style={{background:"none",border:"none",color:C.textMuted,cursor:"pointer",
                 fontSize:"13px",marginTop:"14px",padding:"8px",width:"100%",lineHeight:1.5}}
               onClick={()=>{ setShowWelcome(false); setView("home"); scrollToTop(); }}>
-              No thanks — I'll watch these later from the settings menu
+              No thanks — I'll take the tour later from the settings menu
             </button>
           </div>
         </div>
