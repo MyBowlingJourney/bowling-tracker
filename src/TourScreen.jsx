@@ -77,10 +77,22 @@ const label = { ...S.label, fontSize: "10px", marginBottom: "6px" };
 const chip = (sel, col) => ({ ...S.chip(sel, col), fontSize: "10px", padding: "5px 9px" });
 const muted = { fontSize: "10px", color: C.textMuted, fontFamily: F.body };
 
-function Nav({ active, casual }) {
-  const tabs = casual
-    ? [["🎳", "Bowl"], ["📊", "Standings"]]
-    : [["🎳", "Bowl"], ["📖", "History"], ["📈", "Stats"], ["🎯", "Improve"], ["🔒", "Vault"]];
+// The real nav, in the real order.
+//
+// This drew five tabs ending in a Vault that no longer exists, and
+// omitted Gear and Team entirely. Every tour slide carrying it was
+// pointing new bowlers at a row they would never see.
+//
+// Indices, so a screen can say which tab it is standing on:
+//   0 Home  1 Gear  2 Team  3 Stats  4 Improve  5 History
+const NAV_TABS = [
+  ["🏠", "Home"], ["🎒", "Gear"], ["👥", "Team"],
+  ["📈", "Stats"], ["🎯", "Improve"], ["📖", "History"],
+];
+export const TAB_INDEX = { home: 0, gear: 1, team: 2, stats: 3, improve: 4, history: 5, log: 0 };
+
+function Nav({ active }) {
+  const tabs = NAV_TABS;
   return (
     <div style={{
       display: "flex", borderTop: `1px solid ${C.border}`,
@@ -93,7 +105,7 @@ function Nav({ active, casual }) {
         }}>
           <div style={{ fontSize: "13px", opacity: i === active ? 1 : 0.6 }}>{icon}</div>
           <div style={{
-            fontSize: "8px", fontFamily: F.body,
+            fontSize: "7px", fontFamily: F.body,
             color: i === active ? C.accent : C.textMuted,
             fontWeight: i === active ? 700 : 400,
           }}>{name}</div>
@@ -248,1147 +260,437 @@ function ScoreTable({ rows = [] }) {
   );
 }
 
+// A row of stat chips, the way the Stats screen actually lays them out:
+// one row, no scrolling, the selected one filled.
+function Chips({ items, sel = 0 }) {
+  return (
+    <div style={{ display: "flex", gap: "4px" }}>
+      {items.map((t, i) => (
+        <span key={t} style={{ ...chip(i === sel), flex: "1 1 0", minWidth: 0,
+          textAlign: "center", padding: "5px 2px" }}>{t}</span>
+      ))}
+    </div>
+  );
+}
+
+// A labelled field, as the line card draws them.
+function Field({ head, value, lit: on }) {
+  return (
+    <div style={{ flex: "1 1 0", minWidth: 0 }}>
+      <div style={{ fontSize: "8px", color: C.textMuted, fontFamily: F.body, marginBottom: "2px" }}>{head}</div>
+      <div style={{
+        border: `1px solid ${on ? C.accent : C.border}`, borderRadius: "6px",
+        padding: "4px 0", textAlign: "center", fontSize: "11px", fontWeight: 700,
+        color: C.text, fontFamily: F.body,
+        background: on ? C.accent + "18" : "transparent",
+      }}>{value}</div>
+    </div>
+  );
+}
+
+// A row in a list: name on the left, number on the right.
+function Row({ left, right, colour, dim }) {
+  return (
+    <div style={{
+      display: "flex", justifyContent: "space-between", alignItems: "center",
+      fontSize: "10px", fontFamily: F.body, padding: "3px 0",
+      color: dim ? C.textMuted : C.text,
+    }}>
+      <span>{left}</span>
+      <span style={{ fontWeight: 700, color: colour || C.text }}>{right}</span>
+    </div>
+  );
+}
+
+// A small bar, for the comparison slide.
+function Bar({ pct, colour }) {
+  return (
+    <div style={{ height: "6px", borderRadius: "3px", background: C.border, overflow: "hidden" }}>
+      <div style={{ width: `${Math.max(0, Math.min(100, pct))}%`, height: "100%", background: colour || C.accent }} />
+    </div>
+  );
+}
+
 const SCREENS = {
-  // Mirrors the real Home screen: season figures, the journey row, then
-  // the four mode rows in the same order.
+  // ── Look around ───────────────────────────────────────────────────────
   //
-  // This used to draw SessionStart's "Bowling today?" card -- a screen
-  // that no longer exists. The tour was showing new bowlers a picture of
-  // something they would never find, which is worse than showing nothing.
-  home: () => (
-    <Phone title="My Bowling Journey">
+  // Each of these stands on the tab it is describing, so the lit nav
+  // entry and the content agree. That is the whole teaching job: this
+  // row, that screen.
+  "look-score": () => (
+    <Phone title="Bowl">
       <Spot>
         <div style={card}>
-          <div style={label}>This league season</div>
-          <div style={{ display: "flex", gap: "6px", marginTop: "4px" }}>
-            <div style={{ flex: 1, textAlign: "center" }}>
-              <div style={{ fontSize: "15px", fontWeight: 700 }}>196</div>
-              <div style={muted}>Average</div>
-            </div>
-            <div style={{ flex: 1, textAlign: "center" }}>
-              <div style={{ fontSize: "15px", fontWeight: 700 }}>247</div>
-              <div style={muted}>High game</div>
-            </div>
-            <div style={{ flex: 1, textAlign: "center" }}>
-              <div style={{ fontSize: "15px", fontWeight: 700 }}>648</div>
-              <div style={muted}>High series</div>
-            </div>
-          </div>
-        </div>
-        <div style={{ ...card, marginTop: "6px" }}>
-          <div style={{ fontSize: "12px", fontWeight: 700 }}>My journey</div>
-          <div style={muted}>First 600 series · 4 badges</div>
-        </div>
-        <div style={{ marginTop: "6px" }}>
-          {["Practice", "League", "Tournament", "Open bowling"].map(m => (
-            <div key={m} style={{ ...card, marginBottom: "4px", display: "flex",
-              justifyContent: "space-between", fontSize: "12px" }}>
-              <span>{m}</span><span style={muted}>{"›"}</span>
-            </div>
-          ))}
+          <div style={label}>Game 1</div>
+          <Frames highlight={3} />
         </div>
       </Spot>
-    </Phone>
-  ),
-
-  // The scoring screen as it opens: the mode chips across the top.
-  //
-  // "bowl" lost its mock when that slot was rebuilt as the Home screen --
-  // the step still existed and rendered with no picture.
-  bowl: () => (
-    <Phone title="Bowl">
-      <Spot>
-        <div style={{ ...card, marginBottom: "6px" }}>
-          <span style={chip(true)}>Games</span>{" "}
-          <span style={chip(false)}>Drill</span>{" "}
-          <span style={chip(false)}>Results</span>
-        </div>
-      </Spot>
-      <div style={card}>
-        <div style={label}>Enter Game Scores</div>
-        <div style={muted}>Game 1 {"·"} Frame 5 {"·"} Lane 8</div>
-      </div>
-    </Phone>
-  ),
-  // Added with the Journal step, which shipped without one.
-  journal: () => (
-    <Phone title="History">
-      <div style={{ ...card, marginBottom: "6px" }}>
-        <span style={chip(false)}>Sessions</span>{" "}
-        <span style={chip(false)}>Calendar</span>{" "}
-        <span style={chip(true)}>Journal</span>
-      </div>
-      <Spot>
-        {[["Night", "Tue 15 Sep", "Lanes broke down early"],
-          ["Drill", "10 Pin · 9/10", "Kept it in front"],
-          ["Shot", "Game 2, frame 6", "Moved left 2"]].map(([kind, ctx, note]) => (
-          <div key={note} style={{ ...card, marginBottom: "4px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ fontSize: "10px", color: C.accent }}>{kind}</span>
-              <span style={muted}>{ctx}</span>
-            </div>
-            <div style={{ fontSize: "11px", color: C.text }}>{note}</div>
-          </div>
-        ))}
-      </Spot>
-    </Phone>
-  ),
-  // Both ways of logging, on one screen.
-  //
-  // This drew the old "How much detail?" picker -- a setting that no
-  // longer exists, ending with "Switch any time". A bowler following the
-  // tour would have gone looking for a control that is not there.
-  tracking: () => (
-    <Phone title="Bowl">
-      <div style={{ ...card, marginBottom: "6px" }}>
-        <div style={label}>Enter Game Scores</div>
-        <div style={{ display: "flex", gap: "5px", marginTop: "4px" }}>
-          {["213", "196", "203"].map((g, n) => (
-            <div key={n} style={{ ...S.input, flex: 1, padding: "6px 8px",
-              fontSize: "11px", textAlign: "center" }}>{g}</div>
-          ))}
-        </div>
-        <div style={{ ...muted, marginTop: "4px" }}>Three numbers and you're done.</div>
-      </div>
-      <Spot>
-        <div style={card}>
-          <div style={label}>Shot Context</div>
-          <div style={muted}>Game 1 {"·"} Frame 5 {"·"} Lane 8</div>
-          <div style={{ display: "flex", gap: "5px", flexWrap: "wrap", marginTop: "6px" }}>
-            <span style={chip(true)}>Strike</span>
-            <span style={chip(false)}>Weak 10</span>
-            <span style={chip(false)}>Other Leave</span>
-          </div>
-          <div style={{ ...muted, marginTop: "4px" }}>Or log every ball for the detail.</div>
-        </div>
-      </Spot>
-    </Phone>
-  ),
-
-  scoresheet: () => (
-    <Phone title="Bowl">
-      <div style={{ ...card, marginBottom: "6px" }}>
-        <div style={muted}>Game 1 · Frame 5 · Lane 8</div>
-      </div>
-      <Spot>
-        <div style={{ ...card, marginBottom: 0 }}><Frames highlight={2} /></div>
-      </Spot>
-      <Note>Tap any frame to fix it</Note>
-      <div style={{ ...card, marginTop: "8px" }}>
-        <div style={label}>Result</div>
-        <span style={chip(false, C.strike)}>Strike</span>{" "}
-        <span style={chip(false)}>Other Leave</span>
-      </div>
+      <Note>Scores, or every ball</Note>
       <Nav active={0} />
     </Phone>
   ),
 
+  "look-gear": () => (
+    <Phone title="Gear">
+      <Spot>
+        <div style={card}>
+          <div style={label}>League bag · 4 balls</div>
+          <Row left="Bionic" right="15 lb" />
+          <Row left="Phaze II" right="15 lb" />
+          <Row left="Zen Master" right="15 lb" />
+          <Row left="Spare ball" right="15 lb" dim />
+        </div>
+      </Spot>
+      <Note>Layouts, surface, specs</Note>
+      <Nav active={1} />
+    </Phone>
+  ),
+
+  "look-team": () => (
+    <Phone title="Team">
+      <Spot>
+        <div style={card}>
+          <div style={label}>Tuesday House Shot</div>
+          <Row left="Split Happens" right="4 bowlers" />
+        </div>
+        <div style={card}>
+          <div style={label}>Roster</div>
+          <Row left="You" right="215" />
+          <Row left="Rob" right="198" />
+          <Row left="Kim" right="186" />
+        </div>
+      </Spot>
+      <Note>A league first, a team later</Note>
+      <Nav active={2} />
+    </Phone>
+  ),
+
+  "look-stats": () => (
+    <Phone title="Stats">
+      <Spot>
+        <Chips items={["Mine", "Trends", "Team", "Ball", "Game", "Center"]} sel={0} />
+      </Spot>
+      <div style={{ ...card, marginTop: "8px" }}>
+        <div style={label}>Strike rate</div>
+        <Row left="This season" right="61%" colour={C.strike} />
+        <Row left="Last season" right="54%" dim />
+      </div>
+      <Nav active={3} />
+    </Phone>
+  ),
+
+  "look-journey": () => (
+    <Phone title="My Bowling Journey">
+      <Spot>
+        <div style={card}>
+          <div style={{ fontSize: "12px", fontWeight: 700, color: C.text, fontFamily: F.body }}>My journey</div>
+          <Row left="First 200 game" right="4 Mar" colour={C.strike} />
+          <Row left="First 600 series" right="18 Mar" colour={C.strike} />
+          <Row left="First turkey" right="2 Apr" colour={C.strike} />
+        </div>
+        <div style={card}>
+          <div style={label}>Badges</div>
+          <div style={{ display: "flex", gap: "6px", fontSize: "16px" }}>
+            <span>🏆</span><span>🎯</span><span>🔥</span><span style={{ opacity: 0.3 }}>🎳</span>
+          </div>
+        </div>
+      </Spot>
+      <Nav active={0} />
+    </Phone>
+  ),
+
+  "look-calendar": () => (
+    <Phone title="History">
+      <Spot>
+        <div style={card}>
+          <div style={label}>March</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "3px" }}>
+            {Array.from({ length: 21 }, (_, i) => (
+              <div key={i} style={{
+                width: "11px", height: "11px", borderRadius: "3px",
+                background: [1, 8, 15].includes(i) ? C.strike : C.border,
+                opacity: [1, 8, 15].includes(i) ? 1 : 0.45,
+              }} />
+            ))}
+          </div>
+        </div>
+        <div style={card}>
+          <div style={label}>Journal · 18 Mar</div>
+          <div style={muted}>Lanes broke down early. Moved left 3 and it came back.</div>
+        </div>
+      </Spot>
+      <Nav active={5} />
+    </Phone>
+  ),
+
+  // ── Scorekeeping ──────────────────────────────────────────────────────
+  "score-game": () => (
+    <Phone title="Bowl">
+      <Spot>
+        <div style={card}>
+          <div style={label}>Tonight's scores</div>
+          {[["Game 1", "212"], ["Game 2", "187"], ["Game 3", "—"]].map(([g, v]) => (
+            <div key={g} style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "4px" }}>
+              <span style={{ ...muted, flex: 1 }}>{g}</span>
+              <div style={{
+                border: `1px solid ${v === "—" ? C.accent : C.border}`, borderRadius: "6px",
+                padding: "4px 14px", fontSize: "12px", fontWeight: 700,
+                color: v === "—" ? C.textMuted : C.text, fontFamily: F.body,
+              }}>{v}</div>
+            </div>
+          ))}
+        </div>
+      </Spot>
+      <Note>Three numbers and you're done</Note>
+      <Nav active={0} />
+    </Phone>
+  ),
+
+  // The three frame outcomes share a shape on purpose: same card, same
+  // pin rack, different answer. The bowler learns one screen, not three.
   "score-strike": () => (
     <Phone title="Bowl">
-      <div style={{ ...card, marginBottom: "6px" }}><Frames /></div>
-      <ResultCard stage="strike" />
-      <Note>One tap — the app scores it and moves on</Note>
+      <div style={card}>
+        <div style={label}>Frame 4 · Ball 1</div>
+        <Spot>
+          <div style={{ display: "flex", gap: "4px" }}>
+            <span style={chip(true, C.strike)}>Strike</span>
+            <span style={chip(false)}>Weak 10</span>
+            <span style={chip(false)}>Other leave</span>
+          </div>
+        </Spot>
+        <div style={{ marginTop: "8px" }}>
+          <div style={{ ...label, marginBottom: "4px" }}>How it hit</div>
+          <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
+            <span style={chip(true, C.strike)}>Flush</span>
+            <span style={chip(false)}>High</span>
+            <span style={chip(false)}>Messenger</span>
+          </div>
+        </div>
+      </div>
+      <Note>Frame over — no pins to pick</Note>
       <Nav active={0} />
     </Phone>
   ),
 
   "score-spare": () => (
     <Phone title="Bowl">
-      <div style={{ ...card, marginBottom: "6px" }}><Frames /></div>
-      <ResultCard stage="spare" />
-      <div style={muted}>Your first ball is worked out from the pins you left.</div>
+      <div style={card}>
+        <div style={label}>Frame 5 · left standing</div>
+        <Spot><PinRack standing={["10"]} /></Spot>
+        <div style={{ marginTop: "8px" }}>
+          <div style={{ ...label, marginBottom: "4px" }}>Spare Made</div>
+          <div style={{ display: "flex", gap: "4px" }}>
+            <span style={chip(true, C.strike)}>Yes</span>
+            <span style={chip(false)}>No</span>
+          </div>
+        </div>
+      </div>
+      <Note>Tap the pins, then answer</Note>
       <Nav active={0} />
     </Phone>
   ),
 
-  "score-miss": () => (
+  "score-open": () => (
     <Phone title="Bowl">
-      <ResultCard stage="miss" />
       <div style={card}>
-        <div style={label}>Total pins this frame</div>
-        <Spot>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "4px" }}>
-            <div style={{
-              ...S.btn("sm"), padding: "4px 12px", fontSize: "15px",
-              borderRadius: "8px", lineHeight: 1,
-            }}>−</div>
-            <div style={{
-              flex: 1, textAlign: "center", fontSize: "22px",
-              fontWeight: 700, color: C.spare, fontFamily: F.num,
-            }}>9</div>
-            <div style={{
-              ...S.btn("sm"), padding: "4px 12px", fontSize: "15px",
-              borderRadius: "8px", lineHeight: 1,
-            }}>+</div>
+        <div style={label}>Frame 6 · left standing</div>
+        <PinRack standing={["2", "4", "5"]} />
+        <div style={{ marginTop: "8px" }}>
+          <div style={{ ...label, marginBottom: "4px" }}>Spare Made</div>
+          <div style={{ display: "flex", gap: "4px" }}>
+            <span style={chip(false)}>Yes</span>
+            <span style={chip(true, C.miss)}>No</span>
+          </div>
+        </div>
+        <Spot style={{ marginTop: "8px" }}>
+          <div style={{ ...label, marginBottom: "4px" }}>Knocked down</div>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span style={{ ...chip(false), padding: "4px 10px" }}>−</span>
+            <span style={{ fontSize: "14px", fontWeight: 700, color: C.text, fontFamily: F.body }}>2</span>
+            <span style={{ ...chip(false), padding: "4px 10px" }}>+</span>
           </div>
         </Spot>
-        <div style={{ display: "flex", justifyContent: "space-around", marginTop: "4px" }}>
-          <span style={muted}>First ball: <b style={{ color: C.text }}>8</b></span>
-          <span style={muted}>Second ball: <b style={{ color: C.text }}>1</b></span>
-        </div>
-      </div>
-      <Note>Left a 3-10 and knocked one down? That's 9.</Note>
-      <Nav active={0} />
-    </Phone>
-  ),
-
-  // The import screen shows whichever kind the tour is for -- showing a
-  // tournament bowler "League" selected teaches the wrong tap.
-  import: ({ track } = {}) => (
-    <Phone title="Bowl" headerIcon="import">
-      <Note up={false}>Tap Import in the header</Note>
-      <div style={card}>
-        <div style={label}>What are you importing?</div>
-        <div style={{ display: "flex", gap: "5px" }}>
-          <span style={chip(track === "practice")}>Practice</span>
-          <span style={chip(track !== "practice" && track !== "tournament")}>League</span>
-          <span style={chip(track === "tournament")}>Tournament</span>
-        </div>
-      </div>
-      <div style={card}>
-        <div style={label}>Scorecard photos</div>
-        <div style={{ display: "flex", gap: "5px" }}>
-          {[0, 1].map(i => (
-            <div key={i} style={{
-              width: "40px", height: "40px", borderRadius: "6px",
-              background: C.surface, border: `1px solid ${C.border}`,
-              display: "flex", alignItems: "center", justifyContent: "center", fontSize: "15px",
-            }}>🖼️</div>
-          ))}
-        </div>
-        <div style={{ ...muted, marginTop: "6px" }}>
-          Reads your games and frames{track === "tournament" ? ", and your squad's if the card has them" : ", and your teammates'"}.
-        </div>
       </div>
       <Nav active={0} />
     </Phone>
   ),
 
-  history: () => (
-    <Phone title="History">
-      <div style={{ ...card, marginBottom: "6px" }}>
-        {/* The real chips: Sessions, Season, Calendar, Journal. It showed
-            "Sessions / Shots", which has not been the chip row for a
-            while and left Journal invisible in the one picture of History
-            a new bowler sees. */}
-        <span style={chip(true)}>Sessions</span>{" "}
-        <span style={chip(false)}>Season</span>{" "}
-        <span style={chip(false)}>Calendar</span>{" "}
-        <span style={chip(false)}>Journal</span>
-      </div>
-      {[["Tue 15 Sep", "612", "213 · 196 · 203"], ["Tue 8 Sep", "587", "201 · 188 · 198"]].map(([d, tot, games]) => (
-        <div key={d} style={card}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-            <span style={{ fontSize: "11px", fontWeight: 700, color: C.text }}>{d}</span>
-            <span style={{ fontSize: "13px", fontWeight: 700, color: C.accent }}>{tot}</span>
-          </div>
-          <div style={muted}>{games}</div>
-        </div>
-      ))}
-      <Nav active={1} />
-    </Phone>
-  ),
-
-  stats: () => (
-    <Phone title="Stats">
-      {/* The app's deepest screen, so the mock-up shows depth: headline
-          numbers, a trend, per-ball breakdown and spare detail all at
-          once. A single bar chart undersold it. */}
-      <div style={{ ...card, marginBottom: "6px", display: "flex", gap: "5px" }}>
-        {[["204", "average"], ["58%", "strikes"], ["81%", "spares"]].map(([v, l]) => (
-          <div key={l} style={{ flex: 1, textAlign: "center" }}>
-            <div style={{ fontSize: "15px", fontWeight: 700, color: C.accent }}>{v}</div>
-            <div style={{ ...muted, fontSize: "8px" }}>{l}</div>
-          </div>
-        ))}
-      </div>
-      <div style={{ ...card, marginBottom: "6px" }}>
-        <div style={label}>Average over time</div>
-        <div style={{ display: "flex", alignItems: "flex-end", gap: "3px", height: "34px" }}>
-          {[24, 30, 26, 33, 29, 34, 31, 34].map((h, i) => (
-            <div key={i} style={{ flex: 1, height: `${h}px`, borderRadius: "2px 2px 0 0",
-              background: C.accent, opacity: 0.4 + i * 0.07 }} />
-          ))}
-        </div>
-      </div>
-      <div style={{ ...card, marginBottom: "6px" }}>
-        <div style={label}>By ball</div>
-        {[["Phaze II", "62%", 62], ["Ion Max", "54%", 54]].map(([n, v, pct]) => (
-          <div key={n} style={{ marginBottom: "4px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ fontSize: "9px", color: C.text }}>{n}</span>
-              <span style={{ fontSize: "9px", fontWeight: 700, color: C.strike }}>{v}</span>
-            </div>
-            <div style={{ height: "4px", borderRadius: "2px", background: C.border }}>
-              <div style={{ width: `${pct}%`, height: "100%", borderRadius: "2px", background: C.strike }} />
-            </div>
-          </div>
-        ))}
-      </div>
-      <div style={{ ...card, marginBottom: 0 }}>
-        <div style={label}>Spares by split</div>
-        {[["Baby split", "75%"], ["7-10", "0%"], ["Single pin", "92%"]].map(([n, v]) => (
-          <div key={n} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0" }}>
-            <span style={{ fontSize: "9px", color: C.textMuted }}>{n}</span>
-            <span style={{ fontSize: "9px", fontWeight: 600, color: C.text }}>{v}</span>
-          </div>
-        ))}
-      </div>
-      <Note>And a lot more</Note>
-      <Nav active={2} />
-    </Phone>
-  ),
-
-  insights: () => (
-    <Phone title="Improve">
+  "score-results": () => (
+    <Phone title="Bowl">
       <Spot>
-        <div style={{ ...card, marginBottom: 0 }}>
-          <div style={label}>What's costing you pins</div>
-          {/* Written the way the real analysis reads: specific, about
-              this bowler's last few nights, not generic advice. */}
-          {[
-            ["🎯", "Ten pin conversion is 71% over your last four nights — down from 84%. That's your biggest leak right now."],
-            ["🎳", "The Ion Max carries better in game one than game three. Worth a surface change or a ball switch for the transition."],
-            ["📈", "Your third-game average is 11 pins below your first. Fatigue or lane change — worth watching."],
-          ].map(([icon, line]) => (
-            <div key={line} style={{ display: "flex", gap: "6px", padding: "5px 0", borderTop: `1px solid ${C.border}` }}>
-              <span style={{ fontSize: "11px" }}>{icon}</span>
-              <span style={{ fontSize: "10px", color: C.text, lineHeight: 1.4 }}>{line}</span>
-            </div>
-          ))}
-          <div style={{ ...muted, marginTop: "6px" }}>Updated after every night — nothing to press.</div>
-        </div>
-      </Spot>
-      <Nav active={3} />
-    </Phone>
-  ),
-
-  improve: () => (
-    <Phone title="Improve">
-      <Spot>
-        <div style={{ ...card, marginBottom: 0 }}>
-          <div style={label}>Goals</div>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
-            <span style={{ fontSize: "11px", color: C.text }}>Spare conversion</span>
-            <span style={{ fontSize: "11px", fontWeight: 700, color: C.strike }}>72%</span>
-          </div>
-          <div style={{ height: "6px", borderRadius: "3px", background: C.border }}>
-            <div style={{ width: "72%", height: "100%", borderRadius: "3px", background: C.strike }} />
-          </div>
-        </div>
+        <Chips items={["Set up", "Scoring", "Side games", "Results"]} sel={3} />
       </Spot>
       <div style={{ ...card, marginTop: "8px" }}>
-        <div style={label}>Drills</div>
-        <span style={chip(true)}>Start a drill</span>
+        <div style={label}>Tonight</div>
+        <Row left="Games" right="212 · 187 · 226" />
+        <Row left="Series" right="625" colour={C.strike} />
+        <Row left="vs average" right="+18" colour={C.strike} />
+        <Row left="Won" right="$12 (3-6-10)" />
       </div>
-      <Nav active={3} />
+      <Nav active={0} />
     </Phone>
   ),
 
-  arsenal: () => (
-    <Phone title="Vault">
+  // ── AI ────────────────────────────────────────────────────────────────
+  "ai-import-shot": () => (
+    <Phone title="Bowl" headerIcon="import">
       <div style={card}>
-        <div style={label}>Arsenal</div>
-        {/* Real-sounding balls with the specs a bowler actually tracks:
-            surface grit and the layout the driller used. */}
-        {[
-          ["Phaze II", "Solid · 2000 · 60×4×40"],
-          ["Ion Max Pearl", "Pearl · Polish · 55×5×35"],
-          ["Bionic", "Solid · 1500 · 45×4×30"],
-          ["White Dot", "Plastic · spare ball"],
-        ].map(([name, spec]) => (
-          <div key={name} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "4px 0", borderTop: `1px solid ${C.border}` }}>
-            <span style={{ fontSize: "11px", fontWeight: 600, color: C.text }}>{name}</span>
-            <span style={muted}>{spec}</span>
-          </div>
-        ))}
-        <div style={{ ...S.input, padding: "6px 9px", fontSize: "10px", color: C.textMuted, marginTop: "6px" }}>
-          + Add a ball
+        <div style={label}>Scorecard</div>
+        <div style={{
+          border: `1px dashed ${C.accent}`, borderRadius: "8px",
+          padding: "18px 8px", textAlign: "center",
+        }}>
+          <div style={{ fontSize: "22px" }}>📷</div>
+          <div style={{ ...muted, marginTop: "4px" }}>Photograph the monitor</div>
         </div>
       </div>
+      <Note up={false}>The camera icon, top right</Note>
+      <ScoreTable rows={[["You", ["212", "187"]], ["Rob", ["165", "201"]]]} />
+      <Nav active={0} />
+    </Phone>
+  ),
 
+  "ai-import-check": () => (
+    <Phone title="History">
       <Spot>
-        <div style={{ ...card, marginBottom: 0 }}>
-          <div style={label}>Bags</div>
-          <div style={{ display: "flex", gap: "5px", marginBottom: "8px" }}>
-            <span style={chip(true)}>League bag</span>
-            <span style={chip(false)}>Tournament bag</span>
+        <div style={card}>
+          <div style={label}>Imported · waiting on you</div>
+          <Row left="You · 18 Mar" right="212 · 187 · 226" />
+          <Row left="Rob · 18 Mar" right="165 · 201 · 178" />
+          <div style={{ display: "flex", gap: "4px", marginTop: "6px" }}>
+            <span style={chip(true, C.strike)}>Confirm</span>
+            <span style={chip(false)}>Edit</span>
           </div>
-          {/* The league bag holds three; a tournament bag might be capped
-              at four, or two, depending on the event. */}
-          {["Phaze II", "Ion Max Pearl", "White Dot"].map(b => (
-            <div key={b} style={{ fontSize: "10px", color: C.text, padding: "2px 0" }}>✓ {b}</div>
-          ))}
-          <div style={{ ...muted, marginTop: "4px" }}>3 balls · what you bring on Tuesday</div>
         </div>
       </Spot>
-      <Note>Different bags for league and tournament</Note>
+      <Note>Nothing files until you say so</Note>
+      <Nav active={5} />
+    </Phone>
+  ),
+
+  "ai-insights": () => (
+    <Phone title="Improve">
+      <Spot>
+        <div style={card}>
+          <div style={label}>What changed</div>
+          <div style={{ fontSize: "10px", color: C.text, fontFamily: F.body, lineHeight: 1.5 }}>
+            Your Bionic is carrying 8% better than the Phaze II on this pattern — 61% against 53% over 94 first balls.
+          </div>
+        </div>
+      </Spot>
+      <div style={card}>
+        <div style={label}>Not yet</div>
+        <Row left="10 pin conversion" right="18 more" dim />
+      </div>
       <Nav active={4} />
     </Phone>
   ),
 
-  vault: () => (
-    <Phone title="Vault">
+  "ai-brooklyn": () => (
+    <Phone title="Improve">
       <div style={card}>
-        <div style={label}>Leagues</div>
-        <div style={{ fontSize: "11px", fontWeight: 600, color: C.text }}>Tuesday House Shot</div>
-        <div style={muted}>Sunset Lanes · Season ends 12 May</div>
-        <div style={{ ...muted, marginTop: "6px", color: C.text }}>1 team in this league</div>
-        <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "2px" }}>Split Happens · yours</div>
-        <Spot style={{ marginTop: "8px" }}>
-          <div style={{ ...S.input, padding: "6px 9px", fontSize: "11px", color: C.textMuted }}>
-            Add a team to this league
-          </div>
-        </Spot>
-      </div>
-      <Note>Teams live under their league</Note>
-      <Nav active={4} />
-    </Phone>
-  ),
-
-  roster: () => (
-    <Phone title="Vault">
-      <div style={card}>
-        <div style={label}>Split Happens</div>
-        <div style={{ ...muted, marginBottom: "8px" }}>Tuesday · roster in bowling order</div>
-
-        {/* A mixed roster is the normal case, and the thing worth
-            showing: real accounts and placeholders side by side, so a
-            bowler can see that a teammate without the app isn't a
-            blocker. */}
-        {/* Invented names, not real ones. A shipped mock-up shouldn't
-            carry anyone's actual name, and the lineup reads correctly:
-            lead-off first, anchor last. */}
-        {[
-          ["1", "Leadoff Larry", "you", C.accent],
-          ["2", "Brooklyn Barry", "joined", C.strike],
-          ["3", "Tessa Tenpin", "invited · waiting", C.spare],
-          ["4", "Anchor Annie", "invited · waiting", C.spare],
-        ].map(([pos, name, state, col]) => (
-          <div key={name} style={{
-            display: "flex", alignItems: "center", gap: "7px",
-            padding: "5px 0", borderTop: `1px solid ${C.border}`,
-          }}>
-            <span style={{ ...muted, width: "10px" }}>{pos}</span>
-            <span style={{ fontSize: "11px", color: C.text, flex: 1 }}>{name}</span>
-            <span style={{ fontSize: "9px", color: col, fontWeight: 600 }}>{state}</span>
-          </div>
-        ))}
-
-        <Spot style={{ marginTop: "8px" }}>
-          <div>
-            <div style={{ ...S.input, padding: "6px 9px", fontSize: "10px", color: C.textMuted }}>
-              Name
-            </div>
-            <div style={{ ...S.input, padding: "6px 9px", fontSize: "10px", color: C.textMuted, marginTop: "4px" }}>
-              Email
-            </div>
-            {/* The way out when you don't have someone's address. */}
-            <div style={{
-              marginTop: "5px", padding: "5px 8px", borderRadius: "7px", fontSize: "9px",
-              border: `1px solid ${C.accent}`, background: C.accent + "11", color: C.text,
-            }}>
-              ✓ I don't have their email
-            </div>
-            <div style={{
-              marginTop: "4px", padding: "5px 8px", borderRadius: "7px",
-              background: C.surface, border: `1px solid ${C.border}`,
-              display: "flex", justifyContent: "space-between", alignItems: "center",
-            }}>
-              <span style={{ fontFamily: "monospace", fontSize: "11px", fontWeight: 700,
-                letterSpacing: "1px", color: C.accent }}>MX57-D6W7</span>
-              <span style={{ ...muted, fontSize: "8px" }}>text this</span>
-            </div>
-          </div>
-        </Spot>
-      </div>
-      <Note>Log their scores today — they connect when they sign up</Note>
-      <Nav active={4} />
-    </Phone>
-  ),
-
-  "shot-detail": () => (
-    <Phone title="Bowl">
-      <div style={{ ...card, marginBottom: "6px" }}>
-        <div style={label}>Result</div>
-        <span style={chip(false, C.strike)}>Strike</span>{" "}
-        <span style={chip(true, C.spare)}>Other Leave</span>
-      </div>
-      <Spot>
-        <div style={{ ...card, marginBottom: 0 }}>
-          <div style={label}>Pins standing</div>
-          <PinRack standing={["10"]} />
-          <div style={{ ...label, marginTop: "6px" }}>Spare made?</div>
-          <div style={{ display: "flex", gap: "6px" }}>
-            <span style={chip(true, C.strike)}>Yes</span>
-            <span style={chip(false, C.miss)}>No</span>
-          </div>
-          <div style={{ ...muted, marginTop: "8px" }}>
-            Ball: Phaze II · every shot splits your stats by equipment
-          </div>
-        </div>
-      </Spot>
-      <Note>Which pins, and whether you made it</Note>
-      <Nav active={0} />
-    </Phone>
-  ),
-
-  "import-verify": () => (
-    <Phone title="Bowl">
-      <div style={{ ...card, marginBottom: "6px" }}>
-        <div style={label}>Map each column</div>
-        {[["Column 1", "You"], ["Column 2", "Brooklyn Barry"], ["Column 3", "skip"]].map(([c, who]) => (
-          <div key={c} style={{ display: "flex", alignItems: "center", gap: "6px", padding: "3px 0" }}>
-            <span style={{ ...muted, flex: 1 }}>{c}</span>
-            <div style={{ ...S.input, width: "110px", padding: "4px 7px", fontSize: "10px", color: C.text }}>
-              {who}
-            </div>
-          </div>
-        ))}
-      </div>
-      <Spot>
-        <div style={{ ...card, marginBottom: 0 }}>
-          <div style={label}>Check what it read</div>
-          <div style={{ display: "flex", gap: "5px" }}>
-            {["213", "196", "203"].map((v, i) => (
-              <div key={i} style={{ ...S.input, flex: 1, padding: "6px 4px", textAlign: "center",
-                fontSize: "13px", fontWeight: 700, color: C.text }}>{v}</div>
-            ))}
-          </div>
-          <div style={{ ...muted, marginTop: "6px" }}>Fix anything misread before it saves.</div>
-        </div>
-      </Spot>
-      <Note>A proposal, not a fact</Note>
-      <Nav active={0} />
-    </Phone>
-  ),
-
-  "practice-goals": () => (
-    <Phone title="Bowl">
-      <Spot>
-        <div style={{ ...card, marginBottom: 0 }}>
-          <div style={label}>Goal</div>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
-            <span style={{ fontSize: "11px", color: C.text }}>Ten pin conversion</span>
-            <span style={{ fontSize: "11px", fontWeight: 700, color: C.strike }}>84%</span>
-          </div>
-          <div style={{ height: "6px", borderRadius: "3px", background: C.border, marginBottom: "8px" }}>
-            <div style={{ width: "84%", height: "100%", borderRadius: "3px", background: C.strike }} />
-          </div>
-          <div style={{ fontSize: "11px", color: C.text, lineHeight: 1.4 }}>
-            Make 9 of your next 10 ten pins — 1 more than you are now.
-          </div>
-        </div>
-      </Spot>
-      <Note>In bowling terms, not percentages</Note>
-      <Nav active={0} />
-    </Phone>
-  ),
-
-  "practice-fields": () => (
-    <Phone title="Bowl" headerIcon="settings">
-      {/* Sits hard against the header so its arrow points at the gear
-          directly above it -- "in Settings" shouldn't send anyone
-          hunting. Right-aligned to sit under the icon itself. */}
-      <div style={{ textAlign: "right", marginTop: "-6px", marginBottom: "8px" }}>
-        <span style={{ fontSize: "11px", fontWeight: 700, color: C.accent }}>
-          Settings lives here ▲
-        </span>
-      </div>
-      <Spot>
-        <div style={{ ...card, marginBottom: 0 }}>
-          <div style={label}>This shot</div>
-          {[["Ball speed", "16.2 mph"], ["Rev rate", "340"], ["Axis rotation", "45°"], ["Board at arrows", "10"]].map(([n, v]) => (
-            <div key={n} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", borderTop: `1px solid ${C.border}` }}>
-              <span style={{ fontSize: "10px", color: C.textMuted }}>{n}</span>
-              <span style={{ fontSize: "10px", fontWeight: 600, color: C.text }}>{v}</span>
-            </div>
-          ))}
-          {/* Four rows plus an ellipsis: showing a closed list made it
-              look like that was all of them. */}
-          <div style={{ ...muted, padding: "4px 0", borderTop: `1px solid ${C.border}` }}>
-            …and more in Settings
-          </div>
-        </div>
-      </Spot>
-      <Note>Turn on only what you're working on</Note>
-      <Nav active={0} />
-    </Phone>
-  ),
-
-
-  // ── Just bowling ──────────────────────────────────────────────────
-
-  "casual-scores": () => (
-    <Phone title="Bowl" casual>
-      <Spot>
-        <div style={{ ...card, marginBottom: 0 }}>
-          <div style={label}>Scores</div>
-          <ScoreTable rows={[
-            ["You", ["142", "168"]],
-            ["Sam", ["120", "99"]],
-            ["Jess", ["161", ""]],
-          ]} />
-          {/* The real table opens at two games and grows on request. */}
-          <div style={{ ...S.input, padding: "5px", marginTop: "5px", fontSize: "9px",
-            textAlign: "center", color: C.textMuted }}>
-            + Add a game
-          </div>
-        </div>
-      </Spot>
-      <Note>Totals add themselves</Note>
-      <Nav active={0} casual />
-    </Phone>
-  ),
-
-  // The scoring table both casual steps describe: names frozen on the
-  // left, games across, totals pinned right.
-  "casual-people": () => (
-    <Phone title="Bowl" casual>
-      <div style={{ ...card, marginBottom: "6px" }}>
-        <div style={label}>Scores</div>
-        <ScoreTable rows={[["You", ["", ""]], ["Sam", ["", ""]], ["Jess", ["", ""]]]} />
-      </div>
-      <Spot>
-        <div style={{ ...S.input, padding: "7px 9px", fontSize: "10px", color: C.textMuted }}>
-          Add someone bowling with you
-        </div>
-      </Spot>
-      <Note>Each person becomes a row</Note>
-      <Nav active={0} casual />
-    </Phone>
-  ),
-
-  "casual-winner": () => (
-    <Phone title="Bowl" casual>
-      <Spot>
-        <div style={{ ...card, marginBottom: 0 }}>
-          <div style={{ textAlign: "center", marginBottom: "8px" }}>
-            <div style={{ fontSize: "22px" }}>👑</div>
-            <div style={{ fontSize: "13px", fontWeight: 700, color: C.text }}>Jess</div>
-            <div style={muted}>486 · won by 31</div>
-          </div>
-          {[["Sam", "455"], ["You", "441"], ["Marcus", "398"]].map(([n, sc]) => (
-            <div key={n} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", borderTop: `1px solid ${C.border}` }}>
-              <span style={{ fontSize: "11px", color: C.text }}>{n}</span>
-              <span style={muted}>{sc}</span>
-            </div>
-          ))}
-        </div>
-      </Spot>
-      <Note>Worked out for you</Note>
-      <Nav active={0} casual />
-    </Phone>
-  ),
-
-  "casual-standings": () => (
-    <Phone title="Standings" casual>
-      <Spot>
-        <div style={{ ...card, marginBottom: 0 }}>
-          <div style={label}>Standings</div>
-          {[["👑", "Jess", "168", "12 games", "best 201"],
-            ["2", "You", "155", "12 games", "best 178"],
-            ["3", "Sam", "131", "9 games", "best 152"]].map(([pos, name, avg, games, best]) => (
-            <div key={name} style={{ padding: "5px 0", borderTop: `1px solid ${C.border}` }}>
-              <div style={{ display: "flex", alignItems: "baseline", gap: "6px" }}>
-                <span style={{ ...muted, width: "14px" }}>{pos}</span>
-                <span style={{ flex: 1, fontSize: "11px", fontWeight: 600, color: C.text }}>{name}</span>
-                <span style={{ fontSize: "13px", fontWeight: 700, color: C.text }}>{avg}</span>
-              </div>
-              <div style={{ ...muted, paddingLeft: "20px" }}>{games} · {best}</div>
-            </div>
-          ))}
-        </div>
-      </Spot>
-      <Note>Games bowled sits next to the average</Note>
-      <Nav active={1} casual />
-    </Phone>
-  ),
-
-  "casual-badges": () => (
-    <Phone title="Standings" casual>
-      <div style={{ ...card, marginBottom: "6px" }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: "6px", marginBottom: "6px" }}>
-          <span style={{ fontSize: "11px", fontWeight: 600, color: C.text, flex: 1 }}>Sam</span>
-          <span style={{ fontSize: "13px", fontWeight: 700, color: C.text }}>131</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px" }}>
+          <span style={{ fontSize: "14px" }}>🧞‍♀️</span>
+          <span style={{ fontSize: "11px", fontWeight: 700, color: C.text, fontFamily: F.body }}>Brooklyn</span>
+          <span style={{ ...muted, marginLeft: "auto" }}>2 wishes left today</span>
         </div>
         <Spot>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "3px", padding: "2px" }}>
-            {[["🎳", "First night"], ["1️⃣", "Triple figures"], ["🚀", "Comeback"],
-              ["🕳️", "Rough night"], ["🥄", "Wooden spoon"]].map(([e, n]) => (
-              <span key={n} style={{
-                fontSize: "8px", padding: "2px 5px", borderRadius: "8px",
-                background: C.surface, border: `1px solid ${C.border}`, color: C.textMuted,
-                whiteSpace: "nowrap",
-              }}>{e} {n}</span>
-            ))}
+          <div style={{
+            border: `1px solid ${C.border}`, borderRadius: "8px", padding: "6px 8px",
+            fontSize: "10px", color: C.textMuted, fontFamily: F.body,
+          }}>
+            Which ball should I start on next week?
           </div>
         </Spot>
+        <div style={{ fontSize: "10px", color: C.text, fontFamily: F.body, marginTop: "6px", lineHeight: 1.5 }}>
+          On a 37-foot pattern you've struck more with the Bionic every time out. Start there.
+        </div>
       </div>
-      <div style={{ ...muted, textAlign: "center" }}>
-        Even the worst night earns something.
-      </div>
-      <Nav active={1} casual />
+      <Nav active={4} />
     </Phone>
   ),
 
-  "casual-share": () => (
-    <Phone title="Bowl" casual>
-      <div style={{ ...card, marginBottom: "8px", textAlign: "center" }}>
-        <div style={{ fontSize: "10px", fontWeight: 700, color: C.accent, letterSpacing: "1px" }}>
-          FRIDAY NIGHT
-        </div>
-        <div style={{ fontSize: "18px" }}>👑</div>
-        <div style={{ fontSize: "12px", fontWeight: 700, color: C.text }}>Jess · 486</div>
-        <div style={{ ...muted, marginTop: "3px" }}>Sam 455 · You 441 · Marcus 398</div>
-      </div>
+  // ── Stats ─────────────────────────────────────────────────────────────
+  "stats-breakdown": () => (
+    <Phone title="Stats">
       <Spot>
-        <div style={{ ...S.btn("primary"), padding: "9px", fontSize: "11px", textAlign: "center", borderRadius: "8px" }}>
-          Share
-        </div>
+        <Chips items={["Mine", "Trends", "Team", "Ball", "Game", "Center"]} sel={3} />
       </Spot>
-      <Note>Straight to the group chat</Note>
-      <Nav active={0} casual />
-    </Phone>
-  ),
-
-  // ── Practice ──────────────────────────────────────────────────────
-
-  "practice-modes": () => (
-    <Phone title="Bowl">
-      <Spot>
-        <div style={{ ...card, marginBottom: 0 }}>
-          <div style={label}>Practice</div>
-          <div style={{ display: "flex", gap: "5px" }}>
-            <span style={chip(true)}>Games</span>
-            <span style={chip(false)}>Drill</span>
-          </div>
-          <div style={{ ...muted, marginTop: "8px" }}>Tracking tonight</div>
-          <div style={{ display: "flex", gap: "5px", marginTop: "4px" }}>
-            <span style={chip(true)}>Frame tracking</span>
-            <span style={chip(false)}>Scores only</span>
-          </div>
-        </div>
-      </Spot>
-      <Note>A normal night, or targeted work</Note>
-      <Nav active={0} />
-    </Phone>
-  ),
-
-  "practice-drill": () => (
-    <Phone title="Bowl">
-      <div style={{ ...card, marginBottom: "6px" }}>
-        <div style={label}>Drill</div>
-        <div style={{ display: "flex", gap: "5px" }}>
-          <span style={chip(false)}>Games</span>
-          <span style={chip(true)}>Drill</span>
-        </div>
+      <div style={{ ...card, marginTop: "8px" }}>
+        <div style={label}>By ball · strike rate</div>
+        <Row left="Bionic" right="61%" colour={C.strike} />
+        <Row left="Phaze II" right="53%" />
+        <Row left="Zen Master" right="47%" />
       </div>
-      <Spot>
-        <div style={{ ...card, marginBottom: 0 }}>
-          <div style={{ fontSize: "11px", fontWeight: 700, color: C.text, marginBottom: "6px" }}>
-            10 pin
-          </div>
-          <div style={{ display: "flex", gap: "6px", marginBottom: "8px" }}>
-            <div style={{ flex: 1, padding: "8px", borderRadius: "8px", textAlign: "center",
-              border: `1px solid ${C.strike}66`, background: C.strike + "12" }}>
-              <div style={{ fontSize: "16px", fontWeight: 700, color: C.strike }}>14</div>
-              <div style={muted}>made</div>
-            </div>
-            <div style={{ flex: 1, padding: "8px", borderRadius: "8px", textAlign: "center",
-              border: `1px solid ${C.border}` }}>
-              <div style={{ fontSize: "16px", fontWeight: 700, color: C.miss }}>6</div>
-              <div style={muted}>missed</div>
-            </div>
-          </div>
-          <div style={{ ...muted, textAlign: "center" }}>70% tonight · 61% last week</div>
-        </div>
-      </Spot>
-      <Note>No frames, no score — just the count</Note>
-      <Nav active={0} />
+      <Nav active={3} />
     </Phone>
   ),
 
-  "practice-depth": () => (
-    <Phone title="Bowl">
+  "stats-compare": () => (
+    <Phone title="Stats">
       <div style={card}>
-        <div style={label}>Tracking tonight</div>
-        <div style={{ display: "flex", gap: "5px", marginBottom: "8px" }}>
-          <span style={chip(false)}>Frame tracking</span>
-          <span style={chip(true)}>Scores only</span>
+        <div style={label}>You vs Split Happens</div>
+        <div style={{ marginBottom: "6px" }}>
+          <Row left="You" right="61%" colour={C.strike} />
+          <Bar pct={61} colour={C.strike} />
         </div>
-        <div style={{ ...muted, lineHeight: 1.4 }}>
-          Applies to this practice only.
+        <div style={{ marginBottom: "6px" }}>
+          <Row left="Rob" right="48%" />
+          <Bar pct={48} />
+        </div>
+        <div>
+          <Row left="Team average" right="52%" dim />
+          <Bar pct={52} colour={C.textMuted} />
         </div>
       </div>
-      <Spot>
-        <div style={{ ...card, marginBottom: 0 }}>
-          <div style={label}>Your league nights</div>
-          <div style={{ display: "flex", gap: "5px" }}>
-            <span style={chip(true)}>Frame tracking</span>
-            <span style={chip(false)}>Scores only</span>
-          </div>
-          <div style={{ ...muted, marginTop: "6px" }}>Unchanged</div>
-        </div>
-      </Spot>
-      <Note>Remembered separately</Note>
-      <Nav active={0} />
-    </Phone>
-  ),
-
-  // ── Tournament ────────────────────────────────────────────────────
-
-  "tourney-setup": () => (
-    <Phone title="Bowl">
-      <div style={{ ...card, marginBottom: "6px" }}>
-        <div style={label}>Tournament</div>
-        <div style={{ fontSize: "11px", fontWeight: 600, color: C.text }}>Spring Open · Sunset Lanes</div>
-      </div>
-      <Spot>
-        <div style={{ ...card, marginBottom: 0 }}>
-          <div style={label}>Blocks</div>
-          {[["Day 1 · Squad A", "8 games · lanes 11-12"],
-            ["Day 2 · Squad B", "8 games · lanes 3-4"]].map(([n, d]) => (
-            <div key={n} style={{ padding: "4px 0", borderTop: `1px solid ${C.border}` }}>
-              <div style={{ fontSize: "11px", fontWeight: 600, color: C.text }}>{n}</div>
-              <div style={muted}>{d}</div>
-            </div>
-          ))}
-        </div>
-      </Spot>
-      <Note>A block per day, games underneath</Note>
-      <Nav active={0} />
-    </Phone>
-  ),
-
-  "tourney-cut": () => (
-    <Phone title="Bowl">
-      <Spot>
-        <div style={{ ...card, marginBottom: 0 }}>
-          <div style={label}>Cut line</div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "6px" }}>
-            <span style={{ fontSize: "22px", fontWeight: 700, color: C.strike }}>+47</span>
-            <span style={muted}>through 5 of 8</span>
-          </div>
-          <div style={{ height: "6px", borderRadius: "3px", background: C.border, marginBottom: "6px" }}>
-            <div style={{ width: "64%", height: "100%", borderRadius: "3px", background: C.strike }} />
-          </div>
-          <div style={{ ...muted, lineHeight: 1.4 }}>
-            Cut at 1680 · you're on 1727. Need 199 average over the last three to stay above it.
-          </div>
-        </div>
-      </Spot>
-      <Note>The number you're actually bowling to</Note>
-      <Nav active={0} />
-    </Phone>
-  ),
-
-  "tourney-pots": () => (
-    <Phone title="Bowl">
-      <Spot>
-        <div style={{ ...card, marginBottom: 0 }}>
-          <div style={label}>Brackets & side pots</div>
-          {[["Brackets ×4", "$20 in", "$60 won", C.strike],
-            ["Eliminator", "$10 in", "—", C.textMuted],
-            ["High game", "$5 in", "$25 won", C.strike]].map(([n, inn, out, col]) => (
-            <div key={n} style={{ display: "flex", alignItems: "baseline", padding: "4px 0", borderTop: `1px solid ${C.border}` }}>
-              <span style={{ fontSize: "10px", color: C.text, flex: 1 }}>{n}</span>
-              <span style={{ ...muted, width: "48px", textAlign: "right" }}>{inn}</span>
-              <span style={{ fontSize: "10px", fontWeight: 700, color: col, width: "58px", textAlign: "right" }}>{out}</span>
-            </div>
-          ))}
-          <div style={{ ...muted, marginTop: "6px", textAlign: "right" }}>$85 won · $35 in · up $50</div>
-        </div>
-      </Spot>
-      <Note>What the weekend actually cost</Note>
-      <Nav active={0} />
-    </Phone>
-  ),
-
-  "tourney-match": () => (
-    <Phone title="Bowl">
-      <div style={{ ...card, marginBottom: "6px" }}>
-        <div style={label}>Match play · round of 16</div>
-      </div>
-      <Spot>
-        <div style={{ ...card, marginBottom: 0 }}>
-          {[["R1 vs J. Carver", "224-198", "W +30", C.strike],
-            ["R2 vs M. Boone", "191-217", "L", C.miss],
-            ["R3 vs T. Willis", "236-205", "W +30", C.strike]].map(([m, sc, res, col]) => (
-            <div key={m} style={{ display: "flex", alignItems: "baseline", padding: "4px 0", borderTop: `1px solid ${C.border}` }}>
-              <span style={{ fontSize: "10px", color: C.text, flex: 1 }}>{m}</span>
-              <span style={{ ...muted, width: "54px", textAlign: "right" }}>{sc}</span>
-              <span style={{ fontSize: "10px", fontWeight: 700, color: col, width: "42px", textAlign: "right" }}>{res}</span>
-            </div>
-          ))}
-          <div style={{ ...muted, marginTop: "6px", textAlign: "right" }}>2-1 · bonus pins included</div>
-        </div>
-      </Spot>
-      <Nav active={0} />
-    </Phone>
-  ),
-
-  "practice-recap": () => (
-    <Phone title="Bowl">
-      <Spot>
-        <div style={{ ...card, marginBottom: 0 }}>
-          <div style={label}>Practice summary</div>
-          <div style={{ fontSize: "11px", fontWeight: 700, color: C.text, marginBottom: "6px" }}>
-            Sun 14 Sep · 2 games + drill
-          </div>
-          {[["Ten pin drill", "14 of 20 · was 11 of 20", C.strike],
-            ["Spare conversion", "81% · up 4", C.strike],
-            ["Goal: ten pins", "84% → 90%", C.spare]].map(([n, v, col]) => (
-            <div key={n} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", borderTop: `1px solid ${C.border}` }}>
-              <span style={{ fontSize: "10px", color: C.textMuted }}>{n}</span>
-              <span style={{ fontSize: "10px", fontWeight: 600, color: col }}>{v}</span>
-            </div>
-          ))}
-        </div>
-      </Spot>
-      <Note>Next week starts with a comparison</Note>
-      <Nav active={0} />
-    </Phone>
-  ),
-
-  "league-recap": () => (
-    <Phone title="Bowl">
-      <Spot>
-        <div style={{ ...card, marginBottom: 0 }}>
-          <div style={label}>Tonight</div>
-          <div style={{ display: "flex", gap: "5px", marginBottom: "8px" }}>
-            {["213", "196", "203"].map(v => (
-              <div key={v} style={{ flex: 1, textAlign: "center", padding: "5px 0",
-                borderRadius: "6px", background: C.surface }}>
-                <div style={{ fontSize: "13px", fontWeight: 700, color: C.text }}>{v}</div>
-              </div>
-            ))}
-            <div style={{ flex: 1, textAlign: "center", padding: "5px 0", borderRadius: "6px",
-              background: C.accent + "18", border: `1px solid ${C.accent}66` }}>
-              <div style={{ fontSize: "13px", fontWeight: 700, color: C.accent }}>612</div>
-            </div>
-          </div>
-          {[["Team", "won 3 of 4"], ["Strikes", "22 · 58%"], ["Spares", "17 of 21"], ["Money games", "up $12.75"], ["Average", "201 → 204"]].map(([n, v]) => (
-            <div key={n} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", borderTop: `1px solid ${C.border}` }}>
-              <span style={{ fontSize: "10px", color: C.textMuted }}>{n}</span>
-              <span style={{ fontSize: "10px", fontWeight: 600, color: C.text }}>{v}</span>
-            </div>
-          ))}
-        </div>
-      </Spot>
-      <Note>One tap to the team chat</Note>
-      <Nav active={0} />
-    </Phone>
-  ),
-
-  "tourney-recap": () => (
-    <Phone title="Bowl">
-      <Spot>
-        <div style={{ ...card, marginBottom: 0 }}>
-          <div style={label}>Spring Open</div>
-          {[["Block 1", "1727 · 8 games"],
-            ["Block 2", "1689 · 8 games"],
-            ["Cut", "made it · +47"],
-            ["Match play", "2-1"],
-            ["Entries & pots", "$35 in · $85 won"]].map(([n, v]) => (
-            <div key={n} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", borderTop: `1px solid ${C.border}` }}>
-              <span style={{ fontSize: "10px", color: C.textMuted }}>{n}</span>
-              <span style={{ fontSize: "10px", fontWeight: 600, color: C.text }}>{v}</span>
-            </div>
-          ))}
-          <div style={{ ...muted, marginTop: "6px", textAlign: "right" }}>Saved as one tournament</div>
-        </div>
-      </Spot>
-      <Nav active={0} />
-    </Phone>
-  ),
-
-  // ── Coach track ───────────────────────────────────────────────────
-  //
-  // These had no mock-ups at all -- I checked every bowler step had one
-  // and never checked the coach track, so all six showed text over blank
-  // space. Same invented names as the roster screen: never a real one.
-
-  "coach-roster": () => (
-    <Phone title="Coach">
-      <Spot>
-        <div style={{ ...card, marginBottom: 0 }}>
-          <div style={label}>Your bowlers</div>
-          {[
-            ["Leadoff Larry", "Ten pin conversion", "72%", "Tue 22nd", C.strike],
-            ["Brooklyn Barry", "Ball speed control", "45%", "Thu 24th", C.spare],
-            ["Tessa Tenpin", "Spare shooting", "88%", "Tue 22nd", C.strike],
-            ["Anchor Annie", "Nothing set", "—", "not booked", C.textMuted],
-          ].map(([name, task, pct, next, col]) => (
-            <div key={name} style={{ padding: "6px 0", borderTop: `1px solid ${C.border}` }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                <span style={{ fontSize: "11px", fontWeight: 600, color: C.text }}>{name}</span>
-                <span style={{ fontSize: "10px", fontWeight: 700, color: col }}>{pct}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={muted}>{task}</span>
-                <span style={muted}>{next}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </Spot>
-      <Note>Everyone, and where they are, on one screen</Note>
+      <Note up={false}>Same measure, same scale</Note>
       <Nav active={3} />
     </Phone>
   ),
 
-  "coach-open": () => (
-    <Phone title="Coach">
-      <div style={{ ...card, marginBottom: "6px" }}>
-        <div style={{ fontSize: "12px", fontWeight: 700, color: C.text }}>Leadoff Larry</div>
-        <div style={muted}>Tuesday House Shot · 14 nights logged</div>
-      </div>
+  "stats-thresholds": () => (
+    <Phone title="Stats">
       <Spot>
-        <div style={{ ...card, marginBottom: 0 }}>
-          <div style={label}>Spare conversion by split</div>
-          {[["Baby split", "3-10", "75%", C.strike],
-            ["7-10", "", "0%", C.miss],
-            ["Big four", "4-6-7-10", "20%", C.miss]].map(([n, pins, r, col]) => (
-            <div key={n} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0" }}>
-              <span style={{ fontSize: "10px", color: C.text }}>
-                {n} {pins && <span style={{ color: C.textMuted }}>{pins}</span>}
-              </span>
-              <span style={{ fontSize: "10px", fontWeight: 700, color: col }}>{r}</span>
-            </div>
-          ))}
+        <div style={card}>
+          <div style={label}>Ball comparison · locked</div>
+          <Row left="Bionic" right="94 of 50 ✓" colour={C.strike} />
+          <Row left="Zen Master" right="31 of 50" dim />
+          <div style={{ ...muted, marginTop: "6px" }}>19 more first balls with the Zen Master.</div>
         </div>
       </Spot>
-      <Note>Their logged data, not a summary they typed</Note>
-      <Nav active={3} />
-    </Phone>
-  ),
-
-  "coach-tasks": () => (
-    <Phone title="Coach">
-      <div style={{ ...card, marginBottom: "6px" }}>
-        <div style={muted}>Task for Leadoff Larry</div>
-      </div>
-      <Spot>
-        <div style={{ ...card, marginBottom: 0 }}>
-          <div style={label}>What to work on</div>
-          <div style={{ ...S.input, padding: "6px 9px", fontSize: "11px", color: C.text, marginBottom: "5px" }}>
-            Ten pin conversion
-          </div>
-          <div style={{ display: "flex", gap: "5px" }}>
-            <div style={{ ...S.input, flex: 1, padding: "6px 9px", fontSize: "11px", color: C.text }}>90%</div>
-            <div style={{ ...S.input, flex: 1, padding: "6px 9px", fontSize: "11px", color: C.text }}>by the 15th</div>
-          </div>
-          <div style={{ ...muted, marginTop: "8px", lineHeight: 1.4 }}>
-            They'll see: <span style={{ color: C.text }}>"Make 9 of your next 10 ten pins"</span>
-          </div>
-        </div>
-      </Spot>
-      <Note>Set in numbers, shown to them in bowling terms</Note>
-      <Nav active={3} />
-    </Phone>
-  ),
-
-  "coach-goals": () => (
-    <Phone title="Coach">
-      <div style={{ ...card, marginBottom: "6px" }}>
-        <div style={muted}>Goal for Tessa Tenpin</div>
-      </div>
-      <Spot>
-        <div style={{ ...card, marginBottom: 0 }}>
-          <div style={label}>Their goals</div>
-          {[["Spare conversion", "88%", 88], ["Average", "184 / 190", 72]].map(([n, v, pct]) => (
-            <div key={n} style={{ marginBottom: "7px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "3px" }}>
-                <span style={{ fontSize: "10px", color: C.text }}>{n}</span>
-                <span style={{ fontSize: "10px", fontWeight: 700, color: C.strike }}>{v}</span>
-              </div>
-              <div style={{ height: "5px", borderRadius: "3px", background: C.border }}>
-                <div style={{ width: `${pct}%`, height: "100%", borderRadius: "3px", background: C.strike }} />
-              </div>
-            </div>
-          ))}
-          <div style={{ ...S.input, padding: "6px 9px", fontSize: "10px", color: C.textMuted, marginTop: "6px" }}>
-            + Set another goal
-          </div>
-        </div>
-      </Spot>
-      <Note>The same number you both watch between sessions</Note>
-      <Nav active={3} />
-    </Phone>
-  ),
-
-  "coach-session": () => (
-    <Phone title="Coach">
-      <div style={{ ...card, marginBottom: "6px" }}>
-        <div style={muted}>Next session with Brooklyn Barry</div>
-      </div>
-      <Spot>
-        <div style={{ ...card, marginBottom: 0 }}>
-          <div style={label}>When</div>
-          <div style={{ ...S.input, padding: "6px 9px", fontSize: "11px", color: C.text, marginBottom: "6px" }}>
-            Thu 24 Sep
-          </div>
-          <div style={label}>What you'll cover</div>
-          <div style={{ ...S.input, padding: "6px 9px", fontSize: "10px", color: C.textMuted }}>
-            Speed control off the 4th arrow
-          </div>
-        </div>
-      </Spot>
-      <Nav active={3} />
-    </Phone>
-  ),
-
-  "coach-between": () => (
-    <Phone title="Coach">
-      <div style={{ ...card, marginBottom: "6px" }}>
-        <div style={label}>Since you last saw them</div>
-      </div>
-      <Spot>
-        <div style={{ ...card, marginBottom: 0 }}>
-          {[["Leadoff Larry", "3 nights · ten pins 64% → 72%", C.strike],
-            ["Tessa Tenpin", "2 nights · average up 6 pins", C.strike],
-            ["Anchor Annie", "1 night · spares slipped to 61%", C.miss]].map(([n, change, col]) => (
-            <div key={n} style={{ padding: "5px 0", borderTop: `1px solid ${C.border}` }}>
-              <div style={{ fontSize: "11px", fontWeight: 600, color: C.text }}>{n}</div>
-              <div style={{ fontSize: "10px", color: col }}>{change}</div>
-            </div>
-          ))}
-        </div>
-      </Spot>
-      <Note>Already there when you arrive</Note>
-      <Nav active={3} />
-    </Phone>
-  ),
-
-  money: () => (
-    <Phone title="Bowl">
       <div style={card}>
-        <div style={label}>Money games tonight</div>
-        <div style={{ ...muted, marginBottom: "8px" }}>Tap the ones you're in.</div>
-        {[["Quarter game", true, "0.25"], ["Dollar game", true, "1.00"], ["High game", false, "2.00"]]
-          .map(([name, on, amt]) => (
-            <div key={name} style={{ display: "flex", gap: "5px", marginBottom: "5px" }}>
-              <div style={{
-                flex: 1, padding: "5px 8px", borderRadius: "7px", fontSize: "10px",
-                border: `1px solid ${on ? C.strike + "66" : C.border}`,
-                background: on ? C.strike + "11" : "transparent",
-                color: on ? C.text : C.textMuted,
-              }}>{on ? "✓ " : ""}{name}</div>
-              <div style={{
-                width: "48px", padding: "5px", borderRadius: "7px", textAlign: "right",
-                border: `1px solid ${C.border}`, background: C.surface,
-                fontSize: "10px", color: C.text,
-              }}>${amt}</div>
-            </div>
-          ))}
-        <div style={{ ...muted, marginTop: "6px" }}>3 games tonight · $3.75 paid in</div>
+        <div style={label}>Questions it can answer</div>
+        <div style={{ fontSize: "10px", color: C.text, fontFamily: F.body, lineHeight: 1.6 }}>
+          Which ball carries best?<br />Where is a spare leaking?<br />Do I fall off in game three?
+        </div>
       </div>
-      <Nav active={0} />
+      <Nav active={3} />
+    </Phone>
+  ),
+
+  "stats-trend": () => (
+    <Phone title="Stats">
+      <Chips items={["Mine", "Trends", "Team", "Ball", "Game", "Center"]} sel={1} />
+      <Spot style={{ marginTop: "8px" }}>
+        <div style={card}>
+          <div style={{ display: "flex", gap: "4px", marginBottom: "6px" }}>
+            <Field head="Metric" value="Average" />
+            <Field head="Ball" value="All" />
+            <Field head="League" value="Tue" />
+          </div>
+          <div style={{ display: "flex", gap: "4px" }}>
+            <span style={chip(false)}>Games</span>
+            <span style={chip(true)}>Last 90 days</span>
+            <span style={chip(false)}>Dates</span>
+          </div>
+        </div>
+      </Spot>
+      <div style={{ ...muted, textAlign: "center" }}>Showing 13 of 40 games</div>
+      <Nav active={3} />
     </Phone>
   ),
 };
-
 export default function TourScreen({ stepId, track }) {
   const Screen = SCREENS[stepId];
   if (!Screen) return null;

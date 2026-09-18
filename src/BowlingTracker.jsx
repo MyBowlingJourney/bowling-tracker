@@ -23,7 +23,7 @@ const Tour = lazyScreen("Tour", () => import("./Tour.jsx"));
 const JourneyScreen = lazyScreen("Journey", () => import("./JourneyView.jsx"));
 
 const HomeScreen = lazyScreen("Home", () => import("./HomeView.jsx"));
-import { tourSteps, tourToOffer, markTourSeen, hasSeenTour, pendingModeTour, needsLeagueSetup, availableTours } from "./domain/tour.js";
+import { tourSteps, tourToOffer, markTourSeen, hasSeenTour, pendingModeTour, needsLeagueSetup, availableTours, FIRST_TOUR } from "./domain/tour.js";
 import HelpView from "./HelpView.jsx";
 import CasualLeaderboard from "./CasualLeaderboard.jsx";
 const BadgeCollection = lazyScreen("BadgeCollection", () => import("./BadgeCollection.jsx"));
@@ -897,9 +897,11 @@ export default function BowlingTracker(){
   // league-setup nudge.
   function startTour(track){
     setActiveTour(track);
-    const first=tourSteps(
-      track==="coach"?preferences:{...preferences,environment:track},
-      track==="coach"?{track:"coach"}:undefined)[0];
+    // Tracks are TOPICS now ("look", "score", "ai", "stats"), not modes,
+    // so there is no environment to map a track onto -- the old call
+    // rewrote preferences.environment from the track name, which for a
+    // topic track would have set environment:"stats".
+    const first=tourSteps(preferences,{track})[0];
     if(first?.tab)setView(first.tab);
   }
   // Latched at mount, deliberately NOT recomputed as data arrives.
@@ -5853,8 +5855,11 @@ export default function BowlingTracker(){
   // about that view.
   useEffect(()=>{
     if(!coachViewOn||!onboarded)return;
-    const offer=tourToOffer({environment:preferences.environment,isCoach:true,seen:toursSeen});
-    if(offer==="coach")startTour("coach");
+    // The coach walkthrough is gone with the mode-based tracks. Coaches
+    // get the same four topic tours as everyone else, from Settings.
+    // Left as a no-op rather than deleted so the hook's shape -- and the
+    // reason it is keyed on coachViewOn -- survives if a coach tour comes
+    // back.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   },[coachViewOn]);
   // The tab appears for anyone who coaches OR is in any coaching
@@ -6029,7 +6034,7 @@ export default function BowlingTracker(){
   const myInboxItems=buildInbox({
     bowler:displayName||activeBowler,
     // Offered as a task, not an interruption -- see pendingModeTour.
-    pendingTour:hasSeenTour(toursSeen,"general")
+    pendingTour:hasSeenTour(toursSeen,FIRST_TOUR)
       ?pendingModeTour({environment:preferences.environment,seen:toursSeen})
       :null,
     userId:user?.id,
@@ -7317,8 +7322,7 @@ export default function BowlingTracker(){
               // wants them, and the search bar answers the actual
               // question rather than all twelve.
               const env=chosenEnv||preferences.environment;
-              const firstTour=env==="casual"?"casual":"general";
-              if(onboarded&&!hasSeenTour(toursSeen,firstTour))setShowWelcome(true);
+              if(onboarded&&!hasSeenTour(toursSeen,FIRST_TOUR))setShowWelcome(true);
             }}
             routineNote={routine.mode&&!showSessionStart?`Your usual ${DAY_NAMES_SHORT[routine.weekday]}`:""}
             updatePreferences={updatePreferences}

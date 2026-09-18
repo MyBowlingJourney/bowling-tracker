@@ -15,27 +15,17 @@ import TourScreen from "./TourScreen.jsx";
 // relevant part lit up. That's the only way to teach how to enter a
 // spare: you have to see the pins-standing chips and the Spare Made
 // buttons, and a new bowler has no data that would produce them.
-// `track` picks which walkthrough: "casual" | "practice" | "league" |
-// "tournament" | "coach". It overrides the environment in preferences so
-// a league bowler can replay the tournament tour from Settings before
-// their first one, without switching modes to do it.
+// `track` picks which walkthrough: "look" | "score" | "ai" | "stats".
+//
+// Tracks are TOPICS, not modes. The previous version rewrote
+// preferences.environment from the track name so an environment-scoped
+// step would resolve against the tour being watched -- necessary when a
+// track WAS an environment, and meaningless now: there is no environment
+// called "stats", and steps are no longer scoped by one.
 export default function Tour({ preferences = {}, track, onNavigate, onFinish }) {
   const [index, setIndex] = useState(0);
-  // The track must reach tourSteps, whatever it is.
-  //
-  // This used to build opts only for "coach" and pass undefined for
-  // everything else -- so "general", "casual" and the mode tracks were
-  // silently ignored and every one of them played the full environment
-  // tour instead. That's why the casual tour still opened on "pick your
-  // league".
-  const opts = track ? { track } : undefined;
-  // Mode tracks also set the environment, so environment-scoped steps
-  // resolve against the track being watched rather than the bowler's
-  // current mode -- that's what lets a league bowler replay the
-  // tournament tour from Settings.
-  const prefs = track && track !== "coach" && track !== "general"
-    ? { ...preferences, environment: track }
-    : preferences;
+  const opts = { track };
+  const prefs = preferences;
   const steps = tourSteps(prefs, opts);
   const step = stepAt(prefs, index, opts);
   const total = tourLength(prefs, opts);

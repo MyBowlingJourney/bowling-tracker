@@ -890,12 +890,12 @@ export default function Settings({
           would advertise a mode most people will never use. */}
       {showCard("walkthroughs") && replayTour && (
         <CollapsibleCard title="Walkthroughs"
-          summary={`${availableTours(!!isCoach).length} available`}
+          summary={`${availableTours().length} available`}
           expanded={expanded.walkthroughs} onToggle={() => toggle("walkthroughs")}>
           <div style={{ fontSize: "11px", color: C.textMuted, marginBottom: "10px" }}>
             Watch any of these again, any time.
           </div>
-          {availableTours(!!isCoach).map(t => (
+          {availableTours().map(t => (
             <div key={t.key} style={{
               display: "flex", justifyContent: "space-between", alignItems: "center",
               gap: "10px", padding: "8px 0", borderTop: `1px solid ${C.border}`,
