@@ -1978,7 +1978,23 @@ export default function BowlingTracker(){
       // column DEFAULT auth.uid() fills it. An explicit null would fail
       // the INSERT policy the same way.
       const result=await cloudWrite("leagues",{id,name});
-      if(result.synced){
+      // `duplicate` is NOT the same as success under this id.
+      //
+      // cloudWrite reports synced:true on a 23505 because the row really
+      // is in the cloud -- which is right for it and wrong to act on
+      // here. leagues is UNIQUE (created_by, name), so a 23505 means a
+      // row with this NAME already exists under a DIFFERENT id: usually
+      // one this device inserted moments earlier whose response timed
+      // out. Adopting `id` registers a league that does not exist.
+      //
+      // That is what produced the FK storm: hidden_leagues was then
+      // written with the phantom league_id, failed
+      // hidden_leagues_league_id_fkey, and retried 89 times before the
+      // queue marked it permanent.
+      //
+      // On a duplicate, fall through to the re-read below, which already
+      // exists to find the real id.
+      if(result.synced&&!result.duplicate){
         leagueIdsRef.current[name]=id;
         continue;
       }
@@ -2193,6 +2209,21 @@ export default function BowlingTracker(){
       delete leagueIdsRef.current[oldName];
       leagueIdsRef.current[clean]=existingId;
       const result=await cloudWrite("leagues",{id:existingId,name:clean});
+      // A duplicate here is a REFUSAL, not a success.
+      //
+      // leagues is UNIQUE (created_by, name), so 23505 means this bowler
+      // already has a league by that name. cloudWrite reports synced:true
+      // because the row it collided with really is in the cloud -- but
+      // nothing was renamed. Reported as success, the device would show
+      // the new name while the cloud kept the old one, and the next read
+      // would quietly put the old name back.
+      if(result.duplicate){
+        // Undo the local remap so state matches the cloud.
+        delete leagueIdsRef.current[clean];
+        leagueIdsRef.current[oldName]=existingId;
+        alert(`You already have a league called "${clean}". Pick a different name.`);
+        return;
+      }
       renameFailed=!result.synced;
     }else{
       const failed=await ensureLeaguesInCloud([clean]);
