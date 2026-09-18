@@ -284,7 +284,7 @@ column,sessions,total,integer
 column,sessions,updated_at,timestamp with time zone NOT NULL
 column,sessions,user_id,uuid NOT NULL
 column,sessions,weak_tens,integer NOT NULL
-column,shots,actual_arrows,numeric
+column,shots,actual_arrows,text
 column,shots,axis_rotation,numeric
 column,shots,axis_tilt,numeric
 column,shots,ball,text
