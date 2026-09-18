@@ -1,9 +1,5 @@
 import { useState } from "react";
 import { C, S, Chip } from "./ui.jsx";
-import {
-  ENVIRONMENTS, ENVIRONMENT_QUESTION_LABELS, ENVIRONMENT_REASSURANCE,
-  applyEnvironment,
-} from "./domain/preferences.js";
 import { APP_NAME } from "./constants.js";
 import { resolveHomeCenters } from "./domain/profiles.js";
 
@@ -39,11 +35,11 @@ import { resolveHomeCenters } from "./domain/profiles.js";
 // Ball arsenal is still NOT asked -- it genuinely is recoverable later
 // and it's the one that turns setup into data entry.
 export default function Onboarding({ preferences, onApply, onFinish, profile, onProfileChange, centers = [], searchCenters, ensureCenter, onClaimCode }) {
-  // Two steps rather than one long scroll: on a phone, four environment
-  // chips plus their descriptions plus two tracking chips plus theirs is
-  // more than a screenful, and a "Start" button below the fold reads as a
-  // dead end.
-  const [step, setStep] = useState(1);
+  // One screen. The reason for splitting it was the environment chips and
+  // the tracking chips -- together more than a screenful. Both are gone:
+  // Home asks which mode every time, and tracking is derived rather than
+  // asked. What is left is a name, a hand, a style and an optional code,
+  // which fits.
   const [showCodeEntry, setShowCodeEntry] = useState(false);
   const [signupCode, setSignupCode] = useState("");
   const [codeError, setCodeError] = useState("");
@@ -103,19 +99,9 @@ export default function Onboarding({ preferences, onApply, onFinish, profile, on
           </div>
         </div>
 
-        {/* Step indicator. Two dots is enough to signal "this is short" -- a
-            progress bar would overstate how long this takes. */}
-        <div style={{ display: "flex", gap: "6px", justifyContent: "center", marginBottom: "20px" }}>
-          {[1, 2, 3].map(n => (
-            <div key={n} style={{
-              width: step === n ? "20px" : "6px", height: "6px", borderRadius: "3px",
-              backgroundColor: step === n ? C.accent : C.border, transition: "width 0.2s",
-            }} />
-          ))}
-        </div>
+        {/* No step dots: there is one screen, nothing to page through. */}
 
-        {step === 1 && (
-          <>
+        <>
             <div style={{ fontSize: "19px", fontWeight: 600, color: C.text, marginBottom: "6px" }}>
               Who's bowling?
             </div>
@@ -192,11 +178,8 @@ export default function Onboarding({ preferences, onApply, onFinish, profile, on
               </button>
             ))}
 
-            <button style={{ ...S.btn("primary"), marginTop: "18px" }}
-              disabled={!name.trim()}
-              onClick={() => setStep(2)}>
-              Continue
-            </button>
+            {/* No Continue button: this used to page to a second screen
+                and there is only one now. */}
             {/* A name is the one thing that can't sensibly be defaulted --
                 everything else here has a working default, so this is the
                 only field that blocks. */}
@@ -205,62 +188,8 @@ export default function Onboarding({ preferences, onApply, onFinish, profile, on
                 Just a first name is fine.
               </div>
             )}
-          </>
-        )}
-
-        {step === 2 && (
-          <>
-            <div style={{ fontSize: "19px", fontWeight: 600, color: C.text, marginBottom: "6px" }}>
-              What are you bowling today?
-            </div>
-            <div style={{ fontSize: "13px", color: C.textMuted, marginBottom: "18px" }}>
-              This sets sensible defaults. You can change it any time — and it won't keep asking on your regular bowling nights.
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "20px" }}>
-              {ENVIRONMENTS.map(env => {
-                const selected = preferences.environment === env;
-                return (
-                  <button key={env}
-                    onClick={() => onApply(prev => applyEnvironment(prev, env))}
-                    style={{
-                      textAlign: "left", padding: "12px 14px", borderRadius: "10px", cursor: "pointer",
-                      border: `1px solid ${selected ? C.accent : C.border}`,
-                      backgroundColor: selected ? C.accentDim : C.card,
-                      WebkitTapHighlightColor: "transparent",
-                    }}>
-                    <div style={{ fontSize: "15px", fontWeight: 600, color: selected ? C.accent : C.text }}>
-                      {ENVIRONMENT_QUESTION_LABELS[env]}
-                    </div>
-
-                  </button>
-                );
-              })}
-            </div>
-            {/* Focus group Finding 1: 61 of 250 picked the wrong mode and
-                17 asked whether it could be changed. There IS a line above
-                saying it can -- but it is read before anyone has looked at
-                the options, and it does not say WHERE. The reassurance has
-                to sit under the choice, at the moment of committing to one,
-                and name the place. */}
-            {/* The four options carry NO descriptions now -- this line does
-                the job all four used to.
-
-                Sixty words asking a first-timer to compare features they
-                have never seen, to make a choice that is not final. The
-                thing they need is that last part, said once. */}
-            <div style={{
-              fontSize: "12px", color: C.textMuted, lineHeight: 1.5,
-              backgroundColor: C.accent + "11", border: `1px solid ${C.accent}22`,
-              borderRadius: "10px", padding: "10px 12px", marginBottom: "16px",
-            }}>
-              {ENVIRONMENT_REASSURANCE}
-            </div>
-            <button style={S.btn("primary")} onClick={() => setStep(3)}>Next</button>
-          </>
-        )}
-
-        {step === 3 && (
-          <>
+            {/* Step 3 used to start here. One screen now: name, hand and
+                style above, the optional signup code below. */}
             {/* The tracking question is gone.
                 
                 It asked a bowler to choose frame-by-frame or scores-only
@@ -351,15 +280,10 @@ export default function Onboarding({ preferences, onApply, onFinish, profile, on
               }}>
               Start Bowling
             </button>
-            <button
-              style={{ ...S.btn(), width: "100%", marginTop: "8px" }}
-              onClick={() => setStep(2)}>
-              Back
-            </button>
-          </>
-        )}
+            {/* No Back button: there is nowhere behind this screen. */}
+        </>
 
-        {/* An escape hatch on both steps. Someone who just wants to see the
+        {/* An escape hatch. Someone who just wants to see the
             app shouldn't be trapped behind a setup screen -- the defaults
             are reasonable and everything here lives in Settings too. */}
         <button
