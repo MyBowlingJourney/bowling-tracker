@@ -34,6 +34,15 @@ function formatError(err) {
   return parts.length ? parts.join(' — ') : String(err);
 }
 
+// DO NOT RENAME, however wrong the name looks after a rebrand.
+//
+// This is the IndexedDB database on every bowler's device. Changing it
+// does not migrate anything -- it points the app at a NEW, empty database
+// and orphans the old one, so every queued write still waiting to sync is
+// silently gone. Someone who logged a night in a basement with no signal
+// loses that night to a cosmetic rename.
+//
+// The name is internal. Nobody sees it.
 const DB_NAME = 'bowling-tracker-sync';
 const DB_VERSION = 1;
 // Flushes a permanently-failing item is given before it is dropped --

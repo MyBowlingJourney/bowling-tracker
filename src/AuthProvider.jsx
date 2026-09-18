@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from './supabaseClient.js';
+import { authRedirectTo, listenForAuthLinks } from './nativeAuth.js';
 import { cloudRead, cloudWrite, adoptLegacyQueueItems, flushPendingQueue } from './syncQueue.js';
 import { setStorageUser, adoptLegacyData } from './scopedStorage.js';
 import { normalizePreferences, defaultPreferences } from './domain/preferences.js';
@@ -19,6 +20,11 @@ export function AuthProvider({ children }) {
   // then decline to overwrite what it found. A returning bowler with no
   // signal would open the app to a blank history.
   const [scopeReady, setScopeReady] = useState(false);
+  // A sign-in that failed AFTER the email was sent -- an expired or reused
+  // magic link arriving as a deep link. SignIn owns the errors it causes
+  // itself; this one has no form submission behind it, so it needs
+  // somewhere to live that outlasts the tap.
+  const [authError, setAuthError] = useState("");
 
   useEffect(() => {
     // Check for an existing session on first load (e.g. returning visitor
@@ -49,7 +55,29 @@ export function AuthProvider({ children }) {
       }
     );
 
-    return () => subscription.unsubscribe();
+    // Deep links, for the Android shell only.
+    //
+    // On the web this resolves to null and nothing is attached: the
+    // browser already completes a magic link on its own. On a device it
+    // listens for the app being opened by its own scheme and finishes
+    // the sign-in by hand -- see nativeAuth.js.
+    //
+    // The listener is async, so the unsubscribe function may not exist
+    // yet when this effect is cleaned up. `cancelled` covers the case
+    // where cleanup wins the race, and the listener is removed as soon
+    // as it does arrive rather than leaking.
+    let cancelled = false;
+    let removeLinkListener = null;
+    listenForAuthLinks(msg => setAuthError(msg)).then(off => {
+      if (cancelled) { off?.(); return; }
+      removeLinkListener = off;
+    });
+
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+      removeLinkListener?.();
+    };
   }, []);
 
   // Loads this user's own display name whenever they sign in (or the app
@@ -128,9 +156,13 @@ export function AuthProvider({ children }) {
   }, [session?.user?.id]);
 
   async function signInWithMagicLink(email) {
+    // On the web this is unchanged: the same origin + path as before.
+    // In the Android shell there is no such URL to come back to, so the
+    // link is pointed at the app's own scheme instead -- see nativeAuth.js.
+    const redirectTo = await authRedirectTo(window.location.origin + window.location.pathname);
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: window.location.origin + window.location.pathname },
+      options: { emailRedirectTo: redirectTo },
     });
     return { error };
   }
@@ -188,6 +220,8 @@ export function AuthProvider({ children }) {
     displayName,
     preferences,
     loading,
+    authError,
+    clearAuthError: () => setAuthError(""),
     signInWithMagicLink,
     signOut,
     updateDisplayName,

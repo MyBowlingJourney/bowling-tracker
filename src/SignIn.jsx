@@ -10,10 +10,14 @@ const C = {
 };
 
 export default function SignIn() {
-  const { signInWithMagicLink } = useAuth();
+  const { signInWithMagicLink, authError } = useAuth();
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState("idle"); // idle | sending | sent | error
   const [errorMsg, setErrorMsg] = useState("");
+  // A link that came back and failed reports through the context rather
+  // than through this form -- nothing was submitted here, so the local
+  // state above would never hear about it.
+  const linkError = authError || "";
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -94,9 +98,12 @@ export default function SignIn() {
             >
               {status === "sending" ? "Sending…" : "Send Sign-In Link"}
             </button>
-            {status === "error" && (
+            {(status === "error" || linkError) && (
               <div style={{ fontSize: "12px", color: C.miss, marginTop: "10px", textAlign: "center" }}>
-                {errorMsg}
+                {/* The link error wins: it is about a link the bowler has
+                    already tapped, which is more recent and more useful
+                    than whatever this form last said. */}
+                {linkError || errorMsg}
               </div>
             )}
             <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "14px", textAlign: "center" }}>

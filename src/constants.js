@@ -6,6 +6,16 @@
 // you looked.
 export const APP_NAME = "My Bowling Journey";
 
+// Where the app lives. Beside the name for the same reason: one place to
+// change when it moves.
+//
+// It is stamped on every share card and encoded in the QR code, so a stale
+// value here is a wrong address printed on other people's screens. Moving
+// to a real domain is this one line -- but QR codes and images already
+// shared keep the old address forever, so the move is worth making before
+// there are many of them.
+export const APP_URL = "https://rynadon290.github.io/bowling-tracker/";
+
 // Practice and casual nights aren't leagues, but every per-night record in
 // this app -- manual game scores, session recaps -- is keyed by
 // (bowler, league, date). Rather than special-case every one of those,
