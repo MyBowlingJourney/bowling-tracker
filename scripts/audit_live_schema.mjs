@@ -272,6 +272,22 @@ for (const r of get('rls')) {
       console.log('This repo cannot rebuild them, and file-based audits cannot see them:');
       console.log('   ' + undocumented.join(', '));
       console.log();
+      // A FINDING now, and only now.
+      //
+      // This was deliberately not a finding, for a good reason: there
+      // were 33 undocumented tables, and a gate that is red from the day
+      // it is added gets deleted rather than satisfied.
+      //
+      // The baseline migration removed that backlog. With every existing
+      // table covered, an undocumented one can only mean a table created
+      // in the dashboard AFTER the baseline -- which is precisely the
+      // drift this whole file exists to catch, and it is one table to fix,
+      // not thirty.
+      //
+      // Guarded on the directory being non-empty, so this cannot turn the
+      // build red before a baseline exists: with no migrations at all the
+      // branch above runs instead and still exits 0.
+      findings.push(`${undocumented.length} table(s) in the database with no migration: ${undocumented.join(', ')}`);
     }
   }
 }

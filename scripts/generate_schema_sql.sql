@@ -23,8 +23,20 @@
 -- Order matters: tables, then constraints, then indexes, then RLS, then
 -- policies, then triggers. A policy cannot reference a table that does
 -- not exist yet.
+--
+-- A PLAIN SELECT, read with `psql -tA`. It used to be wrapped in
+-- COPY (...) TO STDOUT, and COPY's text format escapes every newline in
+-- the output as a literal backslash-n. The committed schema.sql was
+-- therefore one long line per statement with "\n" sitting inside the
+-- CREATE TABLE -- which is not valid SQL, so the file that exists to
+-- rebuild the database could not be run at all. Nobody noticed because
+-- nothing ever ran it; it was only ever read as documentation.
+--
+-- Unescaping afterwards is the tempting fix and the wrong one: COPY also
+-- escapes a real backslash as \\, so a default or a policy expression
+-- containing one would be corrupted by a naive s/\\n/newline/. Not
+-- escaping in the first place has no such edge case.
 
-COPY (
 WITH cols AS (
   SELECT c.relname AS tbl,
          string_agg(
@@ -111,4 +123,4 @@ SELECT line FROM (
   WHERE n.nspname = 'public' AND NOT t.tgisinternal
 ) s
 ORDER BY ord, tbl, nm
-) TO STDOUT;
+;
