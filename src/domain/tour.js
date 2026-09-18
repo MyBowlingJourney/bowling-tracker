@@ -79,6 +79,20 @@ const ALL_STEPS = [
     body: "History keeps every night you've bowled, on a calendar you can scroll back through. The journal is yours to write in — what the lanes did, what you changed, what to try next week.",
   },
 
+  {
+    // The closing card, and the only step that is not about a tab.
+    //
+    // A tour that simply stops leaves the bowler where the last slide
+    // was, with no idea the other three exist. Naming where they live is
+    // the difference between four tours and one tour plus three nobody
+    // finds.
+    id: "look-more",
+    track: "look",
+    tab: "home",
+    title: "That's enough for now",
+    body: "You know your way around. If you want more, there are three other tours waiting in the settings menu — keeping score, what the AI does, and stats.",
+  },
+
   // ── Scorekeeping ──────────────────────────────────────────────────────
   //
   // Game-level first, then the three frame outcomes, then where a night

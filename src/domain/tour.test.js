@@ -39,15 +39,21 @@ describe('slide counts', () => {
   // The counts are the specification, not an accident of authoring: a
   // track that quietly loses a slide is a topic that stops being
   // explained, and nothing else would notice.
-  it('look around is 6 slides', () => expect(stepsForTrack('look').length).toBe(6));
+  it('look around is 6 tab slides plus a closing card', () => {
+    const look = stepsForTrack('look');
+    expect(look.length).toBe(7);
+    // The closing card is last, or it is pointing at tours the bowler
+    // has not been shown yet.
+    expect(look[look.length - 1].id).toBe('look-more');
+  });
   it('scorekeeping is 5 slides', () => expect(stepsForTrack('score').length).toBe(5));
   it('AI is 3 slides', () => expect(stepsForTrack('ai').length).toBe(3));
   it('stats is 4 slides', () => expect(stepsForTrack('stats').length).toBe(4));
 
-  it('18 slides in total, with no step in two tracks', () => {
+  it('19 slides in total, with no step in two tracks', () => {
     const all = TRACK_KEYS.flatMap(k => stepsForTrack(k));
-    expect(all.length).toBe(18);
-    expect(new Set(all.map(s => s.id)).size).toBe(18);
+    expect(all.length).toBe(19);
+    expect(new Set(all.map(s => s.id)).size).toBe(19);
   });
 });
 
@@ -112,7 +118,7 @@ describe('navigation', () => {
   const opts = { track: 'look' };
 
   it('tourLength matches the track', () => {
-    expect(tourLength({}, opts)).toBe(6);
+    expect(tourLength({}, opts)).toBe(7);
   });
 
   it('clamps rather than wrapping at both ends', () => {
@@ -122,8 +128,8 @@ describe('navigation', () => {
   });
 
   it('knows the last step', () => {
-    expect(isLastStep({}, 4, opts)).toBe(false);
-    expect(isLastStep({}, 5, opts)).toBe(true);
+    expect(isLastStep({}, 5, opts)).toBe(false);
+    expect(isLastStep({}, 6, opts)).toBe(true);
     expect(isLastStep({}, 99, opts)).toBe(true);
   });
 });
