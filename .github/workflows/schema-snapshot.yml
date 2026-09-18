@@ -55,13 +55,70 @@ jobs:
           # previous reconstruction was hand-maintained and drifted 21
           # columns; this one cannot drift by more than a week, and it
           # arrives as a diff somebody looks at.
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+          # -tA: tuples only, unaligned. The generator used to be wrapped
+          # in COPY (...) TO STDOUT, which escaped every newline in the
+          # output as a literal \n -- so schema.sql was not runnable SQL
+          # at all. A plain SELECT read with -tA emits the statements as
+          # written. -X ignores any ~/.psqlrc that might set a pager or
+          # a border style and corrupt the output.
+          psql "$DATABASE_URL" -X -tA -v ON_ERROR_STOP=1 \
             -f scripts/generate_schema_sql.sql > schema.new.sql
           if ! grep -q "CREATE TABLE IF NOT EXISTS public.shots" schema.new.sql; then
             echo "No shots table in the output — the dump looks wrong. Not replacing schema.sql."
             exit 1
           fi
+          # The escaping bug, caught rather than trusted: a literal \n
+          # inside a CREATE TABLE is the signature of COPY-style output,
+          # and it makes the file unrunnable. Fail loudly if it returns.
+          if grep -q 'CREATE TABLE.*\\n' schema.new.sql; then
+            echo "schema.sql contains literal \\n — output is escaped and not runnable."
+            exit 1
+          fi
           mv schema.new.sql schema.sql
+
+      - name: Dump the function bodies
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          # Thirteen of these are SECURITY DEFINER and are what the RLS
+          # policies call. Without them a rebuilt database has policies
+          # that reference functions that do not exist.
+          psql "$DATABASE_URL" -X -tA -v ON_ERROR_STOP=1 \
+            -f scripts/dump_functions.sql > functions.new.sql
+          for fn in is_team_member is_league_member record_tombstone set_updated_at; do
+            if ! grep -q "FUNCTION public.$fn" functions.new.sql; then
+              echo "$fn missing from the dump — not replacing the functions file."
+              exit 1
+            fi
+          done
+          mkdir -p supabase/migrations
+          mv functions.new.sql supabase/functions.sql
+
+      - name: Assemble the baseline migration
+        run: |
+          # ONE FILE THAT REBUILDS AN EMPTY DATABASE, in dependency order:
+          # functions first, because the triggers and policies in
+          # schema.sql call them.
+          #
+          # This is a BOOTSTRAP, not the ongoing workflow. It exists
+          # because 33 tables built by hand in the dashboard cannot be
+          # retroactively hand-written into migrations. From here on, a
+          # schema change is a NEW hand-written migration file beside
+          # this one -- and because the audit compares live tables
+          # against what the migrations declare, anything created in the
+          # dashboard instead now shows up as drift.
+          mkdir -p supabase/migrations
+          OUT=supabase/migrations/00000000000000_baseline.sql
+          {
+            echo "-- BASELINE. Generated once from the live database; not edited by hand."
+            echo "-- Later changes go in new migration files beside this one."
+            echo
+            cat supabase/functions.sql
+            echo
+            cat schema.sql
+          } > "$OUT"
+          rm -f supabase/functions.sql
+          echo "baseline: $(wc -l < "$OUT") lines"
 
       - name: Open a pull request if anything changed
         # A PR rather than a direct commit, so a schema change arrives as
