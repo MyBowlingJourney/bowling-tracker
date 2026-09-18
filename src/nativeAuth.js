@@ -20,14 +20,31 @@
 // Capacitor's appUrlOpen event, and we pull the tokens out of it
 // ourselves -- doing by hand what the browser does automatically.
 //
-// ── Untested against a device ───────────────────────────────────────────
+// ── First run on a device: one real bug found ───────────────────────────
 //
-// Written from the Supabase and Capacitor contracts, not from a run on
-// real hardware, because there is no Android build yet. Treat the first
-// on-device sign-in as the real test. The likeliest failure is a mismatch
-// between the scheme here, the Redirect URLs in the Supabase dashboard,
-// and the intent-filter in AndroidManifest.xml -- all three must agree,
-// and a mismatch fails silently, which is exactly why this file says so.
+// This file was originally written from the Capacitor and Supabase
+// contracts without ever being run, and the header said so. The first
+// run on an emulator (18 Sep 2026) found exactly the failure that note
+// predicted, in authRedirectTo below:
+//
+//   const id = cap.Capacitor.getAppId?.() || "";
+//
+// `Capacitor.getAppId()` DOES NOT EXIST. The CapacitorGlobal interface
+// has seven members -- convertFileSrc, getPlatform, isNativePlatform,
+// isPluginAvailable, registerPlugin, addListener, removeListener -- and
+// no getAppId. The `?.` meant it returned undefined instead of throwing,
+// so `id` was "", so the function silently returned the WEB url. The
+// emailed link then pointed at GitHub Pages: tapping it opened the web
+// app in a browser and the native shell never saw a thing. Every piece
+// looked correct and nothing reported an error.
+//
+// The app id now comes from App.getInfo(), whose `id` field is
+// documented as the Android Application ID (and the iOS Bundle
+// Identifier). Same plugin listenForAuthLinks already depends on.
+//
+// The remaining untested-on-hardware parts are sessionFromUrl's two
+// flows and the setSession handoff; the first real sign-in is still the
+// only thing that proves those.
 
 import { supabase } from "./supabaseClient.js";
 
@@ -55,16 +72,38 @@ export async function isNative() {
 // Where the magic link should come back to.
 //
 // The web keeps its current behaviour exactly; only the native shell gets
-// the scheme. Returning null means "use the web default", so the caller
-// does not have to know which platform it is on.
+// the scheme. Returning webDefault means "use the web behaviour", so the
+// caller does not have to know which platform it is on.
 export async function authRedirectTo(webDefault) {
   const cap = await capacitor();
   if (!cap) return webDefault;
-  // The appId IS the scheme, by Capacitor convention. Read at runtime so
-  // there is one source of truth (capacitor.config.ts) rather than a
-  // second copy here that can drift.
-  const id = cap.Capacitor.getAppId?.() || "";
-  return id ? `${id}://auth` : webDefault;
+
+  // The appId IS the scheme, by Capacitor convention. Read at runtime
+  // from the native layer so there is one source of truth -- the value
+  // in capacitor.config.ts -- rather than a second copy here that can
+  // drift from it.
+  const info = await cap.App.getInfo();
+  const id = info?.id || "";
+
+  // Deliberately loud, and deliberately NOT a fall back to webDefault.
+  //
+  // Falling back here is what made the original bug invisible: on a
+  // device, a web redirect url produces a link that CANNOT reach this
+  // app, so sign-in silently never completes and everything upstream
+  // looks fine. Failing outright is worse for exactly one user -- the
+  // one hitting a broken build -- and better for every attempt to
+  // diagnose it. In practice this is near-unreachable: getInfo is a core
+  // plugin, and if it were missing, listenForAuthLinks would already be
+  // dead too.
+  if (!id) {
+    throw new Error(
+      "Native platform detected but App.getInfo() returned no app id. " +
+      "Refusing to fall back to the web redirect url, which would send " +
+      "the magic link somewhere this app can never receive it."
+    );
+  }
+
+  return `${id}://auth`;
 }
 
 // Finish a sign-in that arrived as a deep link.

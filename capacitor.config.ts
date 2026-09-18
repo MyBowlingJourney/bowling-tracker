@@ -14,7 +14,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 //
 // The value below is a placeholder chosen to be obviously wrong rather
 // than plausibly right, so it cannot be shipped by accident:
-const appId = 'CHANGE.ME.BEFORE.CAP.ADD.ANDROID';
+const appId = 'com.mybowlingjourney.app';
 
 // The custom scheme the magic link comes back through.
 //

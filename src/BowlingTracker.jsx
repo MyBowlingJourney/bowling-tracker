@@ -5863,6 +5863,24 @@ export default function BowlingTracker(){
     try{
       const{data,error}=await supabase.functions.invoke("analyze-performance",{body:{payload}});
       if(error){
+        // READ THE BODY on a non-2xx -- the same fix askGenie already has.
+        //
+        // supabase-js collapses every non-2xx into one opaque message and
+        // puts the real response on error.context. This function already
+        // returns a useful { error } for its own failures -- "Analysis
+        // came back empty. Try again." and friends -- and without this
+        // they were every one of them thrown away. A transient Gemini
+        // hiccup, which a second tap fixes, read exactly like a
+        // permanently broken app, and there is a Try Again button sitting
+        // right under the message saying so.
+        try{
+          const res=error?.context;
+          if(res&&typeof res.json==="function"){
+            const body=await res.json();
+            if(body?.error)return{error:body.error};
+          }
+        }catch{ /* body wasn't JSON; the status is all we have */ }
+
         // "Failed to send a request to the Edge Function" means the
         // request never reached Supabase at all -- the function isn't
         // deployed, failed to boot, or the phone is offline. That string
@@ -5871,7 +5889,11 @@ export default function BowlingTracker(){
         if(/failed to send a request|failed to fetch|networkerror/i.test(raw)){
           return{error:"Couldn't reach the analysis service. If you're online and this keeps happening, it needs redeploying."};
         }
-        return{error:raw||"Analysis failed."};
+        // What is left is a status code with no readable body. Every one
+        // of those this function produces is upstream and nearly always
+        // clears on a second attempt, so point at the Try Again button
+        // rather than stating a failure and stopping.
+        return{error:"Couldn't generate insights just then. Tap Try Again — this usually clears on a second attempt."};
       }
       if(data?.error)return{error:data.error};
       return data;

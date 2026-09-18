@@ -100,8 +100,29 @@ export default function Tour({ preferences = {}, track, onNavigate, onFinish }) 
         padding: "12px 16px", borderTop: `1px solid ${C.border}`, background: C.surface,
       }}>
         {/* Skip is always reachable. A tour you can't leave is worse than
-            no tour at all. */}
-        <button style={{ ...S.btn(), padding: "12px 14px", fontSize: "13px" }} onClick={onFinish}>
+            no tour at all.
+
+            Skip goes HOME first, then finishes.
+
+            Skip used to call onFinish directly, exactly like "Start
+            bowling" -- and that stranded anyone who skipped. Opening a
+            tour navigates the app BEHIND the overlay to the first step's
+            tab (startTour does this, so the live app matches the slide).
+            For the first tour that tab is "log". Closing the overlay
+            without undoing it left a brand-new bowler staring at the
+            shot-logging form, having just said they did not want the
+            walkthrough -- looking exactly like the app had dumped them
+            somewhere at random.
+
+            Finishing is different and stays as it was: walking every
+            step ends on the tab the last step described, which is the
+            whole point of navigating behind the tour. Someone who SKIPS
+            was never shown a tab, so there is nothing to land on. Home
+            is also where the welcome screen's own skip button already
+            goes -- the same "no thanks" answer now produces the same
+            destination either way. */}
+        <button style={{ ...S.btn(), padding: "12px 14px", fontSize: "13px" }}
+          onClick={() => { onNavigate?.("home"); onFinish?.(); }}>
           Skip
         </button>
         {index > 0 && (

@@ -301,7 +301,15 @@ Deno.serve(async (req) => {
     if (!res.ok) {
       const detail = await res.text();
       console.error("Gemini error", res.status, detail);
-      return json({ error: `Analysis failed (${res.status}).` }, CORS, 502);
+      // Say what to DO, not just that it broke.
+      //
+      // Every failure that reaches here is upstream -- Gemini was
+      // busy, rate limited, or briefly unwell -- and a second attempt
+      // usually succeeds. The other two 502s below already end in
+      // "Try again."; this one stated a bare status code, which reads
+      // as a broken app and stops the bowler dead. InsightsView
+      // renders a Try Again button directly beneath this text.
+      return json({ error: `The analysis service didn't respond properly (${res.status}). This is usually temporary — tap Try Again.` }, CORS, 502);
     }
 
     const data = await res.json();
