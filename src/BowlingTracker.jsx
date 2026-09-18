@@ -6726,6 +6726,16 @@ export default function BowlingTracker(){
               you out. And if you'd rather be shown around, the tours are in
               Settings whenever you want them.
             </div>
+            {/* The bargain, stated plainly.
+                
+                Every accessory field is on by default now, which is a lot
+                to ask of someone who has just signed up. This says why it
+                is worth it and that none of it is required -- a bowler who
+                logs scores only still gets a working app. */}
+            <div style={{fontSize:"14px",color:C.text,lineHeight:1.6,marginBottom:"24px"}}>
+              Document as much or as little as you want. The more you tell
+              us, the more we can give back.
+            </div>
             <button style={{...S.btn("primary"),width:"100%"}}
               onClick={()=>{ setShowWelcome(false); setView("home"); }}>
               Start bowling
