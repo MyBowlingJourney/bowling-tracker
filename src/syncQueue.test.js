@@ -256,6 +256,87 @@ describe('flushPendingQueue', () => {
     expect(attempted).toEqual(['x', 'y']); // never reaches z
     expect(await getPendingCount()).toBe(2); // y and z both still queued
   });
+
+  // ── Permanent failures expiring themselves ────────────────────────────
+  //
+  // A permanently-failing item cannot wedge the queue (it is skipped), but
+  // before this it stayed forever and only a deliberate tap in the sync
+  // panel removed it. Users should never have to do that, so droppable
+  // ones now expire -- and the ones syncErrors says are NOT droppable
+  // still must not.
+
+  // Messages phrased the way Postgres actually phrases them. The first
+  // draft of these said "failed with 23503", which classifySyncError read
+  // as an HTTP 503 -- a real bug in the classifier, now fixed, and a
+  // reminder that a test error should look like a production one.
+  const MESSAGES = {
+    '23503': 'insert or update on table "hidden_leagues" violates foreign key constraint "hidden_leagues_league_id_fkey"',
+    '23505': 'duplicate key value violates unique constraint "shots_pkey"',
+    '42501': 'new row violates row-level security policy for table "shots"',
+  };
+  const err = (code) => { const e = new Error(MESSAGES[code] || `error ${code}`); e.code = code; return e; };
+
+  it('drops a foreign-key failure only after the third attempt', async () => {
+    // Not the first: an FK violation is temporary when the parent row is
+    // queued BEHIND the child, so an immediate drop would bin a write
+    // that would have succeeded on the next flush.
+    supabaseState.upsert = async () => { throw new Error('offline'); };
+    await cloudWrite('hidden_leagues', { id: 'h1', league_id: 'ghost' }, { timeoutMs: 50 });
+    expect(await getPendingCount()).toBe(1);
+
+    supabaseState.upsert = async () => { throw err('23503'); };
+    await flushPendingQueue();
+    expect(await getPendingCount()).toBe(1);   // attempt 1: kept
+    await flushPendingQueue();
+    expect(await getPendingCount()).toBe(1);   // attempt 2: kept
+    await flushPendingQueue();
+    expect(await getPendingCount()).toBe(0);   // attempt 3: dropped
+  });
+
+  it('NEVER drops a permission denial, however many attempts', async () => {
+    // 42501 is canDiscard:false in syncErrors, because the write never
+    // landed and a policy fix could still let it through. Dropping it
+    // would lose a real game to keep the queue tidy.
+    supabaseState.upsert = async () => { throw new Error('offline'); };
+    await cloudWrite('shots', { id: 's1' }, { timeoutMs: 50 });
+
+    supabaseState.upsert = async () => { throw err('42501'); };
+    for (let i = 0; i < 10; i++) await flushPendingQueue();
+    expect(await getPendingCount()).toBe(1);
+  });
+
+  it('never drops a transient failure, however many attempts', async () => {
+    supabaseState.upsert = async () => { throw new Error('offline'); };
+    await cloudWrite('shots', { id: 's2' }, { timeoutMs: 50 });
+    for (let i = 0; i < 10; i++) await flushPendingQueue();
+    expect(await getPendingCount()).toBe(1);
+  });
+
+  it('still drops a duplicate immediately, without waiting for attempts', async () => {
+    // 23505 means the row is already in the cloud, so there is nothing to
+    // preserve and no reason to wait three flushes to say so.
+    supabaseState.upsert = async () => { throw new Error('offline'); };
+    await cloudWrite('shots', { id: 's3' }, { timeoutMs: 50 });
+
+    supabaseState.upsert = async () => { throw err('23505'); };
+    await flushPendingQueue();
+    expect(await getPendingCount()).toBe(0);
+  });
+
+  it('counts attempts per item, not globally', async () => {
+    // Two stuck items must each get their own three attempts; a shared
+    // counter would drop the second one early.
+    supabaseState.upsert = async () => { throw new Error('offline'); };
+    await cloudWrite('hidden_leagues', { id: 'a' }, { timeoutMs: 50 });
+    await cloudWrite('hidden_leagues', { id: 'b' }, { timeoutMs: 50 });
+
+    supabaseState.upsert = async () => { throw err('23503'); };
+    await flushPendingQueue();
+    await flushPendingQueue();
+    expect(await getPendingCount()).toBe(2);
+    await flushPendingQueue();
+    expect(await getPendingCount()).toBe(0);
+  });
 });
 
 // The cross-account bug, at the unit level. A logs a shot offline, signs

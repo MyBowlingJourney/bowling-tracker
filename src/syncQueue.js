@@ -36,6 +36,11 @@ function formatError(err) {
 
 const DB_NAME = 'bowling-tracker-sync';
 const DB_VERSION = 1;
+// Flushes a permanently-failing item is given before it is dropped --
+// and only ever when classifySyncError says canDiscard. See the flush
+// loop for why this is not 1.
+export const PERMANENT_ATTEMPTS = 3;
+
 const STORE_NAME = 'pending_writes';
 
 let dbPromise = null;
@@ -581,7 +586,16 @@ export async function flushPendingQueue() {
       // tracking existed (or whose failure reason has since changed) still
       // end up with something useful the next time someone inspects the
       // queue, without needing to discard and start over.
-      await db.put(STORE_NAME, { ...item, reason: formatError(err), errorCode: err?.code || item.errorCode || '' });
+      // attempts is what lets a permanently-stuck item expire itself.
+      // Absent on anything queued before this existed, so it counts from
+      // zero rather than being treated as already exhausted.
+      const attempts = (Number(item.attempts) || 0) + 1;
+      await db.put(STORE_NAME, {
+        ...item,
+        attempts,
+        reason: formatError(err),
+        errorCode: err?.code || item.errorCode || '',
+      });
 
       const cls = classifySyncError(err);
       if (cls.kind === 'permanent') {
@@ -596,11 +610,39 @@ export async function flushPendingQueue() {
           // arrived, so it goes -- nothing is lost by dropping it.
           await db.delete(STORE_NAME, item.queueId);
         }
-        // Anything else permanent stays queued and visible in the sync
-        // panel, where it can be discarded deliberately. It is skipped
-        // rather than dropped: a 42501 means the write never landed, and
-        // silently binning a bowler's game to keep the queue tidy would
-        // be the worse failure.
+        // Anything else permanent is skipped, and expires after
+        // PERMANENT_ATTEMPTS flushes -- but ONLY where syncErrors says it
+        // is safe to drop.
+        //
+        // That distinction is the whole point, and it already existed:
+        // canDiscard is false for a 42501 because an RLS denial means the
+        // write never landed and a policy fix could still let it through.
+        // Binning a bowler's game to keep the queue tidy is the worse
+        // failure, so those stay forever.
+        //
+        // Why not drop on the FIRST permanent failure: a foreign-key
+        // violation can be temporary. A child queued ahead of its parent
+        // fails until the parent lands, and the parent may be sitting
+        // later in this very queue. Dropping immediately would throw away
+        // writes that would have succeeded on the next flush. Three
+        // attempts is several flushes -- the 30-second timer alone gives
+        // it a minute and a half -- which is ample for a parent ahead of
+        // it in the queue, and still finite.
+        //
+        // The drop is REPORTED, not silent. Something leaving the queue
+        // unsaved is exactly the event worth knowing about, and it now
+        // reaches the error reports rather than only a local log nobody
+        // reads.
+        else if (cls.canDiscard && attempts >= PERMANENT_ATTEMPTS) {
+          recordError({
+            kind: 'write-failed',
+            where: `${item.table}.${item.operation}`,
+            code: err?.code || '',
+            message: `discarded after ${attempts} attempts, it could never succeed — ${formatError(err)}${payloadColumns(item.payload)}`,
+          });
+          await db.delete(STORE_NAME, item.queueId);
+          continue;
+        }
         // The columns too, and the actual error text.
         //
         // This entry is the one that REPEATS -- a permanently-failing item
