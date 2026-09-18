@@ -891,6 +891,10 @@ export default function BowlingTracker(){
       try{window.localStorage.setItem(TOURS_SEEN_KEY,JSON.stringify(next));}catch{}
     }
     setActiveTour("");
+    // Same reason as finishOnboarding: the tour is an overlay, and
+    // closing it reveals whatever scroll offset the page underneath was
+    // left at.
+    scrollToTop();
   }
 
   // Start a specific tour on demand -- from Settings, or from the
@@ -3264,6 +3268,46 @@ export default function BowlingTracker(){
     setSessionStartDismissedDate(today);
     try{window.storage.set(SESSION_START_SEEN_KEY,"1");}catch{}
     try{window.storage.set(SESSION_START_KEY,today);}catch{}
+
+    // THE WELCOME SCREEN IS SHOWN HERE, because here is where onboarding
+    // actually ends.
+    //
+    // It used to be raised by onSessionEnvChosen -- a LogView callback
+    // that fires when a bowler picks a mode on the Bowl screen. That is
+    // not this moment. A new bowler finishing setup went straight to
+    // Home and never saw it; the only way to reach it was to finish
+    // setup, land on Home, go to Bowl and pick a mode, by which point
+    // "welcome, let us show you around" is too late to mean anything.
+    //
+    // Checked against toursSeen so it stays a once-only screen for
+    // someone who reruns setup from Settings.
+    if(!hasSeenTour(toursSeen,FIRST_TOUR))setShowWelcome(true);
+
+    // Back to the top.
+    //
+    // Onboarding is a tall scrolling form and Home replaces it in the
+    // same scroll container, so the browser keeps the offset: a bowler
+    // who scrolled to the bottom to press Finish arrived on Home already
+    // scrolled past the season figures and the journey row, looking at
+    // whatever happened to be at that offset. Nothing about that reads
+    // as "you are at the top of your home screen".
+    scrollToTop();
+  }
+
+  // One place, guarded.
+  //
+  // window.scrollTo does not exist in the test DOM, and on iOS Safari a
+  // smooth scroll queued during an unmount is sometimes dropped, so this
+  // asks for an instant jump and ignores a failure rather than throwing
+  // inside a state update.
+  function scrollToTop(){
+    try{
+      if(typeof window!=="undefined"&&typeof window.scrollTo==="function"){
+        window.scrollTo({top:0,left:0,behavior:"instant"});
+      }
+    }catch{
+      try{window.scrollTo(0,0);}catch{}
+    }
   }
 
   function dismissSessionStart(){
@@ -6778,7 +6822,7 @@ export default function BowlingTracker(){
             <button
               style={{background:"none",border:"none",color:C.textMuted,cursor:"pointer",
                 fontSize:"13px",marginTop:"14px",padding:"8px",width:"100%",lineHeight:1.5}}
-              onClick={()=>{ setShowWelcome(false); setView("home"); }}>
+              onClick={()=>{ setShowWelcome(false); setView("home"); scrollToTop(); }}>
               No thanks — I'll watch these later from the settings menu
             </button>
           </div>
@@ -7335,8 +7379,10 @@ export default function BowlingTracker(){
               // once. The tours are still in Settings for anyone who
               // wants them, and the search bar answers the actual
               // question rather than all twelve.
-              const env=chosenEnv||preferences.environment;
-              if(onboarded&&!hasSeenTour(toursSeen,FIRST_TOUR))setShowWelcome(true);
+              // The welcome screen is NOT raised from here any more -- it
+              // belongs to finishOnboarding, which is where onboarding
+              // ends. Picking a mode on the Bowl screen is an ordinary
+              // action a bowler takes every week, not a first run.
             }}
             routineNote={routine.mode&&!showSessionStart?`Your usual ${DAY_NAMES_SHORT[routine.weekday]}`:""}
             updatePreferences={updatePreferences}
