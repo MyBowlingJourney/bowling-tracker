@@ -9,9 +9,17 @@
 // Text first: it's what every share target accepts. The image is a bonus
 // for the ones that show it (Messages, Instagram, WhatsApp).
 
-import { APP_NAME } from "../constants.js";
+import { APP_NAME, APP_URL } from "../constants.js";
 
-export const APP_URL = "https://rynadon290.github.io/bowling-tracker/";
+// Re-exported, not redeclared.
+//
+// APP_URL now lives in constants.js beside APP_NAME -- one identity file.
+// This module is the one that stamps the address onto every card and QR
+// code, so exporting it here keeps that surface intact for anything
+// already importing it from this file, without creating a second value
+// that could drift from the first.
+export { APP_URL };
+
 
 function scoresLine(scores) {
   const clean = (Array.isArray(scores) ? scores : []).filter(v => Number.isFinite(v));
