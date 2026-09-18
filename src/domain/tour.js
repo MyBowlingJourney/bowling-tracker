@@ -28,7 +28,8 @@ import { isContainerLeague } from "./leagueMembership.js";
 // actually arrive with, so a bowler picks the one they want rather than
 // the one matching a setting they chose in onboarding.
 //
-// Mode-triggered tours are gone with it — see pendingModeTour.
+// Mode-triggered tours are gone with it: nothing launches a walkthrough
+// because someone tapped "Tournament".
 
 const ALL_STEPS = [
   // ── Look around: the six tabs, one slide each ─────────────────────────
@@ -292,16 +293,6 @@ export function markTourSeen(seen, key) {
 export function tourToOffer(options) {
   const { seen = [] } = (options && typeof options === "object" && !Array.isArray(options)) ? options : {};
   return hasSeenTour(seen, FIRST_TOUR) ? null : FIRST_TOUR;
-}
-
-// No tour is triggered by switching mode any more.
-//
-// Kept as an export because BowlingTracker still calls it, and because
-// returning null is the whole behaviour: tours are chosen by topic now,
-// and a walkthrough that launches itself because someone tapped
-// "Tournament" is an interruption, not an offer.
-export function pendingModeTour() {
-  return null;
 }
 
 // ── League setup ────────────────────────────────────────────────────────

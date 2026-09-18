@@ -123,7 +123,20 @@ export function drawShareCard(ctx, { bowler, scores, league, date, colors, fonts
   ctx.arc(wheelX, wheelY, hubR, 0, Math.PI * 2);
   ctx.fill();
   // The three finger holes, so it reads as a ball at the hub.
-  ctx.fillStyle = c.bg || "#14110E";
+  //
+  // A DARKENING of the hub, not the page colour.
+  //
+  // This was c.bg, which works on a dark theme by coincidence -- the
+  // background happens to be darker than the accent, so the holes read
+  // as holes. On a light theme it inverts: chalk draws a near-white
+  // #F7F8FA on a #1B4FD8 hub, and the holes all but disappear. Rendering
+  // the card in both themes is how that showed up; it is invisible in
+  // code review because both lines are just "c.bg".
+  //
+  // Translucent black darkens whatever the accent is, so a hole is a hole
+  // on every theme present and future. Not c.onAccent either -- that is
+  // WHITE on a light theme, which is the same failure a shade brighter.
+  ctx.fillStyle = "rgba(0,0,0,0.42)";
   for (const [dx, dy] of [[-18, -22], [18, -22], [0, 8]]) {
     ctx.beginPath();
     ctx.arc(wheelX + dx, wheelY + dy, 8, 0, Math.PI * 2);

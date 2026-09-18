@@ -3,7 +3,7 @@ import {
   TOUR_TRACKS, TRACK_KEYS, FIRST_TOUR, availableTours, stepsForTrack,
   tourSteps, tourLength, stepAt, isLastStep,
   stepsSeenFrom, recordStepsSeen,
-  hasSeenTour, markTourSeen, tourToOffer, pendingModeTour,
+  hasSeenTour, markTourSeen, tourToOffer,
   needsLeagueSetup,
 } from './tour.js';
 
@@ -177,11 +177,6 @@ describe('what gets offered', () => {
     for (const junk of [null, undefined, 7, 'x', []]) {
       expect(() => tourToOffer(junk)).not.toThrow();
     }
-  });
-
-  it('no tour is triggered by switching mode', () => {
-    expect(pendingModeTour()).toBe(null);
-    expect(pendingModeTour({ environment: 'tournament', seen: [] })).toBe(null);
   });
 });
 
