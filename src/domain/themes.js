@@ -182,7 +182,13 @@ Object.assign(THEMES, {
 export const THEME_IDS = Object.keys(THEMES);
 export const DARK_THEME_IDS = THEME_IDS.filter(id => !THEMES[id].light);
 export const LIGHT_THEME_IDS = THEME_IDS.filter(id => THEMES[id].light);
-export const DEFAULT_THEME = "pattern";
+// Chalk, not Pattern.
+//
+// This is what a new account opens on, and what anyone with no stored
+// theme falls back to. A stored choice still wins -- normalizeThemeId
+// only reaches for the default when the saved id is missing or unknown --
+// so changing it here does not repaint anyone who has already picked.
+export const DEFAULT_THEME = "chalk";
 
 export function themeFor(id) {
   return THEMES[id] || THEMES[DEFAULT_THEME];
