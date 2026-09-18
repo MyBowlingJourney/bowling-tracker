@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { C, S, Chip, CollapsibleCard } from "./ui.jsx";
 import { THEMES, DARK_THEME_IDS, LIGHT_THEME_IDS } from "./domain/themes.js";
 import { useAuth } from "./AuthProvider.jsx";
+import { getPendingCount } from "./syncQueue.js";
 import CalendarView from "./CalendarView.jsx";
 import ImportCsv from "./ImportCsv.jsx";
 import JournalView from "./JournalView.jsx";
@@ -54,7 +55,7 @@ export default function Settings({
   hiddenLeagues, leagueIds, toggleLeagueHidden, teams, activeBowler, leaveTeam, onCreateTeam,
   shots, leftHandedForBowler,
 }) {
-  const { preferences, updatePreferences, displayName } = useAuth();
+  const { preferences, updatePreferences, displayName, user, signOut } = useAuth();
   const [savedFlash, setSavedFlash] = useState(false);
   const [error, setError] = useState(null);
   // Settings has two distinct jobs now: configuring the app, and browsing
@@ -84,8 +85,8 @@ export default function Settings({
       // Walkthroughs stay: a casual bowler is the most likely to want to
       // rewatch one, and it used to ride on the "reset" id -- so cutting
       // Reset silently cut the tours too.
-      ? ["session", "look", "walkthroughs", "diagnostics", "backup", "dangerZone"]
-      : ["session", "look", "trackingDetail", "moneyGames", "statsLayout", "backup", "walkthroughs", "diagnostics", "reset", "dangerZone"],
+      ? ["session", "look", "walkthroughs", "diagnostics", "backup", "account", "dangerZone"]
+      : ["session", "look", "trackingDetail", "moneyGames", "statsLayout", "backup", "walkthroughs", "diagnostics", "reset", "account", "dangerZone"],
   };
   const allowed = mode === "leagues" ? cardsFor.leagues : (mode === "settings" ? cardsFor.settings : null);
   const showCard = id => !allowed || allowed.includes(id);
@@ -115,7 +116,7 @@ export default function Settings({
   const [expanded, setExpanded] = useState({
     session: true, look: false, trackingDetail: false,
     moneyGames: false, statsLayout: false,
-    backup: false, reset: false, dangerZone: false,
+    backup: false, reset: false, account: false, dangerZone: false,
     // Open by default. The other cards are settings you go
     // looking for; this is the one a lost bowler needs to SEE.
     walkthroughs: true,
@@ -988,6 +989,38 @@ export default function Settings({
           effort to reach rather than sitting where someone scrolls daily.
           Collapsed by default is an extra deliberate step on top of that,
           before Clear All Data is even visible to tap. */}
+      {showCard("account") && (
+      <CollapsibleCard title="Account"
+        summary={user?.email || "Signed in"}
+        expanded={expanded.account} onToggle={() => toggle("account")}>
+        <div style={{ fontSize: "12px", color: C.textMuted, marginBottom: "10px", lineHeight: 1.5 }}>
+          Signed in as {user?.email || "this device"}.
+        </div>
+        {/* Signing out is NOT destructive -- but on an offline-first app
+            it can look destructive, because anything still in the sync
+            queue belongs to this account and is not on the server yet.
+            
+            So the count is checked FIRST and named in the confirm. A
+            bowler who logged a night in a basement with no signal and
+            then signs out has a real chance of losing it, and "are you
+            sure?" with no number does not tell them that. */}
+        <button style={{ ...S.btn(), width: "100%", padding: "9px", fontSize: "12px" }}
+          onClick={async () => {
+            let pending = 0;
+            try { pending = await getPendingCount(); } catch { pending = 0; }
+            const warning = pending > 0
+              ? `${pending} change${pending === 1 ? "" : "s"} ${pending === 1 ? "has" : "have"} not reached the cloud yet. `
+                + `Signing out now may lose ${pending === 1 ? "it" : "them"}. Sign out anyway?`
+              : "Sign out of this account?";
+            if (!window.confirm(warning)) return;
+            try { await signOut?.(); }
+            catch { window.alert("Could not sign out. Check your connection and try again."); }
+          }}>
+          Sign out
+        </button>
+      </CollapsibleCard>
+      )}
+
       {hasData && showCard("dangerZone") && (
         <CollapsibleCard title="Danger Zone" summary=""
           expanded={expanded.dangerZone} onToggle={() => toggle("dangerZone")}
