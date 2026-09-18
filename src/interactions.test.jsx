@@ -285,3 +285,24 @@ describe('Spare Made gating on an undescribed leave', () => {
     expect(screen.getByText('Spare Made')).toBeTruthy();
   });
 });
+
+describe('what the shot form requires', () => {
+  // Result is the only field canSave insists on -- `form.result &&
+  // form.bowler && !needsSpareMade && !needsPins`, and the last two only
+  // apply once a result has been chosen. Line, release, ball, breakpoint
+  // and notes are all optional, and nothing on the form said so.
+  const inSession = {
+    sessionLeague: 'Tuesday House Shot',
+    effectiveSessionLeague: 'Tuesday House Shot',
+  };
+
+  it('marks Result as required', () => {
+    render(<LogView {...baseProps(inSession)} />);
+    expect(screen.getByText('Required')).toBeTruthy();
+  });
+
+  it('says the rest is optional', () => {
+    render(<LogView {...baseProps(inSession)} />);
+    expect(screen.getByText(/everything else is optional/)).toBeTruthy();
+  });
+});

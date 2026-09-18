@@ -1694,7 +1694,27 @@ export default function LogView({
               {/* Max score moved to the scoresheet -- it's a fact about
                   the GAME, so it belongs under the frames rather than
                   above the buttons for a single shot. */}
-              <div style={{...S.label,marginBottom:"8px"}}>Result</div>
+              {/* The only required field on the whole shot form.
+                  
+                  canSave is `form.result && form.bowler && !needsSpareMade
+                  && !needsPins` -- and the last two only ever apply BECAUSE
+                  a result was chosen. So Result is the one answer a shot
+                  cannot be saved without; line, release, ball, breakpoint
+                  and notes are all optional.
+                  
+                  Saying so here rather than marking the other cards
+                  "optional": there is one required field and a dozen
+                  optional ones, and labelling the dozen is both more noise
+                  and easier to fall out of date. A bowler who sees Required
+                  on exactly one card can infer the rest. */}
+              <div style={{display:"flex",alignItems:"baseline",gap:"8px",marginBottom:"8px"}}>
+                <div style={{...S.label,marginBottom:0}}>Result</div>
+                <span style={{fontSize:"11px",fontWeight:600,color:C.accent,
+                  letterSpacing:"0.02em"}}>Required</span>
+                <span style={{fontSize:"11px",color:C.textMuted,marginLeft:"auto"}}>
+                  everything else is optional
+                </span>
+              </div>
               {/* One row, four equal columns.
                   
                   S.chips wraps, so four results spilled onto two rows at
