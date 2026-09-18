@@ -2,7 +2,20 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover is what makes env(safe-area-inset-*) report
+         real numbers. Without it they resolve to 0, and every bit of
+         safe-area padding in the app silently does nothing.
+
+         This matters more than it looks. Android 15 (API 35) enforces
+         edge-to-edge for any app targeting that SDK or later: the WebView
+         renders BEHIND the status and navigation bars whether it asks to
+         or not. The header is sticky at top:0, so without a top inset its
+         icons sit underneath the status bar -- visible, but untappable,
+         because the system UI consumes the touch before the page sees it.
+         The buttons still worked from remote devtools, which dispatches
+         into the DOM and never goes near the OS, which is what made it
+         look like a React problem rather than a layout one. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <!-- The browser chrome (address bar on mobile, task switcher
          preview) should match whichever theme is actually active, but
          that is only known once React has mounted and read the stored
@@ -22,7 +35,15 @@
     <title>My Bowling Journey</title>
   </head>
   <body>
-    <div id="root">Opening My Bowling Journey…</div>
+    <!-- The inner div carries the padding, not #root itself: React
+         replaces #root's CHILDREN on mount, so this wrapper disappears
+         the moment the app paints. Padding on #root would survive and
+         offset the whole app instead.
+
+         It needs the inset for the same reason the header does -- this
+         text is the first thing drawn, edge-to-edge, and without it the
+         notch clips it. -->
+    <div id="root"><div style="padding:calc(24px + env(safe-area-inset-top, 0px)) 18px 18px">Opening My Bowling Journey…</div></div>
     <script type="module" src="./src/main.jsx"></script>
   </body>
 </html>

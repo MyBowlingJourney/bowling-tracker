@@ -59,7 +59,29 @@ export function applyTheme(id) {
 export const S = {};
 function buildStyles() { return {
   app:{minHeight:"100vh",backgroundColor:C.bg,color:C.text,fontFamily:F.body,fontSize:"15px",lineHeight:1.55},
-  header:{backgroundColor:C.bg,padding:"16px 18px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100,borderBottom:`1px solid ${C.border}`},
+  // The top padding carries the status-bar inset, and that is not
+  // cosmetic -- it is what makes the header's buttons TAPPABLE.
+  //
+  // Android 15 (API 35) enforces edge-to-edge: the WebView draws behind
+  // the status bar whether the app opts in or not. This header is sticky
+  // at top:0, so with a flat 16px it sat underneath the status bar, and
+  // Android's system UI swallowed every touch aimed at Search, Import,
+  // Profile and Settings. They rendered perfectly and did nothing.
+  //
+  // The giveaway was that they worked fine from remote devtools: a
+  // devtools click dispatches straight into the DOM and never asks the
+  // OS, so it hit a handler the finger could not reach. That split --
+  // works in devtools, dead to touch -- is the signature of content
+  // under system UI, not of a broken handler.
+  //
+  // env() needs viewport-fit=cover in index.html to report anything but
+  // 0; the two changes only work together. The fallback keeps this
+  // honest on anything that doesn't support env() at all.
+  //
+  // The background still extends under the status bar, which is the
+  // point of edge-to-edge and looks deliberate. Only the CONTENT moves
+  // down out of it.
+  header:{backgroundColor:C.bg,padding:"calc(16px + env(safe-area-inset-top, 0px)) 18px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100,borderBottom:`1px solid ${C.border}`},
   // The wordmark. Weight and width carry it, not uppercase tracking --
   // ALL-CAPS-with-letterspacing was the single loudest "generated
   // dashboard" signal in the old header.
