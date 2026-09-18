@@ -51,7 +51,6 @@ function sortBalls(list, sortId) {
   });
 }
 
-import { SAMPLE_THRESHOLDS } from "./domain/insightGating.js";
 export default function StatsView({
   // Already passed by BowlingTracker, never read until now.
   lanePatterns = [], oilPatterns = [], tournaments = [], centers = [], statsGroup = "overview",

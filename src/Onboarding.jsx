@@ -282,15 +282,6 @@ export default function Onboarding({ preferences, onApply, onFinish, profile, on
             </button>
             {/* No Back button: there is nowhere behind this screen. */}
         </>
-
-        {/* An escape hatch. Someone who just wants to see the
-            app shouldn't be trapped behind a setup screen -- the defaults
-            are reasonable and everything here lives in Settings too. */}
-        <button
-          style={{ background: "none", border: "none", color: C.textMuted, cursor: "pointer", fontSize: "12px", marginTop: "16px", padding: "8px" }}
-          onClick={onFinish}>
-          Skip — use defaults
-        </button>
       </div>
     </div>
   );

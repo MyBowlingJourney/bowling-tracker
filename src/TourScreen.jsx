@@ -456,12 +456,39 @@ const SCREENS = {
           </div>
         </div>
         <div style={card}>
-          <div style={label}>Journal · 18 Mar</div>
+          <div style={label}>Journal</div>
+          {/* The real screen's only input is this search box -- notes are
+              written on the shot or the session and gathered here, never
+              typed into the journal itself. */}
+          <div style={{
+            border: `1px solid ${C.border}`, borderRadius: "6px", padding: "4px 8px",
+            fontSize: "10px", color: C.textMuted, fontFamily: F.body, marginBottom: "6px",
+          }}>Search your notes…</div>
+          <div style={{ fontSize: "9px", color: C.textMuted, fontFamily: F.body }}>18 Mar</div>
           <div style={muted}>Lanes broke down early. Moved left 3 and it came back.</div>
         </div>
       </Spot>
       <Nav active={5} />
     </Phone>
+  ),
+
+  // The closing card. No phone frame: the tour is over, and drawing one
+  // more screen would suggest there is one more thing to find.
+  "look-more": () => (
+    <div style={{ textAlign: "center", padding: "18px 10px" }}>
+      <div style={{ fontSize: "28px", marginBottom: "10px" }}>🎳</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: "6px", maxWidth: "240px", margin: "0 auto" }}>
+        {[["Keeping score", "By game, or ball by ball"],
+          ["What the AI does", "Scorecards, insights, Brooklyn"],
+          ["Stats", "Breakdowns, comparing, trends"]].map(([t, b]) => (
+          <div key={t} style={{ ...card, marginBottom: 0, textAlign: "left" }}>
+            <div style={{ fontSize: "11px", fontWeight: 700, color: C.text, fontFamily: F.body }}>{t}</div>
+            <div style={muted}>{b}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ ...muted, marginTop: "10px" }}>Settings › Walkthroughs</div>
+    </div>
   ),
 
   // ── Scorekeeping ──────────────────────────────────────────────────────

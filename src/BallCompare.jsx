@@ -5,6 +5,7 @@ import {
   ballByPhase, bestByPhase, GAME_PHASES,
 } from "./domain/ballComparison.js";
 import { isSplit, isCornerPinLeave } from "./domain/splits.js";
+import { SAMPLE_THRESHOLDS } from "./domain/insightGating.js";
 
 // Comparing the arsenal.
 //
@@ -15,19 +16,46 @@ import { isSplit, isCornerPinLeave } from "./domain/splits.js";
 
 const LANE_BOARDS = 39;
 
+// A NUMBER IS NEVER HIDDEN FOR BEING EARLY.
+//
+// This card used to drop any ball under `minShots` and then render
+// nothing at all if fewer than two survived -- so a bowler with a new
+// ball in the bag saw the whole comparison vanish, with no explanation
+// and no way to tell whether it was broken or just waiting. Withholding
+// a number the bowler can see on their own scoresheet does not protect
+// them from it; it only makes the app look empty.
+//
+// So every ball is shown, and the thin ones are MARKED rather than
+// removed. The threshold still does real work: it decides which balls
+// may be declared a winner, because "your Zen Master carries best" drawn
+// from nine shots is a claim, not a display.
+//
+// The AI gate is deliberately NOT relaxed with it. insightGating still
+// withholds thin statistics from Brooklyn and from Insights, because a
+// model handed a noisy number writes a confident story about it and the
+// bowler cannot see the sample size behind the sentence. A human reading
+// "31 of 50" can discount it themselves. That asymmetry is the point.
 export default function BallCompare({
-  shots = [], bowler = "", league = "", leftHanded = false, minShots = 25,
+  shots = [], bowler = "", league = "", leftHanded = false,
+  reliableAt = SAMPLE_THRESHOLDS.ballComparison,
   drift, lateralOffset, twoHanded = false, patternLength = null,
 }) {
-  const comparison = ballComparison(shots, {
-    bowler, league, isSplit, isCornerPinLeave, leftHanded, minShots,
+  // minShots 0: nothing is filtered out on the way in.
+  const raw = ballComparison(shots, {
+    bowler, league, isSplit, isCornerPinLeave, leftHanded, minShots: 0,
   });
+  const comparison = raw.map(b => ({ ...b, provisional: b.shots < reliableAt }));
   if (comparison.length < 2) return null;
 
-  const best = bestByMetric(comparison);
+  // Only settled balls can win a metric. A provisional one still appears
+  // in every row -- it just cannot be crowned.
+  const settled = comparison.filter(b => !b.provisional);
+  const best = settled.length >= 2 ? bestByMetric(settled) : {};
+  const anyProvisional = comparison.some(b => b.provisional);
+
   const colors = ballColors(comparison);
   const phases = ballByPhase(shots, {
-    bowler, league, isSplit, isCornerPinLeave, leftHanded, minShots,
+    bowler, league, isSplit, isCornerPinLeave, leftHanded, minShots: 0,
   });
   const bestPhase = bestByPhase(phases);
 
@@ -72,6 +100,13 @@ export default function BallCompare({
       <div style={{ fontSize: "11px", color: C.textMuted, marginBottom: "10px" }}>
         First balls at a full rack only {"—"} what a strike ball is for.
       </div>
+      {anyProvisional && (
+        <div style={{ fontSize: "11px", color: C.spare, marginBottom: "10px", lineHeight: 1.5 }}>
+          A ball marked {"31/50"}-style has not been thrown enough yet. Its
+          numbers are shown anyway and will move, and it is not named as
+          leading anything until it gets there.
+        </div>
+      )}
 
       {/* Which ball, and when.
           
@@ -102,6 +137,17 @@ export default function BallCompare({
                   backgroundColor: colors[b.ball], flexShrink: 0 }} />
                 <span style={{ overflow: "hidden", textOverflow: "ellipsis",
                   whiteSpace: "nowrap" }}>{b.ball}</span>
+                {/* Said on the row itself, not in a footnote: the bowler
+                    reading a 71% needs to know its sample while they are
+                    looking at it. */}
+                {(() => {
+                  const c = comparison.find(x => x.ball === b.ball);
+                  return c?.provisional ? (
+                    <span style={{ fontSize: "10px", color: C.spare, flexShrink: 0 }}>
+                      {c.shots}/{reliableAt}
+                    </span>
+                  ) : null;
+                })()}
               </span>
               {GAME_PHASES.map(p => {
                 const e = b.phases[p.id];

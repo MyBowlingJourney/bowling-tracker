@@ -6738,34 +6738,48 @@ export default function BowlingTracker(){
           Full screen rather than a card, because it is the only thing on
           it: one sentence saying we are getting out of the way, and two
           places to look if they get stuck. */}
+      {/* The one screen between finishing setup and the app.
+          
+          Shown once, to someone who has just signed up and is keen to
+          start. Two ways out and no third: begin the look-around tour,
+          or go straight to Home. The decline says WHERE the tours live,
+          because "no thanks" with no signpost means they are never found.
+          
+          Beginning the tour clears showWelcome as well as opening it --
+          the welcome only hides itself while a tour is running, so
+          leaving it set meant this screen reappeared the moment the tour
+          finished. */}
       {showWelcome&&onboarded&&!activeTour&&(
         <div style={{position:"fixed",inset:0,zIndex:60,background:C.bg,
           display:"flex",alignItems:"center",justifyContent:"center",padding:"24px"}}>
           <div style={{maxWidth:"420px",width:"100%"}}>
             <div style={{fontSize:"22px",fontWeight:600,color:C.text,marginBottom:"10px"}}>
-              You're all set
+              Welcome to {APP_NAME}
             </div>
             <div style={{fontSize:"15px",color:C.text,lineHeight:1.6,marginBottom:"16px"}}>
-              We know you're ready to bowl, so we won't hold you up.
-            </div>
-            <div style={{fontSize:"14px",color:C.textMuted,lineHeight:1.7,marginBottom:"24px"}}>
-              If you get stuck, there's a search at the top of the screen to help
-              you out. And if you'd rather be shown around, the tours are in
-              Settings whenever you want them.
+              You're all set, and we know you're keen to get started — so we
+              won't hold you up for long. We'd just like to show you around
+              first.
             </div>
             {/* The bargain, stated plainly.
                 
-                Every accessory field is on by default now, which is a lot
-                to ask of someone who has just signed up. This says why it
-                is worth it and that none of it is required -- a bowler who
+                Every accessory field is on by default, which is a lot to
+                ask of someone who has just signed up. This says why it is
+                worth it and that none of it is required -- a bowler who
                 logs scores only still gets a working app. */}
             <div style={{fontSize:"14px",color:C.text,lineHeight:1.6,marginBottom:"24px"}}>
               Document as much or as little as you want. The more you tell
               us, the more we can give back.
             </div>
             <button style={{...S.btn("primary"),width:"100%"}}
+              onClick={()=>{ setShowWelcome(false); startTour(FIRST_TOUR); }}>
+              Begin
+            </button>
+            <button
+              style={{background:"none",border:"none",color:C.textMuted,cursor:"pointer",
+                fontSize:"13px",marginTop:"14px",padding:"8px",width:"100%",lineHeight:1.5}}
               onClick={()=>{ setShowWelcome(false); setView("home"); }}>
-              Start bowling
+              No thanks — I'll watch these later from the settings menu
             </button>
           </div>
         </div>

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { APP_NAME } from "./constants.js";
 import { useAuth } from './AuthProvider.jsx';
 
 const C = {
@@ -42,7 +43,7 @@ export default function SignIn() {
           fontSize: "16px", fontWeight: 700, letterSpacing: "0.05em",
           color: C.accent, textTransform: "uppercase", textAlign: "center", marginBottom: "6px",
         }}>
-          🎳 Shot Tracker
+          🎳 {APP_NAME}
         </div>
         <div style={{ fontSize: "12px", color: C.textMuted, textAlign: "center", marginBottom: "24px" }}>
           Sign in to log your own games and see the team's stats.
