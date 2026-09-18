@@ -2611,41 +2611,31 @@ export default function LogView({
             {/* Line */}
             {preferences.trackedFields.line&&(
               <div style={S.card}>
-                <div style={S.label}>Line{!editingId&&currentLane?` · Lane ${currentLane}`:""}</div>
-                {/* Feet on its own row, arrows paired beneath.
+                {/* The card header and Start on one row.
                     
-                    The two board fields were "Board" under Target and
-                    "Board" under Actual -- one number for where you stand,
-                    which does not have a target and an actual. It is one
-                    fact, so it is one field, and "Feet" says what it is.
+                    Start used to sit in a grid of its own below the
+                    header, with an empty left cell holding the space open.
+                    That left a blank rectangle the width of half the card
+                    for no reason -- the header row was already there and
+                    already half empty.
                     
-                    That leaves the arrows, which genuinely do differ: where
-                    you meant the ball to cross and where it did. Comparing
-                    those two is what the drift note below reads.
-                    
-                    Three fields in two rows measures 180px, matching the
-                    Release Measurements card beside it exactly. */}
-                  {/* Start, then the arrows, then the breakpoint.
-                      
-                      "Feet" was a poor name -- it is the board the bowler
-                      STARTS on, and "feet" reads as a unit of distance on
-                      a card that now has a real distance field on it. */}
-                  <div style={{display:"grid",
-                    gridTemplateColumns:"repeat(2, minmax(0, 1fr))",gap:"8px",marginBottom:"8px"}}>
-                    {/* Start sits in the RIGHT column, with the empty cell
-                        on the left, so this row lines up with the release
-                        measurements card rather than sitting a column
-                        adrift from it. */}
-                    <div style={{minWidth:0}} />
-                    <div style={{minWidth:0}}>
-                      <div style={fieldHead}>Start</div>
-                      <input style={{...S.input,...smallInput,width:"100%"}}
-                        type="number" inputMode="numeric" placeholder="board #"
-                        value={form.startingBoard}
-                        onChange={e=>{const v=acceptBoardKeystroke(e.target.value); if(v===null)return;
-                          editingId?set("startingBoard",v):handleLineChange("startingBoard",v);}}/>
-                    </div>
+                    baseline alignment so the label and the field label sit
+                    on the same line rather than the input dragging the
+                    header down. */}
+                <div style={{display:"flex",alignItems:"baseline",
+                  justifyContent:"space-between",gap:"8px",marginBottom:"8px"}}>
+                  <div style={{...S.label,marginBottom:0,minWidth:0}}>
+                    Line{!editingId&&currentLane?` · Lane ${currentLane}`:""}
                   </div>
+                  <div style={{width:"calc(50% - 4px)",minWidth:0,flexShrink:0}}>
+                    <div style={fieldHead}>Start</div>
+                    <input style={{...S.input,...smallInput,width:"100%"}}
+                      type="number" inputMode="numeric" placeholder="board #"
+                      value={form.startingBoard}
+                      onChange={e=>{const v=acceptBoardKeystroke(e.target.value); if(v===null)return;
+                        editingId?set("startingBoard",v):handleLineChange("startingBoard",v);}}/>
+                  </div>
+                </div>
 
                   <div style={{display:"grid",
                     gridTemplateColumns:"repeat(2, minmax(0, 1fr))",gap:"8px",marginBottom:"8px"}}>
