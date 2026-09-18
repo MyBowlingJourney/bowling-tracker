@@ -23,7 +23,7 @@ const Tour = lazyScreen("Tour", () => import("./Tour.jsx"));
 const JourneyScreen = lazyScreen("Journey", () => import("./JourneyView.jsx"));
 
 const HomeScreen = lazyScreen("Home", () => import("./HomeView.jsx"));
-import { tourSteps, tourToOffer, markTourSeen, hasSeenTour, pendingModeTour, needsLeagueSetup, availableTours, FIRST_TOUR } from "./domain/tour.js";
+import { tourSteps, tourToOffer, markTourSeen, hasSeenTour, pendingModeTour, needsLeagueSetup, availableTours, FIRST_TOUR, TRACK_KEYS } from "./domain/tour.js";
 import HelpView from "./HelpView.jsx";
 import CasualLeaderboard from "./CasualLeaderboard.jsx";
 const BadgeCollection = lazyScreen("BadgeCollection", () => import("./BadgeCollection.jsx"));
@@ -3192,7 +3192,17 @@ export default function BowlingTracker(){
   }
 
   function replayTour(track){
-    startTour(track||preferences.environment||"league");
+    // Falls back to a TRACK, not an environment.
+    //
+    // This was `track||preferences.environment||"league"`, from when a
+    // track WAS an environment. With topic tracks, a no-argument call --
+    // and HelpView's "Show me around the app again" is exactly that --
+    // handed tourSteps the string "league", which matches no track and
+    // lands on the look-around tour through the unknown-track fallback.
+    // It played the right tour by accident, which is a different thing
+    // from playing it on purpose and stops being true the moment that
+    // fallback changes.
+    startTour(TRACK_KEYS.includes(track) ? track : FIRST_TOUR);
   }
 
   function restartOnboarding(){

@@ -152,11 +152,21 @@ function DrillRecap({ recap, comparison }) {
           <span style={{ color: C.text }}>{l.label}</span>
           <span style={{ color: C.textMuted }}>
             {l.made}/{l.attempts}{" "}
-            {/* A percentage off a couple of attempts misleads more than it
-                informs, so it's withheld rather than shown small. */}
-            {l.thin
-              ? <span style={{ color: C.spare }}>(too few to rate)</span>
-              : <strong style={{ color: C.accent }}>{l.rate}%</strong>}
+            {/* The rate is SHOWN either way, and marked when it is thin.
+                
+                It used to be replaced by "(too few to rate)" -- but the
+                bowler can see 3/5 sitting right next to it and do the
+                division themselves, so withholding the number protected
+                nobody and made the app look broken. The caution colour
+                and the "may move" say what the sample cannot support,
+                which is the honest version of the same warning.
+                
+                Same treatment as the By Ball card on the Stats screen,
+                so a marked number means one thing everywhere. */}
+            <strong style={{ color: l.thin ? C.spare : C.accent }}>{l.rate}%</strong>
+            {l.thin && (
+              <span style={{ color: C.spare, fontSize: "11px" }}> · may move</span>
+            )}
           </span>
         </div>
       ))}
@@ -173,11 +183,19 @@ function DrillRecap({ recap, comparison }) {
                   than assuming both sides mean the same physical pins. */}
               <div style={{ fontSize: "12px", color: C.text, marginBottom: "2px" }}>{sh.myLabel}</div>
               <div style={{ fontSize: "11px", color: C.textMuted, display: "flex", justifyContent: "space-between" }}>
-                <span>You — {sh.mine.made}/{sh.mine.attempts}{sh.mine.thin ? "" : ` (${sh.mine.rate}%)`}</span>
+                <span>You — {sh.mine.made}/{sh.mine.attempts}{" "}
+                  <span style={{ color: sh.mine.thin ? C.spare : C.textMuted }}>
+                    ({sh.mine.rate}%{sh.mine.thin ? ", may move" : ""})
+                  </span>
+                </span>
               </div>
               {sh.others.map(o => (
                 <div key={o.bowler} style={{ fontSize: "11px", color: C.textMuted, display: "flex", justifyContent: "space-between" }}>
-                  <span>{o.bowler} — {o.label !== sh.myLabel ? `${o.label}, ` : ""}{o.attempts} attempts{o.thin ? "" : ` (${o.rate}%)`}</span>
+                  <span>{o.bowler} — {o.label !== sh.myLabel ? `${o.label}, ` : ""}{o.attempts} attempts{" "}
+                    <span style={{ color: o.thin ? C.spare : C.textMuted }}>
+                      ({o.rate}%{o.thin ? ", may move" : ""})
+                    </span>
+                  </span>
                   {o.diff != null && (
                     <span style={{ color: o.diff > 0 ? C.strike : o.diff < 0 ? C.miss : C.textMuted, fontWeight: 600 }}>
                       {o.diff > 0 ? "+" : o.diff < 0 ? "\u2212" : "\u00b1"}{Math.abs(o.diff)}
@@ -202,7 +220,10 @@ function DrillRecap({ recap, comparison }) {
           </div>
           {comparison.theirsOnly.map((t, i) => (
             <div key={`${t.bowler}-${t.label}-${i}`} style={{ fontSize: "11px", color: C.textMuted }}>
-              {t.bowler} — {t.label}, {t.attempts} attempts{t.thin ? "" : ` (${t.rate}%)`}
+              {t.bowler} — {t.label}, {t.attempts} attempts{" "}
+              <span style={{ color: t.thin ? C.spare : C.textMuted }}>
+                ({t.rate}%{t.thin ? ", may move" : ""})
+              </span>
             </div>
           ))}
         </div>

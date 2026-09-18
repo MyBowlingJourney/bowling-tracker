@@ -1218,9 +1218,14 @@ export default function LogView({
                 <button style={S.btn("primary")} onClick={()=>setView("teams")}>
                   Add my league
                 </button>
+                {/* "look", not "league". Tracks are topics now, and
+                    "league" matched no track -- it reached the look-around
+                    tour only through the unknown-track fallback. The
+                    look-around tour is the right one here anyway: its third
+                    slide is Team, which is where a league gets set up. */}
                 {onReplayTour&&(
                   <button style={{...S.btn(),width:"100%",marginTop:"8px",fontSize:"12px"}}
-                    onClick={()=>onReplayTour("league")}>
+                    onClick={()=>onReplayTour("look")}>
                     Show me how first
                   </button>
                 )}

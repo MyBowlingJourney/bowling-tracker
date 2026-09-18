@@ -16,6 +16,12 @@ import { SAMPLE_THRESHOLDS } from "./domain/insightGating.js";
 
 const LANE_BOARDS = 39;
 
+// Shots in ONE phase of the night before its rate is treated as settled.
+// Lower than the whole-season bar: a phase is a third of a night by
+// definition, so holding it to the season's sample would dash every cell
+// for most of a season.
+const PHASE_RELIABLE_AT = 10;
+
 // A NUMBER IS NEVER HIDDEN FOR BEING EARLY.
 //
 // This card used to drop any ball under `minShots` and then render
@@ -152,14 +158,26 @@ export default function BallCompare({
               {GAME_PHASES.map(p => {
                 const e = b.phases[p.id];
                 const leads = bestPhase[p.id] === b.ball;
+                // A rate exists or it does not. A dash means there is
+                // NOTHING here; a thin phase shows its number in the
+                // caution colour instead.
+                //
+                // This used to dash anything under ten shots, which threw
+                // away a real number the bowler could not get any other
+                // way -- the whole question this table answers is how the
+                // early games differ from the late ones, and the fresh
+                // rack is exactly where a bowler has the fewest shots.
+                const rate = e && e.strikeRate !== null ? e.strikeRate : null;
+                const thin = !!e && e.shots < PHASE_RELIABLE_AT;
                 return (
                   <span key={p.id} style={{ width: "62px", textAlign: "right",
                     fontWeight: leads ? 700 : 400,
-                    color: leads ? C.strike : C.text }}>
-                    {/* A phase with almost nothing in it gets a dash, not
-                        a percentage -- two shots is not a strike rate. */}
-                    {!e || e.shots < 10 || e.strikeRate === null
-                      ? "—" : `${e.strikeRate}%`}
+                    color: rate === null ? C.textMuted
+                      : thin ? C.spare
+                      : leads ? C.strike : C.text }}
+                    title={rate !== null && thin
+                      ? `${e.shots} shots — too few to rely on` : undefined}>
+                    {rate === null ? "—" : `${rate}%`}
                   </span>
                 );
               })}
@@ -168,7 +186,9 @@ export default function BallCompare({
           <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "2px",
             marginBottom: "14px", lineHeight: 1.5 }}>
             Strike rate by part of the night. Bold leads that phase; nothing
-            is bold when the gap is small enough to be chance.
+            is bold when the gap is small enough to be chance. A rate in
+            amber has fewer than {PHASE_RELIABLE_AT} shots behind it and
+            will move. A dash means no shots at all.
           </div>
         </>
       )}
