@@ -1830,25 +1830,13 @@ export default function BowlingTracker(){
 
   const[showSyncDetail,setShowSyncDetail]=useState(false);
   // Technical detail is opt-in: the default view explains, not debugs.
-  const[showSyncTechnical,setShowSyncTechnical]=useState(false);
   const[syncBreakdown,setSyncBreakdown]=useState(null);
   async function openSyncDetail(){
     const inspection=await inspectPendingQueue();
     setSyncBreakdown(inspection);
     setShowSyncDetail(true);
   }
-  async function handleDiscardTable(table){
-    if(!window.confirm(`Discard the queued writes for "${table}"? Everything else stays queued. This can't be undone.`))return;
-    await discardQueuedTable(table);
-    setSyncBreakdown(await inspectPendingQueue());
-    setPendingSyncCount(await getPendingCount());
-  }
 
-  async function handleClearPendingQueue(){
-    if(!window.confirm(`Discard all ${pendingSyncCount} queued writes without syncing them? This cannot be undone — anything not yet confirmed as reaching the cloud will be lost.`))return;
-    await clearPendingQueue();
-    setShowSyncDetail(false);
-  }
 
   // Forces every match currently held locally through a fresh diff-and-sync
   // attempt using whatever the CURRENT code actually does — not a retry of
@@ -1865,12 +1853,6 @@ export default function BowlingTracker(){
     await syncLanePatternsToCloud([],lanePatterns);
   }
 
-  async function handleDiscardAndResyncAll(){
-    if(!window.confirm(`Discard all ${pendingSyncCount} queued writes, then attempt a fresh sync of everything currently saved on this device? Anything not yet confirmed as reaching the cloud will be lost from the queue, but your local shots, sessions, matches, and lane conditions are untouched and will be re-attempted.`))return;
-    await clearPendingQueue();
-    handleResyncAll();
-    setShowSyncDetail(false);
-  }
 
   const[syncingNow,setSyncingNow]=useState(false);
   async function handleSyncNow(){
@@ -6695,7 +6677,7 @@ export default function BowlingTracker(){
   return(
     <div style={S.app}>
       {/* Header.
-          
+        
           Rebuilt around the two things a header is actually for: telling
           you where you are, and surfacing anything that needs you.
 
@@ -6711,7 +6693,7 @@ export default function BowlingTracker(){
             on every screen forever trains people to stop reading it.
             It now speaks up only when something is actually pending. */}
       {/* Marked so scroll targets can measure it.
-          
+        
           The header is sticky, so anything scrolled to the top of the
           page lands underneath it. LogView measures this element to
           offset by its real height -- which matters because the title
@@ -6721,16 +6703,16 @@ export default function BowlingTracker(){
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"8px",minWidth:0,width:"100%"}}>
           <div style={{minWidth:0,display:"flex",alignItems:"baseline",gap:"8px"}}>
             {/* The app name on HOME and while scoring.
-                
+              
                 Home is the front door and the screen the app opens on --
                 showing "Home" there names the tab rather than the app,
                 which is the one place the name belongs. */}
             {/* Back, for screens that are not tabs.
-                
+              
                 The nav reaches five places; everything else -- scoring,
                 Journey, Stats, Badges, Settings -- is reached FROM one of
                 them and had no way back except finding the right tab.
-                
+              
                 This walks the tree rather than history: from scoring you
                 go Home because that is where you chose the mode, and from
                 Badges you go to Journey because that is where the link
@@ -6779,7 +6761,7 @@ export default function BowlingTracker(){
                 for someone who picked that mode by accident and watched
                 four tabs disappear. Its CONTENT is filtered instead; see
                 the mode filter in domain/help.js.
-                
+              
                 Import is genuinely hidden: there's no scorecard to
                 photograph on a casual night. */}
             {<button onClick={()=>setView("help")}
@@ -6815,17 +6797,17 @@ export default function BowlingTracker(){
           instead of it -- a new bowler reads each step while looking at
           the tab it describes. */}
       {/* Shown once, after onboarding, in place of the tour.
-          
+        
           Full screen rather than a card, because it is the only thing on
           it: one sentence saying we are getting out of the way, and two
           places to look if they get stuck. */}
       {/* The one screen between finishing setup and the app.
-          
+        
           Shown once, to someone who has just signed up and is keen to
           start. Two ways out and no third: begin the look-around tour,
           or go straight to Home. The decline says WHERE the tours live,
           because "no thanks" with no signpost means they are never found.
-          
+        
           Beginning the tour clears showWelcome as well as opening it --
           the welcome only hides itself while a tour is running, so
           leaving it set meant this screen reappeared the moment the tour
@@ -6842,7 +6824,7 @@ export default function BowlingTracker(){
               for long. We'd just like to show you around first.
             </div>
             {/* The bargain, stated plainly.
-                
+              
                 Every accessory field is on by default, which is a lot to
                 ask of someone who has just signed up. This says why it is
                 worth it and that none of it is required -- a bowler who
@@ -6919,42 +6901,20 @@ export default function BowlingTracker(){
             </button>
           )}
 
-          {/* Technical detail behind a tap, for when you're debugging --
-              not the first thing a bowler reads. */}
-          <button style={{...S.btn(),width:"100%",fontSize:"11px",padding:"6px"}}
-            onClick={()=>setShowSyncTechnical(v=>!v)}>
-            {showSyncTechnical?"Hide details":"Show technical details"}
-          </button>
-
-          {showSyncTechnical&&(
-            <div style={{marginTop:"10px"}}>
-              {Object.entries(syncBreakdown.byTable).map(([table,count])=>(
-                <div key={table} style={{padding:"6px 0",borderBottom:`1px solid ${C.border}`}}>
-                  <div style={{display:"flex",justifyContent:"space-between",fontSize:"12px"}}>
-                    <span style={{color:C.text}}>{table}</span>
-                    <span style={{color:C.textMuted}}>{count}</span>
-                  </div>
-                  {syncBreakdown.reasonsByTable?.[table]&&(
-                    <div style={{fontSize:"11px",color:C.miss,marginTop:"3px",fontFamily:"monospace",wordBreak:"break-word"}}>
-                      {syncBreakdown.reasonsByTable[table]}
-                    </div>
-                  )}
-                  {info.canDiscard&&(
-                    <button style={{...S.btn(),padding:"3px 8px",fontSize:"10px",marginTop:"4px"}}
-                      onClick={()=>handleDiscardTable(table)}>
-                      Discard just {table}
-                    </button>
-                  )}
-                </div>
-              ))}
-              <div style={{fontSize:"11px",color:C.textMuted,margin:"10px 0"}}>
-                Discarding drops these writes without saving them to the cloud. Your local data stays, but it won't reach your other devices. This can't be undone.
-              </div>
-              <button style={{...S.btn(),width:"100%",color:C.accent,borderColor:C.accent+"44"}} onClick={handleDiscardAndResyncAll}>
-                Discard &amp; resync everything
-              </button>
-            </div>
-          )}
+          {/* No technical detail, and no Discard button.
+            
+              Both existed so a bowler could clear an item that would
+              never sync. Nothing gets stuck like that any more: a
+              permanent failure that syncErrors marks canDiscard now
+              expires itself after three flushes, and the one kind that
+              does not -- a 42501 -- never offered the button anyway,
+              because discarding it would bin a real game over a policy
+              bug that might still be fixed.
+            
+              What is left is what a bowler can actually use: what is
+              happening, that nothing is lost, and a way to retry. The
+              detail behind the old button now goes to the error reports
+              instead, where it reaches someone who can act on it. */}
         </div>
         );
       })()}
@@ -6971,7 +6931,7 @@ export default function BowlingTracker(){
           the session. Deliberately plain -- a spinner that flashes for
           80ms is more distracting than a quiet gap. */}
       <Suspense fallback={<div style={{padding:"32px 0",textAlign:"center",color:C.textMuted,fontSize:"13px"}}>Loading…</div>}>
-        
+      
         {view==="insights"&&(<>
           {/* Improve is the whole improvement loop, so the two things
               that used to be their own tabs live here as entry points:
@@ -7155,13 +7115,13 @@ export default function BowlingTracker(){
             component in a card-filtered mode, so there is still exactly
             one Leagues editor rather than two that can drift. */}
         {/* Friends moved to Stats, beside Compare To.
-        
+      
             It was in the Vault, alongside leagues and equipment -- but a
             person isn't equipment, and for a league bowler "Friends"
             isn't really a destination: teammates are auto-friended,
             requests arrive in the inbox, and the list exists almost
             entirely to populate the Compare To dropdown.
-            
+          
             Putting it where that dropdown lives makes it contextual: you
             open Compare To, find nobody there, and the fix is right
             beside it. */}
@@ -7194,13 +7154,13 @@ export default function BowlingTracker(){
         )}
 
         {/* Teams, directly under the Leagues editor.
-        
+      
             These belong together: you add a league, then immediately want
             a team for it. Teams previously lived on the Friends screen --
             a different tab entirely -- so setting up a league meant
             finishing here, navigating away, and finding a tab that mixes
             roster management with friend requests.
-            
+          
             Friends stays where it is: adding a friend is a different task
             from managing a roster, and it isn't part of league setup. */}
         {view==="teams"&&(
@@ -7226,7 +7186,7 @@ export default function BowlingTracker(){
         )}
 
         {/* Journey is its own screen now, not a chip inside History.
-            
+          
             It is the app's name and the reason someone keeps it for
             years, and it was three taps deep behind a label that gave no
             hint it was there. */}
@@ -7301,13 +7261,13 @@ export default function BowlingTracker(){
         )}
 
         {/* Home IS the night while one is live.
-            
+          
             Scoring gets the screen from the first shot until "End
             session", then Home reverts to the dashboard. That is why
             there is no Bowl tab: leaving scoring to check a ball and
             coming back is one tap, not two, because Home is where you
             already were.
-            
+          
             sessionIsLive reads SHOTS, not a session row -- a row is only
             written by "End session", so waiting for one would mean Home
             never took over. */}
@@ -7467,21 +7427,21 @@ export default function BowlingTracker(){
         {view==="data"&&(
           <div style={{...S.card,paddingTop:"12px",paddingBottom:"12px"}}>
             {/* One row, not two.
-                
+              
                 "Stats" and "Trends" lived here while the group chips
                 lived inside StatsView, which put two chip rows on top of
                 each other. These are the same kind of choice -- which
                 slice of your numbers am I looking at -- so they belong in
                 the same row.
-                
+              
                 Trends is still its own screen; the rest filter StatsView. */}
             {/* One row, and it cannot scroll.
-                
+              
                 Twice I worked out that six chips "should" fit and twice
                 they did not -- a label's rendered width depends on the
                 font the device actually has, which is not something to
                 compute from character counts.
-                
+              
                 So they share the row instead: each takes an equal slice
                 and truncates if its label is too long. A guarantee
                 rather than an estimate. */}
@@ -7529,7 +7489,6 @@ export default function BowlingTracker(){
             centers={centers}
 
             tournaments={tournaments}
-            centers={centers}
 
             closedSeasons={closedSeasons} leagueDates={leagueDates}
             view={view} shots={shots} sessions={sessions} bowlers={bowlers} teams={teams} leagues={leagues} arsenals={arsenals} saved={saved}
@@ -7539,7 +7498,7 @@ export default function BowlingTracker(){
             statsLeague={statsLeague} setStatsLeague={chooseStatsLeague}
             compareLeague={compareLeague} setCompareLeague={setCompareLeague}
             matches={matches}
-            FRAME_POSITION_RELIABILITY_THRESHOLD={FRAME_POSITION_RELIABILITY_THRESHOLD} SHOT_SAMPLE_THRESHOLD={SHOT_SAMPLE_THRESHOLD} allFirstBalls={allFirstBalls} bStats={bStats} bowlerLeagueCount={bowlerLeagueCount}
+            FRAME_POSITION_RELIABILITY_THRESHOLD={FRAME_POSITION_RELIABILITY_THRESHOLD}  allFirstBalls={allFirstBalls} bStats={bStats} bowlerLeagueCount={bowlerLeagueCount}
             cleanFrameCount={cleanFrameCount} cleanFrameR={cleanFrameR} compareLabel={compareLabel} firstBallAvg={firstBallAvg} fivePinAttempts={fivePinAttempts} fivePinMisses={fivePinMisses}
             framePosition={framePosition} framePositionGamesLogged={framePositionGamesLogged} framePositionReliable={framePositionReliable} frameShots={frameShots} hideIndividualOnly={hideIndividualOnly}
             isTeamView={isTeamView} leaveAvg={leaveAvg} mCounts={mCounts} nonSplitLeaveList={nonSplitLeaveList} nonStrikeFirstBalls={nonStrikeFirstBalls} rng={rng} showTeamCompare={showTeamCompare}
