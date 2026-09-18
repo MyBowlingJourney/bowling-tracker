@@ -205,3 +205,38 @@ describe('import problems are their own kinds', () => {
     expect(log[0].message).toContain('176');
   });
 });
+
+describe('redact: the promise the Diagnostics card makes', () => {
+  // The card tells the bowler the log "names screens, tables and error
+  // codes, never your scores or anyone's name." These pin that.
+  it('strips the row body Postgres attaches to NOT NULL and CHECK errors', () => {
+    // The gap that prompted these: `Key (col)=(val)` was handled and
+    // `Failing row contains (...)` was not, so a not-null violation put
+    // the whole row -- name, score, ball, notes -- into the log.
+    const out = redact(
+      'null value in column "bowler_name" violates not-null constraint ' +
+      'Failing row contains (Ryan, 212, Bionic, went long).');
+    expect(out).toContain('bowler_name');          // the column survives
+    expect(out).not.toContain('Ryan');
+    expect(out).not.toContain('Bionic');
+    expect(out).not.toContain('212');
+  });
+
+  it('strips the value from a duplicate-key error but keeps the constraint', () => {
+    const out = redact(
+      'duplicate key value violates unique constraint "leagues_name_per_user_idx" ' +
+      'Key (created_by, name)=(a1b2, Maggie Tuesday Night) already exists.');
+    expect(out).toContain('leagues_name_per_user_idx');
+    expect(out).not.toContain('Maggie');
+  });
+
+  it('strips email addresses wherever they appear', () => {
+    expect(redact('user ryan.everett@example.com rejected')).not.toContain('example.com');
+  });
+
+  it('keeps identifiers, which are schema and already public in the repo', () => {
+    const out = redact('new row for relation "shots" violates check constraint "shots_frame_check"');
+    expect(out).toContain('shots');
+    expect(out).toContain('shots_frame_check');
+  });
+});

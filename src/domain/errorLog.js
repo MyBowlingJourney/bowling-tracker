@@ -54,6 +54,14 @@ export function redact(message) {
     // Key (bowler_name)=(Maggie) -> Key (bowler_name)=(*)
     // The column name survives; only the VALUE goes.
     .replace(/\)=\([^)]*\)/g, ")=(*)")
+    // "Failing row contains (Ryan, 212, Bionic)" -> "(*)"
+    //
+    // Postgres attaches this to NOT NULL and CHECK violations, and it is
+    // the whole row: names, scores, ball names, notes. The Key (...)=(...)
+    // rule above does not match it -- there is no "=" -- so it went into
+    // the log verbatim. Caught by running real error strings through this
+    // function rather than reading it.
+    .replace(/Failing row contains \([^)]*\)/gi, "Failing row contains (*)")
     // Single-quoted literals are values: 'Maggie', 'tuesday night'.
     .replace(/'[^']*'/g, "'*'")
     // DOUBLE-quoted text in a Postgres error is an IDENTIFIER, not a
