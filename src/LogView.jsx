@@ -2651,7 +2651,7 @@ export default function LogView({
                   <div style={{display:"grid",
                     gridTemplateColumns:"repeat(2, minmax(0, 1fr))",gap:"8px",marginBottom:"8px"}}>
                     <div style={{minWidth:0}}>
-                      <div style={fieldHead}>Standing on</div>
+                      <div style={fieldHead}>Stand</div>
                       <input style={{...S.input,...smallInput,width:"100%"}}
                         type="number" inputMode="numeric" placeholder="board #"
                         value={form.startingBoard}
@@ -2659,7 +2659,7 @@ export default function LogView({
                           editingId?set("startingBoard",v):handleLineChange("startingBoard",v);}}/>
                     </div>
                     <div style={{minWidth:0}}>
-                      <div style={fieldHead}>Target @ arrows</div>
+                      <div style={fieldHead}>Target</div>
                       <input style={{...S.input,...smallInput,width:"100%"}}
                         type="number" inputMode="numeric" placeholder="board #"
                         value={form.targetArrows}
@@ -2667,7 +2667,7 @@ export default function LogView({
                           editingId?set("targetArrows",v):handleLineChange("targetArrows",v);}}/>
                     </div>
                     <div style={{minWidth:0}}>
-                      <div style={fieldHead}>Actual @ arrows</div>
+                      <div style={fieldHead}>Hit</div>
                       <input style={{...S.input,...smallInput,width:"100%"}}
                         type="number" inputMode="numeric" placeholder="board #"
                         value={form.actualArrows}
