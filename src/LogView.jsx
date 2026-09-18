@@ -2632,6 +2632,11 @@ export default function LogView({
                       a card that now has a real distance field on it. */}
                   <div style={{display:"grid",
                     gridTemplateColumns:"repeat(2, minmax(0, 1fr))",gap:"8px",marginBottom:"8px"}}>
+                    {/* Start sits in the RIGHT column, with the empty cell
+                        on the left, so this row lines up with the release
+                        measurements card rather than sitting a column
+                        adrift from it. */}
+                    <div style={{minWidth:0}} />
                     <div style={{minWidth:0}}>
                       <div style={fieldHead}>Start</div>
                       <input style={{...S.input,...smallInput,width:"100%"}}
@@ -2640,7 +2645,6 @@ export default function LogView({
                         onChange={e=>{const v=acceptBoardKeystroke(e.target.value); if(v===null)return;
                           editingId?set("startingBoard",v):handleLineChange("startingBoard",v);}}/>
                     </div>
-                    <div style={{minWidth:0}} />
                   </div>
 
                   <div style={{display:"grid",
@@ -2680,7 +2684,7 @@ export default function LogView({
                     </div>
                     <div style={{minWidth:0}}>
                       <input style={{...S.input,...smallInput,width:"100%"}}
-                        type="number" inputMode="numeric" placeholder="feet down lane"
+                        type="number" inputMode="numeric" placeholder="ft"
                         value={form.breakpointDistance}
                         onChange={e=>set("breakpointDistance",e.target.value)}/>
                     </div>
