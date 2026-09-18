@@ -92,7 +92,7 @@ export function ballComparison(shots, opts) {
       ball, shots: 0, strikes: 0, corner: 0, splits: 0,
       leaveTotal: 0, leaveCount: 0,
       startTotal: 0, startCount: 0, arrowTotal: 0, arrowCount: 0,
-      bpBoardTotal: 0, bpBoardCount: 0, bpFeetTotal: 0, bpFeetCount: 0,
+      bpBoardTotal: 0, bpBoardCount: 0,
     };
     cur.shots += 1;
     if (clean(s.result) === "Strike") cur.strikes += 1;
@@ -115,6 +115,14 @@ export function ballComparison(shots, opts) {
     if (start !== null) { cur.startTotal += start; cur.startCount += 1; }
     const arrows = num(s.actualArrows);
     if (arrows !== null) { cur.arrowTotal += arrows; cur.arrowCount += 1; }
+    // The breakpoint board was collected on the log screen, stored, and
+    // then never summed here -- the accumulator existed but nothing ever
+    // added to it, so breakpointBoard came back null for every ball. That
+    // made ballLine's "a measured breakpoint wins outright" branch
+    // unreachable: every line on the diagram was the damped projection,
+    // including for shots where the bowler had recorded the real board.
+    const bpBoard = num(s.breakpointBoard);
+    if (bpBoard !== null) { cur.bpBoardTotal += bpBoard; cur.bpBoardCount += 1; }
     byBall.set(ball, cur);
   }
 
@@ -134,7 +142,6 @@ export function ballComparison(shots, opts) {
       startBoard: avg(b.startTotal, b.startCount),
       arrowBoard: avg(b.arrowTotal, b.arrowCount),
       breakpointBoard: avg(b.bpBoardTotal, b.bpBoardCount),
-      breakpointFeet: avg(b.bpFeetTotal, b.bpFeetCount),
     }))
     .sort((a, b) => (b.strikeRate ?? -1) - (a.strikeRate ?? -1));
 }
@@ -206,19 +213,31 @@ export function ballLine(entry, opts) {
   });
   const lay = spot ? spot.laydown : start;
   const perFoot = (arrows - lay) / ARROWS_FEET;
-  // A MEASURED breakpoint wins outright. The projection below is a guess
-  // from the feet-to-arrows angle, and a poor one -- that angle includes
-  // the approach, so it had to be damped to a fifth to stay on the lane.
-  // Now that the log screen asks for the board and the distance, the
-  // guess is only a fallback for shots logged before it existed.
+  // A MEASURED breakpoint BOARD wins outright. The projection below is a
+  // guess from the feet-to-arrows angle, and a poor one -- that angle
+  // includes the approach, so it had to be damped to a fifth to stay on
+  // the lane. Now that the log screen asks for the board, the guess is
+  // only a fallback for shots logged before it existed.
   const measuredBoard = num(e.breakpointBoard);
-  const measuredFeet = num(e.breakpointFeet);
   const projected = arrows + perFoot * (BREAKPOINT_FEET - ARROWS_FEET) * 0.2;
   const breakpoint = measuredBoard !== null
     ? Math.max(1, Math.min(39, measuredBoard))
     : Math.max(3, Math.min(37, projected));
-  const bpFeet = measuredFeet !== null
-    ? Math.max(ARROWS_FEET + 1, Math.min(FOUL_LINE_TO_PINS - 1, measuredFeet))
+
+  // How far down the lane the ball turns comes from the OIL PATTERN, not
+  // from the bowler.
+  //
+  // The log screen used to ask for a breakpoint distance alongside the
+  // board. Nobody can eyeball a distance down a lane to any useful
+  // precision -- the board is a thing you watch the ball cross, the
+  // footage is a guess -- so the field cost a tap per shot and returned
+  // noise. The pattern length is the real determinant of where the ball
+  // has to turn, and it is already recorded once per session.
+  //
+  // Without a known pattern, 40 feet is the house-shot default.
+  const patternFeet = num(o.patternLength);
+  const bpFeet = patternFeet !== null
+    ? Math.max(ARROWS_FEET + 1, Math.min(FOUL_LINE_TO_PINS - 1, patternFeet))
     : BREAKPOINT_FEET;
 
   return {

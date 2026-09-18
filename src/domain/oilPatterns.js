@@ -461,3 +461,42 @@ export function patternAverages(sessions, lanePatterns, tournaments, bowler) {
     }))
     .sort((a, b) => b.games - a.games);
 }
+
+// How long the pattern is that a league was most recently bowled on.
+//
+// The ball-path drawing needs to know where down the lane the ball has to
+// turn. It used to ask the bowler for that distance per shot, which is not
+// a thing anyone can judge by eye -- the breakpoint BOARD is something you
+// watch the ball cross, the footage is a guess. The pattern length is what
+// actually sets it, and it is already recorded once per night.
+//
+// Resolved in order: the bowler's own saved pattern (which carries a
+// length), then the published spec for that name, newest year first.
+// Returns null when the pattern is unknown or was never named, and the
+// caller falls back to the 40-foot house default rather than inventing one.
+export function patternLengthForLeague(lanePatterns, league, oilPatterns) {
+  const nights = (Array.isArray(lanePatterns) ? lanePatterns : [])
+    .filter(p => p && typeof p === "object" && p.patternName
+      && (!league || p.league === league))
+    .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+  if (!nights.length) return null;
+
+  const name = String(nights[0].patternName).trim();
+  if (!name) return null;
+
+  const mine = (Array.isArray(oilPatterns) ? oilPatterns : [])
+    .find(p => p && typeof p === "object"
+      && String(p.name || "").trim().toLowerCase() === name.toLowerCase());
+  const ownLength = Number(mine?.lengthFeet);
+  if (Number.isFinite(ownLength) && ownLength > 0) return ownLength;
+
+  // Published specs are keyed "Name|Year". Newest year wins: the same
+  // animal is re-laid at a different length most seasons.
+  const keys = Object.keys(VERIFIED_PATTERN_SPECS)
+    .filter(k => k.split("|")[0].toLowerCase() === name.toLowerCase())
+    .sort((a, b) => Number(b.split("|")[1] || 0) - Number(a.split("|")[1] || 0));
+  if (!keys.length) return null;
+
+  const spec = Number(VERIFIED_PATTERN_SPECS[keys[0]]?.lengthFeet);
+  return Number.isFinite(spec) && spec > 0 ? spec : null;
+}

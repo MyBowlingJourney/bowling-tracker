@@ -58,7 +58,6 @@ export function shotToSupabaseRow(shot,userId,leagueIdsMap){
     starting_board:shot.startingBoard||"",
     // Measured breakpoint. Board and how far down the lane it turned.
     breakpoint_board:shot.breakpointBoard||"",
-    breakpoint_distance:shot.breakpointDistance||"",
     target_arrows:shot.targetArrows||"",
     result:shot.result||"",
     other_leave:shot.otherLeave||[],
@@ -104,7 +103,6 @@ export function shotFromSupabaseRow(row,leagueNameById){
     actualArrows:row.actual_arrows==null?"":String(row.actual_arrows),
     startingBoard:row.starting_board||"",
     breakpointBoard:row.breakpoint_board||"",
-    breakpointDistance:row.breakpoint_distance||"",
     targetArrows:row.target_arrows||"",
     result:row.result||"",
     otherLeave:row.other_leave||[],

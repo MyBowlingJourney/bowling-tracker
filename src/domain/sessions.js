@@ -8,7 +8,7 @@ export function emptyShot(){
     // The breakpoint, MEASURED: which board the ball turned on and how
     // far down the lane. The ball-path drawing used to project this from
     // the feet-to-arrows angle, which is a guess dressed as data.
-    breakpointBoard:"",breakpointDistance:"",
+    breakpointBoard:"",
     // The board the ball CROSSES AT THE ARROWS, fifteen feet down lane --
     // not where the feet started, and not what was aimed at.
     //
