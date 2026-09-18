@@ -69,7 +69,7 @@ const ALL_STEPS = [
     track: "look",
     tab: "home",
     title: "Your journey",
-    body: "Every first lands here with the date you did it — first strike, first spare, first 200. Badges collect beside them. It's the part of the app that isn't a number.",
+    body: "Every first lands here with the date you did it — first strike, first spare, first 200. Badges collect beside them.",
   },
   {
     id: "look-calendar",
@@ -110,7 +110,7 @@ const ALL_STEPS = [
     track: "score",
     tab: "log",
     title: "An open frame",
-    body: "Same start — tap what was standing — then answer No, and say how many of them you knocked down on the second ball. That's what separates a nearly from a miss.",
+    body: "Same start — tap what was standing — then answer No, and say how many of them you knocked down on the second ball.",
   },
   {
     id: "score-results",
@@ -127,13 +127,6 @@ const ALL_STEPS = [
     tab: "log",
     title: "Photograph the scorecard",
     body: "The camera icon at the top takes a picture of the monitor or a printed sheet. Every bowler on it, every frame it can read — no typing.",
-  },
-  {
-    id: "ai-import-check",
-    track: "ai",
-    tab: "log",
-    title: "Check it before it lands",
-    body: "Nothing files straight from a photo. The read arrives in an inbox for you to confirm or correct first, because a misread pin is a wrong score you'd never spot later.",
   },
   {
     id: "ai-insights",
@@ -156,21 +149,21 @@ const ALL_STEPS = [
     track: "stats",
     tab: "stats",
     title: "Break it down",
-    body: "The chips across the top slice the same numbers different ways — yours, your team's, by ball, by game, by center. One row, no scrolling.",
+    body: "The chips across the top slice the same numbers different ways — yours, your team's, by ball, by game, by center.",
   },
   {
     id: "stats-compare",
     track: "stats",
     tab: "stats",
     title: "Compare",
-    body: "Put yourself beside a teammate, or against the team as a whole. Same measures, same scale, so a gap is a gap rather than two screens you have to hold in your head.",
+    body: "Put yourself beside a teammate, or against the team as a whole. Same measures, same scale.",
   },
   {
     id: "stats-thresholds",
     track: "stats",
     tab: "stats",
     title: "Why some cards are locked",
-    body: "A ball needs 50 first balls before it's compared with another, and a spare rate needs 60 attempts. Under that, the number moves more with luck than with you — so the app says how many more it needs instead of guessing.",
+    body: "A ball needs 50 first balls before it's compared with another, and a spare rate needs 30 attempts. Under that, the number moves more with luck than with you — so the app says how many more it needs instead of guessing.",
   },
   {
     id: "stats-trend",

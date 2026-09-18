@@ -41,13 +41,13 @@ describe('slide counts', () => {
   // explained, and nothing else would notice.
   it('look around is 6 slides', () => expect(stepsForTrack('look').length).toBe(6));
   it('scorekeeping is 5 slides', () => expect(stepsForTrack('score').length).toBe(5));
-  it('AI is 4 slides', () => expect(stepsForTrack('ai').length).toBe(4));
+  it('AI is 3 slides', () => expect(stepsForTrack('ai').length).toBe(3));
   it('stats is 4 slides', () => expect(stepsForTrack('stats').length).toBe(4));
 
-  it('19 slides in total, with no step in two tracks', () => {
+  it('18 slides in total, with no step in two tracks', () => {
     const all = TRACK_KEYS.flatMap(k => stepsForTrack(k));
-    expect(all.length).toBe(19);
-    expect(new Set(all.map(s => s.id)).size).toBe(19);
+    expect(all.length).toBe(18);
+    expect(new Set(all.map(s => s.id)).size).toBe(18);
   });
 });
 

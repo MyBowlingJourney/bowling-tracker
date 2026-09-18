@@ -14,7 +14,7 @@
 // confidence the half-width is 1.96 * sqrt(p(1-p)/n):
 //
 //   Overall strike rate, n=150   -> ±8.0%   usable for "your rate is X"
-//   Spare conversion,    n=60    -> ±11.6%  usable, coarse
+//   Spare conversion,    n=30    -> ±16.4%  coarse, and deliberately so
 //   Two balls compared,  n=250   -> ±8.8%   the loosest bar worth having
 //
 // Ball comparison needs by far the most data, because comparing two
@@ -30,7 +30,24 @@ export const SAMPLE_THRESHOLDS = {
   // First balls needed before an overall strike/carry rate is reported.
   overallStrikeRate: 150,
   // Spare attempts needed before conversion is reported.
-  spareConversion: 60,
+  //
+  // Lowered from 60. The statistics did not change -- 30 attempts gives
+  // ±16.4pp against ±11.6pp at 60 -- so this is a judgement about which
+  // error costs more, not a claim that 30 is as precise.
+  //
+  // A bowler gets roughly five spare attempts a game, so 60 meant about
+  // four league nights before the app would say anything at all about
+  // the half of the game they have the most control over. Spare
+  // conversion is also the number bowlers already track in their heads;
+  // withholding it for a month reads as the app being broken rather than
+  // as it being careful, and a headline stat nobody can see is not
+  // protecting anyone.
+  //
+  // ±16pp still separates the answers that matter -- a 50% spare shooter
+  // from an 85% one -- which is the question being asked. It does not
+  // support "you improved two points since last month", and nothing here
+  // should be read as saying it does.
+  spareConversion: 30,
   // Attempts at a specific leave (e.g. the 10 pin) before its rate is used.
   specificLeave: 25,
   // First balls with ONE ball before it may be compared with another.
