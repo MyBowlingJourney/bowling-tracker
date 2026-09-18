@@ -229,18 +229,42 @@ function checkFrame(frame: unknown, seen: Set<number>, repaired: { pins: number 
     //
     // Exempt in the 10th after a strike or a spare, where the rack
     // genuinely resets.
-    if (balls.length) {
-      const prev = balls[balls.length - 1] as any;
-      const prevPins: string[] = Array.isArray(prev.pinsStanding) ? prev.pinsStanding : [];
-      const rackReset = f.frameNumber === 10
-        && (prev.isStrike === true || prevPins.length === 0);
-      if (!rackReset) {
-        if (pins.length > prevPins.length) return null;
-        for (const pin of pins) {
-          if (!prevPins.includes(pin)) return null;   // was already down
-        }
+    const prev: any = balls.length ? balls[balls.length - 1] : null;
+    const prevPins: string[] = prev && Array.isArray(prev.pinsStanding) ? prev.pinsStanding : [];
+    const rackReset = !!prev && f.frameNumber === 10
+      && (prev.isStrike === true || prevPins.length === 0);
+
+    if (prev && !rackReset) {
+      if (pins.length > prevPins.length) return null;
+      for (const pin of pins) {
+        if (!prevPins.includes(pin)) return null;     // was already down
       }
     }
+
+    // Ten down on a full rack is a strike, whatever the flag says.
+    //
+    // `isStrike: false` with nothing left standing passed every check
+    // above: no pin repeats, no pin returns, and an empty array is a
+    // legal shape. Against a FULL rack it is a contradiction -- all ten
+    // went down on the first delivery, which is a strike by definition,
+    // not a spare. The client scores it from the flag, so it filed a
+    // frame that cannot be scored.
+    //
+    // Against a PARTIAL rack the same shape is an ordinary spare and
+    // must keep passing, which is why this asks whether the rack was
+    // full rather than just whether the array is empty.
+    //
+    // Rejected rather than repaired: either the flag is wrong or the
+    // pins are, and nothing here can tell which. Flipping isStrike would
+    // guess, and a wrong guess is a wrong score filed silently.
+    //
+    // "Full rack" is the first delivery of the frame, or a 10th-frame
+    // ball that follows a strike or spare. It is keyed on ballIndex, not
+    // on position in the array: the prompt returns only the frames and
+    // balls it can actually see, so a frame whose first ball was not
+    // legible starts at ballIndex 2, and treating that as the first
+    // delivery would reject a real spare.
+    if (!b.isStrike && pins.length === 0 && (b.ballIndex === 1 || rackReset)) return null;
 
     balls.push(changed ? { ...b, pinsStanding: pins } : b);
   }
