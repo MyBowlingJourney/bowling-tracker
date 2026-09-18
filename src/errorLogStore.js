@@ -5,6 +5,7 @@
 // that need a browser: storage, window handlers, and working out which
 // build is running.
 import { addEntry, formatForCopy, summarise } from "./domain/errorLog.js";
+import { reportError } from "./errorReport.js";
 
 // Scoped per user by the storage wrapper, like every other key. One
 // bowler's errors are not another's, and on a shared phone they should
@@ -60,6 +61,19 @@ export async function recordError(input) {
       if (typeof window === "undefined" || !window.storage) return;
       const next = addEntry(await readRaw(), { ...input, build: buildId() }, Date.now());
       await window.storage.set(ERROR_LOG_KEY, JSON.stringify(next));
+
+      // Send it on, after the local write.
+      //
+      // Local first on purpose: the on-device log is the record that
+      // survives a dead network, and it carries the merged count that
+      // makes the report worth sending. Reporting before the merge would
+      // send "1" every time.
+      //
+      // reportError never throws, never awaits and never logs -- see
+      // errorReport.js. It is called inside this try only so that a
+      // surprise cannot escape into the write chain.
+      const merged = next[0];
+      if (merged) reportError(merged, buildId());
     } catch { /* nothing to do -- see above */ }
   };
   writeChain = writeChain.then(run, run);

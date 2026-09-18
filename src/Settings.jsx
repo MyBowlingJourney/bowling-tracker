@@ -14,7 +14,6 @@ import { isContainerLeague, isLeagueHidden, teamsInLeague } from "./domain/leagu
 import { sessionsToCsv, shotsToCsv, seasonSummary, summaryToText } from "./domain/seasonExport.js";
 import { inferLeagueDay, dayName, reminderSpec, reminderToIcs } from "./domain/reminders.js";
 import { localDateString } from "./constants.js";
-import { errorLogSummary, errorLogText, clearErrorLog } from "./errorLogStore.js";
 import {
   ENVIRONMENT_LABELS,
   ENVIRONMENT_DESCRIPTIONS,
@@ -85,8 +84,8 @@ export default function Settings({
       // Walkthroughs stay: a casual bowler is the most likely to want to
       // rewatch one, and it used to ride on the "reset" id -- so cutting
       // Reset silently cut the tours too.
-      ? ["session", "look", "walkthroughs", "diagnostics", "backup", "account", "dangerZone"]
-      : ["session", "look", "trackingDetail", "moneyGames", "statsLayout", "backup", "walkthroughs", "diagnostics", "reset", "account", "dangerZone"],
+      ? ["session", "look", "walkthroughs", "backup", "account", "dangerZone"]
+      : ["session", "look", "trackingDetail", "moneyGames", "statsLayout", "backup", "walkthroughs", "reset", "account", "dangerZone"],
   };
   const allowed = mode === "leagues" ? cardsFor.leagues : (mode === "settings" ? cardsFor.settings : null);
   const showCard = id => !allowed || allowed.includes(id);
@@ -105,13 +104,7 @@ export default function Settings({
   // once. Danger Zone and Backup default closed too, on top of their own
   // internal confirmation steps -- collapsing them is an extra deliberate
   // step before reaching something destructive or data-heavy.
-  // Diagnostics. Loaded once when Settings opens rather than kept live:
-  // this is a thing you go and look at, not a thing that should re-render
-  // the screen every time a write fails.
   const [newLeagueName, setNewLeagueName] = useState("");
-  const [errLog, setErrLog] = useState({ distinct: 0, total: 0 });
-  const [copied, setCopied] = useState(false);
-  useEffect(() => { errorLogSummary().then(setErrLog).catch(() => {}); }, []);
 
   const [expanded, setExpanded] = useState({
     session: true, look: false, trackingDetail: false,
@@ -914,81 +907,14 @@ export default function Settings({
         </CollapsibleCard>
       )}
 
-      {/* Diagnostics.
-
-          Most of what has gone wrong in this app went wrong QUIETLY --
-          a delete that removed nothing, a note edit that did not save,
-          queued writes retrying forever against a policy that would
-          never accept them. None of those produced a message, so none
-          would ever have been reported. This is the record of them.
-
-          Messages are redacted before they are stored: Postgres puts
-          real values in its error text, and those values are other
-          people's names. See domain/errorLog.js. */}
-      {showCard("diagnostics") && (
-      <CollapsibleCard title="Diagnostics"
-        summary={errLog.distinct ? `${errLog.distinct} issue${errLog.distinct === 1 ? "" : "s"}` : "Nothing recorded"}
-        expanded={expanded.diagnostics} onToggle={() => toggle("diagnostics")}>
-        <div style={{ fontSize: "12px", color: C.textMuted, marginBottom: "10px", lineHeight: 1.5 }}>
-          {errLog.distinct
-            ? `${errLog.distinct} distinct issue${errLog.distinct === 1 ? "" : "s"} recorded, ${errLog.total} time${errLog.total === 1 ? "" : "s"} in total. Copy this and send it over — it names screens, tables and error codes, never your scores or anyone's name.`
-            : "Nothing has gone wrong that the app noticed. If something looks off anyway, that is worth knowing too."}
-        </div>
-        <div style={{ display: "flex", gap: "8px" }}>
-          <button style={{ ...S.btn(), flex: 1, padding: "9px", fontSize: "12px" }}
-            onClick={async () => {
-              const text = await errorLogText();
-              try { await navigator.clipboard?.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1800); }
-              catch { window.alert(text); }
-            }}>
-            {copied ? "Copied" : "Copy diagnostics"}
-          </button>
-          {errLog.distinct > 0 && (
-            <button style={{ ...S.btn(), flex: 1, padding: "9px", fontSize: "12px" }}
-              onClick={async () => {
-                if (!window.confirm("Clear the recorded issues? This only affects the log — nothing else is touched.")) return;
-                await clearErrorLog();
-                setErrLog({ distinct: 0, total: 0 });
-              }}>
-              Clear
-            </button>
-          )}
-        </div>
-      </CollapsibleCard>
-      )}
-
-      {showCard("reset") && (
-      <CollapsibleCard title="Reset settings" summary="Theme, fields, layout"
-        expanded={expanded.reset} onToggle={() => toggle("reset")}>
-        <div style={{ fontSize: "12px", color: C.textMuted, marginBottom: "10px" }}>
-          Puts every setting on this screen back to what {ENVIRONMENT_LABELS[preferences.environment] || "this environment"} starts with — your theme, which fields you track, money games, and the Stats card order. Your scores, shots and equipment aren't touched.
-        </div>
-        {resetArmed ? (
-          <>
-            <div style={{ fontSize: "12px", color: C.spare, marginBottom: "8px", fontWeight: 600 }}>
-              This will undo your theme and Stats card order too. Sure?
-            </div>
-            <div style={{ display: "flex", gap: "8px" }}>
-              <button style={{ ...S.btn(), flex: 1 }} onClick={() => setResetArmed(false)}>Cancel</button>
-              <button style={{ ...S.btn("warn"), flex: 1 }}
-                onClick={() => { apply(prev => resetToEnvironmentDefaults(prev)); setResetArmed(false); }}>
-                Reset everything
-              </button>
-            </div>
-          </>
-        ) : (
-          <button style={{ ...S.btn(), width: "100%" }} onClick={() => setResetArmed(true)}>
-            Reset all settings
-          </button>
-        )}
-      </CollapsibleCard>
-      )}
-
-      {/* Danger Zone lives here, at the bottom of Settings, rather than on
-          the Stats tab -- it's irreversible, so it should take deliberate
-          effort to reach rather than sitting where someone scrolls daily.
-          Collapsed by default is an extra deliberate step on top of that,
-          before Clear All Data is even visible to tap. */}
+      {/* The Diagnostics card used to sit here.
+          
+          The record it showed still exists -- errors are still captured
+          and still redacted before storage -- but it now goes straight to
+          error_reports instead of being displayed. A bowler could not act
+          on "23503 violates foreign key constraint", and a card counting
+          "3 issues" in their settings only suggests the app is broken.
+          See errorReport.js. */}
       {showCard("account") && (
       <CollapsibleCard title="Account"
         summary={user?.email || "Signed in"}
