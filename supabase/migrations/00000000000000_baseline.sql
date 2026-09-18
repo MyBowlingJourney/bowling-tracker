@@ -1,3 +1,296 @@
+-- BASELINE. Generated once from the live database; not edited by hand.
+-- Later changes go in new migration files beside this one.
+
+CREATE OR REPLACE FUNCTION public.accept_team_invite(invite_id uuid)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+                declare
+                  inv record;
+                    caller_email text := lower(auth.jwt() ->> 'email');
+                    begin
+                      select * into inv from public.pending_invites where id = invite_id;
+                        if inv is null then return false; end if;
+
+                          -- The row must actually be addressed to the caller. Without this check
+                            -- the security definer above would let any signed-in user accept any
+                              -- invite by id and add themselves to a stranger's team.
+                                if lower(inv.invited_email) <> caller_email then return false; end if;
+                                  if inv.accepted_at is not null or inv.declined_at is not null then return false; end if;
+
+                                    -- Guarded rather than "on conflict (team_id, user_id)".
+                                      --
+                                        -- team_members has no create-table in this repo, so that constraint is
+                                          -- assumed rather than known -- and an ON CONFLICT naming columns with
+                                            -- no matching unique index fails outright with 42P10. The existing
+                                              -- handle_new_user() makes the same assumption, but it has been running
+                                                -- in production long enough to have proved it; this function has not
+                                                  -- run at all yet, so it should not stake a new feature on it.
+                                                    --
+                                                      -- An explicit existence check needs no constraint and behaves the same.
+                                                        if not exists (
+                                                            select 1 from public.team_members
+                                                                where team_id = inv.team_id and user_id = auth.uid()
+                                                                  ) then
+                                                                      insert into public.team_members (team_id, user_id, lineup_position)
+                                                                          values (inv.team_id, auth.uid(), inv.lineup_position);
+                                                                            end if;
+
+                                                                              update public.pending_invites
+                                                                                set accepted_at = now(), accepted_user_id = auth.uid()
+                                                                                  where id = inv.id;
+
+                                                                                    return true;
+                                                                                    end;
+                                                                                    $function$
+;
+
+CREATE OR REPLACE FUNCTION public.are_friends(other_user uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select exists (
+    select 1 from public.friendships
+    where status = 'accepted'
+      and (
+        (requester_id = auth.uid() and addressee_id = other_user) or
+        (addressee_id = auth.uid() and requester_id = other_user)
+      )
+  );
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.check_api_rate_limit(p_endpoint text, p_limit integer, p_window interval)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  recent integer;
+begin
+  if auth.uid() is null then return false; end if;
+
+  select count(*) into recent
+  from public.api_usage
+  where user_id = auth.uid()
+    and endpoint = p_endpoint
+    and called_at > now() - p_window;
+
+  if recent >= p_limit then return false; end if;
+
+  insert into public.api_usage (user_id, endpoint) values (auth.uid(), p_endpoint);
+  return true;
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.claim_signup_code(code text)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  inv record;
+begin
+  if code is null or length(trim(code)) = 0 then
+    raise exception 'A code is required';
+  end if;
+
+  select * into inv
+  from pending_invites
+  where upper(signup_code) = upper(trim(code))
+    and accepted_at is null
+    and (code_expires_at is null or code_expires_at > now())
+  limit 1;
+
+  if not found then
+    -- Deliberately one message for "wrong", "used" and "expired": telling
+    -- a stranger which of those it is helps them guess at real codes.
+    raise exception 'That code is not valid';
+  end if;
+
+  insert into team_members (team_id, user_id, lineup_position)
+  values (inv.team_id, auth.uid(), coalesce(inv.lineup_position, 0))
+  on conflict do nothing;
+
+  update pending_invites
+  set accepted_at = now(),
+      accepted_user_id = auth.uid(),
+      signup_code = null
+  where id = inv.id;
+
+  return inv.team_id;
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.coached_bowler_handedness()
+ RETURNS TABLE(bowler_user_id uuid, bowler_name text, left_handed boolean)
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select bp.created_by, bp.bowler_name, bp.left_handed
+    from public.bowler_profiles bp
+      where exists (
+          select 1 from public.coaching_relationships r
+              where r.bowler_id = bp.created_by
+                    and r.coach_id = auth.uid()
+                          and r.status = 'accepted'
+                            );
+                            $function$
+;
+
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+                                                                                    declare
+                                                                                      first_invite_name text;
+                                                                                      begin
+                                                                                        select invited_name into first_invite_name
+                                                                                          from public.pending_invites
+                                                                                            where lower(invited_email) = lower(new.email)
+                                                                                                and accepted_at is null and declined_at is null
+                                                                                                  order by created_at asc
+                                                                                                    limit 1;
+
+                                                                                                      insert into public.profiles (id, display_name)
+                                                                                                        values (
+                                                                                                            new.id,
+                                                                                                                coalesce(first_invite_name, split_part(new.email, '@', 1))
+                                                                                                                  );
+
+                                                                                                                    -- Deliberately NOT joining teams here any more; the invite waits in
+                                                                                                                      -- their inbox instead.
+                                                                                                                        return new;
+                                                                                                                        end;
+                                                                                                                        $function$
+;
+
+CREATE OR REPLACE FUNCTION public.is_accepted_coach_of(target_bowler_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select exists (
+      select 1 from public.coaching_relationships
+          where bowler_id = target_bowler_id
+                and coach_id = auth.uid()
+                      and status = 'accepted'
+                        );
+                        $function$
+;
+
+CREATE OR REPLACE FUNCTION public.is_league_member(check_league_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+AS $function$
+    SELECT EXISTS (
+        SELECT 1 FROM teams
+            JOIN team_members ON team_members.team_id = teams.id
+                WHERE teams.league_id = check_league_id
+                    AND team_members.user_id = auth.uid()
+                      );
+                      $function$
+;
+
+CREATE OR REPLACE FUNCTION public.is_team_member(check_team_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select exists (
+    select 1 from public.team_members
+    where team_id = check_team_id and user_id = auth.uid()
+  );
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.prune_api_usage()
+ RETURNS void
+ LANGUAGE sql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  delete from public.api_usage where called_at < now() - interval '1 day';
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.prune_sync_tombstones()
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  removed integer;
+begin
+  delete from sync_tombstones where deleted_at < now() - interval '90 days';
+  get diagnostics removed = row_count;
+  return removed;
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.record_tombstone()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+begin
+  insert into sync_tombstones (table_name, row_id, user_id)
+  values (TG_TABLE_NAME, old.id, old.user_id);
+  return old;
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.set_updated_at()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.teammate_bowler_profiles()
+ RETURNS TABLE(bowler_name text, left_handed boolean, two_handed boolean, aliases jsonb)
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select bp.bowler_name, bp.left_handed, bp.two_handed, bp.aliases
+  from public.bowler_profiles bp
+  where exists (
+    select 1
+    from public.team_members me
+    join public.team_members them on them.team_id = me.team_id
+    where me.user_id = auth.uid()
+      and them.user_id = bp.created_by
+  )
+  -- Own rows come from the table read, not here, so this returns only
+  -- OTHER people's limited profiles.
+  and bp.created_by <> auth.uid();
+$function$
+;
+
+
 -- Generated from the live catalog. Do not edit by hand.
 -- Rebuilds an EMPTY database: no data, no function bodies.
 
