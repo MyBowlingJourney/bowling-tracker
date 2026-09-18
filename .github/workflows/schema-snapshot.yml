@@ -22,8 +22,36 @@ permissions:
 jobs:
   snapshot:
     runs-on: ubuntu-latest
+    # psql comes from a PINNED CONTAINER, not from the runner image.
+    #
+    # Every psql call here used to be whatever postgresql-client the
+    # Ubuntu image happened to preinstall. Nothing installed it and
+    # nothing checked for it, so the version was inherited silently and
+    # could change without this repo touching anything.
+    #
+    # ubuntu-latest moves to Ubuntu 26.04 between 19 Oct and 19 Nov 2026,
+    # and the migration notes do not say whether postgresql-client stays
+    # preinstalled or at which version. That is the whole problem: an
+    # unstated dependency cannot be reasoned about, only discovered when
+    # it breaks.
+    #
+    # Pinning the runner to ubuntu-24.04 would postpone that to the next
+    # image migration. Taking psql from a pinned image instead means the
+    # runner's OS stops mattering -- this job needs bash, git and docker
+    # from it, all of which are stable across the migration.
+    #
+    # Bump PG_IMAGE deliberately, as a commit somebody reviews.
+    env:
+      PG_IMAGE: postgres:17-alpine
     steps:
       - uses: actions/checkout@v5
+
+      - name: Pull the pinned psql image
+        run: |
+          docker pull "$PG_IMAGE"
+          # Fail here, loudly, rather than three steps later inside a
+          # redirect where a missing psql looks like an empty dump.
+          docker run --rm --entrypoint psql "$PG_IMAGE" --version
 
       - name: Dump the live schema
         env:
@@ -36,7 +64,8 @@ jobs:
             echo "SUPABASE_DB_URL is not set — add it in Settings → Secrets."
             exit 1
           fi
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+          docker run --rm -i -e DATABASE_URL -v "$PWD":/repo -w /repo \
+            --entrypoint psql "$PG_IMAGE" "$DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f scripts/audit_schema.sql > schema-snapshot.new.csv
           # A truncated dump would look like a pile of deletions and get
           # committed as if the schema had shrunk.
@@ -61,7 +90,8 @@ jobs:
           # at all. A plain SELECT read with -tA emits the statements as
           # written. -X ignores any ~/.psqlrc that might set a pager or
           # a border style and corrupt the output.
-          psql "$DATABASE_URL" -X -tA -v ON_ERROR_STOP=1 \
+          docker run --rm -i -e DATABASE_URL -v "$PWD":/repo -w /repo \
+            --entrypoint psql "$PG_IMAGE" "$DATABASE_URL" -X -tA -v ON_ERROR_STOP=1 \
             -f scripts/generate_schema_sql.sql > schema.new.sql
           if ! grep -q "CREATE TABLE IF NOT EXISTS public.shots" schema.new.sql; then
             echo "No shots table in the output — the dump looks wrong. Not replacing schema.sql."
@@ -83,7 +113,8 @@ jobs:
           # Thirteen of these are SECURITY DEFINER and are what the RLS
           # policies call. Without them a rebuilt database has policies
           # that reference functions that do not exist.
-          psql "$DATABASE_URL" -X -tA -v ON_ERROR_STOP=1 \
+          docker run --rm -i -e DATABASE_URL -v "$PWD":/repo -w /repo \
+            --entrypoint psql "$PG_IMAGE" "$DATABASE_URL" -X -tA -v ON_ERROR_STOP=1 \
             -f scripts/dump_functions.sql > functions.new.sql
           for fn in is_team_member is_league_member record_tombstone set_updated_at; do
             if ! grep -q "FUNCTION public.$fn" functions.new.sql; then
