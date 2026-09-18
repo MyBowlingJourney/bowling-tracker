@@ -23,7 +23,7 @@ const Tour = lazyScreen("Tour", () => import("./Tour.jsx"));
 const JourneyScreen = lazyScreen("Journey", () => import("./JourneyView.jsx"));
 
 const HomeScreen = lazyScreen("Home", () => import("./HomeView.jsx"));
-import { tourSteps, tourToOffer, markTourSeen, hasSeenTour, pendingModeTour, needsLeagueSetup, availableTours, FIRST_TOUR, TRACK_KEYS } from "./domain/tour.js";
+import { tourSteps, tourToOffer, markTourSeen, hasSeenTour, needsLeagueSetup, availableTours, FIRST_TOUR, TRACK_KEYS } from "./domain/tour.js";
 import HelpView from "./HelpView.jsx";
 import CasualLeaderboard from "./CasualLeaderboard.jsx";
 const BadgeCollection = lazyScreen("BadgeCollection", () => import("./BadgeCollection.jsx"));
@@ -6087,10 +6087,6 @@ export default function BowlingTracker(){
   // you were invisible while you had a teammate selected.
   const myInboxItems=buildInbox({
     bowler:displayName||activeBowler,
-    // Offered as a task, not an interruption -- see pendingModeTour.
-    pendingTour:hasSeenTour(toursSeen,FIRST_TOUR)
-      ?pendingModeTour({environment:preferences.environment,seen:toursSeen})
-      :null,
     userId:user?.id,
     importedScores,
     sessions,
@@ -7058,7 +7054,6 @@ export default function BowlingTracker(){
                 The inbox notifies; it doesn't re-implement accepting a
                 coaching invitation in a second place. */}
             <InboxList items={myInboxItems} onOpen={item=>{
-              if(item.type==="pendingTour"&&item.track){startTour(item.track);return;}
               // A task set BY a coach is homework for the bowler, so open
               // the Coach tab on the bowling side rather than dropping
               // them into coach view looking at their own bowlers.
