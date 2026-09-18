@@ -3811,7 +3811,14 @@ export default function BowlingTracker(){
       let pc=f.pinCount;
       const isSingle=f.result==="Weak 10"||f.result==="Ringing 10"||standingCount(f.otherLeave)===1;
       if(newVal==="Yes"){
-        pc="10";
+        // A made spare puts all ten down -- but only once we know what was
+        // standing. With "Other Leave" and no pins ticked there is no leave
+        // to convert, and writing "10" here satisfied needsPins' count
+        // escape hatch, which unlocked Save and filed a frame as "10 spare"
+        // -- ten down on the first ball is a strike, not a spare, so the
+        // frame was unscoreable. Leaving the count empty keeps needsPins
+        // true and the save blocked.
+        pc=(f.result==="Other Leave"&&standingCount(f.otherLeave)===0)?"":"10";
       } else if(newVal==="No"&&isSingle){
         const fb=f.result==="Other Leave"?Math.max(0,10-standingCount(f.otherLeave)):9;
         pc=String(fb);
@@ -3976,10 +3983,25 @@ export default function BowlingTracker(){
   //
   // The 10th's third ball is exempt for the same reason it skips Spare
   // Made: it is a fill ball, not a leave.
+  //
+  // The pin COUNT used to satisfy this too ("...or enter how many you
+  // knocked down"), but the only control that sets a count is the stepper
+  // behind showPinCount, which itself requires standingPins > 0 -- so with
+  // an empty leave that path was unreachable by hand. The only thing that
+  // ever filled it was handleSpareMadeToggle writing "10" for a made
+  // spare, which is precisely the sequence this is meant to stop. Keying
+  // solely on ticked pins closes that door without removing any way in.
   const needsPins=form.result==="Other Leave"
     &&!(parseInt(form.frame)===10&&Number(form.ballNum)===3)
-    &&!(form.otherLeave||[]).length
-    &&!String(form.pinCount||"").trim();
+    &&!(form.otherLeave||[]).length;
+
+  // Spare Made cannot be answered before the leave is described.
+  //
+  // "Other Leave" names no pins of its own, so until one is ticked there
+  // is nothing to convert and the Yes/No question is unanswerable. Weak 10
+  // and Ringing 10 name their pin by definition and still ask immediately.
+  const leaveDescribed=form.result!=="Other Leave"
+    ||(form.otherLeave||[]).length>0;
 
 
   // Measures the fixed Save Shot footer so the page can reserve space for
@@ -7234,7 +7256,7 @@ export default function BowlingTracker(){
             offerShotByShot={offerShotByShot} onTryShotByShot={tryShotByShot} onDismissShotByShot={dismissShotPrompt}
             promptForTeam={promptForTeam} onDismissTeamPrompt={dismissTeamPrompt}
             ballNumLabel={ballNumLabel} curSession={curSession} currentLane={currentLane} firstBallPins={firstBallPins} gameScores={gameScores}
-            hasLeave={hasLeave} inTenth={inTenth} isNoTap={isNoTap} isStrike={isStrike} needsSpareMade={needsSpareMade} needsPins={needsPins} sessionTotal={sessionTotal} showPinCount={showPinCount}
+            hasLeave={hasLeave} leaveDescribed={leaveDescribed} inTenth={inTenth} isNoTap={isNoTap} isStrike={isStrike} needsSpareMade={needsSpareMade} needsPins={needsPins} sessionTotal={sessionTotal} showPinCount={showPinCount}
             standingPins={standingPins} tenthOptions={tenthOptions}
             addBall={addBall} addBowler={addBowler} autoFillLine={autoFillLine} calcLane={calcLane} cancelEdit={cancelEdit} cycleGameResult={cycleGameResult} cycleSeriesResult={cycleSeriesResult}
             getLanePattern={getLanePattern} getMatch={getMatch} handleBallChange={handleBallChange} handleLeaveToggle={handleLeaveToggle} handleLineChange={handleLineChange}

@@ -53,7 +53,7 @@ export default function LogView({
   sessionLeague, setSessionLeague, effectiveSessionLeague, sessionDate, setSessionDate,
   startingLane, setStartingLane, setShowSummary, expandedSections,
   ballNumLabel, curSession, currentLane, firstBallPins, gameScores = [],
-  hasLeave, inTenth, isNoTap, isStrike, needsSpareMade, needsPins, sessionTotal, showPinCount,
+  hasLeave, leaveDescribed, inTenth, isNoTap, isStrike, needsSpareMade, needsPins, sessionTotal, showPinCount,
   standingPins, tenthOptions,
   addBall, addBowler, autoFillLine, calcLane, cancelEdit, cycleGameResult, cycleSeriesResult,
   getLanePattern, getMatch, handleBallChange, handleLeaveToggle, handleLineChange,
@@ -1850,7 +1850,14 @@ export default function LogView({
                 </>
               )}
 
-              {hasLeave&&!(inTenth&&form.ballNum===3)&&(
+              {/* Hidden until the leave is described.
+                  Offering Yes/No against an empty "Other Leave" let the
+                  bowler answer a question the app could not score, and
+                  filed the frame as "10 spare". Hiding it rather than
+                  disabling Save points at the actual next step -- the pin
+                  pad above -- instead of reporting a failure at the bottom
+                  of the form. */}
+              {hasLeave&&leaveDescribed&&!(inTenth&&form.ballNum===3)&&(
                 <>
                   <div style={S.divider}/>
                   <div ref={spareMadeRef} style={S.label}>Spare Made</div>
@@ -2857,7 +2864,7 @@ export default function LogView({
                     it is what makes Spare Made worth asking. */}
                 {needsPins?(
                   <div style={{fontSize:"12px",color:C.spare,marginTop:"8px",textAlign:"center"}}>
-                    Tap the pins you left, or enter how many you knocked down.
+                    Tap the pins you left standing.
                   </div>
                 ):needsSpareMade&&(
                   <div style={{fontSize:"12px",color:C.spare,marginTop:"8px",textAlign:"center"}}>Answer "Spare Made" above to save.</div>

@@ -63,6 +63,7 @@ function baseProps(overrides = {}) {
   g2score: null,
   g3score: null,
   hasLeave: false,
+  leaveDescribed: false,
   inTenth: false,
   isNoTap: false,
   isStrike: false,
@@ -226,5 +227,61 @@ describe('score entry gating', () => {
       effectiveSessionLeague: 'Tuesday House Shot',
     })} />);
     expect(screen.getAllByPlaceholderText('Score').length).toBeGreaterThan(0);
+  });
+});
+
+describe('Spare Made gating on an undescribed leave', () => {
+  // Reproduces a frame that reached the scoresheet as "10 spare".
+  //
+  // Picking "Other Leave" and answering Spare Made: Yes without ticking a
+  // single pin used to save. handleSpareMadeToggle writes pinCount "10"
+  // for a made spare, and needsPins accepted a non-empty pinCount as
+  // proof the leave had been described -- so the very answer that should
+  // have been blocked was what unlocked Save. Ten pins down on the first
+  // ball is a strike, not a spare, and the frame could not be scored.
+  //
+  // The question is hidden rather than the button disabled: hiding points
+  // at the pin pad, which is the actual next step, instead of reporting a
+  // failure at the bottom of the form.
+  // The shot form only renders once a session has a league, so these carry
+  // the same league context as the score-entry tests above.
+  const inSession = {
+    sessionLeague: 'Tuesday House Shot',
+    effectiveSessionLeague: 'Tuesday House Shot',
+  };
+  const leaveForm = { league: 'Tuesday House Shot', date: '2026-09-08',
+                      result: 'Other Leave', miss: [],
+                      ballChangeReason: [], otherLeave: [] };
+
+  it('does not ask Spare Made while no pin is ticked', () => {
+    render(<LogView {...baseProps({
+      ...inSession, form: leaveForm, hasLeave: true, leaveDescribed: false, needsPins: true,
+    })} />);
+    expect(screen.queryByText('Spare Made')).toBeNull();
+  });
+
+  it('tells the bowler to tick the pins instead', () => {
+    render(<LogView {...baseProps({
+      ...inSession, form: leaveForm, hasLeave: true, leaveDescribed: false, needsPins: true,
+    })} />);
+    expect(screen.getByText(/Tap the pins you left standing/)).toBeTruthy();
+  });
+
+  it('asks Spare Made once a pin is ticked', () => {
+    render(<LogView {...baseProps({
+      ...inSession, form: { ...leaveForm, otherLeave: ['10'] },
+      hasLeave: true, leaveDescribed: true, needsPins: false,
+    })} />);
+    expect(screen.getByText('Spare Made')).toBeTruthy();
+  });
+
+  it('still asks Spare Made for a named single-pin leave', () => {
+    // Weak 10 and Ringing 10 name their pin by definition, so there is
+    // nothing to tick and the question is answerable immediately.
+    render(<LogView {...baseProps({
+      ...inSession, form: { ...leaveForm, result: 'Weak 10' },
+      hasLeave: true, leaveDescribed: true, needsPins: false,
+    })} />);
+    expect(screen.getByText('Spare Made')).toBeTruthy();
   });
 });
