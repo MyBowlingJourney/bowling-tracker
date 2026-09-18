@@ -1,416 +1,208 @@
 import { describe, it, expect } from 'vitest';
 import {
+  TOUR_TRACKS, TRACK_KEYS, FIRST_TOUR, availableTours, stepsForTrack,
   tourSteps, tourLength, stepAt, isLastStep,
-  tourToOffer, markTourSeen, hasSeenTour, needsLeagueSetup,
-  availableTours, COACH_STEPS,
-  recordStepsSeen,
-  pendingModeTour,
+  stepsSeenFrom, recordStepsSeen,
+  hasSeenTour, markTourSeen, tourToOffer, pendingModeTour,
+  needsLeagueSetup,
 } from './tour.js';
 
-const league = { environment: 'league', trackingMode: 'shot', showMoneyGames: true };
-const casual = { environment: 'casual', trackingMode: 'game', showMoneyGames: false };
-const practice = { environment: 'practice', trackingMode: 'shot', showMoneyGames: false };
-const tournament = { environment: 'tournament', trackingMode: 'shot', showMoneyGames: true };
+// The tours were rebuilt from mode-based tracks (casual/practice/league/
+// tournament/coach) to topic-based ones. These tests pin the shape the
+// rebuild is meant to have, and the failure modes the old tours actually
+// shipped.
 
-const ids = prefs => tourSteps(prefs).map(s => s.id);
-
-// One tour per way of bowling. A casual bowler with friends doesn't need
-// a league roster explained, and showing it makes the app look like more
-// work than it is -- which is the moment a casual bowler decides it
-// isn't for them.
-describe('tourSteps by environment', () => {
-  // Every tab a step names must be a REAL nav id. The Stats step once
-  // said "stats" when the id is "data"; an unknown view hits the guard in
-  // BowlingTracker and silently bounces to Bowl.
-  it('only names tabs that exist in the nav', () => {
-    // 'teams' added when the Vault split into Gear ('locker') and Teams.
-    // 'badges' added when Badges became its own tab -- the casual tour
-    // still pointed at 'social', so it described badges while standing
-    // on the standings screen.
-    // 'home' added: it is a view and a nav tab, and the tour now opens
-    // there because that is where a night starts.
-    const NAV = ['home', 'log', 'history', 'data', 'insights', 'locker', 'teams', 'coaching', 'social', 'badges'];
-    for (const prefs of [league, casual, practice, tournament]) {
-      for (const s of tourSteps(prefs)) if (s.tab) expect(NAV).toContain(s.tab);
-    }
-    for (const s of COACH_STEPS) if (s.tab) expect(NAV).toContain(s.tab);
+describe('tracks', () => {
+  it('has exactly the four topic tracks', () => {
+    expect(TRACK_KEYS).toEqual(['look', 'score', 'ai', 'stats']);
   });
 
-  it('starts on Home for every environment', () => {
-    for (const prefs of [league, casual, practice, tournament]) {
-      // Home, not Bowl. The first step used to say "everything starts
-      // here" about the scoring screen, which stopped being true when the
-      // mode rows moved to Home.
-      expect(ids(prefs)[0]).toBe('home');
+  it('every track has a label and a blurb', () => {
+    for (const t of TOUR_TRACKS) {
+      expect(typeof t.label).toBe('string');
+      expect(t.label.length).toBeGreaterThan(0);
+      expect(typeof t.blurb).toBe('string');
+      expect(t.blurb.length).toBeGreaterThan(0);
     }
   });
 
-  // Casual is the shortest -- that's the claim worth pinning. Practice
-  // and league are now the same length by coincidence, since practice
-  // gained its own drill steps while skipping the roster and money ones.
-  // Asserting an order between THOSE two was pinning an accident.
-  it('gives casual much the shortest tour', () => {
-    for (const prefs of [practice, league, tournament]) {
-      expect(tourLength(casual)).toBeLessThan(tourLength(prefs));
-    }
+  it('offers every track for replay — none is gated', () => {
+    expect(availableTours().length).toBe(TOUR_TRACKS.length);
   });
 
-  // A casual bowler is on a house ball; a league roster means nothing
-  // to them; a goal against a night with friends isn't meaningful.
-  it('spares a casual bowler the league, arsenal and goals steps', () => {
-    const c = ids(casual);
-    expect(c).not.toContain('roster');
-    expect(c).not.toContain('vault');
-    expect(c).not.toContain('arsenal');
-    expect(c).not.toContain('money');
-    expect(c).not.toContain('improve');
-    expect(c).not.toContain('scoresheet');
-  });
-
-  it('shows everyone else their arsenal and bags', () => {
-    expect(ids(practice)).toContain('arsenal');
-    expect(ids(league)).toContain('arsenal');
-    expect(ids(tournament)).toContain('arsenal');
-  });
-
-  it('shows the roster step to league only', () => {
-    expect(ids(league)).toContain('roster');
-    expect(ids(tournament)).not.toContain('roster');
-    expect(ids(practice)).not.toContain('roster');
-  });
-
-  it('shows insights to everyone', () => {
-    for (const prefs of [league, casual, practice, tournament]) {
-      expect(ids(prefs)).toContain('insights');
-    }
-  });
-
-  it('includes the three scoring lessons only when tracking shot by shot', () => {
-    for (const id of ['score-strike', 'score-spare', 'score-miss']) {
-      expect(ids(league)).toContain(id);
-      expect(ids(casual)).not.toContain(id);
-    }
-  });
-
-  it('gives every step a title and body', () => {
-    for (const prefs of [league, casual, practice, tournament]) {
-      for (const s of tourSteps(prefs)) {
-        expect(s.title).toBeTruthy();
-        expect(s.body).toBeTruthy();
-      }
-    }
-  });
-
-  it('defaults to league with no preferences', () => {
-    expect(tourSteps({}).length).toBeGreaterThan(0);
-    expect(tourSteps(undefined).length).toBeGreaterThan(0);
+  it('the first tour is one of the tracks', () => {
+    expect(TRACK_KEYS).toContain(FIRST_TOUR);
   });
 });
 
-describe('coach track', () => {
-  it('is a separate walkthrough about the coach view', () => {
-    const c = tourSteps({}, { track: 'coach' });
-    expect(c).toBe(COACH_STEPS);
-    expect(c.every(s => s.tab === 'coaching')).toBe(true);
-  });
+describe('slide counts', () => {
+  // The counts are the specification, not an accident of authoring: a
+  // track that quietly loses a slide is a topic that stops being
+  // explained, and nothing else would notice.
+  it('look around is 6 slides', () => expect(stepsForTrack('look').length).toBe(6));
+  it('scorekeeping is 5 slides', () => expect(stepsForTrack('score').length).toBe(5));
+  it('AI is 4 slides', () => expect(stepsForTrack('ai').length).toBe(4));
+  it('stats is 4 slides', () => expect(stepsForTrack('stats').length).toBe(4));
 
-  it('is not mixed into any bowler tour', () => {
-    for (const prefs of [league, casual, practice, tournament]) {
-      expect(ids(prefs).some(id => id.startsWith('coach-'))).toBe(false);
+  it('19 slides in total, with no step in two tracks', () => {
+    const all = TRACK_KEYS.flatMap(k => stepsForTrack(k));
+    expect(all.length).toBe(19);
+    expect(new Set(all.map(s => s.id)).size).toBe(19);
+  });
+});
+
+describe('every step is renderable', () => {
+  const all = TRACK_KEYS.flatMap(k => stepsForTrack(k));
+
+  it('each has an id, a title and a body', () => {
+    for (const s of all) {
+      expect(s.id).toMatch(/^[a-z][a-z-]+$/);
+      expect(s.title.length).toBeGreaterThan(0);
+      expect(s.body.length).toBeGreaterThan(0);
     }
   });
-});
 
-describe('stepAt', () => {
-  // Clamped, not wrapped: running off the end should stop, not send a
-  // new bowler back to step one.
-  it('clamps rather than wrapping', () => {
-    expect(stepAt(league, -5).id).toBe('home');
-    expect(stepAt(league, 999).id).toBe(ids(league).at(-1));
+  it('each names the track it belongs to', () => {
+    for (const s of all) expect(TRACK_KEYS).toContain(s.track);
   });
 
-  it('knows when it is on the last step', () => {
-    expect(isLastStep(league, tourLength(league) - 1)).toBe(true);
-    expect(isLastStep(league, 0)).toBe(false);
-    expect(isLastStep(league, 999)).toBe(true);
+  it('no step mentions the Vault, which no longer exists', () => {
+    // The whole reason for the rebuild. A tour promising a screen the
+    // bowler will never find is worse than no tour.
+    const text = all.map(s => `${s.title} ${s.body}`).join(' ');
+    expect(/vault/i.test(text)).toBe(false);
   });
 });
 
-// The tour is per environment. Someone who signed up casual and comes
-// back for a league shouldn't have to find the league features alone --
-// but shouldn't sit through the casual tour again either.
-describe('tourToOffer', () => {
-  it('offers the tour for an environment not yet seen', () => {
-    expect(tourToOffer({ environment: 'casual', seen: [] })).toBe('casual');
-    expect(tourToOffer({ environment: 'league', seen: ['casual'] })).toBe('league');
+describe('tourSteps', () => {
+  it('returns the named track', () => {
+    expect(tourSteps({}, { track: 'ai' }).every(s => s.track === 'ai')).toBe(true);
   });
 
-  it('offers nothing for one already seen', () => {
-    expect(tourToOffer({ environment: 'casual', seen: ['casual'] })).toBeNull();
+  it('falls back to the first tour for an unknown track', () => {
+    // Callers predating the topic tracks pass "general" or "league". A
+    // tour that opens empty looks like a broken button.
+    for (const stale of ['general', 'league', 'casual', 'coach', undefined]) {
+      expect(tourSteps({}, { track: stale }).length).toBe(stepsForTrack(FIRST_TOUR).length);
+    }
   });
 
-  it('offers the coach tour when coach mode is on', () => {
-    expect(tourToOffer({ environment: 'league', isCoach: true, seen: ['league'] })).toBe('coach');
-    expect(tourToOffer({ environment: 'league', isCoach: true, seen: ['league', 'coach'] })).toBeNull();
+  it('survives junk in place of preferences or options', () => {
+    for (const junk of [null, undefined, 7, 'x', []]) {
+      expect(() => tourSteps(junk, junk)).not.toThrow();
+      expect(tourSteps(junk, junk).length).toBeGreaterThan(0);
+    }
   });
 
-  it('records a tour as seen without duplicating', () => {
-    let seen = markTourSeen([], 'casual');
-    seen = markTourSeen(seen, 'casual');
-    expect(seen).toEqual(['casual']);
-    expect(hasSeenTour(seen, 'casual')).toBe(true);
-    expect(hasSeenTour(seen, 'league')).toBe(false);
+  it('drops steps already seen', () => {
+    const first = stepsForTrack('score')[0].id;
+    const got = tourSteps({}, { track: 'score', skipSeen: [first] });
+    expect(got.map(s => s.id)).not.toContain(first);
+    expect(got.length).toBe(4);
   });
 
-  it('tolerates bad stored data', () => {
-    expect(hasSeenTour('nope', 'casual')).toBe(false);
-    expect(markTourSeen(null, 'casual')).toEqual(['casual']);
+  it('never returns nothing when everything has been seen', () => {
+    const all = stepsForTrack('stats').map(s => s.id);
+    const got = tourSteps({}, { track: 'stats', skipSeen: all });
+    expect(got.length).toBe(1);
   });
 });
 
-// Choosing "league" with nothing set up is a dead end: scores are filed
-// against a league, so there's nowhere to put them.
+describe('navigation', () => {
+  const opts = { track: 'look' };
+
+  it('tourLength matches the track', () => {
+    expect(tourLength({}, opts)).toBe(6);
+  });
+
+  it('clamps rather than wrapping at both ends', () => {
+    const steps = tourSteps({}, opts);
+    expect(stepAt({}, -5, opts)).toBe(steps[0]);
+    expect(stepAt({}, 999, opts)).toBe(steps[steps.length - 1]);
+  });
+
+  it('knows the last step', () => {
+    expect(isLastStep({}, 4, opts)).toBe(false);
+    expect(isLastStep({}, 5, opts)).toBe(true);
+    expect(isLastStep({}, 99, opts)).toBe(true);
+  });
+});
+
+describe('what has been seen', () => {
+  it('records and recognises a track', () => {
+    const seen = markTourSeen([], 'look');
+    expect(hasSeenTour(seen, 'look')).toBe(true);
+    expect(hasSeenTour(seen, 'stats')).toBe(false);
+  });
+
+  it('marking twice does not duplicate', () => {
+    expect(markTourSeen(['look'], 'look')).toEqual(['look']);
+  });
+
+  it('tolerates a non-array', () => {
+    expect(hasSeenTour(null, 'look')).toBe(false);
+    expect(markTourSeen(null, 'look')).toEqual(['look']);
+  });
+
+  it('records step ids seen', () => {
+    expect(recordStepsSeen([], [{ id: 'a' }, { id: 'b' }]).sort()).toEqual(['a', 'b']);
+    expect(stepsSeenFrom(null)).toEqual([]);
+  });
+});
+
+describe('what gets offered', () => {
+  it('offers the look-around tour to someone new', () => {
+    expect(tourToOffer({ seen: [] })).toBe(FIRST_TOUR);
+  });
+
+  it('offers nothing once it has been seen', () => {
+    expect(tourToOffer({ seen: [FIRST_TOUR] })).toBe(null);
+  });
+
+  it('an old environment key does not count as the tour being seen', () => {
+    // Existing bowlers have "league" or "casual" stored from the old
+    // per-environment scheme. Those must not be mistaken for a topic
+    // track -- being offered the look-around once more is the safe
+    // direction; silently never offering it is not.
+    expect(tourToOffer({ seen: ['league', 'casual', 'tournament'] })).toBe(FIRST_TOUR);
+  });
+
+  it('survives junk', () => {
+    for (const junk of [null, undefined, 7, 'x', []]) {
+      expect(() => tourToOffer(junk)).not.toThrow();
+    }
+  });
+
+  it('no tour is triggered by switching mode', () => {
+    expect(pendingModeTour()).toBe(null);
+    expect(pendingModeTour({ environment: 'tournament', seen: [] })).toBe(null);
+  });
+});
+
 describe('needsLeagueSetup', () => {
-  const L = ['Tuesday House Shot'];
-
-  it('is true with no leagues at all', () => {
-    expect(needsLeagueSetup({ environment: 'league', leagues: [], teams: [] })).toBe(true);
+  it('only applies to league', () => {
+    expect(needsLeagueSetup({ environment: 'casual', leagues: [] })).toBe(false);
+    expect(needsLeagueSetup({ environment: 'practice', leagues: [] })).toBe(false);
   });
 
-  it('is true with a league but no team in it', () => {
-    // Changed deliberately: a league with no team is now READY to log
-    // scores. Requiring a team here was the wall 62% of new league
-    // bowlers hit, and 11 of 31 abandoned at. The team is asked for
-    // after a night, by domain/teamPrompt.js.
-    expect(needsLeagueSetup({ environment: 'league', leagues: L, teams: [] })).toBe(false);
+  it('true when a league bowler has no league', () => {
+    expect(needsLeagueSetup({ environment: 'league', leagues: [] })).toBe(true);
   });
 
-  it('is false once a team exists for a league', () => {
-    expect(needsLeagueSetup({ environment: 'league', leagues: L, teams: [{ league: 'Tuesday House Shot' }] })).toBe(false);
+  it('false once a real league exists', () => {
+    expect(needsLeagueSetup({ environment: 'league', leagues: ['Tuesday House Shot'] })).toBe(false);
   });
 
-  // Practice and Casual are container leagues, not real ones.
-  it('does not count Practice or Casual as a league', () => {
-    expect(needsLeagueSetup({ environment: 'league', leagues: ['Practice', 'Casual'], teams: [] })).toBe(true);
+  it('a missing TEAM is not a reason to block', () => {
+    // 11 of 31 new league bowlers abandoned at the roster screen when
+    // this gated on a team. Scores need a league; they do not need a team.
+    expect(needsLeagueSetup({ environment: 'league', leagues: ['Tuesday House Shot'], teams: [] })).toBe(false);
   });
 
-  it('never applies outside league mode', () => {
-    for (const env of ['casual', 'practice', 'tournament']) {
-      expect(needsLeagueSetup({ environment: env, leagues: [], teams: [] })).toBe(false);
-    }
-  });
-});
-
-// Every walkthrough is replayable from Settings. Coaching is gated:
-// offering it to everyone would advertise a mode most people never use.
-describe('availableTours', () => {
-  it('hides the coach tour from non-coaches', () => {
-    expect(availableTours(false).map(t => t.key)).not.toContain('coach');
-  });
-
-  it('shows the coach tour to coaches', () => {
-    expect(availableTours(true).map(t => t.key)).toContain('coach');
-  });
-
-  it('always offers the four bowling tours', () => {
-    const keys = availableTours(false).map(t => t.key);
-    for (const k of ['casual', 'practice', 'league', 'tournament']) expect(keys).toContain(k);
-  });
-
-  it('gives every track a label and blurb', () => {
-    for (const t of availableTours(true)) {
-      expect(t.label).toBeTruthy();
-      expect(t.blurb).toBeTruthy();
-    }
-  });
-});
-
-// A league bowler who did the casual tour first shouldn't sit through
-// "this is the History tab" again -- the overlap between tracks is large.
-describe('skipping steps already seen', () => {
-  const casual = { environment: 'casual', trackingMode: 'game' };
-  const league = { environment: 'league', trackingMode: 'shot', showMoneyGames: true };
-
-  it('drops steps shown in an earlier tour', () => {
-    const seen = recordStepsSeen([], tourSteps(casual));
-    const next = tourSteps(league, { skipSeen: seen }).map(s => s.id);
-    expect(next).not.toContain('history');
-    expect(next).not.toContain('stats');
-    expect(next).toContain('roster');
-    expect(next).toContain('score-spare');
-  });
-
-  it('never returns an empty tour', () => {
-    const seen = recordStepsSeen([], tourSteps(league));
-    expect(tourSteps(league, { skipSeen: seen }).length).toBeGreaterThan(0);
-  });
-
-  it('records without duplicating', () => {
-    const once = recordStepsSeen([], tourSteps(casual));
-    expect(recordStepsSeen(once, tourSteps(casual))).toHaveLength(once.length);
-  });
-});
-
-// A casual night has no printed scorecard, and the import flow asks
-// "which team?" which a casual bowler doesn't have.
-describe('import step scoping', () => {
-  it('is hidden from the casual tour', () => {
-    expect(tourSteps({ environment: 'casual', trackingMode: 'game' }).map(s => s.id))
-      .not.toContain('import');
-  });
-
-  it('is shown to everyone else', () => {
-    for (const env of ['practice', 'league', 'tournament']) {
-      expect(tourSteps({ environment: env, trackingMode: 'shot' }).map(s => s.id))
-        .toContain('import');
-    }
-  });
-});
-
-// The coach tour is about coaching, not a relabelled bowler tour.
-describe('coach tour content', () => {
-  it('covers the coaching workflow', () => {
-    const ids = COACH_STEPS.map(s => s.id);
-    for (const id of ['coach-roster', 'coach-tasks', 'coach-goals', 'coach-session']) {
-      expect(ids).toContain(id);
-    }
-  });
-
-  it('shares no steps with any bowler tour', () => {
-    const bowlerIds = new Set(
-      ['casual', 'practice', 'league', 'tournament']
-        .flatMap(e => tourSteps({ environment: e, trackingMode: 'shot', showMoneyGames: true }).map(s => s.id))
-    );
-    for (const s of COACH_STEPS) expect(bowlerIds.has(s.id)).toBe(false);
-  });
-});
-
-// Practice and tournament used to be the league tour with steps removed
-// -- nothing described what either mode actually does differently, which
-// is the whole reason someone picks it.
-describe('mode-specific content', () => {
-  const ids = env => tourSteps({
-    environment: env, trackingMode: 'shot', showMoneyGames: env !== 'casual',
-  }).map(s => s.id);
-
-  it('teaches practice its own features', () => {
-    const p = ids('practice');
-    for (const id of ['practice-modes', 'practice-drill', 'practice-goals', 'practice-fields']) {
-      expect(p).toContain(id);
-    }
-  });
-
-  it('teaches tournament its own features', () => {
-    const t = ids('tournament');
-    for (const id of ['tourney-setup', 'tourney-cut', 'tourney-pots', 'tourney-match']) {
-      expect(t).toContain(id);
-    }
-  });
-
-  // A league bowler shouldn't be told about cut lines and drills, and a
-  // practice bowler shouldn't get match play.
-  it('keeps mode-specific steps out of other tours', () => {
-    for (const env of ['casual', 'league']) {
-      const list = ids(env);
-      expect(list.some(id => id.startsWith('practice-'))).toBe(false);
-      expect(list.some(id => id.startsWith('tourney-'))).toBe(false);
-    }
-    expect(ids('practice').some(id => id.startsWith('tourney-'))).toBe(false);
-    expect(ids('tournament').some(id => id.startsWith('practice-'))).toBe(false);
-  });
-
-  it('gives every mode more than the casual minimum', () => {
-    expect(ids('practice').length).toBeGreaterThan(ids('casual').length);
-    expect(ids('tournament').length).toBeGreaterThan(ids('casual').length);
-  });
-});
-
-// Split into a general tour everyone gets and short mode tours offered
-// through the inbox. Stacking both onto signup made it twenty screens
-// long, which is where people close the app.
-describe('general vs mode tours', () => {
-  const league = { environment: 'league', trackingMode: 'shot', showMoneyGames: true };
-  const ids = (prefs, track) => tourSteps(prefs, { track }).map(s => s.id);
-
-  it('puts the basics in the general tour', () => {
-    const g = ids(league, 'general');
-    for (const id of ['bowl', 'tracking', 'shot-detail', 'scoresheet', 'score-strike', 'stats']) {
-      expect(g).toContain(id);
-    }
-  });
-
-  it('keeps mode tours short and mode-specific', () => {
-    for (const [env, expected] of [
-      ['practice', ['practice-modes', 'practice-drill', 'practice-goals', 'practice-fields']],
-      ['league', ['vault', 'roster', 'money']],
-      ['tournament', ['tourney-setup', 'tourney-cut', 'tourney-pots', 'tourney-match']],
-    ]) {
-      const m = ids({ ...league, environment: env }, env);
-      for (const id of expected) expect(m).toContain(id);
-      expect(m.length).toBeLessThan(8);
-    }
-  });
-
-  // The whole point of the split: no step appears in both.
-  it('never repeats a general step inside a mode tour', () => {
-    const g = new Set(ids(league, 'general'));
-    for (const env of ['practice', 'league', 'tournament']) {
-      for (const id of ids({ ...league, environment: env }, env)) {
-        expect(g.has(id)).toBe(false);
-      }
-    }
-  });
-});
-
-describe('pendingModeTour', () => {
-  it('offers the mode tour once', () => {
-    expect(pendingModeTour({ environment: 'tournament', seen: [] })?.key).toBe('tournament');
-    expect(pendingModeTour({ environment: 'tournament', seen: ['tournament'] })).toBeNull();
-  });
-
-  // No casual-only features to explain, and a casual bowler is the least
-  // likely to want more onboarding.
-  it('offers nothing for casual', () => {
-    expect(pendingModeTour({ environment: 'casual', seen: [] })).toBeNull();
-  });
-
-  it('describes what the tour covers', () => {
-    for (const env of ['practice', 'league', 'tournament']) {
-      const t = pendingModeTour({ environment: env, seen: [] });
-      expect(t.label).toBeTruthy();
-      expect(t.detail).toBeTruthy();
-    }
-  });
-});
-
-// The container leagues are not real leagues, so a bowler whose only
-// "league" is Practice or Just Bowling still needs setup.
-//
-// This filtered on "Casual" — the container's OLD name — so it had
-// silently stopped excluding it. Harmless only because the team check
-// caught the same case; it would have bitten the moment a team were
-// attached to the container.
-describe('needsLeagueSetup and container leagues', () => {
-  const ask = (leagues, teams = []) =>
-    needsLeagueSetup({ environment: 'league', leagues, teams });
-
-  it('still needs setup when only containers exist', () => {
-    expect(ask(['Practice'])).toBe(true);
-    expect(ask(['Just Bowling'])).toBe(true);
-    expect(ask(['Practice', 'Just Bowling'])).toBe(true);
-  });
-
-  it('is not satisfied by a team attached to a container', () => {
-    expect(ask(['Just Bowling'], [{ id: 't', league: 'Just Bowling' }])).toBe(true);
-  });
-
-  it('is satisfied by a real league with a team', () => {
-    expect(ask(['Tuesday'], [{ id: 't', league: 'Tuesday' }])).toBe(false);
-  });
-
-  it('only applies to league mode', () => {
-    for (const environment of ['casual', 'practice', 'tournament']) {
-      expect(needsLeagueSetup({ environment, leagues: [], teams: [] })).toBe(false);
+  it('survives junk', () => {
+    for (const junk of [null, undefined, 7, 'x', []]) {
+      expect(() => needsLeagueSetup(junk)).not.toThrow();
+      expect(needsLeagueSetup(junk)).toBe(false);
     }
   });
 });
