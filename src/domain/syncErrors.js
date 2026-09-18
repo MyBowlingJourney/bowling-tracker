@@ -35,8 +35,27 @@ export function classifySyncError(err) {
   //
   // Also covers offline, connection-refused and DNS wording, which are
   // the same situation from the bowler's point of view.
+  // A bare 502/503/504 anywhere in the message used to count, and that
+  // matched things that are not gateway errors at all:
+  //
+  //   "PostgREST error 23503: foreign key violation"  -> contains 503
+  //   "Key (score)=(502) already exists"              -> contains 502
+  //
+  // Both are PERMANENT failures, and calling them transient is not a
+  // cosmetic mistake: the flush loop BREAKS on a transient error to
+  // preserve ordering, so one misread foreign-key violation blocks every
+  // write behind it — the exact wedge the permanent branch exists to
+  // prevent. A bowler shooting 502 could wedge their own queue.
+  //
+  // So the status has to stand alone: start of string or whitespace
+  // before, whitespace or end after. "503 Service Unavailable" matches;
+  // "23503" and "(502)" do not.
+  const looksLikeGatewayError =
+    /(?:^|\s)50[234](?:\s|$)/.test(msg) || /bad gateway|service unavailable|gateway time/i.test(msg);
+
   if (TRANSIENT_CODES.has(code) ||
-      /fetch|network|time[\s-]?d?\s?out|timeout|abort|offline|disconnect|refused|unreachable|dns|ECONN|ETIMEDOUT|ENOTFOUND|ERR_INTERNET|ERR_NETWORK|502|503|504/i.test(msg)) {
+      looksLikeGatewayError ||
+      /fetch|network|time[\s-]?d?\s?out|timeout|abort|offline|disconnect|refused|unreachable|dns|ECONN|ETIMEDOUT|ENOTFOUND|ERR_INTERNET|ERR_NETWORK/i.test(msg)) {
     return {
       kind: "transient",
       // No action: the queue retries automatically.

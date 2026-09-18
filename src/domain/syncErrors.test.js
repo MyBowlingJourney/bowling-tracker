@@ -67,3 +67,33 @@ describe('shouldSurfaceSyncIssue', () => {
     expect(shouldSurfaceSyncIssue({ total: 0, kind: 'permanent' })).toBe(false);
   });
 });
+
+describe('a Postgres error is not a gateway error', () => {
+  // The transient check matched a bare 502/503/504 anywhere in the
+  // message. A permanent error read as transient is not cosmetic: the
+  // flush loop BREAKS on transient to preserve ordering, so one misread
+  // failure blocks every write behind it.
+  it('does not read the 503 inside SQLSTATE 23503 as a gateway error', () => {
+    expect(classifySyncError({ code: '23503', message: 'PostgREST error 23503: foreign key violation' }).kind)
+      .toBe('permanent');
+  });
+
+  it('does not read a 502 inside a VALUE as a gateway error', () => {
+    // A bowler shooting 502 for a series could otherwise wedge their own
+    // queue, which is a sentence worth keeping in the file.
+    expect(classifySyncError({ code: '23502', message: 'null value in column; Key (score)=(502)' }).kind)
+      .toBe('permanent');
+  });
+
+  it('still recognises a real gateway error', () => {
+    for (const msg of ['503 Service Unavailable', 'upstream returned 502', 'Bad Gateway', '504 Gateway Timeout']) {
+      expect(classifySyncError({ code: '', message: msg }).kind).toBe('transient');
+    }
+  });
+
+  it('still recognises ordinary offline wording', () => {
+    for (const msg of ['Failed to fetch', 'The operation timed out', 'net::ERR_INTERNET_DISCONNECTED']) {
+      expect(classifySyncError({ code: '', message: msg }).kind).toBe('transient');
+    }
+  });
+});
