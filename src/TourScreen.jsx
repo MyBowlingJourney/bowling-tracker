@@ -311,6 +311,47 @@ function Bar({ pct, colour }) {
   );
 }
 
+// A dropdown, drawn the way the app's selects look.
+function Select({ value }) {
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", justifyContent: "space-between",
+      border: `1px solid ${C.border}`, borderRadius: "6px", padding: "5px 8px",
+      fontSize: "10px", color: C.text, fontFamily: F.body, background: C.surface,
+    }}>
+      <span>{value}</span><span style={{ opacity: 0.6 }}>{"\u25be"}</span>
+    </div>
+  );
+}
+
+// A real plotted line, so the trend slide shows a trend rather than the
+// controls that produce one. Drawn as an SVG polyline from actual
+// numbers -- the shape is a season that dips mid-way and recovers, which
+// is what a bowler is looking for when they open this.
+function Sparkline({ values = [], width = 250, height = 66 }) {
+  if (values.length < 2) return null;
+  const pad = 6;
+  const lo = Math.min(...values), hi = Math.max(...values);
+  const span = hi - lo || 1;
+  const x = i => pad + (i / (values.length - 1)) * (width - pad * 2);
+  const y = v => (height - pad) - ((v - lo) / span) * (height - pad * 2);
+  const pts = values.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: "100%", display: "block" }}
+         role="img" aria-label="Average over the last 13 games">
+      {[0.25, 0.5, 0.75].map(f => (
+        <line key={f} x1={pad} x2={width - pad} y1={pad + f * (height - pad * 2)}
+              y2={pad + f * (height - pad * 2)} stroke={C.border} strokeWidth="1" />
+      ))}
+      <polyline points={pts} fill="none" stroke={C.accent} strokeWidth="2"
+                strokeLinejoin="round" strokeLinecap="round" />
+      {values.map((v, i) => (
+        <circle key={i} cx={x(i)} cy={y(v)} r="2" fill={C.accent} />
+      ))}
+    </svg>
+  );
+}
+
 const SCREENS = {
   // ── Look around ───────────────────────────────────────────────────────
   //
@@ -533,39 +574,39 @@ const SCREENS = {
   ),
 
   // ── AI ────────────────────────────────────────────────────────────────
+  // The real import screen, in its real order: what kind of night, which
+  // team, the date, then the file picker. The previous version drew a
+  // dashed "photograph the monitor" placeholder and a score table, which
+  // is not a screen this app has ever shown.
   "ai-import-shot": () => (
-    <Phone title="Bowl" headerIcon="import">
+    <Phone title="Import scorecard" headerIcon="import">
       <div style={card}>
-        <div style={label}>Scorecard</div>
-        <div style={{
-          border: `1px dashed ${C.accent}`, borderRadius: "8px",
-          padding: "18px 8px", textAlign: "center",
-        }}>
-          <div style={{ fontSize: "22px" }}>📷</div>
-          <div style={{ ...muted, marginTop: "4px" }}>Photograph the monitor</div>
+        <div style={label}>What are you importing?</div>
+        <div style={{ display: "flex", gap: "4px", marginBottom: "8px" }}>
+          <span style={chip(false)}>Practice</span>
+          <span style={chip(true)}>League</span>
+          <span style={chip(false)}>Tournament</span>
         </div>
-      </div>
-      <Note up={false}>The camera icon, top right</Note>
-      <ScoreTable rows={[["You", ["212", "187"]], ["Rob", ["165", "201"]]]} />
-      <Nav active={0} />
-    </Phone>
-  ),
 
-  "ai-import-check": () => (
-    <Phone title="History">
-      <Spot>
-        <div style={card}>
-          <div style={label}>Imported · waiting on you</div>
-          <Row left="You · 18 Mar" right="212 · 187 · 226" />
-          <Row left="Rob · 18 Mar" right="165 · 201 · 178" />
-          <div style={{ display: "flex", gap: "4px", marginTop: "6px" }}>
-            <span style={chip(true, C.strike)}>Confirm</span>
-            <span style={chip(false)}>Edit</span>
+        <div style={label}>Which team?</div>
+        <Select value="Split Happens · Tuesday" />
+
+        <div style={{ ...label, marginTop: "8px" }}>Date</div>
+        <Select value="18 Mar 2026" />
+
+        <Spot style={{ marginTop: "8px" }}>
+          <div style={label}>Scorecard Screenshots</div>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <span style={{
+              border: `1px solid ${C.border}`, borderRadius: "6px",
+              padding: "4px 8px", fontSize: "10px", color: C.text,
+              fontFamily: F.body, background: C.surface,
+            }}>Choose files</span>
+            <span style={muted}>2 selected</span>
           </div>
-        </div>
-      </Spot>
-      <Note>Nothing files until you say so</Note>
-      <Nav active={5} />
+        </Spot>
+      </div>
+      <Nav active={0} />
     </Phone>
   ),
 
@@ -672,20 +713,24 @@ const SCREENS = {
   "stats-trend": () => (
     <Phone title="Stats">
       <Chips items={["Mine", "Trends", "Team", "Ball", "Game", "Center"]} sel={1} />
-      <Spot style={{ marginTop: "8px" }}>
-        <div style={card}>
-          <div style={{ display: "flex", gap: "4px", marginBottom: "6px" }}>
-            <Field head="Metric" value="Average" />
-            <Field head="Ball" value="All" />
-            <Field head="League" value="Tue" />
-          </div>
-          <div style={{ display: "flex", gap: "4px" }}>
-            <span style={chip(false)}>Games</span>
-            <span style={chip(true)}>Last 90 days</span>
-            <span style={chip(false)}>Dates</span>
-          </div>
+      <div style={{ ...card, marginTop: "8px" }}>
+        <div style={{ display: "flex", gap: "4px", marginBottom: "6px" }}>
+          <Field head="Metric" value="Average" />
+          <Field head="Ball" value="All" />
+          <Field head="League" value="Tue" />
         </div>
-      </Spot>
+        <Spot>
+          <Sparkline values={[188, 195, 191, 204, 199, 186, 178, 183, 192, 201, 208, 199, 212]} />
+        </Spot>
+        <div style={{ display: "flex", justifyContent: "space-between", marginTop: "4px" }}>
+          <span style={muted}>Jan</span><span style={muted}>Mar</span>
+        </div>
+        <div style={{ display: "flex", gap: "4px", marginTop: "6px" }}>
+          <span style={chip(false)}>Games</span>
+          <span style={chip(true)}>Last 90 days</span>
+          <span style={chip(false)}>Dates</span>
+        </div>
+      </div>
       <div style={{ ...muted, textAlign: "center" }}>Showing 13 of 40 games</div>
       <Nav active={3} />
     </Phone>
