@@ -139,17 +139,39 @@ marks. Confidence, not enthusiasm.
 
 Keep answers under 120 words. You are a genie, not a coaching manual.`;
 
-const ALLOWED_ORIGINS = [
-  "https://rynadon290.github.io",
-  "http://localhost:5173",
-];
-
+// Allowed origins come from the ALLOWED_ORIGINS secret, like every other
+// function here.
+//
+// This one used to hardcode the list, and that is exactly the bug the
+// comma-separated env var exists to prevent: analyze-performance,
+// find-centers and import-scorecard all read the secret, so adding the
+// Capacitor shell's origin to it fixed all three at once and silently did
+// nothing for the genie. The hardcoded list also carried
+// "http://localhost:5173" -- the Vite dev server -- which is NOT the
+// origin a Capacitor app calls from. Android WebViews load from
+// "https://localhost", so every request from the phone was rejected while
+// the web app and `npm run dev` both worked, which is the most confusing
+// shape a CORS bug can take.
+//
+// Keeping the list in one secret also means the custom-domain move costs
+// a secret edit rather than a code change and a redeploy.
+//
+// Falls back to "*" when unset -- deliberately, matching the other three,
+// so an unconfigured deploy keeps working rather than locking every
+// request out. Auth is the real security boundary; pinning the origin is
+// defence in depth.
 function corsFor(req: Request): Record<string, string> {
+  const configured = (Deno.env.get("ALLOWED_ORIGINS") || "").split(",").map(s => s.trim()).filter(Boolean);
   const origin = req.headers.get("Origin") || "";
+  const allow = configured.length === 0
+    ? "*"
+    : (configured.includes(origin) ? origin : configured[0]);
   return {
-    "Access-Control-Allow-Origin": ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
+    "Access-Control-Allow-Origin": allow,
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
+    // Tells caches the response varies per origin, so a permissive cached
+    // response can't be served to a different site.
     "Vary": "Origin",
   };
 }
