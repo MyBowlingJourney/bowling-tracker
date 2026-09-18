@@ -15,7 +15,7 @@ import { anyMoneyGameShown, visibleStatsCardOrder, MOVABLE_STATS_CARDS } from ".
 
 import { seasonComparison } from "./domain/scoreInsights.js";
 
-import { patternAverages, patternVersusOverall } from "./domain/oilPatterns.js";
+import { patternAverages, patternVersusOverall, patternLengthForLeague } from "./domain/oilPatterns.js";
 
 import { statsByRackType, rackTypeLabel } from "./domain/centers.js";
 
@@ -54,7 +54,7 @@ function sortBalls(list, sortId) {
 import { SAMPLE_THRESHOLDS } from "./domain/insightGating.js";
 export default function StatsView({
   // Already passed by BowlingTracker, never read until now.
-  lanePatterns = [], tournaments = [], centers = [], statsGroup = "overview",
+  lanePatterns = [], oilPatterns = [], tournaments = [], centers = [], statsGroup = "overview",
   leftHandedForBowler, ballProfile,
   SHOT_SAMPLE_THRESHOLD = 20,
   onOpenImprove,
@@ -975,7 +975,8 @@ fivePinAttempts.length>0&&(
                     league={statsLeague}
                     leftHanded={leftHandedForBowler?.(statsBowler)||false}
                     drift={ballProfile?.driftBoards} twoHanded={!!ballProfile?.twoHanded}
-                    lateralOffset={ballProfile?.lateralOffset} />
+                    lateralOffset={ballProfile?.lateralOffset}
+                    patternLength={patternLengthForLeague(lanePatterns, statsLeague, oilPatterns)} />
                 );
                 byId["byBall"] = (
 !hideIndividualOnly&&(

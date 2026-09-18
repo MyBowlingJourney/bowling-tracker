@@ -7416,6 +7416,7 @@ export default function BowlingTracker(){
             onOpenImprove={()=>setView("insights")}
             centerStats={centerStats}
             lanePatterns={lanePatterns}
+            oilPatterns={oilPatterns}
             statsGroup={dataTab}
 
             leftHandedForBowler={leftHandedForBowler}

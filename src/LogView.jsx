@@ -2629,25 +2629,37 @@ export default function LogView({
                     baseline alignment so the label and the field label sit
                     on the same line rather than the input dragging the
                     header down. */}
-                <div style={{display:"flex",alignItems:"baseline",
-                  justifyContent:"space-between",gap:"8px",marginBottom:"8px"}}>
-                  <div style={{...S.label,marginBottom:0,minWidth:0}}>
-                    Line{!editingId&&currentLane?` · Lane ${currentLane}`:""}
-                  </div>
-                  <div style={{width:"calc(50% - 4px)",minWidth:0,flexShrink:0}}>
-                    <div style={fieldHead}>Start</div>
-                    <input style={{...S.input,...smallInput,width:"100%"}}
-                      type="number" inputMode="numeric" placeholder="board #"
-                      value={form.startingBoard}
-                      onChange={e=>{const v=acceptBoardKeystroke(e.target.value); if(v===null)return;
-                        editingId?set("startingBoard",v):handleLineChange("startingBoard",v);}}/>
-                  </div>
+                <div style={{...S.label,marginBottom:"8px"}}>
+                  Line{!editingId&&currentLane?` · Lane ${currentLane}`:""}
                 </div>
 
+                  {/* Four boards, in the order the ball meets them.
+
+                      Reading left to right, top to bottom: where you stand,
+                      where you mean to send it, where it actually crossed,
+                      and where it turned. Every one is a board number, so
+                      they share one grid rather than each getting a row.
+
+                      The breakpoint DISTANCE field is gone. Nobody can
+                      judge footage down a lane to any useful precision --
+                      the board is something you watch the ball cross, the
+                      distance is a guess -- so it cost a tap per shot and
+                      returned noise. The ball path drawing now takes the
+                      turn distance from the oil pattern length, which is
+                      what actually determines it and is already recorded
+                      once per session. */}
                   <div style={{display:"grid",
                     gridTemplateColumns:"repeat(2, minmax(0, 1fr))",gap:"8px",marginBottom:"8px"}}>
                     <div style={{minWidth:0}}>
-                      <div style={fieldHead}>Target arrows</div>
+                      <div style={fieldHead}>Standing on</div>
+                      <input style={{...S.input,...smallInput,width:"100%"}}
+                        type="number" inputMode="numeric" placeholder="board #"
+                        value={form.startingBoard}
+                        onChange={e=>{const v=acceptBoardKeystroke(e.target.value); if(v===null)return;
+                          editingId?set("startingBoard",v):handleLineChange("startingBoard",v);}}/>
+                    </div>
+                    <div style={{minWidth:0}}>
+                      <div style={fieldHead}>Target @ arrows</div>
                       <input style={{...S.input,...smallInput,width:"100%"}}
                         type="number" inputMode="numeric" placeholder="board #"
                         value={form.targetArrows}
@@ -2655,35 +2667,18 @@ export default function LogView({
                           editingId?set("targetArrows",v):handleLineChange("targetArrows",v);}}/>
                     </div>
                     <div style={{minWidth:0}}>
-                      <div style={fieldHead}>Actual arrows</div>
+                      <div style={fieldHead}>Actual @ arrows</div>
                       <input style={{...S.input,...smallInput,width:"100%"}}
                         type="number" inputMode="numeric" placeholder="board #"
                         value={form.actualArrows}
                         onChange={e=>{const v=acceptBoardKeystroke(e.target.value); if(v!==null)set("actualArrows",v);}}/>
                     </div>
-                  </div>
-
-                  {/* Breakpoint, measured rather than guessed.
-                      
-                      The ball path drawing used to PROJECT this from the
-                      feet-to-arrows angle, which was a guess dressed as
-                      data -- and a bad one, since that angle includes the
-                      approach. Two fields here and the drawing can stop
-                      inventing it. */}
-                  <div style={{...fieldHead,marginBottom:"4px"}}>Breakpoint</div>
-                  <div style={{display:"grid",
-                    gridTemplateColumns:"repeat(2, minmax(0, 1fr))",gap:"8px",marginBottom:"8px"}}>
                     <div style={{minWidth:0}}>
+                      <div style={fieldHead}>Breakpoint</div>
                       <input style={{...S.input,...smallInput,width:"100%"}}
                         type="number" inputMode="numeric" placeholder="board #"
                         value={form.breakpointBoard}
                         onChange={e=>{const v=acceptBoardKeystroke(e.target.value); if(v!==null)set("breakpointBoard",v);}}/>
-                    </div>
-                    <div style={{minWidth:0}}>
-                      <input style={{...S.input,...smallInput,width:"100%"}}
-                        type="number" inputMode="numeric" placeholder="ft"
-                        value={form.breakpointDistance}
-                        onChange={e=>set("breakpointDistance",e.target.value)}/>
                     </div>
                   </div>
                 {(()=>{

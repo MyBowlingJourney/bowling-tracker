@@ -17,7 +17,7 @@ const LANE_BOARDS = 39;
 
 export default function BallCompare({
   shots = [], bowler = "", league = "", leftHanded = false, minShots = 25,
-  drift, lateralOffset, twoHanded = false,
+  drift, lateralOffset, twoHanded = false, patternLength = null,
 }) {
   const comparison = ballComparison(shots, {
     bowler, league, isSplit, isCornerPinLeave, leftHanded, minShots,
@@ -32,7 +32,7 @@ export default function BallCompare({
   const bestPhase = bestByPhase(phases);
 
   const lines = comparison
-    .map(b => ({ entry: b, line: ballLine(b, { drift, lateralOffset, twoHanded }) }))
+    .map(b => ({ entry: b, line: ballLine(b, { drift, lateralOffset, twoHanded, patternLength }) }))
     .filter(x => x.line);
 
   // Lane geometry. Sixty feet deep, thirty-nine boards across, drawn
