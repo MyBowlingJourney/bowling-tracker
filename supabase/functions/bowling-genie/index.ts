@@ -18,11 +18,11 @@
 // our side does not spend a wish either. The count lives HERE, not on
 // the client, or it resets when someone clears their storage.
 //
-// Secret required: gemini_api_key (lowercase -- Supabase forces it)
+// Secret required: GEMINI_API_KEY (lowercase -- Supabase forces it)
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const GEMINI_API_KEY = Deno.env.get("gemini_api_key");
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 // Overridable without a code deploy, via a GENIE_GEMINI_MODEL secret.
 //
 // Brooklyn's job is PHRASING, not reading. The statistics are precomputed
@@ -101,9 +101,9 @@ async function withinDailyLimit(req: Request, userId: string): Promise<boolean> 
 //
 // OFF by default. Turning it on before purchases work would lock out
 // every existing bowler, because nobody has an entitlement row yet. Set
-// the secret billing_live to "true" in the same release that ships Play
+// the secret BILLING_LIVE to "true" in the same release that ships Play
 // Billing and Stripe -- and not one release earlier.
-const BILLING_LIVE = (Deno.env.get("billing_live") || "").trim().toLowerCase() === "true";
+const BILLING_LIVE = (Deno.env.get("BILLING_LIVE") || "").trim().toLowerCase() === "true";
 
 // FAILS OPEN, deliberately -- the opposite of the rate limit above, and
 // worth understanding before anyone "fixes" it.
@@ -227,7 +227,7 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
   if (!GEMINI_API_KEY) {
-    console.error("gemini_api_key is not set");
+    console.error("GEMINI_API_KEY is not set");
     return json({ error: "The lamp is cold. Try again later." }, cors, 500);
   }
 
