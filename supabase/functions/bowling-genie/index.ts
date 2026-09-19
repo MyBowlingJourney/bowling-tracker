@@ -90,6 +90,52 @@ async function withinDailyLimit(req: Request, userId: string): Promise<boolean> 
   }
 }
 
+
+// ── The paywall, server side ────────────────────────────────────────
+//
+// Mirrors BILLING_LIVE in src/domain/entitlements.js, and the client's
+// copy of the status logic mirrors public.is_subscriber(). The client
+// decides what to SHOW; this decides what to SERVE, and this is the one
+// that matters -- the anon key ships in every copy of the app, so a
+// check that only runs in the browser is a courtesy, not a boundary.
+//
+// OFF by default. Turning it on before purchases work would lock out
+// every existing bowler, because nobody has an entitlement row yet. Set
+// the secret billing_live to "true" in the same release that ships Play
+// Billing and Stripe -- and not one release earlier.
+const BILLING_LIVE = (Deno.env.get("billing_live") || "").trim().toLowerCase() === "true";
+
+// FAILS OPEN, deliberately -- the opposite of the rate limit above, and
+// worth understanding before anyone "fixes" it.
+//
+// The two failures are not symmetrical. A broken rate-limit check that
+// lets a request through costs one Gemini call. A broken entitlement
+// check that blocks one turns a bowler who has paid into a bowler
+// staring at a padlock on league night with a receipt in their inbox.
+// The first is a rounding error; the second is a refund and a review.
+//
+// The bypass this theoretically opens needs the database itself to be
+// failing, which is not a state a caller can put it in.
+async function hasSubscription(req: Request): Promise<boolean> {
+  if (!BILLING_LIVE) return true;
+  try {
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: req.headers.get("Authorization")! } } },
+    );
+    const { data, error } = await supabase.rpc("is_subscriber");
+    if (error) {
+      console.error("is_subscriber check failed, allowing through:", error.message);
+      return true;
+    }
+    return data === true;
+  } catch (e) {
+    console.error("is_subscriber threw, allowing through:", String(e));
+    return true;
+  }
+}
+
 // The genie's brief.
 //
 // It refuses in character rather than erroring, because a refusal the
@@ -193,6 +239,15 @@ Deno.serve(async (req: Request) => {
   );
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return json({ error: "Sign in first." }, cors, 401);
+
+  // Paid. Checked before the daily cap, so a free bowler is turned away
+  // rather than quietly spending one of their three wishes on a refusal.
+  if (!(await hasSubscription(req))) {
+    return json({
+      error: "Brooklyn only answers on the paid plan.",
+      upgrade: true,
+    }, cors, 402);
+  }
 
   // KNOWN GAP, stated rather than hidden.
   //
