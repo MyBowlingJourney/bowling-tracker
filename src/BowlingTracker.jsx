@@ -7452,6 +7452,7 @@ export default function BowlingTracker(){
                 onChange={next=>saveGoals(activeBowler,next)}/>
             ):null}
             sessionNotes={sessionNotes} setSessionNotes={setSessionNotes}
+            entitlement={entitlement}
             shots={visibleShots} sessions={visibleSessions} bowlers={bowlers} footerHeight={footerHeight} footerRef={footerRef} teams={teams} leagues={activeLeagues} startEdit={startEdit} deleteShot={deleteShot}
             activeBowler={activeBowler} arsenals={arsenals}
             form={form} setForm={setForm} editingId={editingId} saved={saved} sessionSaved={sessionSaved} sessionSaveMessage={sessionSaveMessage}
@@ -7602,7 +7603,7 @@ export default function BowlingTracker(){
             tournaments={tournaments}
 
             closedSeasons={closedSeasons} leagueDates={leagueDates}
-            view={view} shots={visibleShots} sessions={visibleSessions} bowlers={bowlers} teams={teams} leagues={leagues} arsenals={arsenals} saved={saved}
+            view={view} entitlement={entitlement} shots={visibleShots} sessions={visibleSessions} bowlers={bowlers} teams={teams} leagues={leagues} arsenals={arsenals} saved={saved}
             statsBowler={statsBowler} setStatsBowler={chooseStatsBowler} compareBowler={compareBowler} setCompareBowler={setCompareBowler}
             compareFriendId={compareFriendId} setCompareFriendId={setCompareFriendId}
             friends={friends} onLoadFriendData={loadFriendData} onOpenFriends={()=>setView("social")} compareSessions={compareSessions} displayName={displayName}

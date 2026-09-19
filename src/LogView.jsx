@@ -63,6 +63,9 @@ export default function LogView({
   preferences, setSessionMoneyArray, setSessionMoneyValue, activeBowlerLeftHanded,
   ballLayouts, activeTournament, updateTournament, saveTournament, closeTournament, tournamentSaved,
   manualScores, updateManualScore,
+  // Handed straight to the Nightcap, which is the only paid thing
+  // on this screen.
+  entitlement = null,
   showSessionStart, goalsPanel, practiceMode, setPracticeMode, gameEquipment, updateGameEquipment, activeDrill, setActiveDrill, startDrill, startAnotherDrill, saveDrill, drillSaved, drills, leftHandedForBowler,
   ownerName, scoringForOthers, setScoringForOthers, scoreOptions, guests, newGuestName, setNewGuestName, addGuestBowler, removeGuestBowler,
   oilPatterns, submitOilPattern, tournaments, practicePriorAverage,
@@ -2249,7 +2252,8 @@ export default function LogView({
                     scores={cs.scores}
                     priorAverage={cumulativeAvgBeforeDate(sessions,cs.bowler,cs.league,cs.date)}
                     pinsLeftOnLane={anyTheoretical&&played.length?leftOnLane:null}
-                    sessionEnded={(sessions||[]).some(s=>s&&s.bowler===cs.bowler&&s.league===cs.league&&s.date===cs.date)}/>
+                    sessionEnded={(sessions||[]).some(s=>s&&s.bowler===cs.bowler&&s.league===cs.league&&s.date===cs.date)}
+                    entitlement={entitlement}/>
                 )}
 
                 <div style={{...S.card,border:`1px solid ${C.accent}44`}}>

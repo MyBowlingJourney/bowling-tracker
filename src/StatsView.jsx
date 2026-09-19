@@ -21,6 +21,7 @@ import { statsByRackType, rackTypeLabel } from "./domain/centers.js";
 
 import { cardsInGroup } from "./domain/statsGroups.js";
 import { cardHint } from "./domain/cardHints.js";
+import { PAID_STATS_CARDS, canSeeStatsCard } from "./domain/entitlements.js";
 
 // Card titles, taken from the same list Settings orders them by, so a
 // card is called one thing in both places.
@@ -52,6 +53,9 @@ function sortBalls(list, sortId) {
 }
 
 export default function StatsView({
+  // The bowler's subscription. Null is a free bowler, which is also what
+  // every caller passes before billing exists.
+  entitlement = null,
   // Already passed by BowlingTracker, never read until now.
   lanePatterns = [], oilPatterns = [], tournaments = [], centers = [], statsGroup = "overview",
   leftHandedForBowler, ballProfile,
@@ -1594,6 +1598,31 @@ anyMoneyGameShown(preferences)&&statsBowler&&(()=>{
                 // The chips live in the row above this screen, beside
                 // Trends -- two rows of chips stacked was worse than the
                 // long scroll they replaced.
+                // Paid cards: LOCKED, not hidden.
+                //
+                // Hiding them would make the paid tier invisible, and a
+                // bowler cannot want something they have never seen. The
+                // locked card names what it would have compared, which is
+                // the only honest shape a paywall has: a specific thing
+                // withheld, at the moment it would have been useful.
+                //
+                // Only a card that WOULD have rendered gets locked. One
+                // with no data stays in the "Not yet" list below -- a
+                // padlock on an empty card sells something that would
+                // still be empty after paying for it.
+                for (const id of PAID_STATS_CARDS) {
+                  if (!byId[id]) continue;
+                  if (canSeeStatsCard(id, entitlement)) continue;
+                  byId[id] = (
+                    <div style={{ ...S.card, border: `1px solid ${C.accent}44`, backgroundColor: C.accent + "0D" }}>
+                      <div style={{ ...S.label, color: C.accent }}>{CARD_LABELS[id] || "Comparison"} 🔒</div>
+                      <div style={{ fontSize: "12px", color: C.textMuted, lineHeight: 1.5 }}>
+                        Comparing two things — bowlers, balls, houses, patterns or seasons —
+                        is part of the paid plan. Everything about your own game stays free.
+                      </div>
+                    </div>
+                  );
+                }
                 const inGroup = cardsInGroup(renderOrder, statsGroup);
                 const shown = inGroup.filter(id => byId[id]);
                 // Cards with nothing to show, and what would fill them.
