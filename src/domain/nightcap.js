@@ -364,12 +364,52 @@ export function nightcapFacts(shots, {
 // The cap is generous against a real night, so trimming means something
 // has gone wrong rather than that a bowler had a long night.
 //
-// The edge function refuses more than 16 facts. This sits below that on
-// purpose: a client and a server that agree exactly have no margin, and
-// the first fact added later would be rejected by a check nobody
-// remembered was there.
+// The edge function refuses more than 16 facts and more than 4,000
+// characters. These sit below both on purpose: a client and a server that
+// agree exactly have no margin, and the first fact added later would be
+// refused by a check nobody remembered was there.
 export const MAX_FACTS = 15;
+export const MAX_FACT_CHARS = 240;
 export const MAX_PAYLOAD_CHARS = 3000;
+
+// One line, no control characters, bounded length.
+//
+// Every fact this file produces is already a single sentence, so this
+// changes nothing about normal output. It exists because a fact is prose
+// that ends up inside a prompt, and prose that reaches a prompt with
+// newlines in it is the shape every prompt-injection attempt takes. A
+// bowler's ball name and league name both reach these strings and both
+// are free text they typed.
+//
+// The server checks the same thing again rather than trusting this. This
+// is here so the client never SENDS something the server would refuse --
+// a rejection the bowler could do nothing about.
+function oneLine(text) {
+  return String(text ?? "")
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u001f\u007f]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, MAX_FACT_CHARS);
+}
+
+// A stable 32-bit hash of the facts, so the cache can tell one night's
+// nightcap from the same night re-computed after an edit.
+//
+// Not for security -- it is a change detector. Without it a bowler who
+// fixed a mis-logged frame would keep seeing the nightcap written from
+// the wrong frame, with no way to know it was stale and no way to clear
+// it. FNV-1a: small, no dependency, and good enough to notice a
+// character changing.
+export function factsFingerprint(facts) {
+  let h = 0x811c9dc5;
+  const s = (Array.isArray(facts) ? facts : []).join("\u0001");
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(36);
+}
 
 export function nightcapPayload(shots, opts = {}) {
   const computed = nightcapFacts(shots, opts);
@@ -382,8 +422,8 @@ export function nightcapPayload(shots, opts = {}) {
   // bowler with the most history, whose night produces the most other
   // facts too. That is exactly backwards: a season figure took months to
   // earn and is the only thing here that a single night cannot say.
-  const season = computed.facts.filter(f => f.id.startsWith("season")).map(f => f.text);
-  const tonight = computed.facts.filter(f => !f.id.startsWith("season")).map(f => f.text);
+  const season = computed.facts.filter(f => f.id.startsWith("season")).map(f => oneLine(f.text));
+  const tonight = computed.facts.filter(f => !f.id.startsWith("season")).map(f => oneLine(f.text));
   const room = Math.max(0, MAX_FACTS - season.length);
 
   const payload = {
@@ -400,5 +440,6 @@ export function nightcapPayload(shots, opts = {}) {
   if (JSON.stringify(payload).length > MAX_PAYLOAD_CHARS) {
     payload.facts = [...tonight.slice(0, Math.max(0, 8 - season.length)), ...season];
   }
+  payload.fingerprint = factsFingerprint(payload.facts);
   return payload;
 }
