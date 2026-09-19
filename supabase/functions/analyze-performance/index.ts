@@ -224,6 +224,52 @@ function corsFor(req) {
 // Deno.serve is built into the runtime: no import, no fetch, nothing to
 // fail. import-scorecard already used it and has been working, which is
 // what made this the difference worth suspecting.
+
+// ── The paywall, server side ────────────────────────────────────────
+//
+// Mirrors BILLING_LIVE in src/domain/entitlements.js, and the client's
+// copy of the status logic mirrors public.is_subscriber(). The client
+// decides what to SHOW; this decides what to SERVE, and this is the one
+// that matters -- the anon key ships in every copy of the app, so a
+// check that only runs in the browser is a courtesy, not a boundary.
+//
+// OFF by default. Turning it on before purchases work would lock out
+// every existing bowler, because nobody has an entitlement row yet. Set
+// the secret billing_live to "true" in the same release that ships Play
+// Billing and Stripe -- and not one release earlier.
+const BILLING_LIVE = (Deno.env.get("billing_live") || "").trim().toLowerCase() === "true";
+
+// FAILS OPEN, deliberately -- the opposite of the rate limit above, and
+// worth understanding before anyone "fixes" it.
+//
+// The two failures are not symmetrical. A broken rate-limit check that
+// lets a request through costs one Gemini call. A broken entitlement
+// check that blocks one turns a bowler who has paid into a bowler
+// staring at a padlock on league night with a receipt in their inbox.
+// The first is a rounding error; the second is a refund and a review.
+//
+// The bypass this theoretically opens needs the database itself to be
+// failing, which is not a state a caller can put it in.
+async function hasSubscription(req: Request): Promise<boolean> {
+  if (!BILLING_LIVE) return true;
+  try {
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: req.headers.get("Authorization")! } } },
+    );
+    const { data, error } = await supabase.rpc("is_subscriber");
+    if (error) {
+      console.error("is_subscriber check failed, allowing through:", error.message);
+      return true;
+    }
+    return data === true;
+  } catch (e) {
+    console.error("is_subscriber threw, allowing through:", String(e));
+    return true;
+  }
+}
+
 Deno.serve(async (req) => {
   const CORS = corsFor(req);
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
@@ -232,6 +278,14 @@ Deno.serve(async (req) => {
   // 401, not a hint about whether the server is configured.
   const auth = await requireUser(req, CORS);
   if (auth.response) return auth.response;
+
+  // Paid, and checked here rather than only in the browser.
+  if (!(await hasSubscription(req))) {
+    return json({
+      error: "Insights is part of the paid plan.",
+      upgrade: true,
+    }, CORS, 402);
+  }
 
   if (!(await withinRateLimit(req, "analyze-performance", 30, "1 hour", auth.user.id, 60 * 60 * 1000))) {
     return new Response(JSON.stringify({
