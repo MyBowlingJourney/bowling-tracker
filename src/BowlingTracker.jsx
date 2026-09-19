@@ -5863,24 +5863,6 @@ export default function BowlingTracker(){
     try{
       const{data,error}=await supabase.functions.invoke("analyze-performance",{body:{payload}});
       if(error){
-        // READ THE BODY on a non-2xx -- the same fix askGenie already has.
-        //
-        // supabase-js collapses every non-2xx into one opaque message and
-        // puts the real response on error.context. This function already
-        // returns a useful { error } for its own failures -- "Analysis
-        // came back empty. Try again." and friends -- and without this
-        // they were every one of them thrown away. A transient Gemini
-        // hiccup, which a second tap fixes, read exactly like a
-        // permanently broken app, and there is a Try Again button sitting
-        // right under the message saying so.
-        try{
-          const res=error?.context;
-          if(res&&typeof res.json==="function"){
-            const body=await res.json();
-            if(body?.error)return{error:body.error};
-          }
-        }catch{ /* body wasn't JSON; the status is all we have */ }
-
         // "Failed to send a request to the Edge Function" means the
         // request never reached Supabase at all -- the function isn't
         // deployed, failed to boot, or the phone is offline. That string
@@ -5889,11 +5871,7 @@ export default function BowlingTracker(){
         if(/failed to send a request|failed to fetch|networkerror/i.test(raw)){
           return{error:"Couldn't reach the analysis service. If you're online and this keeps happening, it needs redeploying."};
         }
-        // What is left is a status code with no readable body. Every one
-        // of those this function produces is upstream and nearly always
-        // clears on a second attempt, so point at the Try Again button
-        // rather than stating a failure and stopping.
-        return{error:"Couldn't generate insights just then. Tap Try Again — this usually clears on a second attempt."};
+        return{error:raw||"Analysis failed."};
       }
       if(data?.error)return{error:data.error};
       return data;
@@ -7325,11 +7303,26 @@ export default function BowlingTracker(){
         )}
 
         {(view==="log"||(view==="home"&&nightLive))&&(
+          /* goalsPanel: Goals on the Results tab, at the end of the night.
+              
+              LogView has rendered this card since it was written and
+              nothing ever supplied the prop, so it has never once
+              appeared for a real bowler. The panel below is the same one
+              Improve shows -- one component, one set of goals, two
+              places to meet it.
+              
+              A comment cannot sit between attributes inside the opening
+             tag, which is why it is out here. */
           <LogView
             profiles={profiles}
+            goalsPanel={activeBowler?(
+              <GoalsPanel goals={logGoals} measurements={logGoalMeasurements}
+                leftHanded={leftHandedForBowler(activeBowler)}
+                onChange={next=>saveGoals(activeBowler,next)}/>
+            ):null}
             sessionNotes={sessionNotes} setSessionNotes={setSessionNotes}
             shots={shots} sessions={sessions} bowlers={bowlers} footerHeight={footerHeight} footerRef={footerRef} teams={teams} leagues={activeLeagues} startEdit={startEdit} deleteShot={deleteShot}
-            activeBowler={activeBowler} newBowlerName={newBowlerName} setNewBowlerName={setNewBowlerName} arsenals={arsenals} newBallName={newBallName} setNewBallName={setNewBallName}
+            activeBowler={activeBowler} arsenals={arsenals}
             form={form} setForm={setForm} editingId={editingId} saved={saved} sessionSaved={sessionSaved} sessionSaveMessage={sessionSaveMessage}
             sessionLeague={sessionLeague} setSessionLeague={setSessionLeague} effectiveSessionLeague={effectiveSessionLeague} sessionDate={sessionDate} setSessionDate={changeSessionDate}
             startingLane={startingLane} setStartingLane={setStartingLane} expandedSections={expandedSections}
@@ -7337,10 +7330,9 @@ export default function BowlingTracker(){
             promptForTeam={promptForTeam} onDismissTeamPrompt={dismissTeamPrompt}
             ballNumLabel={ballNumLabel} curSession={curSession} currentLane={currentLane} firstBallPins={firstBallPins} gameScores={gameScores}
             hasLeave={hasLeave} leaveDescribed={leaveDescribed} inTenth={inTenth} isNoTap={isNoTap} isStrike={isStrike} needsSpareMade={needsSpareMade} needsPins={needsPins} sessionTotal={sessionTotal} showPinCount={showPinCount}
-            standingPins={standingPins} tenthOptions={tenthOptions}
-            addBall={addBall} addBowler={addBowler} autoFillLine={autoFillLine} calcLane={calcLane} cancelEdit={cancelEdit} cycleGameResult={cycleGameResult} cycleSeriesResult={cycleSeriesResult}
+            standingPins={standingPins} tenthOptions={tenthOptions} autoFillLine={autoFillLine} calcLane={calcLane} cancelEdit={cancelEdit} cycleGameResult={cycleGameResult} cycleSeriesResult={cycleSeriesResult}
             getLanePattern={getLanePattern} getMatch={getMatch} handleBallChange={handleBallChange} handleLeaveToggle={handleLeaveToggle} handleLineChange={handleLineChange}
-            handleSpareMadeToggle={handleSpareMadeToggle} matchHandicap={matchHandicap} previousShotBall={previousShotBall} removeBall={removeBall} removeBowler={removeBowler}
+            handleSpareMadeToggle={handleSpareMadeToggle} matchHandicap={matchHandicap} previousShotBall={previousShotBall}
             selectBowler={selectBowler} set={set} setLanePattern={setLanePattern} setMatchHandicap={setMatchHandicap} setMatchOpponent={setMatchOpponent} setPokerWinnings={setPokerWinnings} setThreeSixNineWinnings={setThreeSixNineWinnings} winningsSaved={winningsSaved} confirmWinningsSaved={confirmWinningsSaved} setView={setView}
             leagueBuyIns={leagueBuyIns} onSaveLeagueBuyIns={saveLeagueBuyIns} onReplayTour={replayTour}
             casualExtraGames={casualExtraGames} setCasualExtraGames={setCasualExtraGames}
@@ -7348,7 +7340,7 @@ export default function BowlingTracker(){
             preferences={logPreferences}
             setSessionMoneyArray={setSessionMoneyArray} setSessionMoneyValue={setSessionMoneyValue}
             activeBowlerLeftHanded={activeBowlerLeftHanded}
-            ballLayouts={ballLayouts} setBallLayout={setBallLayout}
+            ballLayouts={ballLayouts}
             tournamentSaveMessage={tournamentSaveMessage}
 
             leagueTabChoice={leagueTabChoice} setLeagueTabChoice={setLeagueTabChoice}
@@ -7362,13 +7354,9 @@ export default function BowlingTracker(){
             scoreOptions={scoreOptions} guests={guests} newGuestName={newGuestName} setNewGuestName={setNewGuestName}
             addGuestBowler={addGuestBowler} removeGuestBowler={removeGuestBowler}
             gameEquipment={gameEquipment} updateGameEquipment={updateGameEquipment}
-            practiceTracking={practiceTracking} setPracticeTracking={setPracticeTracking}
             practiceMode={practiceMode} setPracticeMode={setPracticeMode} activeDrill={activeDrill} setActiveDrill={setActiveDrill} startDrill={startDrill} startAnotherDrill={startAnotherDrill} saveDrill={saveDrill} drillSaved={drillSaved} drills={drills} leftHandedForBowler={leftHandedForBowler}
             envBags={envBags} selectedBagId={effectiveBagId} setSelectedBagId={setSelectedBagId} logBalls={logBalls}
-            ballSpecs={ballSpecs} setBallSpec={setBallSpec} ballGroups={ballGroups} seedDefaultGroups={seedDefaultGroups}
-            catalogEntries={catalogEntries} catalogAck={catalogAck} userId={user?.id} publishBallSpecs={publishBallSpecs} voteOnEntry={voteOnEntry} acknowledgeRejection={acknowledgeRejection}
-            showSessionStart={showSessionStart} dismissSessionStart={dismissSessionStart}
-            sessionEnvChosen={sessionEnvChosen} onSessionEnvChosen={(chosenEnv)=>{
+            showSessionStart={showSessionStart} onSessionEnvChosen={(chosenEnv)=>{
               setSessionEnvChosen(true);
               // First time in this environment? Walk them through it.
               // Coach mode has its own tour, offered when coach mode is
@@ -7402,7 +7390,6 @@ export default function BowlingTracker(){
               // action a bowler takes every week, not a first run.
             }}
             routineNote={routine.mode&&!showSessionStart?`Your usual ${DAY_NAMES_SHORT[routine.weekday]}`:""}
-            updatePreferences={updatePreferences}
           />
         )}
 

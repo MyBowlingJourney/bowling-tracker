@@ -48,32 +48,26 @@ export default function LogView({
   // in one tested place; this only renders it.
   promptForTeam = false, onDismissTeamPrompt,
   shots, sessions, bowlers, footerHeight, footerRef, teams, leagues, startEdit, deleteShot,
-  activeBowler, newBowlerName, setNewBowlerName, arsenals, newBallName, setNewBallName,
-  form, setForm, editingId, saved, sessionSaved, sessionSaveMessage, tournamentSaveMessage,
+  activeBowler, arsenals, form, setForm, editingId, saved, sessionSaved, sessionSaveMessage, tournamentSaveMessage,
   leagueTabChoice = "scoring", setLeagueTabChoice, tournamentTab = "setup", setTournamentTab,
   sessionLeague, setSessionLeague, effectiveSessionLeague, sessionDate, setSessionDate,
   startingLane, setStartingLane, setShowSummary, expandedSections,
   ballNumLabel, curSession, currentLane, firstBallPins, gameScores = [],
   hasLeave, leaveDescribed, inTenth, isNoTap, isStrike, needsSpareMade, needsPins, sessionTotal, showPinCount,
   standingPins, tenthOptions,
-  addBall, addBowler, autoFillLine, calcLane, cancelEdit, cycleGameResult, cycleSeriesResult,
+  autoFillLine, calcLane, cancelEdit, cycleGameResult, cycleSeriesResult,
   getLanePattern, getMatch, handleBallChange, handleLeaveToggle, handleLineChange,
-  handleSpareMadeToggle, matchHandicap, previousShotBall, removeBall, removeBowler,
-  selectBowler, set, setLanePattern, setMatchHandicap, setMatchOpponent, setPokerWinnings, setThreeSixNineWinnings, winningsSaved, confirmWinningsSaved, setView,
+  handleSpareMadeToggle, matchHandicap, previousShotBall, selectBowler, set, setLanePattern, setMatchHandicap, setMatchOpponent, setPokerWinnings, setThreeSixNineWinnings, winningsSaved, confirmWinningsSaved, setView,
   leagueBuyIns, onSaveLeagueBuyIns, onReplayTour, casualExtraGames = 2, setCasualExtraGames,
   stepPinCount, strictPartial, submitSession, submitShot, theoreticalScoreForGame, maxScoreThisGame, toggle, toggleMulti, toggleSection,
   preferences, setSessionMoneyArray, setSessionMoneyValue, activeBowlerLeftHanded,
-  ballLayouts, setBallLayout,
-  activeTournament, updateTournament, saveTournament, closeTournament, tournamentSaved,
+  ballLayouts, activeTournament, updateTournament, saveTournament, closeTournament, tournamentSaved,
   manualScores, updateManualScore,
-  showSessionStart, dismissSessionStart, updatePreferences, sessionEnvChosen, onSessionEnvChosen, routineNote,
-  goalsPanel, practiceMode, setPracticeMode, gameEquipment, updateGameEquipment, practiceTracking, setPracticeTracking, activeDrill, setActiveDrill, startDrill, startAnotherDrill, saveDrill, drillSaved, drills, leftHandedForBowler,
+  showSessionStart, goalsPanel, practiceMode, setPracticeMode, gameEquipment, updateGameEquipment, activeDrill, setActiveDrill, startDrill, startAnotherDrill, saveDrill, drillSaved, drills, leftHandedForBowler,
   ownerName, scoringForOthers, setScoringForOthers, scoreOptions, guests, newGuestName, setNewGuestName, addGuestBowler, removeGuestBowler,
   oilPatterns, submitOilPattern, tournaments, practicePriorAverage,
   envBags, selectedBagId, setSelectedBagId, logBalls,
-  ballSpecs, setBallSpec, ballGroups, seedDefaultGroups,
-  catalogEntries, catalogAck, userId, publishBallSpecs, voteOnEntry, acknowledgeRejection,
-}) {
+  }) {
   // What each environment shows on the Log tab. Kept in one place so the
   // rules read as rules rather than being scattered through 1,100 lines
   // of JSX:
