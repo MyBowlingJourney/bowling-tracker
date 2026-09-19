@@ -16,5 +16,16 @@
 [functions.play-rtdn]
 verify_jwt = false
 
+# stripe-webhook is public for the same reason: Stripe posts with a
+# signature of its own and no Supabase session.
+#
+# It verifies that signature itself -- HMAC-SHA256 over the raw request
+# body with the endpoint's whsec_..., inside a five-minute window, and
+# compared in constant time. See its header.
+[functions.stripe-webhook]
+verify_jwt = false
+
 # Every other function requires a signed-in bowler and keeps the default
-# (verify_jwt = true), so they are deliberately not listed here.
+# (verify_jwt = true), so they are deliberately not listed here:
+# verify-purchase, create-checkout, nightcap, bowling-genie,
+# analyze-performance, find-centers, import-scorecard, delete-account.
