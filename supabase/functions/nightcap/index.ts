@@ -20,6 +20,11 @@
 // Secrets required: gemini_api_key, ALLOWED_ORIGINS (both lowercase-safe)
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
+// The only place a fact becomes a sentence. Everything that arrives here
+// is numbers and ids from a closed set; render.ts owns every word of
+// structure, and an id or a value it does not recognise is dropped rather
+// than passed through. See its header -- it is the security boundary.
+import { renderFacts } from "./render.ts";
 
 const GEMINI_API_KEY = Deno.env.get("gemini_api_key");
 // Flash-Lite, not Flash.
@@ -32,6 +37,19 @@ const GEMINI_API_KEY = Deno.env.get("gemini_api_key");
 // Overridable by secret so a bad night's output can be moved to a bigger
 // model without a redeploy.
 const MODEL = Deno.env.get("nightcap_gemini_model") || "gemini-3.5-flash-lite";
+
+// Whether ball names reach the model at all.
+//
+// A ball name is the ONLY bowler-typed text in the whole payload, and it
+// travels because "your other ball" is useless to somebody with five in
+// the bag. render.ts narrows it hard -- allowlisted characters, forty
+// characters, five words -- but five words of letters is not the same
+// kind of safe as a number is.
+//
+// Set the secret nightcap_ball_names to "off" and the comparison is made
+// with numbered balls instead. Nothing the bowler typed then reaches the
+// model, at the cost of the nightcap being unable to say which ball.
+const NAME_BALLS = (Deno.env.get("nightcap_ball_names") || "on").toLowerCase() !== "off";
 const GEMINI_URL =
   `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 
@@ -204,45 +222,41 @@ Deno.serve(async (req) => {
   try {
     const { payload } = await req.json();
 
-    // Every fact here is PROSE, supplied by the client, that ends up
-    // inside a prompt. The client builds it from the bowler's own shot
-    // records -- which carry free text they typed: ball names, league
-    // names. Nothing stops a caller skipping the client and POSTing
-    // whatever they like.
+    // Nothing that arrives here is trusted, and nothing that arrives here
+    // is prose.
     //
-    // The blast radius is small and worth naming rather than overstating:
-    // the output goes back to the caller's own screen, so the worst case
-    // is someone making the model say something odd to themselves on
-    // their own phone. What actually needs defending is the API budget,
-    // and the rate limit above is what defends it.
+    // The client sends an id from a closed set and a handful of numbers.
+    // renderFacts picks the sentence and fills the blanks, dropping any
+    // fact whose id it does not know or whose numbers are missing, the
+    // wrong type, or out of range. A caller who skips the client
+    // altogether cannot put a sentence in front of the model, because
+    // there is no field on the wire that becomes one.
     //
-    // Still, cheap structural limits are worth having. One line each,
-    // bounded length, no control characters: legitimate facts are single
-    // sentences, and a newline inside a prompt is the shape every
-    // injection attempt takes.
-    const facts = (Array.isArray(payload?.facts) ? payload.facts : [])
-      .filter((f) => typeof f === "string")
-      .map((f) =>
-        f.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 240)
-      )
-      .filter(Boolean);
+    // This replaced a version that accepted finished prose and sanitised
+    // it. Sanitising narrows a hole; this closes it -- except for ball
+    // names, which are named and bounded in render.ts.
+    const rawFacts = Array.isArray(payload?.facts) ? payload.facts : [];
+    if (rawFacts.length > 16) {
+      console.warn("nightcap: too many facts", rawFacts.length);
+      return json({ error: "Payload too large." }, CORS, 413);
+    }
+    if (JSON.stringify(rawFacts).length > 4_000) {
+      console.warn("nightcap: oversized payload rejected", JSON.stringify(rawFacts).length);
+      return json({ error: "Payload too large." }, CORS, 413);
+    }
+
+    const facts = renderFacts(rawFacts, { ballNames: NAME_BALLS });
 
     // Defence in depth. The client already refuses to call with a thin
     // night, but an empty fact list must never reach the model: there
     // would be nothing to select from and it would write something
     // anyway.
+    //
+    // This also catches a payload that was entirely rejected above --
+    // every id unknown, every number bad -- which looks identical to a
+    // thin night from here, and should.
     if (facts.length < 2) {
       return json({ error: "Not enough logged tonight for a nightcap." }, CORS, 400);
-    }
-
-    // Both limits sit ABOVE the client's own caps (15 facts, 3,000 chars
-    // for the whole payload) rather than exactly on them. A client and a
-    // server that agree to the character have no margin, and the first
-    // fact added later would be refused by a check nobody remembered.
-    const serialised = JSON.stringify(facts);
-    if (facts.length > 16 || serialised.length > 4_000) {
-      console.warn("nightcap: oversized payload rejected", facts.length, serialised.length);
-      return json({ error: "Payload too large." }, CORS, 413);
     }
 
     const userPrompt = [
