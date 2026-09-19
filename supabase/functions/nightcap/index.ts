@@ -22,7 +22,16 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const GEMINI_API_KEY = Deno.env.get("gemini_api_key");
-const MODEL = Deno.env.get("nightcap_gemini_model") || "gemini-3.6-flash";
+// Flash-Lite, not Flash.
+//
+// A bowler is standing at the end of a lane waiting for this, and the job
+// is selection and phrasing from facts that are already computed and
+// already correct -- the cheapest kind of work there is to give a model.
+// Speed is worth more here than headroom the task never uses.
+//
+// Overridable by secret so a bad night's output can be moved to a bigger
+// model without a redeploy.
+const MODEL = Deno.env.get("nightcap_gemini_model") || "gemini-3.5-flash-lite";
 const GEMINI_URL =
   `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 
@@ -66,11 +75,13 @@ A list of facts about tonight, already computed and already correct. Each carrie
 
 HARD RULES
 1. Use ONLY the facts supplied. Never compute, estimate, combine or infer a number. Every figure you print must appear in a supplied fact exactly as given.
-2. This is ONE NIGHT. Never say "you tend to", "you usually", "your game is", "lately", or anything else spanning more than tonight. Three games cannot support a pattern and claiming one is the single worst thing you can do here.
+2. TONIGHT vs THE SEASON. Tonight is the subject. Some facts also carry a season figure for this league, stated with its own sample and the word "Season" -- where one exists you may compare tonight against it, and it is usually the most interesting thing you have. Where one does NOT exist you must not reach for one: never say "you tend to", "you usually", "lately", "more than normal" or anything else spanning beyond tonight unless a supplied fact states the season figure outright. Three games alone cannot support a pattern, and inventing one is the single worst thing you can do here.
+2a. Never do the arithmetic yourself. A season fact gives you both numbers; state them or describe the gap in words, but do not subtract, average, divide or project. If you find yourself calculating, you have left the facts.
 3. Never diagnose technique. You did not watch the delivery. "Your leaves were on the right" is an observation and allowed. "You were coming up light" is a claim about a throw nobody recorded, and is not -- UNLESS a fact says the bowler logged that miss themselves, in which case it is their own account and you may state it.
 4. Pick the two or three facts most worth saying. Skip the rest silently. Do not list, do not summarise everything, do not mention that you left things out.
 5. The opener states how the night went. Facts about side, splits, carry and spares belong in the notes -- a bowler already knows what they shot.
 6. A percentage in a supplied fact is already a percentage. Quote it exactly; the bowler is looking at the same number on the same screen.
+7. A season line saying tonight was ORDINARY is worth as much as one saying it was unusual, and often more -- it saves a bowler chasing an adjustment they do not need. Say so plainly when that is what the numbers show.
 
 THE NUDGE
 At most one, and only when a fact actually supports it. Phrase it as a condition the bowler can check against what they felt, never as a verdict: "if you were coming up heavy, that is the adjustment to make earlier next week" -- not "you were coming up heavy". If nothing supports a nudge, omit the field. A clean night is allowed to just be a clean night.
@@ -203,16 +214,23 @@ Deno.serve(async (req) => {
       return json({ error: "Not enough logged tonight for a nightcap." }, CORS, 400);
     }
 
+    // Both limits sit ABOVE the client's own caps (15 facts, 3,000 chars
+    // for the whole payload) rather than exactly on them. A client and a
+    // server that agree to the character have no margin, and the first
+    // fact added later would be refused by a check nobody remembered.
     const serialised = JSON.stringify(facts);
-    if (facts.length > 16 || serialised.length > 3_000) {
+    if (facts.length > 16 || serialised.length > 4_000) {
       console.warn("nightcap: oversized payload rejected", facts.length, serialised.length);
       return json({ error: "Payload too large." }, CORS, 413);
     }
 
     const userPrompt = [
       `Games: ${payload?.games ?? "unknown"}. First balls logged: ${payload?.firstBalls ?? "unknown"}.`,
+      payload?.hasSeason
+        ? `Season context IS available: ${payload?.seasonNights ?? "several"} earlier nights in this league. Facts beginning "Season" carry it.`
+        : "Season context is NOT available for this bowler in this league. Say nothing that spans beyond tonight.",
       "",
-      "Facts about tonight:",
+      "Facts:",
       ...facts.map((f) => `- ${f}`),
     ].join("\n");
 
@@ -223,28 +241,60 @@ Deno.serve(async (req) => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 20000);
 
-    let res;
-    try {
-      res = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
+    // The generation call, with the response shape enforced two ways.
+    //
+    // responseSchema is the good way and the one that normally runs. But
+    // this function deliberately runs on a Flash-Lite model chosen for
+    // speed, and Google's own model documentation does not state which
+    // capabilities the Lite variants carry -- so a schema rejection is a
+    // thing that could happen on a model change, at which point the
+    // feature would be dead for everybody with a 400 nobody was watching
+    // for.
+    //
+    // So: schema first, and on a rejection that names it, one retry with
+    // the shape described in the prompt and JSON still forced by mime
+    // type. The validation below does not care which path produced the
+    // object -- it checks the result either way.
+    async function generate(withSchema: boolean) {
+      const generationConfig: Record<string, unknown> = {
+        responseMimeType: "application/json",
+        // Higher than the analysis function's 0.2, and deliberately so.
+        // That one is reporting, where variation between runs on
+        // identical data would undermine trust. This one is voice -- a
+        // bowler sees it thirty times a season, and thirty identically
+        // shaped sentences is the template it was built to replace.
+        temperature: 0.7,
+      };
+      if (withSchema) generationConfig.responseSchema = RESPONSE_SCHEMA;
+
+      const shapeHint = withSchema ? "" : [
+        "",
+        'Reply with JSON only, in exactly this shape:',
+        '{"opener": "one sentence", "notes": ["one or two sentences", "..."], "nudge": "one sentence, or omit this key entirely"}',
+      ].join("\n");
+
+      return await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
         method: "POST",
         signal: controller.signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+          systemInstruction: { parts: [{ text: SYSTEM_PROMPT + shapeHint }] },
           contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-          generationConfig: {
-            responseMimeType: "application/json",
-            responseSchema: RESPONSE_SCHEMA,
-            // Higher than the analysis function's 0.2, and deliberately
-            // so. That one is reporting, where variation between runs on
-            // identical data would undermine trust. This one is voice --
-            // a bowler sees it thirty times a season, and thirty
-            // identically-shaped sentences is the template it was built
-            // to replace.
-            temperature: 0.7,
-          },
+          generationConfig,
         }),
       });
+    }
+
+    let res;
+    try {
+      res = await generate(true);
+      if (res.status === 400) {
+        const detail = await res.clone().text();
+        if (/schema|responseSchema|response_schema/i.test(detail)) {
+          console.warn(`nightcap: ${MODEL} rejected responseSchema, retrying without it`);
+          res = await generate(false);
+        }
+      }
     } catch (e) {
       clearTimeout(timer);
       if (e?.name === "AbortError") {
