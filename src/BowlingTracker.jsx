@@ -852,7 +852,6 @@ export default function BowlingTracker(){
   // staged reveal -- the tracking question only appears afterwards.
   // Session-local, not persisted: the prompt is per-day, so a fresh
   // prompt should start fresh.
-  const[sessionEnvChosen,setSessionEnvChosen]=useState(false);
   // Read synchronously on the very first render from a localStorage
   // mirror of the flag.
   //
@@ -3295,12 +3294,24 @@ export default function BowlingTracker(){
     // THE WELCOME SCREEN IS SHOWN HERE, because here is where onboarding
     // actually ends.
     //
-    // It used to be raised by onSessionEnvChosen -- a LogView callback
-    // that fires when a bowler picks a mode on the Bowl screen. That is
-    // not this moment. A new bowler finishing setup went straight to
-    // Home and never saw it; the only way to reach it was to finish
-    // setup, land on Home, go to Bowl and pick a mode, by which point
-    // "welcome, let us show you around" is too late to mean anything.
+    // It used to be raised from the Bowl screen, when a bowler picked a
+    // mode. That is not this moment. A new bowler finishing setup went
+    // straight to Home and never saw it; the only way to reach it was to
+    // finish setup, land on Home, go to Bowl and pick a mode, by which
+    // point "welcome, let us show you around" is too late to mean
+    // anything.
+    //
+    // Nothing fires on picking a mode now, and nothing should. Launching
+    // a twelve-step walkthrough at someone who has just typed their name
+    // is asking them to read the manual before touching the ball -- they
+    // came to log a score. One screen saying where help lives, shown
+    // once; the tours stay in Settings for anyone who wants them, and the
+    // search bar answers the actual question rather than all twelve.
+    // Picking a mode is something a bowler does every week, not a first
+    // run.
+    //
+    // The callback and the piece of state that used to coordinate that
+    // are gone. This comment is what they were protecting.
     //
     // Checked against toursSeen so it stays a once-only screen for
     // someone who reruns setup from Settings.
@@ -7356,40 +7367,7 @@ export default function BowlingTracker(){
             gameEquipment={gameEquipment} updateGameEquipment={updateGameEquipment}
             practiceMode={practiceMode} setPracticeMode={setPracticeMode} activeDrill={activeDrill} setActiveDrill={setActiveDrill} startDrill={startDrill} startAnotherDrill={startAnotherDrill} saveDrill={saveDrill} drillSaved={drillSaved} drills={drills} leftHandedForBowler={leftHandedForBowler}
             envBags={envBags} selectedBagId={effectiveBagId} setSelectedBagId={setSelectedBagId} logBalls={logBalls}
-            showSessionStart={showSessionStart} onSessionEnvChosen={(chosenEnv)=>{
-              setSessionEnvChosen(true);
-              // First time in this environment? Walk them through it.
-              // Coach mode has its own tour, offered when coach mode is
-              // turned on -- see the coachViewOn effect.
-              // Casual gets its OWN tour; everyone else gets the basics.
-              //
-              // The basics tour opens on picking a league and covers
-              // goals, stats and history -- none of which a casual bowler
-              // is doing. Four screens about getting scores in beats
-              // twelve about features they'll never open.
-              //
-              // The mode-specific tour arrives later as an inbox task, so
-              // signup stays short.
-              // The env the bowler just PICKED, not the one in state.
-              // preferences updates on the next render, so reading it
-              // here gave the previous mode -- switching from Open
-              // bowling to Practice started the Open bowling tour.
-              // No tour, straight after onboarding.
-              //
-              // Launching a twelve-step walkthrough at someone who has
-              // just typed their name is asking them to read the manual
-              // before touching the ball. They came to log a score.
-              //
-              // Instead: one screen that says where help lives, shown
-              // once. The tours are still in Settings for anyone who
-              // wants them, and the search bar answers the actual
-              // question rather than all twelve.
-              // The welcome screen is NOT raised from here any more -- it
-              // belongs to finishOnboarding, which is where onboarding
-              // ends. Picking a mode on the Bowl screen is an ordinary
-              // action a bowler takes every week, not a first run.
-            }}
-            routineNote={routine.mode&&!showSessionStart?`Your usual ${DAY_NAMES_SHORT[routine.weekday]}`:""}
+            showSessionStart={showSessionStart}
           />
         )}
 
