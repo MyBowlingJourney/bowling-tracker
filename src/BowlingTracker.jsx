@@ -7062,19 +7062,22 @@ export default function BowlingTracker(){
           80ms is more distracting than a quiet gap. */}
       <Suspense fallback={<div style={{padding:"32px 0",textAlign:"center",color:C.textMuted,fontSize:"13px"}}>Loading…</div>}>
 
-        {/* Top of the content area so it is above whichever screen is
+        {/* Top of the content area so it sits above whichever screen is
             showing, and inside the boundary so a fault in it cannot
             blank the app.
 
-            Home and Settings only, and never mid-night: a countdown is
-            not urgent enough to interrupt scoring, and repeating it on
-            every tab is nagging rather than informing. TrialBanner
-            renders null unless there is something true to say, so these
-            conditions are about WHERE it may appear, not whether it
-            should appear at all. */}
-        {((view==="home"&&!nightLive)||view==="settings")&&(
-          <TrialBanner entitlement={entitlement} />
-        )}
+            NO VIEW CONDITION, deliberately. The trial takes a card and
+            converts on its own, so the date it converts belongs in front
+            of the bowler until it happens -- not on the two screens we
+            guessed they would visit. There is no dismiss button either:
+            an unexpected charge is a refund AND a one-star review from
+            somebody who was going to keep paying.
+
+            TrialBanner returns null unless there is something true to
+            say, so this is unconditional at the call site on purpose --
+            the decision of whether to appear lives in one file, with the
+            dates, rather than being half here and half there. */}
+        <TrialBanner entitlement={entitlement} />
 
         {view==="insights"&&(<>
           {/* Improve is the whole improvement loop, so the two things
