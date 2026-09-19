@@ -239,6 +239,57 @@ export function AuthProvider({ children }) {
     await supabase.auth.signOut();
   }
 
+  // Delete this account and everything in it, permanently.
+  //
+  // Distinct from clearAllData in BowlingTracker, which empties shots,
+  // sessions, matches and lane patterns and leaves the account standing.
+  // This removes the auth user, which cascades through the foreign key
+  // graph to every table holding personal data -- and there is no way
+  // back, because there is no account left to sign in to.
+  //
+  // The work happens server-side in the delete-account Edge Function:
+  // removing an auth user needs the service role key, which can never
+  // reach a browser. Nothing is sent but the session's own token, so the
+  // function can only ever delete the caller.
+  //
+  // The sign-out afterwards is belt and braces. Deleting the user already
+  // invalidates its sessions, but without this the app would sit holding
+  // a token for an account that no longer exists until something happened
+  // to notice -- and "signed in as nobody" is a worse screen than the
+  // sign-in form.
+  async function deleteAccount() {
+    try {
+      const { data, error } = await supabase.functions.invoke("delete-account", {
+        body: {},
+      });
+
+      if (error) {
+        // READ THE BODY on a non-2xx -- same reason as askGenie and
+        // analyzePerformance. supabase-js collapses every non-2xx into one
+        // opaque string and puts the real response on error.context, and
+        // the function's own message is the one worth showing here.
+        let detail = "";
+        try {
+          const res = error?.context;
+          if (res && typeof res.json === "function") {
+            const body = await res.json();
+            detail = body?.error || "";
+          }
+        } catch { /* body was not JSON; the status is all we have */ }
+        return { error: new Error(detail || "Couldn't delete the account. Try again, or email support@mybowlingjourney.com.") };
+      }
+
+      if (!data?.deleted) {
+        return { error: new Error("The server didn't confirm the deletion. Nothing has been removed — email support@mybowlingjourney.com.") };
+      }
+
+      try { await supabase.auth.signOut(); } catch { /* already gone */ }
+      return { error: null };
+    } catch (e) {
+      return { error: new Error(e?.message || "Couldn't reach the server. Nothing has been deleted.") };
+    }
+  }
+
   async function updateDisplayName(newName) {
     const clean = newName.trim();
     if (!clean || !session?.user?.id) return { error: new Error('Not signed in or name is empty') };
@@ -293,6 +344,7 @@ export function AuthProvider({ children }) {
     signInWithMagicLink,
     verifyEmailCode,
     signOut,
+    deleteAccount,
     updateDisplayName,
     updatePreferences,
   };

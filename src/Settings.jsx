@@ -54,7 +54,14 @@ export default function Settings({
   hiddenLeagues, leagueIds, toggleLeagueHidden, teams, activeBowler, leaveTeam, onCreateTeam,
   shots, leftHandedForBowler,
 }) {
-  const { preferences, updatePreferences, displayName, user, signOut } = useAuth();
+  const { preferences, updatePreferences, displayName, user, signOut, deleteAccount } = useAuth();
+  // Account deletion is irreversible, so it is armed in three steps:
+  // open the Danger Zone, press the button, then type your own email
+  // address. Nothing here is a single tap.
+  const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteAccountError, setDeleteAccountError] = useState("");
   const [savedFlash, setSavedFlash] = useState(false);
   const [error, setError] = useState(null);
   // Settings has two distinct jobs now: configuring the app, and browsing
@@ -1011,11 +1018,22 @@ export default function Settings({
       </CollapsibleCard>
       )}
 
-      {hasData && showCard("dangerZone") && (
+      {/* The hasData gate moved OFF the card and onto Clear All Data.
+
+          It used to hide the whole Danger Zone, which meant a bowler with
+          no data had no in-app route to delete their account -- and the
+          bowler most likely to want one is precisely the person who
+          signed up, looked around, and decided against it. Google
+          requires that route to exist; so does common decency.
+
+          Clear All Data still hides when there is nothing to clear,
+          because a button that empties an already-empty app is noise. */}
+      {showCard("dangerZone") && (
         <CollapsibleCard title="Danger Zone" summary=""
           expanded={expanded.dangerZone} onToggle={() => toggle("dangerZone")}
           cardStyle={{ ...S.card, border: `1px solid ${C.miss}44` }}>
-          {!confirmClear ? (
+
+          {hasData && (!confirmClear ? (
             <button style={S.btn("warn")} onClick={() => setConfirmClear(true)}>Clear All Data</button>
           ) : (
             <>
@@ -1029,6 +1047,95 @@ export default function Settings({
                 <button style={{ ...S.btn(), flex: 1 }} onClick={() => setConfirmClear(false)}>Cancel</button>
               </div>
             </>
+          ))}
+
+          {/* Account deletion. A different thing from Clear All Data, and
+              the difference is worth spelling out on screen: that one
+              empties your logging and leaves the account standing, this
+              one removes the account itself and everything attached to
+              it, and you cannot sign back in afterwards. */}
+          {user && (
+            <div style={{
+              marginTop: hasData ? "18px" : 0,
+              paddingTop: hasData ? "16px" : 0,
+              borderTop: hasData ? `1px solid ${C.border}` : "none",
+            }}>
+              {!confirmDeleteAccount ? (
+                <>
+                  <button style={S.btn("warn")} onClick={() => { setConfirmDeleteAccount(true); setDeleteAccountError(""); }}>
+                    Delete My Account
+                  </button>
+                  <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "8px", lineHeight: 1.5 }}>
+                    Removes your account and everything in it, permanently.
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontSize: "12px", color: C.text, marginBottom: "10px", lineHeight: 1.6 }}>
+                    This deletes your account and <strong>everything attached to it</strong> — every
+                    shot and session, your profile and name, your arsenal, goals, and your place on
+                    any team. You won't be able to sign back in, and we can't recover it.
+                  </div>
+                  <div style={{ fontSize: "12px", color: C.textMuted, marginBottom: "10px", lineHeight: 1.6 }}>
+                    Leagues and teams you created are kept only if other bowlers are still using
+                    them, so nobody loses a league they're bowling in. Any that nobody else is in
+                    go with everything else.
+                  </div>
+                  <div style={{ fontSize: "12px", color: C.textMuted, marginBottom: "12px", lineHeight: 1.6 }}>
+                    Want a copy first? Use <strong>Backup &amp; Restore</strong> above before you do this.
+                  </div>
+
+                  <div style={{ ...S.label, marginBottom: "6px" }}>
+                    Type <span style={{ color: C.text }}>{user.email}</span> to confirm
+                  </div>
+                  <input
+                    style={{ ...S.input, marginBottom: "10px" }}
+                    value={deleteConfirmText}
+                    autoComplete="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    disabled={deletingAccount}
+                    placeholder={user.email}
+                    onChange={e => { setDeleteConfirmText(e.target.value); if (deleteAccountError) setDeleteAccountError(""); }}
+                  />
+
+                  {deleteAccountError && (
+                    <div style={{ fontSize: "12px", color: C.miss, marginBottom: "10px", lineHeight: 1.5 }}>
+                      {deleteAccountError}
+                    </div>
+                  )}
+
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <button
+                      style={{
+                        ...S.btn("warn"), flex: 1,
+                        opacity: deletingAccount || deleteConfirmText.trim().toLowerCase() !== (user.email || "").toLowerCase() ? 0.5 : 1,
+                      }}
+                      disabled={deletingAccount || deleteConfirmText.trim().toLowerCase() !== (user.email || "").toLowerCase()}
+                      onClick={async () => {
+                        setDeletingAccount(true);
+                        setDeleteAccountError("");
+                        const { error } = await deleteAccount();
+                        // No success branch: deleteAccount signs out, which
+                        // unmounts this entire screen. Setting state here
+                        // would be a write to a component on its way out.
+                        if (error) {
+                          setDeletingAccount(false);
+                          setDeleteAccountError(error.message || "Couldn't delete the account.");
+                        }
+                      }}>
+                      {deletingAccount ? "Deleting…" : "Permanently Delete"}
+                    </button>
+                    <button
+                      style={{ ...S.btn(), flex: 1 }}
+                      disabled={deletingAccount}
+                      onClick={() => { setConfirmDeleteAccount(false); setDeleteConfirmText(""); setDeleteAccountError(""); }}>
+                      Cancel
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           )}
         </CollapsibleCard>
       )}
