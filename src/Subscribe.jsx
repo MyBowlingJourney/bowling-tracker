@@ -70,9 +70,9 @@ export default function Subscribe({ entitlement, onClose }) {
   return (
     <div>
       <div style={S.card}>
-        <div style={{ ...S.label, color: C.accent }}>My Bowling Journey Plus</div>
+        <div style={{ ...S.label, color: C.accent }}>My Bowling Journey Pro</div>
         <div style={{ fontSize: "13px", color: C.text, lineHeight: 1.55, marginBottom: "14px" }}>
-          Your scores, spares and ball numbers stay free, always. Plus is for the
+          Your scores, spares and ball numbers stay free, always. Pro is for the
           comparisons — and for the parts that think about your night for you.
         </div>
 
@@ -133,7 +133,7 @@ export default function Subscribe({ entitlement, onClose }) {
           {rail === "play"
             ? " in the Play Store app under Subscriptions"
             : " from the link in your receipt"}
-          {" "}— you keep Plus until the end of the period you have paid for.
+          {" "}— you keep Pro until the end of the period you have paid for.
         </div>
 
         {/* Nothing is deleted when a subscription ends. Said here, where

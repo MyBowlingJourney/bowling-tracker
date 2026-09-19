@@ -14,7 +14,7 @@ import { isContainerLeague, isLeagueHidden, teamsInLeague } from "./domain/leagu
 import { sessionsToCsv, shotsToCsv, seasonSummary, summaryToText } from "./domain/seasonExport.js";
 import { inferLeagueDay, dayName, reminderSpec, reminderToIcs } from "./domain/reminders.js";
 import { localDateString, APP_URL, APP_NAME } from "./constants.js";
-import { leagueLimit, teamLimit } from "./domain/entitlements.js";
+import { leagueLimit, teamLimit, isSubscriber, isTrialing, trialDaysLeft } from "./domain/entitlements.js";
 import {
   ENVIRONMENT_LABELS,
   ENVIRONMENT_DESCRIPTIONS,
@@ -41,6 +41,10 @@ export default function Settings({
   restartOnboarding, replayTour, isCoach = false,
   // The bowler's subscription, for the league and team limits.
   entitlement = null,
+  // Opens the Subscribe screen. Settings has no navigation of its own --
+  // this is the one door out to it, so the upgrade card below can only
+  // exist if the caller wires this up.
+  onOpenSubscribe,
   showBackup, setShowBackup, backupStatus, setBackupStatus,
   importText, setImportText, exportData, importData,
   confirmClear, setConfirmClear, clearAllData, hasData,
@@ -221,6 +225,35 @@ export default function Settings({
             <Chip label="Settings" selected={section === "settings"} onToggle={() => setSection("settings")} />
             <Chip label="History" selected={section === "history"} onToggle={() => setSection("history")} />
           </div>
+        </div>
+      )}
+
+      {/* The one door to Subscribe. Not gated on the free/paid split alone
+          -- a trialing or already-paying bowler still gets the card, just
+          worded differently, so "manage my subscription" always has
+          somewhere to go rather than only appearing before they pay. */}
+      {section === "settings" && onOpenSubscribe && (
+        <div style={{ ...S.card, padding: "12px" }}>
+          {isSubscriber(entitlement) ? (
+            <>
+              <div style={{ fontWeight: 600, marginBottom: "4px" }}>My Bowling Journey Pro</div>
+              <div style={{ fontSize: "13px", color: C.textDim, marginBottom: "8px" }}>
+                {isTrialing(entitlement)
+                  ? `${trialDaysLeft(entitlement)} day${trialDaysLeft(entitlement) === 1 ? "" : "s"} left in your trial`
+                  : "You're subscribed"}
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ fontWeight: 600, marginBottom: "4px" }}>Unlock My Bowling Journey Pro</div>
+              <div style={{ fontSize: "13px", color: C.textDim, marginBottom: "8px" }}>
+                Unlimited leagues, full stats, and more.
+              </div>
+            </>
+          )}
+          <button style={S.btn("primary")} onClick={onOpenSubscribe}>
+            {isSubscriber(entitlement) ? "Manage subscription" : "See Pro"}
+          </button>
         </div>
       )}
 

@@ -23,7 +23,7 @@
 //
 // ⚠️ NONE OF THESE EXIST YET. ⚠️
 
-import { STRIPE_PRICE_MONTHLY, STRIPE_PRICE_YEARLY } from "./stripe.ts";
+import { STRIPE_LOOKUP_MONTHLY, STRIPE_LOOKUP_YEARLY } from "./stripe.ts";
 
 const SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY")?.trim() || "";
 const API = "https://api.stripe.com/v1";
@@ -36,11 +36,29 @@ const API = "https://api.stripe.com/v1";
 // rather than something that happens to the app one afternoon.
 const API_VERSION = "2025-03-31.basil";
 
-export const PRICE_MONTHLY = Deno.env.get("STRIPE_PRICE_MONTHLY")?.trim() || STRIPE_PRICE_MONTHLY;
-export const PRICE_YEARLY = Deno.env.get("STRIPE_PRICE_YEARLY")?.trim() || STRIPE_PRICE_YEARLY;
+// Overridable by secret, but the defaults are the real keys -- no
+// secret needs setting for this to work.
+export const LOOKUP_MONTHLY = Deno.env.get("STRIPE_LOOKUP_MONTHLY")?.trim() || STRIPE_LOOKUP_MONTHLY;
+export const LOOKUP_YEARLY = Deno.env.get("STRIPE_LOOKUP_YEARLY")?.trim() || STRIPE_LOOKUP_YEARLY;
 
+// sk_ OR rk_.
+//
+// Stripe issues two kinds of server-side key and both work here:
+//   sk_...  a standard secret key, full account access
+//   rk_...  a RESTRICTED key, scoped to chosen resources
+//
+// New accounts are increasingly steered towards restricted keys, and an
+// rk_ is the better key to use -- this one needs only Checkout Sessions,
+// Customers and Subscriptions write, plus Prices read.
+//
+// Checking for "sk_" alone rejected a perfectly good restricted key and
+// reported it as MISSING, which is a 503 saying "Subscriptions are not
+// available yet" while the key sits correctly in the secrets page. The
+// point of this check is to catch a PUBLISHABLE key (pk_) pasted here by
+// mistake -- that is the error worth catching, because it would
+// otherwise fail deep inside a checkout.
 export function stripeConfigured(): boolean {
-  return SECRET_KEY.startsWith("sk_");
+  return SECRET_KEY.startsWith("sk_") || SECRET_KEY.startsWith("rk_");
 }
 
 // Stripe's API is form-encoded, including nested structures, which it
@@ -141,4 +159,38 @@ export async function cancelSubscriptionNow(subscriptionId: string): Promise<boo
   if (!subscriptionId) return false;
   const res = await stripeRequest(`/subscriptions/${encodeURIComponent(subscriptionId)}`, undefined, "DELETE");
   return !!res;
+}
+
+// A lookup key, turned into the price id Checkout needs.
+//
+// Cached for the life of the function instance. A price id does not
+// change once a price exists, and the alternative is an extra round trip
+// to Stripe on every single checkout -- paid by a bowler waiting for the
+// page to open.
+//
+// The cache holds only successful lookups. Caching a miss would mean one
+// bad deploy, or one moment before the price existed, poisoning every
+// checkout until the instance recycled.
+const priceIdCache = new Map<string, string>();
+
+export async function priceIdForLookupKey(lookupKey: string): Promise<string | null> {
+  if (!lookupKey) return null;
+  const hit = priceIdCache.get(lookupKey);
+  if (hit) return hit;
+
+  const res = await stripeRequest(
+    `/prices?lookup_keys[]=${encodeURIComponent(lookupKey)}&active=true&limit=1`,
+  );
+  const list = Array.isArray((res as { data?: unknown[] })?.data) ? (res as { data: unknown[] }).data : [];
+  const first = list[0] as { id?: unknown } | undefined;
+  const id = typeof first?.id === "string" ? first.id : "";
+  if (!id) {
+    // Loud, because every checkout fails until it is fixed, and the
+    // cause is almost always a lookup key that exists in one mode and
+    // not the other.
+    console.error(`no active price found for lookup key "${lookupKey}" in this mode`);
+    return null;
+  }
+  priceIdCache.set(lookupKey, id);
+  return id;
 }

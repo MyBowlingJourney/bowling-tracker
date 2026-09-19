@@ -26,13 +26,26 @@
 // before Basil still sends the old shape, and a project can be mid-
 // upgrade with both arriving on the same day.
 
-// ── Placeholders ────────────────────────────────────────────────────
+// ── Which price to sell ─────────────────────────────────────────────
 //
-// ⚠️ BOTH PRICE IDS ARE PLACEHOLDERS. ⚠️ There is no Stripe product yet.
-// Written to be obviously wrong rather than plausibly right, so they
-// cannot ship by accident.
-export const STRIPE_PRICE_MONTHLY = "price_PLACEHOLDER_monthly";
-export const STRIPE_PRICE_YEARLY = "price_PLACEHOLDER_yearly";
+// LOOKUP KEYS, not price ids, and that is the whole point.
+//
+// A price id exists in exactly one mode: a price_... created in test
+// does not exist in live. Hardcode ids and going live means swapping the
+// secret key AND both ids together, where getting one wrong produces
+// "No such price" -- an error that reads like a bug in this code, on the
+// day real money starts moving.
+//
+// A lookup key is a name WE choose and set on the price in both modes.
+// Ask for "pro_monthly" and you get whichever mode the key you are
+// holding belongs to. The mismatch stops being possible rather than
+// being something to remember.
+//
+// These are real values, not placeholders: they match the lookup keys
+// set on the prices in the Stripe dashboard. Change them here and in
+// Stripe together, or not at all.
+export const STRIPE_LOOKUP_MONTHLY = "pro_monthly";
+export const STRIPE_LOOKUP_YEARLY = "pro_yearly";
 
 export type Status =
   | "none" | "trialing" | "active" | "grace"

@@ -29,8 +29,8 @@ import { paymentRail } from "./domain/billing.js";
 // Then a price change in the dashboard reaches the screen on its own,
 // and bowlers outside the US stop being quoted dollars.
 export const DISPLAY_PRICES = Object.freeze({
-  month: "$X.XX",
-  year: "$XX.XX",
+  month: "$6.99",
+  year: "$49.99",
 });
 
 // Which rail, resolved for real. isNative() does the Capacitor dance

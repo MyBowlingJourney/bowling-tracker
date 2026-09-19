@@ -43,6 +43,19 @@ import { isContainerLeague } from "./leagueMembership.js";
 export const BILLING_LIVE = false;
 
 // ── The plan ────────────────────────────────────────────────────────
+//
+// NAMING, and it is deliberate: the paid tier is called "My Bowling
+// Journey Pro" everywhere a bowler can read it, and is stored as
+// plan = "plus" everywhere a machine can read it.
+//
+// They differ because the stored value is load-bearing in ways the name
+// is not: it is in a CHECK constraint on public.entitlements, in
+// public.is_subscriber(), and in both store mappings. Renaming it would
+// mean a constraint change and six files touched, all inside the code
+// that decides who has paid, to change something no customer sees.
+//
+// So this is not a leftover to tidy up. If the marketing name changes
+// again, change the display strings and leave "plus" alone.
 
 export const FREE_LEAGUE_LIMIT = 1;
 export const FREE_TEAM_LIMIT = 1;

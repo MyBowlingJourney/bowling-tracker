@@ -23,8 +23,8 @@
 // Deploy with: supabase functions deploy create-checkout
 // Secrets required:
 //   STRIPE_SECRET_KEY      sk_live_... or sk_test_...
-//   STRIPE_PRICE_MONTHLY   price_... from the Stripe dashboard
-//   STRIPE_PRICE_YEARLY    price_...
+//   (no price secrets: the prices are found by their lookup keys,
+//    pro_monthly and pro_yearly, which are the same in test and live)
 //   APP_URL                where to send them back to, e.g.
 //                          https://mybowlingjourney.com
 //   ALLOWED_ORIGINS        same list as the other functions
@@ -32,7 +32,10 @@
 // ⚠️ NONE OF THESE EXIST YET. ⚠️ Unconfigured it returns 503.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { stripeConfigured, stripeRequest, PRICE_MONTHLY, PRICE_YEARLY } from "../_shared/stripeApi.ts";
+import {
+  stripeConfigured, stripeRequest, priceIdForLookupKey,
+  LOOKUP_MONTHLY, LOOKUP_YEARLY,
+} from "../_shared/stripeApi.ts";
 
 const APP_URL = Deno.env.get("APP_URL")?.trim().replace(/\/+$/, "") || "";
 const TRIAL_DAYS = 30;
@@ -153,7 +156,14 @@ Deno.serve(async (req: Request) => {
   // is charged, and it arrives from the browser.
   const period = body?.period === "year" ? "year" : body?.period === "month" ? "month" : "";
   if (!period) return json({ error: "Bad request" }, cors, 400);
-  const price = period === "year" ? PRICE_YEARLY : PRICE_MONTHLY;
+  // Resolved from a lookup key rather than read as a price id. See
+  // _shared/stripe.ts: this is what makes test and live use the same
+  // configuration instead of two sets of ids that can be mixed up on the
+  // day it matters most.
+  const price = await priceIdForLookupKey(period === "year" ? LOOKUP_YEARLY : LOOKUP_MONTHLY);
+  if (!price) {
+    return json({ error: "That plan is not available right now." }, cors, 503);
+  }
 
   const admin = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -215,6 +225,23 @@ Deno.serve(async (req: Request) => {
       metadata: { user_id: user!.id },
       ...(useTrial ? { trial_end: trialEndSec } : {}),
     },
+    // ⚠️ THE LINE THAT MOVES THE TAX LIABILITY. ⚠️
+    //
+    // Managed Payments is enabled PER SESSION, not on the account. Leave
+    // this out and the session is an ordinary Stripe payment: we are the
+    // merchant of record, and the sales tax on every web sale is ours to
+    // register for, collect and remit -- while the dashboard still shows
+    // Managed Payments switched on, because the account-level setting is
+    // about availability, not about this transaction.
+    //
+    // With it, Stripe is the seller of record and carries the tax, the
+    // fraud and the disputes, for the 3.5% add-on. That is the whole
+    // reason the web rail exists in this shape rather than being
+    // abandoned in favour of Play-only.
+    //
+    // Nothing fails loudly if this is removed. That is exactly why it is
+    // commented this heavily.
+    managed_payments: { enabled: true },
     // A card is taken even during the trial, because the trial converts
     // on its own and cannot convert without one.
     payment_method_collection: "always",

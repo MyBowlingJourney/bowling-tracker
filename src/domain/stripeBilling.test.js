@@ -14,7 +14,6 @@ import { describe, it, expect } from 'vitest';
 import {
   stripeStateToStatus, stripeStatus, billingPeriodOf, currentPeriodEnd,
   priceIdOf, entitlementFromStripeSubscription, STRIPE_STATUS_TO_STATUS,
-  STRIPE_PRICE_MONTHLY,
 } from '../../supabase/functions/_shared/stripe.ts';
 import { isSubscriber } from './entitlements.js';
 
@@ -28,7 +27,7 @@ const sub = (status, over = {}) => ({
   status,
   items: {
     data: [{
-      price: { id: STRIPE_PRICE_MONTHLY, recurring: { interval: 'month' } },
+      price: { id: 'price_test_monthly', recurring: { interval: 'month' } },
       current_period_end: unix(20),
     }],
   },

@@ -25,6 +25,7 @@ const JourneyScreen = lazyScreen("Journey", () => import("./JourneyView.jsx"));
 const HomeScreen = lazyScreen("Home", () => import("./HomeView.jsx"));
 import { tourSteps, tourToOffer, markTourSeen, hasSeenTour, needsLeagueSetup, availableTours, FIRST_TOUR, TRACK_KEYS } from "./domain/tour.js";
 import HelpView from "./HelpView.jsx";
+import Subscribe from "./Subscribe.jsx";
 import CasualLeaderboard from "./CasualLeaderboard.jsx";
 const BadgeCollection = lazyScreen("BadgeCollection", () => import("./BadgeCollection.jsx"));
 
@@ -6280,7 +6281,9 @@ export default function BowlingTracker(){
     const iconViews=["profile","settings","inbox","social","coaching","import","help",
       // badges too: a shared badge link opens it directly, and a link
       // that lands on Home is a broken link.
-      "journey","data","log","badges"];
+      "journey","data","log","badges",
+      // subscribe: reached from the Settings upgrade card, not a nav tab.
+      "subscribe"];
     if(!navTabs.some(t=>t.id===view)&&!iconViews.includes(view))setView("home");
   },[view,coachViewOn,showCoachingTab]);
 
@@ -7407,7 +7410,12 @@ export default function BowlingTracker(){
             leagueDates={leagueDates} setLeagueDates={saveLeagueDates} renameLeague={renameLeague}
             hiddenLeagues={hiddenLeagues} leagueIds={leagueIdsRef.current} toggleLeagueHidden={toggleLeagueHidden}
             shots={shots}
-            teams={teams} activeBowler={activeBowler} leaveTeam={leaveTeam} leftHandedForBowler={leftHandedForBowler}/>
+            teams={teams} activeBowler={activeBowler} leaveTeam={leaveTeam} leftHandedForBowler={leftHandedForBowler}
+            onOpenSubscribe={()=>setView("subscribe")}/>
+        )}
+
+        {view==="subscribe"&&(
+          <Subscribe entitlement={entitlement} onClose={()=>setView("settings")}/>
         )}
 
         {/* Practice and casual: nothing to ask. The container league is
