@@ -1,7 +1,7 @@
 import { useState, useRef, lazy, Suspense} from "react";
 import { C, S, F, Chip, PinDeck, CollapsibleCard, StatLead } from "./ui.jsx";
 import { PLASTIC_BALL, formatDate, localDateString, RESULTS, SURFACES, RELEASES, MISSES, BALL_CHANGE_REASONS, resultsForHandedness, storedResultFor, strikeDescriptionsForHand, storedStrikeDescriptionFor, practiceLeagueDisplayName } from "./constants.js";
-import { rAvg, cAvg, threeSixNineResults } from "./domain/stats.js";
+import { rAvg, cAvg, threeSixNineResults, cumulativeAvgBeforeDate } from "./domain/stats.js";
 import { buyInsForLeague, costArraysFor, sessionMoney } from "./domain/money.js";
 import { anyMoneyGameShown, visibleMoneyGames } from "./domain/preferences.js";
 import { nextLeagueDate, prebowlConflict } from "./domain/sessions.js";
@@ -12,6 +12,7 @@ import Scoresheet from "./Scoresheet.jsx";
 import TournamentSession from "./TournamentSession.jsx";
 import DrillSession from "./DrillSession.jsx";
 import SessionRecap from "./SessionRecap.jsx";
+import Nightcap from "./Nightcap.jsx";
 import ShareButton from "./ShareButton.jsx";
 import { sessionHighlights } from "./domain/shareCard.js";
 import { getManualScore, seriesTotal, getGameEquipment, defaultPracticeBall } from "./domain/manualScores.js";
@@ -2182,6 +2183,32 @@ export default function LogView({
                 placementId:cs.placement,
                 tournamentName:cs.tournamentName||"",
               });
+              // Theoretical scores, computed ONCE for the whole block.
+              //
+              // They used to live inside the card that displays them, which
+              // was fine until the Nightcap needed the same number. Two
+              // derivations of one figure on one screen disagree eventually,
+              // and the bowler has no way to know which is the real one --
+              // so there is one derivation and both readers use it.
+              //
+              // The games actually bowled, not a fixed three: [1,2,3] is a
+              // league assumption, and a practice night can be one game or
+              // five. gameScores is already sized to the night.
+              const theoreticalScores=gameScores
+                .map((_,idx)=>idx+1)
+                .map(g=>theoreticalScoreForGame(cs.bowler,cs.league,cs.date,g));
+              const anyTheoretical=theoreticalScores.some(v=>v!=null);
+              // Theory Total covers the WHOLE series so it lines up directly
+              // against the real series. A game with no theoretical value
+              // (nothing makeable was missed, or it isn't computable)
+              // contributes its real score, since that game genuinely
+              // couldn't have gone any better.
+              const played=cs.scores
+                .map((real,i)=>({real,theory:theoreticalScores[i]}))
+                .filter(x=>typeof x.real==="number");
+              const theoryTotal=played.reduce((a,x)=>a+(x.theory??x.real),0);
+              const realTotal=played.reduce((a,x)=>a+x.real,0);
+              const leftOnLane=theoryTotal-realTotal;
               return(
                 <>
                 {nightAchievements.length>0&&(
@@ -2197,6 +2224,40 @@ export default function LogView({
                     ))}
                   </div>
                 )}
+
+                {/* The Nightcap. Top of the results, above the scores.
+                    
+                    League only. A tournament block is a different shape of
+                    night -- blocks, a cut line, a standing -- and the facts
+                    below are league facts. A Baker night belongs to the
+                    pair rather than to one bowler, the same reason the
+                    heading below refuses to call it anybody's night, so it
+                    gets no personal read-back either.
+                    
+                    Results tab only: this block also renders on Side
+                    games, where a card about leaves and carry is not what
+                    anyone came for.
+                    
+                    sessionEnded asks whether the night is FILED, not
+                    whether the save was confirmed. The confirmation flag
+                    is true for a second and a half and then sends the
+                    bowler to Home, so a pour triggered by it would arrive
+                    on a screen nobody is looking at. A saved session for
+                    this bowler, league and date is durable and means the
+                    same thing. */}
+                {env==="league"&&onTab("results")&&!bakerTeamName&&(
+                  <Nightcap
+                    shots={shots}
+                    bowler={cs.bowler}
+                    league={cs.league}
+                    date={cs.date}
+                    leftHanded={leftHandedForBowler?leftHandedForBowler(cs.bowler):false}
+                    scores={cs.scores}
+                    priorAverage={cumulativeAvgBeforeDate(sessions,cs.bowler,cs.league,cs.date)}
+                    pinsLeftOnLane={anyTheoretical&&played.length?leftOnLane:null}
+                    sessionEnded={(sessions||[]).some(s=>s&&s.bowler===cs.bowler&&s.league===cs.league&&s.date===cs.date)}/>
+                )}
+
                 <div style={{...S.card,border:`1px solid ${C.accent}44`}}>
                   <div style={{...S.label}}>
                     {/* A BAKER night belongs to the pair, not to one of
@@ -2221,33 +2282,7 @@ export default function LogView({
                     </div>
                   </div>
                   {(()=>{
-                    // The games actually bowled, not a fixed three.
-                    //
-                    // [1,2,3] is a league assumption: a practice night can be
-                    // one game or five, and a tournament block more. It showed
-                    // a theoretical score for games that were never thrown and
-                    // hid any past the third.
-                    //
-                    // gameScores is already sized to the night, so its length
-                    // is the honest count.
-                    const theoreticalScores=gameScores
-                      .map((_,idx)=>idx+1)
-                      .map(g=>theoreticalScoreForGame(cs.bowler,cs.league,cs.date,g));
-                    const anyTheoretical=theoreticalScores.some(v=>v!=null);
                     if(!anyTheoretical)return null;
-
-                    // Theory Total covers the WHOLE series so it lines up
-                    // directly against the real series. A game with no
-                    // theoretical value (nothing makeable was missed, or it
-                    // isn't computable) contributes its real score, since
-                    // that game genuinely couldn't have gone any better.
-                    const played=cs.scores
-                      .map((real,i)=>({real,theory:theoreticalScores[i]}))
-                      .filter(x=>typeof x.real==="number");
-                    const theoryTotal=played.reduce((a,x)=>a+(x.theory??x.real),0);
-                    const realTotal=played.reduce((a,x)=>a+x.real,0);
-                    const leftOnLane=theoryTotal-realTotal;
-
                     return(
                       <div style={{marginBottom:"12px"}}>
                         <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"6px"}}>If every makeable spare had been made</div>
