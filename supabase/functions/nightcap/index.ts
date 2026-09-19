@@ -17,7 +17,7 @@
 // them on the walk out. That is the part a template cannot do.
 //
 // Deploy with: supabase functions deploy nightcap
-// Secrets required: gemini_api_key, ALLOWED_ORIGINS (both lowercase-safe)
+// Secrets required: GEMINI_API_KEY, ALLOWED_ORIGINS (both lowercase-safe)
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 // The only place a fact becomes a sentence. Everything that arrives here
@@ -26,7 +26,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 // than passed through. See its header -- it is the security boundary.
 import { renderFacts } from "./render.ts";
 
-const GEMINI_API_KEY = Deno.env.get("gemini_api_key");
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 // Flash-Lite, not Flash.
 //
 // A bowler is standing at the end of a lane waiting for this, and the job
@@ -46,10 +46,10 @@ const MODEL = Deno.env.get("NIGHTCAP_GEMINI_MODEL")?.trim() || "gemini-3.5-flash
 // characters, five words -- but five words of letters is not the same
 // kind of safe as a number is.
 //
-// Set the secret nightcap_ball_names to "off" and the comparison is made
+// Set the secret NIGHTCAP_BALL_NAMES to "off" and the comparison is made
 // with numbered balls instead. Nothing the bowler typed then reaches the
 // model, at the cost of the nightcap being unable to say which ball.
-const NAME_BALLS = (Deno.env.get("nightcap_ball_names") || "on").toLowerCase() !== "off";
+const NAME_BALLS = (Deno.env.get("NIGHTCAP_BALL_NAMES") || "on").toLowerCase() !== "off";
 const GEMINI_URL =
   `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 
@@ -208,9 +208,9 @@ function corsFor(req) {
 //
 // OFF by default. Turning it on before purchases work would lock out
 // every existing bowler, because nobody has an entitlement row yet. Set
-// the secret billing_live to "true" in the same release that ships Play
+// the secret BILLING_LIVE to "true" in the same release that ships Play
 // Billing and Stripe -- and not one release earlier.
-const BILLING_LIVE = (Deno.env.get("billing_live") || "").trim().toLowerCase() === "true";
+const BILLING_LIVE = (Deno.env.get("BILLING_LIVE") || "").trim().toLowerCase() === "true";
 
 // FAILS OPEN, deliberately -- the opposite of the rate limit above, and
 // worth understanding before anyone "fixes" it.
