@@ -21,7 +21,22 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const GEMINI_API_KEY = Deno.env.get("gemini_api_key");
-const MODEL = "gemini-3.6-flash";
+// Overridable by secret, like the genie and the importer.
+//
+// This was the only one of the four models hardcoded, which made Insights
+// the only feature needing an edit, a commit and a deploy to re-point --
+// and it is the one most likely to want tuning, because a weak model here
+// does not fail loudly. It produces a confident story about noise, which
+// reads exactly like a finding.
+//
+// INSIGHTS_GEMINI_MODEL, uppercase, matching GENIE_GEMINI_MODEL and
+// IMPORT_GEMINI_MODEL. Environment lookups are case-sensitive, so a
+// secret spelled any other way silently does nothing and the constant
+// below wins -- with no error to notice.
+//
+// The constant stays the fallback, so nothing changes until the secret
+// exists.
+const MODEL = Deno.env.get("INSIGHTS_GEMINI_MODEL")?.trim() || "gemini-3.6-flash";
 const GEMINI_URL =
   `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 
