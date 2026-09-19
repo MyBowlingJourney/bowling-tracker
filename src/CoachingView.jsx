@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { C, S, Chip } from "./ui.jsx";
+import { C, S, Chip, LockedNote } from "./ui.jsx";
+import { canUseCoaching } from "./domain/entitlements.js";
 import { formatDate } from "./constants.js";
 import {
   categorizeCoaching, coachRoster, partitionTasks, taskProgress, sortNotes,
@@ -206,6 +207,7 @@ function NoteThread({ notes, myUserId, otherName, onAdd }) {
 }
 
 export default function CoachingView({
+  entitlement = null,
   setNextCoachingSession, onSetBowlerGoal, sessions, leagues,
   myUserId, relationships, profilesById, tasksByRelationship, notesByRelationship,
   coachViewOn, isCoach, onToggleCoachView,
@@ -216,6 +218,10 @@ export default function CoachingView({
   unreadResponses = {}, onMarkResponsesSeen,
 }) {
   const [goalDraft, setGoalDraft] = useState({ typeId: "", target: "" });
+  // Coaching is the paid feature, whole. Declared before any early
+  // return so the hooks below always run in the same order -- a
+  // conditional return placed above a useState is how a screen starts
+  // throwing "rendered fewer hooks than expected".
   const [selectedId, setSelectedId] = useState("");
   const [addingTask, setAddingTask] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -277,6 +283,20 @@ export default function CoachingView({
     try { el.focus(); } catch { /* nothing to do */ }
   }
   const leftHanded = selected ? !!leftHandedByUserId[selected.userId] : false;
+
+  // AFTER every hook above, deliberately. An early return placed higher
+  // would skip the useStates and useEffects on the locked path and React
+  // would throw "rendered fewer hooks than expected" the moment a bowler
+  // subscribed and the branch changed.
+  if (!canUseCoaching(entitlement)) {
+    return (
+      <LockedNote title="Coaching">
+        Working with a coach — shared goals, drills they set you, and notes back
+        and forth — is part of the paid plan. Everything you have logged is
+        untouched, and any coach already linked to you stays linked.
+      </LockedNote>
+    );
+  }
 
   return (
     <>

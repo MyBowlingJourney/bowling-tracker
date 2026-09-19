@@ -1,6 +1,6 @@
 import { Fragment, useState } from "react";
 import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { C, S, F, Chip, CompareBadge, StatLead, StatRow, StatRows, ActionRow } from "./ui.jsx";
+import { C, S, F, Chip, CompareBadge, StatLead, StatRow, StatRows, ActionRow, LockedNote } from "./ui.jsx";
 import { PRACTICE_SESSION_KEY, CASUAL_SESSION_KEY, formatDate, STRIKE_DESCRIPTIONS, RELEASES, BALL_CHANGE_REASONS, strikeDescriptionsForHand, storedStrikeDescriptionFor } from "./constants.js";
 import {
   bowlerHighGame, bowlerHighSeries, teamHighGame, teamHighSeries, seasonRecord, weeklyPointsData,
@@ -1614,13 +1614,10 @@ anyMoneyGameShown(preferences)&&statsBowler&&(()=>{
                   if (!byId[id]) continue;
                   if (canSeeStatsCard(id, entitlement)) continue;
                   byId[id] = (
-                    <div style={{ ...S.card, border: `1px solid ${C.accent}44`, backgroundColor: C.accent + "0D" }}>
-                      <div style={{ ...S.label, color: C.accent }}>{CARD_LABELS[id] || "Comparison"} 🔒</div>
-                      <div style={{ fontSize: "12px", color: C.textMuted, lineHeight: 1.5 }}>
-                        Comparing two things — bowlers, balls, houses, patterns or seasons —
-                        is part of the paid plan. Everything about your own game stays free.
-                      </div>
-                    </div>
+                    <LockedNote title={CARD_LABELS[id] || "Comparison"}>
+                      Comparing two things — bowlers, balls, houses, patterns or seasons —
+                      is part of the paid plan. Everything about your own game stays free.
+                    </LockedNote>
                   );
                 }
                 const inGroup = cardsInGroup(renderOrder, statsGroup);

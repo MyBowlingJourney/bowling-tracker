@@ -360,6 +360,24 @@ export function StatRows({ children }) {
 // coaching answer is checked against what you saw on the lane; a list of
 // bowling centres is not, and telling someone to do that is nonsense
 // dressed as caution.
+// A paid feature, SHOWN rather than hidden.
+//
+// Hiding a paid feature makes the paid tier invisible, and nobody buys
+// what they have never seen. This names the specific thing being
+// withheld at the moment it would have been useful, which is the only
+// honest shape a paywall has -- and the only one that converts.
+//
+// One component rather than four hand-rolled cards, so the padlock says
+// the same thing in the same voice wherever a bowler meets it.
+export function LockedNote({ title, children }) {
+  return (
+    <div style={{ ...S.card, border: `1px solid ${C.accent}66`, backgroundColor: C.accent + "0D" }}>
+      <div style={{ ...S.label, color: C.accent }}>{title} 🔒</div>
+      <div style={{ fontSize: "12px", color: C.textMuted, lineHeight: 1.5 }}>{children}</div>
+    </div>
+  );
+}
+
 export function AiNote({ what = "This", verb = "written", check = "check it against what you saw on the lane", style: extra }) {
   return (
     <div style={{

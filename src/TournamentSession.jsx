@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { PLACEMENTS } from "./domain/achievements.js";
-import { C, S, Chip, CollapsibleCard } from "./ui.jsx";
+import { C, S, Chip, CollapsibleCard, LockedNote } from "./ui.jsx";
 import {
   addGame, removeGame, setGameField, addDay, removeDay, setDayField, updateDay,
   dayTotal, dayAverage, dayGamesEntered, cutMargin,
@@ -16,6 +16,7 @@ import { tenthBall3Earned } from "./domain/scoring.js";
 import {
   SIDE_POT_TYPES, addSidePot, removeSidePot, setSidePotField, sidePotMoney, sidePotTotals,
 } from "./domain/sidePots.js";
+import { canUseBracketsAndSidePots } from "./domain/entitlements.js";
 import {
   addMatch, removeMatch, setMatchField, setBonus, matchResult, matchPlayTotals, pinDifferential,
   matchMargin, competitiveness, describeCompetitiveness,
@@ -747,7 +748,7 @@ function MatchPlay({ tournament, onChange }) {
   );
 }
 
-export default function TournamentSession({ tournament, onChange, onSave, saved, oilPatterns, submitOilPattern, tournaments, shotScoresByDate = null, tab: controlledTab, onTabChange, saveMessage = "", onUseDate, onCloseTournament, sessionDate = "" }) {
+export default function TournamentSession({ entitlement = null, tournament, onChange, onSave, saved, oilPatterns, submitOilPattern, tournaments, shotScoresByDate = null, tab: controlledTab, onTabChange, saveMessage = "", onUseDate, onCloseTournament, sessionDate = "" }) {
   // The tab is owned by the caller.
   //
   // LogView renders Shot Context alongside this card, and it only makes
@@ -1039,7 +1040,13 @@ export default function TournamentSession({ tournament, onChange, onSave, saved,
           separate from the tournament entry itself. Its own tab
           because it is a different pot with different maths, and
           mixing it into scoring made both harder to read. */}
-      {tab === "brackets" && (<>
+      {tab === "brackets" && !canUseBracketsAndSidePots(entitlement) && (
+        <LockedNote title="Brackets and side pots">
+          Working out brackets and side pots as you go is part of the paid plan.
+          Money games in league stay free.
+        </LockedNote>
+      )}
+      {tab === "brackets" && canUseBracketsAndSidePots(entitlement) && (<>
       <SidePots tournament={tournament} onChange={onChange} />
       </>)}
 

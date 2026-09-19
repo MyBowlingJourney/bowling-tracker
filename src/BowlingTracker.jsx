@@ -7256,6 +7256,7 @@ export default function BowlingTracker(){
             exportData={exportData} importData={importData}
             confirmClear={confirmClear} setConfirmClear={setConfirmClear}
             clearAllData={clearAllData} hasData={shots.length>0}
+            entitlement={entitlement}
             sessions={sessions} bowlers={bowlers} leagues={leagues} tournaments={tournaments}
             statsBowler={statsBowler} setStatsBowler={chooseStatsBowler}
             statsLeague={statsLeague} setStatsLeague={chooseStatsLeague}
@@ -7338,6 +7339,7 @@ export default function BowlingTracker(){
             exportData={exportData} importData={importData}
             confirmClear={confirmClear} setConfirmClear={setConfirmClear}
             clearAllData={clearAllData} hasData={shots.length>0}
+            entitlement={entitlement}
             sessions={sessions} bowlers={bowlers} leagues={leagues}
             statsBowler={statsBowler} setStatsBowler={chooseStatsBowler}
             statsLeague={statsLeague} setStatsLeague={chooseStatsLeague}
@@ -7504,6 +7506,7 @@ export default function BowlingTracker(){
              reach this screen is a subscriber, so there is nothing of
              theirs to hide from them. */
           <CoachingView
+            entitlement={entitlement}
             myUserId={user?.id||""}
             relationships={coachingRels}
             profilesById={coachProfilesById}

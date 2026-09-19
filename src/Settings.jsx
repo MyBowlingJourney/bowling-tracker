@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { C, S, Chip, CollapsibleCard } from "./ui.jsx";
+import { C, S, Chip, CollapsibleCard, LockedNote } from "./ui.jsx";
 import { THEMES, DARK_THEME_IDS, LIGHT_THEME_IDS } from "./domain/themes.js";
 import { useAuth } from "./AuthProvider.jsx";
 import { getPendingCount } from "./syncQueue.js";
@@ -14,6 +14,7 @@ import { isContainerLeague, isLeagueHidden, teamsInLeague } from "./domain/leagu
 import { sessionsToCsv, shotsToCsv, seasonSummary, summaryToText } from "./domain/seasonExport.js";
 import { inferLeagueDay, dayName, reminderSpec, reminderToIcs } from "./domain/reminders.js";
 import { localDateString, APP_URL, APP_NAME } from "./constants.js";
+import { leagueLimit, teamLimit } from "./domain/entitlements.js";
 import {
   ENVIRONMENT_LABELS,
   ENVIRONMENT_DESCRIPTIONS,
@@ -38,6 +39,8 @@ export default function Settings({
   drills = [],
   mode = "both",
   restartOnboarding, replayTour, isCoach = false,
+  // The bowler's subscription, for the league and team limits.
+  entitlement = null,
   showBackup, setShowBackup, backupStatus, setBackupStatus,
   importText, setImportText, exportData, importData,
   confirmClear, setConfirmClear, clearAllData, hasData,
@@ -55,6 +58,16 @@ export default function Settings({
   shots, leftHandedForBowler,
 }) {
   const { preferences, updatePreferences, displayName, user, signOut, deleteAccount } = useAuth();
+
+  // How many teams this bowler is actually ON, for the free-plan limit.
+  //
+  // teamsInLeague is the same helper the team list below uses, so "my
+  // teams" means one thing in both places -- teams prop carries every
+  // team in a league the bowler can see, not just theirs, so a bare
+  // teams.length would lock somebody out over other people's teams.
+  const myTeamCount = new Set(
+    (leagues || []).flatMap(l => teamsInLeague(l, teams || [], displayName).map(t => t.id))
+  ).size;
   // Account deletion is irreversible, so it is armed in three steps:
   // open the Danger Zone, press the button, then type your own email
   // address. Nothing here is a single tap.
@@ -429,7 +442,20 @@ export default function Settings({
               : "Add the league you bowl in and you can start putting scores in straight away. A team isn't needed yet."}
           </div>
 
-          {onAddLeague && (
+          {/* One league on the free plan.
+              
+              Counting only REAL leagues: Practice, Just Bowling and the
+              tournament containers are storage, not leagues anybody
+              joined, and counting them would stop a free bowler
+              practising. */}
+          {onAddLeague && (leagues || []).filter(n => !isContainerLeague(n)).length >= leagueLimit(entitlement) && (
+            <LockedNote title="More leagues">
+              The free plan covers one league. Bowling a second one — a summer league,
+              or Tuesday and Thursday — is part of the paid plan. Nothing you have
+              already logged goes anywhere.
+            </LockedNote>
+          )}
+          {onAddLeague && (leagues || []).filter(n => !isContainerLeague(n)).length < leagueLimit(entitlement) && (
             <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
               {/* minWidth 0 on the input and width auto on the button.
 
@@ -659,7 +685,20 @@ export default function Settings({
                     indistinguishable from the row above it. A rule, a
                     tinted panel and a heading say where the league stops
                     and the team starts. */}
-                {onCreateTeam && league !== "Practice" && league !== "Casual" && (
+                {/* One team on the free plan, counted with the same
+                    helper the list above uses so "my teams" means the
+                    same thing in both places. */}
+                {onCreateTeam && league !== "Practice" && league !== "Casual"
+                  && myTeamCount >= teamLimit(entitlement) && (
+                  <div style={{ marginTop: "12px" }}>
+                    <LockedNote title="More teams">
+                      The free plan covers one team. Your scores keep counting for the
+                      team you are already on.
+                    </LockedNote>
+                  </div>
+                )}
+                {onCreateTeam && league !== "Practice" && league !== "Casual"
+                  && myTeamCount < teamLimit(entitlement) && (
                   <div style={{
                     marginTop: "12px", paddingTop: "12px",
                     borderTop: `1px solid ${C.border}`,

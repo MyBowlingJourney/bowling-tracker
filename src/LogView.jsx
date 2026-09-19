@@ -1143,6 +1143,7 @@ export default function LogView({
                 it entirely rather than trying to bend one into the other. */}
             {!editingId&&activeBowler&&preferences.environment==="tournament"&&(
               <TournamentSession
+                entitlement={entitlement}
                 tab={tournamentTab} onTabChange={setTournamentTab}
 
                 onUseDate={setSessionDate}
