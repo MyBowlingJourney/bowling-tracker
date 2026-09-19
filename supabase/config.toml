@@ -1,0 +1,20 @@
+# Per-function settings, so they do not have to be remembered as
+# command-line flags at deploy time.
+#
+# play-rtdn is PUBLIC by necessity. Google's Pub/Sub pushes to it with an
+# OIDC token, not a Supabase session, so Supabase's own JWT check would
+# reject every notification before the function ever ran -- silently, as
+# far as the app is concerned, with subscriptions quietly going stale.
+#
+# Turning that check off does not make the endpoint unprotected. The
+# function verifies Google's OIDC token itself: signature against
+# Google's published keys, issuer, audience, expiry, and the exact
+# service account allowed to push. See its header.
+#
+# Equivalent to deploying with --no-verify-jwt, but written down, which
+# means it cannot be forgotten on a later deploy by whoever runs it.
+[functions.play-rtdn]
+verify_jwt = false
+
+# Every other function requires a signed-in bowler and keeps the default
+# (verify_jwt = true), so they are deliberately not listed here.
