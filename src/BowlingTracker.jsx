@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, Suspense } from "react";
+import { useState, useEffect, useRef, useMemo, Suspense } from "react";
 // lazyScreen instead of React.lazy: a deploy while the app is open
 // replaces every content-hashed chunk, and a page already loaded asks
 // for names that no longer exist. See src/lazyScreen.js.
@@ -75,6 +75,7 @@ import { archiveOnNewStart, compareSeasons, describeSeasonChange } from "./domai
 import { sessionsForFigures, isBaker, bakerBowlerFor } from "./domain/tournamentFormats.js";
 import { emptyDrill, normalizeDrill, drillToRow, drillFromRow } from "./domain/drills.js";
 import { scorekeepingOptions, allowsOtherBowlers, normalizeGuests, addGuest, removeGuest } from "./domain/scorekeeping.js";
+import { allowedLeagues } from "./domain/entitlements.js";
 import { visibleLeagues, isLeagueHidden, teamsInLeague, describeLeaveImpact, leaveConfirmationText, isContainerLeague } from "./domain/leagueMembership.js";
 import { decodeShare } from "./domain/badgeShare.js";
 import { allCompetitiveBadges } from "./domain/badgeContext.js";
@@ -435,6 +436,9 @@ export default function BowlingTracker(){
   }
   });
   const[leagues,setLeagues]=useState(DEFAULT_LEAGUES);
+  // The subscription. Null is the normal state for a free bowler, and
+  // every gate in domain/entitlements.js reads null as unsubscribed.
+  const[entitlement,setEntitlement]=useState(null);
   const[activeBowler,setActiveBowler]=useState("");
   const[newBowlerName,setNewBowlerName]=useState("");
   const[arsenals,setArsenals]=useState({}); // {bowlerName: [ballName,...]}
@@ -1181,6 +1185,38 @@ export default function BowlingTracker(){
   // Its own effect, not part of load() below: that function is one long
   // try block, and a failure in any earlier table would silently skip
   // coaching entirely.
+  // The subscription, read once per sign-in.
+  //
+  // Its own effect rather than another line in the big Promise.all
+  // above: that array is destructured POSITIONALLY and carries a "must
+  // stay last" invariant, so inserting into it is a way to silently
+  // shift every reader by one. A billing lookup should also not be able
+  // to take the night's shots down with it.
+  //
+  // RLS lets a bowler read their own row and no policy lets anyone write
+  // one from the client, so this is read-only by construction. A missing
+  // row is normal for a free bowler, not an error.
+  //
+  // NOTE: billing_period is deliberately NOT in the select until that
+  // column exists -- selecting a column that is not there fails the
+  // whole query. Add it here in the same commit as the migration, or
+  // shouldOfferAnnual() can never fire.
+  useEffect(()=>{
+    if(!user?.id){setEntitlement(null);return;}
+    let live=true;
+    (async()=>{
+      try{
+        const{data,error}=await supabase.from("entitlements")
+          .select("plan,status,current_period_end,trial_end,kept_league_id,created_at")
+          .eq("user_id",user.id).maybeSingle();
+        if(!live)return;
+        if(error){console.error("entitlement read failed:",error.message);return;}
+        setEntitlement(data||null);
+      }catch(e){ if(live)console.error("entitlement read threw:",String(e)); }
+    })();
+    return()=>{live=false;};
+  },[user?.id]);
+
   useEffect(()=>{
     if(!user?.id)return;
     loadCoaching();
@@ -5034,10 +5070,13 @@ export default function BowlingTracker(){
   // What the genie is told. Computed stats, never raw history -- see
   // domain/genie.js for why that is the whole cost story.
   function statsSummaryForGenie(){
-    const mine=sessions.filter(s=>s&&s.bowler===activeBowler);
+    // visibleSessions/visibleShots throughout -- same reason as
+    // insightStats. Brooklyn must not know about a league the bowler
+    // is not being shown.
+    const mine=visibleSessions.filter(s=>s&&s.bowler===activeBowler);
     const scores=mine.flatMap(s=>Array.isArray(s.scores)?s.scores:[]).filter(v=>Number.isFinite(Number(v))).map(Number);
-    const hg=bowlerHighGame(sessions,activeBowler);
-    const hs=bowlerHighSeries(sessions,activeBowler);
+    const hg=bowlerHighGame(visibleSessions,activeBowler);
+    const hs=bowlerHighSeries(visibleSessions,activeBowler);
 
     // The shot-level figures come from shotBreakdown, the same function
     // the coaching screen uses -- rather than a second implementation
@@ -5061,7 +5100,7 @@ export default function BowlingTracker(){
     // frames each is nobody's game; five frames of balls are absolutely
     // somebody's frames.
     const myShots=(()=>{
-      const own=shots.filter(s=>s&&s.bowler===activeBowler);
+      const own=visibleShots.filter(s=>s&&s.bowler===activeBowler);
       const bakerLeagues=new Set(
         (tournaments||[]).filter(t=>isBaker(t))
           .map(t=>tournamentLeagueCloudName(t.name,user?.id))
@@ -5447,6 +5486,63 @@ export default function BowlingTracker(){
   // full list, so hiding never removes anyone's scores from their averages.
   const activeLeagues=visibleLeagues(leagues,hiddenLeagues,leagueIdsRef.current);
 
+  // ── What this bowler is allowed to SEE ──────────────────────────────
+  //
+  // Two hiding mechanisms, applied in order, and deliberately different
+  // things. hidden_leagues is a league the BOWLER chose to hide and can
+  // unhide. The plan limit is one they cannot. They stay separate so a
+  // bowler who hid Thursday themselves is not handed it back the day
+  // they subscribe.
+  //
+  // HIDDEN IS NEVER DELETED. Every shot keeps syncing, keeps being
+  // exported, and comes back the moment they subscribe again -- which is
+  // why Settings and ImportScorecard below are still given the RAW
+  // arrays, each with a note saying so.
+  //
+  // This also fixes something that predates any paywall: cAvg() with no
+  // league argument pools every competitive session, so a league the
+  // bowler had hidden was still sitting inside their Composite average.
+  const keptLeagueName=(()=>{
+    const id=entitlement?.kept_league_id;
+    if(!id)return "";
+    const byName=leagueIdsRef.current||{};
+    return Object.keys(byName).find(n=>byName[n]===id)||"";
+  })();
+  // The default until they choose: the last real league they bowled.
+  const mostRecentLeagueName=(()=>{
+    let best=null;
+    for(const s of sessions){
+      if(!s||!s.league||isContainerLeague(s.league))continue;
+      if(!best||String(s.date||"")>String(best.date||""))best=s;
+    }
+    return best?best.league:"";
+  })();
+  // Matches visibleLeagues' own hidden test, but KEEPS containers --
+  // Practice and Just Bowling are storage, not leagues anybody joined,
+  // and a lapsed bowler who cannot practise is one who does not come
+  // back.
+  const notUserHidden=(()=>{
+    const hidden=new Set(hiddenLeagues||[]);
+    return (leagues||[]).filter(name=>{
+      const id=leagueIdsRef.current?.[name];
+      return !id||!hidden.has(id);
+    });
+  })();
+  const visibleLeagueNames=allowedLeagues(notUserHidden,{entitlement,keptLeagueName,mostRecentLeagueName});
+  const visibleLeagueKey=visibleLeagueNames.join("\u0001");
+  // Memoised: these run over the bowler's whole history, and this
+  // component re-renders on every keystroke anywhere inside it.
+  const visibleShots=useMemo(()=>{
+    const ok=new Set(visibleLeagueNames);
+    return shots.filter(s=>!s||!s.league||ok.has(s.league));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[shots,visibleLeagueKey]);
+  const visibleSessions=useMemo(()=>{
+    const ok=new Set(visibleLeagueNames);
+    return sessions.filter(s=>!s||!s.league||ok.has(s.league));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[sessions,visibleLeagueKey]);
+
   const leaguesWithCenters=leagues.map(name=>({name,centerId:leagueCenters[name]}));
   const centerStats=statsByCenter(sessions,leaguesWithCenters,centers,statsBowler||activeBowler,shots);
 
@@ -5679,7 +5775,11 @@ export default function BowlingTracker(){
     // the Insights tab shows its "pick a bowler" state rather than a
     // meaningless blended analysis.
     if(!who)return{gameCount:0,firstBalls:0,balls:[],centers:[]};
-    const mine=shots.filter(s=>s.bowler===who);
+    // visibleShots, not shots: a hidden league must not reach the
+    // Insights payload. The feature is paid today so a free bowler
+    // cannot call it -- but the moment anything becomes partly free, a
+    // raw payload leaks a league the bowler cannot even see.
+    const mine=visibleShots.filter(s=>s.bowler===who);
     const firstBalls=mine.filter(s=>!s.ballNum||s.ballNum===1);
     const strikes=firstBalls.filter(s=>s.result==="Strike").length;
     const spareAtt=mine.filter(s=>s.result!=="Strike"&&s.spareMade!=="");
@@ -7138,6 +7238,14 @@ export default function BowlingTracker(){
             beside it. */}
 
         {view==="teams"&&(
+          /* RAW shots and sessions below, deliberately.
+             
+             Backup & Restore lives on this screen. An export that quietly
+             omitted a league the bowler has stopped paying to SEE would be
+             withholding their own data -- a data-rights problem, and the
+             fastest route to a one-star review. hasData is raw for the
+             same reason: "is there anything to clear" is about everything
+             they have, not what the plan happens to show. */
           <Settings
             mode="leagues"
             onCreateTeam={createTeamForLeague} onAddLeague={addLeague}
@@ -7204,13 +7312,21 @@ export default function BowlingTracker(){
         {view==="journey"&&(
           <Suspense fallback={null}>
             <JourneyScreen
-              sessions={sessions} shots={shots} tournaments={tournaments}
+              sessions={visibleSessions} shots={visibleShots} tournaments={tournaments}
               bowler={displayName||activeBowler}
               onOpenBadges={()=>setView("badges")} />
           </Suspense>
         )}
 
         {(view==="settings"||view==="history")&&(
+          /* RAW shots and sessions below, deliberately.
+             
+             Backup & Restore lives on this screen. An export that quietly
+             omitted a league the bowler has stopped paying to SEE would be
+             withholding their own data -- a data-rights problem, and the
+             fastest route to a one-star review. hasData is raw for the
+             same reason: "is there anything to clear" is about everything
+             they have, not what the plan happens to show. */
           <Settings
             mode={view==="history"?"history":"settings"}
 
@@ -7263,6 +7379,10 @@ export default function BowlingTracker(){
         )}
 
         {view==="import"&&(
+          /* RAW shots, deliberately. Import dedupes against everything
+             already logged, so a filtered list would let it re-import a
+             night into a league the bowler cannot currently see -- and
+             they would never find the duplicate to fix it. */
           <ImportScorecard
             bowlers={bowlers} activeBowler={activeBowler} profiles={profiles} leagues={leagues} teams={teams} tournaments={tournaments} shots={shots} saveShots={saveShots} onSubmitTeammateScores={submitTeammateScores}
             updateManualScore={updateManualScore}
@@ -7285,7 +7405,7 @@ export default function BowlingTracker(){
         {view==="home"&&!nightLive&&(
           <Suspense fallback={null}>
             <HomeScreen
-              sessions={sessions} shots={shots} tournaments={tournaments}
+              sessions={visibleSessions} shots={visibleShots} tournaments={tournaments}
               bowler={displayName||activeBowler}
               leagues={leagues}
               onOpenJourney={()=>setView("journey")}
@@ -7332,7 +7452,7 @@ export default function BowlingTracker(){
                 onChange={next=>saveGoals(activeBowler,next)}/>
             ):null}
             sessionNotes={sessionNotes} setSessionNotes={setSessionNotes}
-            shots={shots} sessions={sessions} bowlers={bowlers} footerHeight={footerHeight} footerRef={footerRef} teams={teams} leagues={activeLeagues} startEdit={startEdit} deleteShot={deleteShot}
+            shots={visibleShots} sessions={visibleSessions} bowlers={bowlers} footerHeight={footerHeight} footerRef={footerRef} teams={teams} leagues={activeLeagues} startEdit={startEdit} deleteShot={deleteShot}
             activeBowler={activeBowler} arsenals={arsenals}
             form={form} setForm={setForm} editingId={editingId} saved={saved} sessionSaved={sessionSaved} sessionSaveMessage={sessionSaveMessage}
             sessionLeague={sessionLeague} setSessionLeague={setSessionLeague} effectiveSessionLeague={effectiveSessionLeague} sessionDate={sessionDate} setSessionDate={changeSessionDate}
@@ -7378,6 +7498,10 @@ export default function BowlingTracker(){
         {/* STATS VIEW                                                        */}
         {/* ══════════════════════════════════════════════════════════════════ */}
         {view==="coaching"&&(
+          /* RAW, deliberately: these are the signed-in coach's OWN
+             sessions, and coaching is a paid feature -- anyone who can
+             reach this screen is a subscriber, so there is nothing of
+             theirs to hide from them. */
           <CoachingView
             myUserId={user?.id||""}
             relationships={coachingRels}
@@ -7443,7 +7567,7 @@ export default function BowlingTracker(){
 
         {view==="data"&&dataTab==="trends"&&(
           <TrendsView
-            sessions={sessions} shots={shots} bowlers={bowlers} leagues={leagues} teams={teams}
+            sessions={visibleSessions} shots={visibleShots} bowlers={bowlers} leagues={leagues} teams={teams}
             arsenals={arsenals} gameEquipment={gameEquipment}
             statsBowler={statsBowler} setStatsBowler={chooseStatsBowler}
             statsLeague={statsLeague} setStatsLeague={chooseStatsLeague}
@@ -7478,7 +7602,7 @@ export default function BowlingTracker(){
             tournaments={tournaments}
 
             closedSeasons={closedSeasons} leagueDates={leagueDates}
-            view={view} shots={shots} sessions={sessions} bowlers={bowlers} teams={teams} leagues={leagues} arsenals={arsenals} saved={saved}
+            view={view} shots={visibleShots} sessions={visibleSessions} bowlers={bowlers} teams={teams} leagues={leagues} arsenals={arsenals} saved={saved}
             statsBowler={statsBowler} setStatsBowler={chooseStatsBowler} compareBowler={compareBowler} setCompareBowler={setCompareBowler}
             compareFriendId={compareFriendId} setCompareFriendId={setCompareFriendId}
             friends={friends} onLoadFriendData={loadFriendData} onOpenFriends={()=>setView("social")} compareSessions={compareSessions} displayName={displayName}
