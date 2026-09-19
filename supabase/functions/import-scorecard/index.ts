@@ -165,8 +165,10 @@ const RESPONSE_SCHEMA = {
     //
     // SEEING pin decks is far easier than reading thirty of them, so even
     // a model that cannot transcribe them can answer this.
-    hasFrameDetail: {
-      type: "boolean",
+    hasFrameDetail: {
+
+      type: "boolean",
+
       // NOT nullable, and required below. A model free to omit this
       // omits it -- and an absent answer reads the same as "no frames",
       // so the escalation never fires on the card that needs it.
@@ -376,6 +378,51 @@ function corsFor(req) {
   };
 }
 
+// ── The paywall, server side ────────────────────────────────────────
+//
+// Mirrors BILLING_LIVE in src/domain/entitlements.js, and the client's
+// copy of the status logic mirrors public.is_subscriber(). The client
+// decides what to SHOW; this decides what to SERVE, and this is the one
+// that matters -- the anon key ships in every copy of the app, so a
+// check that only runs in the browser is a courtesy, not a boundary.
+//
+// OFF by default. Turning it on before purchases work would lock out
+// every existing bowler, because nobody has an entitlement row yet. Set
+// the secret billing_live to "true" in the same release that ships Play
+// Billing and Stripe -- and not one release earlier.
+const BILLING_LIVE = (Deno.env.get("billing_live") || "").trim().toLowerCase() === "true";
+
+// FAILS OPEN, deliberately -- the opposite of the rate limit above, and
+// worth understanding before anyone "fixes" it.
+//
+// The two failures are not symmetrical. A broken rate-limit check that
+// lets a request through costs one Gemini call. A broken entitlement
+// check that blocks one turns a bowler who has paid into a bowler
+// staring at a padlock on league night with a receipt in their inbox.
+// The first is a rounding error; the second is a refund and a review.
+//
+// The bypass this theoretically opens needs the database itself to be
+// failing, which is not a state a caller can put it in.
+async function hasSubscription(req: Request): Promise<boolean> {
+  if (!BILLING_LIVE) return true;
+  try {
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: req.headers.get("Authorization")! } } },
+    );
+    const { data, error } = await supabase.rpc("is_subscriber");
+    if (error) {
+      console.error("is_subscriber check failed, allowing through:", error.message);
+      return true;
+    }
+    return data === true;
+  } catch (e) {
+    console.error("is_subscriber threw, allowing through:", String(e));
+    return true;
+  }
+}
+
 Deno.serve(async (req) => {
   const corsHeaders = corsFor(req);
 
@@ -413,6 +460,25 @@ Deno.serve(async (req) => {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Paid, and checked here rather than only in the browser.
+    //
+    // This was briefly a free allowance of one import a week. It came out
+    // because one a week is exactly one league night -- so the free tier
+    // covered a single-league bowler's entire use of the feature, forever,
+    // and walled off nobody it was meant to. The 30-day trial is where a
+    // new bowler gets to see what import does, several times, on real
+    // league nights.
+    //
+    // Removing it also removed the worst gap in the paywall: the weekly
+    // counter recorded BEFORE the model ran, so an import that failed with
+    // a 502 cost a free bowler their whole week.
+    if (!(await hasSubscription(req))) {
+      return new Response(JSON.stringify({
+        error: "Scorecard import is part of the paid plan.",
+        upgrade: true,
+      }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // Three outcomes, not two: allowed, over the limit, or the check
