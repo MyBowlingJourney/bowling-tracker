@@ -76,6 +76,12 @@ export interface SubscriptionPurchaseV2 {
   subscriptionState?: string;
   purchaseToken?: string;
   linkedPurchaseToken?: string;
+  // ACKNOWLEDGEMENT_STATE_PENDING or ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED.
+  // An initial purchase left unacknowledged for three days is refunded
+  // and revoked by Google, so verify-purchase drives its acknowledge
+  // call off this rather than off having just seen a purchase --
+  // renewals do not need acknowledging.
+  acknowledgementState?: string;
   lineItems?: LineItem[];
 }
 
