@@ -13,7 +13,7 @@ import CenterPicker from "./CenterPicker.jsx";
 import { isContainerLeague, isLeagueHidden, teamsInLeague } from "./domain/leagueMembership.js";
 import { sessionsToCsv, shotsToCsv, seasonSummary, summaryToText } from "./domain/seasonExport.js";
 import { inferLeagueDay, dayName, reminderSpec, reminderToIcs } from "./domain/reminders.js";
-import { localDateString } from "./constants.js";
+import { localDateString, APP_URL, APP_NAME } from "./constants.js";
 import {
   ENVIRONMENT_LABELS,
   ENVIRONMENT_DESCRIPTIONS,
@@ -84,8 +84,13 @@ export default function Settings({
       // Walkthroughs stay: a casual bowler is the most likely to want to
       // rewatch one, and it used to ride on the "reset" id -- so cutting
       // Reset silently cut the tours too.
-      ? ["session", "look", "walkthroughs", "backup", "account", "dangerZone"]
-      : ["session", "look", "trackingDetail", "moneyGames", "statsLayout", "backup", "walkthroughs", "reset", "account", "dangerZone"],
+      //
+      // "about" is in BOTH lists deliberately. Google requires the privacy
+      // policy to be reachable from inside the app, and an account
+      // deletion route to be findable -- neither of which stops mattering
+      // because someone bowls casually.
+      ? ["session", "look", "walkthroughs", "backup", "account", "about", "dangerZone"]
+      : ["session", "look", "trackingDetail", "moneyGames", "statsLayout", "backup", "walkthroughs", "reset", "account", "about", "dangerZone"],
   };
   const allowed = mode === "leagues" ? cardsFor.leagues : (mode === "settings" ? cardsFor.settings : null);
   const showCard = id => !allowed || allowed.includes(id);
@@ -109,7 +114,7 @@ export default function Settings({
   const [expanded, setExpanded] = useState({
     session: true, look: false, trackingDetail: false,
     moneyGames: false, statsLayout: false,
-    backup: false, reset: false, account: false, dangerZone: false,
+    backup: false, reset: false, account: false, about: false, dangerZone: false,
     // Open by default. The other cards are settings you go
     // looking for; this is the one a lost bowler needs to SEE.
     walkthroughs: true,
@@ -944,6 +949,65 @@ export default function Settings({
           }}>
           Sign out
         </button>
+      </CollapsibleCard>
+      )}
+
+      {/* About & Legal.
+
+          Google requires the privacy policy to be reachable from inside
+          the app, not only from the store listing, and requires an
+          in-app route to account deletion. This card is that route.
+
+          ── Why ABSOLUTE urls, not "/privacy.html" ──────────────────────
+
+          public/ is copied into dist/, which is bundled into the native
+          app -- so a relative link WOULD resolve, to the copy frozen
+          inside whatever build the bowler installed. Legal pages change,
+          and a stale privacy policy on someone's phone is worse than no
+          link at all. APP_URL always points at the live ones, which are
+          also the urls Google is given.
+
+          ── Why target="_blank" ─────────────────────────────────────────
+
+          Without it the WebView navigates itself to the page, and the
+          native shell has no browser chrome -- no back button, no close.
+          The bowler is simply stuck in a privacy policy until they kill
+          the app. target="_blank" is what asks the OS to open a real
+          browser instead.
+
+          VERIFY THIS ON A DEVICE. Capacitor's handling of external links
+          has changed across majors and was once an outright bug (issue
+          5786). If tapping one of these navigates in place rather than
+          opening a browser, the fix is the @capacitor/browser plugin and
+          an onClick calling Browser.open -- not a workaround here. */}
+      {showCard("about") && (
+      <CollapsibleCard title="About & Legal"
+        summary={APP_NAME}
+        expanded={expanded.about} onToggle={() => toggle("about")}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          {[
+            { label: "Privacy Policy", href: `${APP_URL}/privacy.html` },
+            { label: "Terms of Service", href: `${APP_URL}/terms.html` },
+            { label: "Delete your account", href: `${APP_URL}/delete-account.html` },
+          ].map(link => (
+            <a key={link.href} href={link.href}
+              target="_blank" rel="noopener noreferrer"
+              style={{ ...S.btn(), width: "100%", padding: "10px", fontSize: "13px",
+                       textAlign: "center", textDecoration: "none", display: "block" }}>
+              {link.label}
+            </a>
+          ))}
+        </div>
+
+        <div style={{ fontSize: "12px", color: C.textMuted, marginTop: "12px", lineHeight: 1.6 }}>
+          Questions, or want your data deleted?{" "}
+          <a href="mailto:support@mybowlingjourney.com" style={{ color: C.accent }}>
+            support@mybowlingjourney.com
+          </a>
+        </div>
+        <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "8px" }}>
+          {APP_NAME} is published by My Bowling Journey LLC.
+        </div>
       </CollapsibleCard>
       )}
 

@@ -1,6 +1,10 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from './supabaseClient.js';
-import { authRedirectTo, listenForAuthLinks } from './nativeAuth.js';
+// authRedirectTo is deliberately NOT imported any more -- see
+// signInWithMagicLink. listenForAuthLinks stays: it costs nothing on the
+// web, and if a link ever does reach the app it still completes.
+import { listenForAuthLinks } from './nativeAuth.js';
+import { APP_URL } from './constants.js';
 import { cloudRead, cloudWrite, adoptLegacyQueueItems, flushPendingQueue } from './syncQueue.js';
 import { setStorageUser, adoptLegacyData } from './scopedStorage.js';
 import { normalizePreferences, defaultPreferences } from './domain/preferences.js';
@@ -155,14 +159,78 @@ export function AuthProvider({ children }) {
       });
   }, [session?.user?.id]);
 
+  // Sends the sign-in email. ONE call, TWO ways in.
+  //
+  // The email template carries both {{ .Token }} and {{ .ConfirmationURL }},
+  // so the same message contains a numeric code AND a link. Supabase
+  // treats them as the same request -- the difference is only what the
+  // email says -- so nothing here changes to support both.
+  //
+  // The code exists because the LINK is the fragile half on a phone. It
+  // has to survive: the email client choosing to open it in its own
+  // embedded browser (Gmail does), that browser deciding whether to hand
+  // a custom scheme back to the OS, Android matching an intent filter,
+  // and Capacitor delivering the appUrlOpen event. Any one of those
+  // silently drops the link and the bowler sees nothing happen. Typing
+  // the code into the app that is already open skips all of it.
+  //
+  // ── The link always points at the WEBSITE, never at the app ──────────
+  //
+  // This used to ask nativeAuth for a platform-specific redirect, so a
+  // code requested from the Android app produced a link addressed to
+  // com.mybowlingjourney.app://auth. That link is meaningless to any
+  // browser: tapped on a desktop, or in an email client that would not
+  // hand the scheme back to Android, it opened a blank tab and did
+  // nothing. Observed in testing, and it looks exactly like a broken app.
+  //
+  // APP_URL always resolves and always signs the bowler in -- on the web,
+  // which is a real outcome rather than a dead end. The app has the code,
+  // which does not depend on any of the above going right.
+  //
+  // The deep-link machinery is left in place (the listener above, the
+  // manifest intent filter): nothing sends links there now, but if one
+  // ever arrives it still completes, and reverting is a one-line change.
   async function signInWithMagicLink(email) {
-    // On the web this is unchanged: the same origin + path as before.
-    // In the Android shell there is no such URL to come back to, so the
-    // link is pointed at the app's own scheme instead -- see nativeAuth.js.
-    const redirectTo = await authRedirectTo(window.location.origin + window.location.pathname);
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: redirectTo },
+      options: { emailRedirectTo: APP_URL },
+    });
+    return { error };
+  }
+
+  // Finish a sign-in from the code in the email.
+  //
+  // Digits are stripped of anything else first. People paste "123 456"
+  // out of an email, or copy a trailing space with it, and a rejected
+  // code reads as "the app is broken" rather than "you included a
+  // space". Cheap to forgive, expensive not to.
+  //
+  // On success nothing is set here on purpose: verifyOtp establishes the
+  // session, and onAuthStateChange above is already listening for it --
+  // the same route a link takes. Two places setting the session is how
+  // they end up disagreeing.
+  // No length check here, deliberately.
+  //
+  // This first shipped rejecting anything that was not six digits --
+  // because six is the convention and the docs use six in their example.
+  // Supabase actually sent EIGHT. The client then refused a perfectly
+  // valid code, which is the worst kind of bug: the server was right, the
+  // app was wrong, and the app was the one talking to the bowler.
+  //
+  // The lesson generalises. Code length is the auth server's business,
+  // it is not documented as fixed, and it can change without this file
+  // hearing about it. So the only thing checked here is that SOMETHING
+  // numeric was entered; verifyOtp is the authority on whether it is
+  // right, and its rejection is a real answer rather than a guess.
+  async function verifyEmailCode(email, code) {
+    const token = String(code || "").replace(/\D/g, "");
+    if (!token) {
+      return { error: new Error("Enter the code from your email.") };
+    }
+    const { error } = await supabase.auth.verifyOtp({
+      email: String(email || "").trim(),
+      token,
+      type: "email",
     });
     return { error };
   }
@@ -223,6 +291,7 @@ export function AuthProvider({ children }) {
     authError,
     clearAuthError: () => setAuthError(""),
     signInWithMagicLink,
+    verifyEmailCode,
     signOut,
     updateDisplayName,
     updatePreferences,

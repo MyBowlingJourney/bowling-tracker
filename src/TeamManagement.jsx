@@ -707,7 +707,19 @@ export default function TeamManagement({
               <div style={{flex:1,color:C.text}}>{member.displayName}</div>
               <button style={{...S.button,minWidth:"28px"}} title="Bowling hand — tap to switch"
                 onClick={()=>setMemberHandedness(team.id,member.userId,!member.leftHanded)}>{member.leftHanded?"L":"R"}</button>
-              <button style={{...S.button,color:member.isSub?C.accent:undefined}} title="Sub — tap to toggle"
+              {/* C.text, not undefined, for the off state.
+
+                  `color: undefined` spread AFTER S.button does not mean
+                  "leave S.button's colour alone" -- it overrides it, and
+                  React then omits the colour from the inline style
+                  entirely. The button falls back to the browser's default
+                  button text, which is near-black, so on every dark theme
+                  this read as dark-on-dark while the L/R button beside it
+                  -- which overrides nothing -- stayed legible.
+
+                  Not a contrast problem: every theme scores above 14:1
+                  for text on surface. The colour simply was not applied. */}
+              <button style={{...S.button,color:member.isSub?C.accent:C.text}} title="Sub — tap to toggle"
                 onClick={()=>setMemberIsSub(team.id,member.userId,!member.isSub)}>{member.isSub?"Sub ✓":"Sub"}</button>
               <button style={S.button} disabled={index===0} onClick={()=>moveMember(team.id,index,-1)}>↑</button>
               <button style={S.button} disabled={index===team.members.length-1} onClick={()=>moveMember(team.id,index,1)}>↓</button>
@@ -746,7 +758,9 @@ export default function TeamManagement({
                 </div>
                 <button style={{...S.button,minWidth:"28px"}} title="Bowling hand — tap to switch"
                   onClick={()=>setInviteHandedness(team.id,invite.id,!invite.leftHanded)}>{invite.leftHanded?"L":"R"}</button>
-                <button style={{...S.button,color:invite.isSub?C.accent:undefined}} title="Sub — tap to toggle"
+                {/* Same fix as the roster row above -- see the note there.
+                    An undefined colour is an override, not an absence. */}
+                <button style={{...S.button,color:invite.isSub?C.accent:C.text}} title="Sub — tap to toggle"
                   onClick={()=>setInviteIsSub(team.id,invite.id,!invite.isSub)}>{invite.isSub?"Sub ✓":"Sub"}</button>
                 <button style={{...S.button,color:C.danger}} onClick={()=>cancelInvite(team.id,invite.id)}>×</button>
               </div>
