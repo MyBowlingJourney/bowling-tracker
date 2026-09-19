@@ -6,13 +6,24 @@
 //
 // This file computes the things a scorer never surfaces -- which side the
 // leaves clustered on, what the opens actually cost, which ball was
-// carrying -- as FACTS, deterministically, here, where they can be tested.
-// The model that turns them into sentences never computes anything: it
-// selects the two or three worth saying and says them in a human voice.
+// carrying -- as NUMBERS, deterministically, here, where they can be
+// tested. The edge function turns those numbers into sentences from its
+// own fixed templates, and the model that chooses between the sentences
+// never computes anything.
 //
-// That split is the whole design. A model asked to compute gets arithmetic
-// wrong quietly; a model asked to choose and phrase cannot get a number
-// wrong, because it was handed the number.
+// WHY NUMBERS AND NOT SENTENCES
+//
+// This file used to emit finished prose, which the function passed
+// straight into the prompt. That prose contained free text the bowler had
+// typed -- ball names, league names -- and prose that reaches a prompt is
+// prose an attacker can write. Sanitising it only ever narrows the hole.
+//
+// So the wire format carries no sentences at all: an id from a closed
+// set, and numbers. The server owns every word of structure, which means
+// a caller who skips the client entirely cannot put a sentence in front
+// of the model -- there is no field for one. See
+// supabase/functions/nightcap/render.ts, which is the only place these
+// become English.
 //
 // WHAT THIS IS NOT
 //
@@ -28,10 +39,6 @@
 // invented for this -- and behind a second gate of eight prior nights,
 // because a rate computed from two long nights is not a season.
 //
-// Nothing here is ever phrased as a trend unless a supplied fact carries
-// both numbers and both samples. The model is forbidden to subtract them
-// itself.
-//
 // It is not diagnosis either. "Your leaves were on the right" is an
 // observation. "You were coming up light" is a claim about a delivery
 // nobody watched -- unless the bowler recorded the miss themselves, in
@@ -40,7 +47,7 @@
 
 import {
   isSplit, isSinglePinLeave, isCornerPinLeave,
-  leaveSide, splitKey, splitName,
+  leaveSide, splitKey,
 } from "./splits.js";
 import { SAMPLE_THRESHOLDS, meetsThreshold } from "./insightGating.js";
 
@@ -50,8 +57,8 @@ import { SAMPLE_THRESHOLDS, meetsThreshold } from "./insightGating.js";
 // trendOverTime is the existing table's own answer to "how many sessions
 // before a claim spanning sessions is fair", and that is exactly the
 // claim a season comparison makes. Reused rather than re-decided: a
-// second opinion on the same question, held in a second place, is how
-// two numbers end up disagreeing.
+// second opinion on the same question, held in a second place, is how two
+// numbers end up disagreeing.
 export const MIN_NIGHTS_FOR_SEASON = SAMPLE_THRESHOLDS.trendOverTime;
 
 // Null ELEMENTS, not just a null list -- the convention every domain
@@ -73,6 +80,34 @@ const pct = (n, d) => (d ? Math.round((n / d) * 100) : null);
 // floor: below that, "two of your three leaves were on the right" is
 // noise dressed as a finding, and saying nothing is the honest output.
 export const MIN_FIRST_BALLS = 10;
+
+// The one piece of bowler-typed text that still travels.
+//
+// A ball name has to, or the nightcap can only say "your other ball",
+// which is no use to someone with five in the bag. Everything else on the
+// wire is a number or a value from a closed set.
+//
+// So it is narrowed as far as it can go without becoming useless:
+// letters, digits, spaces and the handful of marks that appear in real
+// ball names ("Phaze II", "IQ Tour Emerald", "Hy-Road"), capped at forty
+// characters. No newlines, no colons, no brackets, nothing that could end
+// a sentence and start an instruction. The server applies the identical
+// rule rather than trusting this one; this is here so the client never
+// sends something the server would drop.
+export const MAX_BALL_NAME = 40;
+export const MAX_BALL_WORDS = 5;
+
+export function safeBallName(name) {
+  return String(name ?? "")
+    .replace(/[^A-Za-z0-9 .'&+/-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, MAX_BALL_NAME)
+    .split(" ")
+    .slice(0, MAX_BALL_WORDS)
+    .join(" ")
+    .trim();
+}
 
 // Tallies a list of strings into [{value, count}], commonest first.
 function tally(values) {
@@ -142,10 +177,10 @@ export function nightShots(shots, { bowler, league, date }) {
 
 // ── The facts ───────────────────────────────────────────────────────────
 //
-// Each fact is a complete English sentence carrying its own numbers and
-// its own sample. That shape is deliberate: the model is given prose it
-// may select from and rephrase, never fields it must assemble. There is
-// no arrangement of these strings that produces a wrong number.
+// Each fact is an id from a closed set plus the numbers that go with it.
+// The id chooses the server's sentence; the numbers fill its blanks.
+// There is no field here that becomes structure, which is the whole point
+// -- see the header.
 //
 // A fact that isn't interesting is not emitted. "0 splits tonight" is
 // true and worthless, and a list padded with non-events teaches the model
@@ -163,25 +198,24 @@ export function nightcapFacts(shots, {
   if (firsts.length < MIN_FIRST_BALLS) return out;
   out.enough = true;
 
-  const add = (id, text) => { if (text) out.facts.push({ id, text }); };
+  const hand = leftHanded ? "left" : "right";
+  const add = (id, data) => out.facts.push({ id, ...data });
 
   // ── The night, in scores ──────────────────────────────────────────────
   const played = (Array.isArray(scores) ? scores : []).filter(v => typeof v === "number");
   if (played.length) {
     const total = played.reduce((a, b) => a + b, 0);
     const avg = Math.round(total / played.length);
-    add("series", `Scores tonight: ${played.join(", ")} — ${total} series, ${avg} average over ${played.length} game${played.length === 1 ? "" : "s"}.`);
+    add("series", { scores: played, total, avg, games: played.length });
     if (typeof priorAverage === "number") {
-      const diff = avg - Math.round(priorAverage);
-      add("vsAverage", diff === 0
-        ? `That is exactly their league average of ${Math.round(priorAverage)}.`
-        : `That is ${Math.abs(diff)} ${diff > 0 ? "above" : "below"} their league average of ${Math.round(priorAverage)}.`);
+      const seasonAvg = Math.round(priorAverage);
+      add("vsAverage", { avg, seasonAvg, diff: avg - seasonAvg });
     }
   }
 
   // ── Strikes and what the first ball left ──────────────────────────────
   const strikes = firsts.filter(s => s.result === "Strike").length;
-  add("strikes", `${strikes} strikes on ${firsts.length} first balls (${pct(strikes, firsts.length)}%).`);
+  add("strikes", { strikes, firstBalls: firsts.length, pct: pct(strikes, firsts.length) });
 
   // ── Spares ────────────────────────────────────────────────────────────
   // Splits excluded from the conversion rate, matching computeSessionStats
@@ -190,29 +224,39 @@ export function nightcapFacts(shots, {
   const spareAttempts = mine.filter(s => s.result !== "Strike" && clean(s.spareMade) !== "" && !isSplit(s));
   const sparesMade = spareAttempts.filter(s => clean(s.spareMade) === "Yes");
   if (spareAttempts.length) {
-    add("spares", `${sparesMade.length} of ${spareAttempts.length} makeable spares converted (${pct(sparesMade.length, spareAttempts.length)}%), splits excluded.`);
+    add("spares", {
+      made: sparesMade.length, attempts: spareAttempts.length,
+      pct: pct(sparesMade.length, spareAttempts.length),
+    });
   }
 
   const singles = firsts.filter(isSinglePinLeave);
   const singlesMade = singles.filter(s => clean(s.spareMade) === "Yes");
   if (singles.length >= 3) {
-    add("singlePins", `${singlesMade.length} of ${singles.length} single-pin spares made.`);
+    add("singlePins", { made: singlesMade.length, attempts: singles.length });
   }
 
   const corners = firsts.filter(s => isCornerPinLeave(s, leftHanded));
   const cornersMade = corners.filter(s => clean(s.spareMade) === "Yes");
   if (corners.length >= 2) {
-    const pin = leftHanded ? "7" : "10";
-    add("cornerPin", `The ${pin} pin was left ${corners.length} times and made ${cornersMade.length} of them.`);
+    add("cornerPin", { pin: leftHanded ? 7 : 10, left: corners.length, made: cornersMade.length });
   }
 
   // ── Splits ────────────────────────────────────────────────────────────
+  //
+  // Sent as pin keys ("7-10", "3-10"), not names. splitName would put a
+  // free-text table on the wire for no gain: "a 3-10" reads at least as
+  // well as "a Baby split" and is clearer to anyone who doesn't use the
+  // nickname. The server validates the shape as digits and dashes, so
+  // there is nothing here that could be anything else.
   const splits = mine.filter(isSplit);
   if (splits.length) {
     const made = splits.filter(s => clean(s.spareMade) === "Yes").length;
-    const named = tally(splits.map(s => splitName(splitKey(s)))).slice(0, 3)
-      .map(t => t.count > 1 ? `${t.value} (${t.count})` : t.value);
-    add("splits", `${splits.length} split${splits.length === 1 ? "" : "s"} tonight, ${made} converted${named.length ? ` — ${named.join(", ")}` : ""}.`);
+    const types = tally(splits.map(s => splitKey(s)))
+      .filter(t => /^\d{1,2}(-\d{1,2})*$/.test(t.value))
+      .slice(0, 3)
+      .map(t => ({ key: t.value, count: t.count }));
+    add("splits", { count: splits.length, converted: made, types });
   }
 
   // ── What the opens cost, in pins ──────────────────────────────────────
@@ -222,7 +266,7 @@ export function nightcapFacts(shots, {
   // one screen that disagree because they were derived twice is worse
   // than either number being absent.
   if (typeof pinsLeftOnLane === "number" && pinsLeftOnLane > 0) {
-    add("pinsLeft", `${pinsLeftOnLane} pins were left on the lane: that is the gap between the series bowled and what it would have been with every makeable spare converted.`);
+    add("pinsLeft", { pins: Math.round(pinsLeftOnLane) });
   }
 
   // ── Which side the leaves were on ─────────────────────────────────────
@@ -238,23 +282,22 @@ export function nightcapFacts(shots, {
     const left = sided.filter(x => x.side === "left").length;
     const right = sided.filter(x => x.side === "right").length;
     const both = sided.filter(x => x.side === "both").length;
-    const parts = [];
-    if (left) parts.push(`${left} entirely on the left`);
-    if (right) parts.push(`${right} entirely on the right`);
-    if (both) parts.push(`${both} across both sides`);
-    add("leaveSide", `Of ${sided.length} leaves with a side to them: ${parts.join(", ")}. The bowler is ${leftHanded ? "left" : "right"}-handed.`);
+    add("leaveSide", { total: sided.length, left, right, both, hand });
 
     // Where in the night the skew sat. This is the part that supports
     // "earlier next time" -- a skew that only appears in game three is a
     // different night from one that was there from the first frame.
     if (games.length > 1 && (left >= 3 || right >= 3)) {
-      const perGame = games.map(g => {
-        const inGame = sided.filter(x => clean(x.s.game) === g);
-        const l = inGame.filter(x => x.side === "left").length;
-        const r = inGame.filter(x => x.side === "right").length;
-        return `G${g}: ${l}L/${r}R`;
+      add("leaveSideByGame", {
+        games: games.slice(0, 12).map(g => {
+          const inGame = sided.filter(x => clean(x.s.game) === g);
+          return {
+            game: Number(g) || 0,
+            left: inGame.filter(x => x.side === "left").length,
+            right: inGame.filter(x => x.side === "right").length,
+          };
+        }),
       });
-      add("leaveSideByGame", `Left/right leaves by game — ${perGame.join(", ")}.`);
     }
   }
 
@@ -263,17 +306,26 @@ export function nightcapFacts(shots, {
   // The only causal data in the record. Everything else here is an
   // outcome; this is the bowler's own account of what they did, so it is
   // the one place a nudge can stop being conditional.
+  //
+  // Values come from the MISSES list and the server checks them against
+  // its own copy of it, so a hand-edited record cannot put a word here
+  // that the app never offered.
   const misses = tally(mine.flatMap(s => Array.isArray(s.miss) ? s.miss : s.miss ? [s.miss] : []));
   const missTotal = misses.reduce((a, m) => a + m.count, 0);
   if (missTotal >= 3) {
-    add("misses", `Misses the bowler logged themselves: ${misses.map(m => `${m.value} ${m.count}`).join(", ")} (${missTotal} recorded).`);
+    add("misses", { total: missTotal, items: misses.slice(0, 5) });
   }
 
   // ── How the strikes came ──────────────────────────────────────────────
+  //
+  // Stored values stay canonical for both hands ("Trip 4" is recorded for
+  // a lefty who tapped "Trip 6"), which is why the hand travels with
+  // them: the server mirrors them back for display exactly as the UI
+  // does, rather than the two disagreeing about what the bowler saw.
   const shapes = tally(firsts.map(s => s.strikeDescription));
   const shapeTotal = shapes.reduce((a, m) => a + m.count, 0);
   if (shapeTotal >= 3) {
-    add("strikeShape", `Strike hits described: ${shapes.map(m => `${m.value} ${m.count}`).join(", ")} (${shapeTotal} described).`);
+    add("strikeShape", { total: shapeTotal, hand, items: shapes.slice(0, 5) });
   }
 
   // ── Ball by ball ──────────────────────────────────────────────────────
@@ -283,37 +335,39 @@ export function nightcapFacts(shots, {
   // becomes "your spare ball isn't striking".
   const byBall = {};
   for (const s of firsts) {
-    const b = clean(s.ball);
+    const b = safeBallName(s.ball);
     if (!b) continue;
-    const e = byBall[b] || (byBall[b] = { ball: b, firsts: 0, strikes: 0 });
-    e.firsts += 1;
+    const e = byBall[b] || (byBall[b] = { ball: b, firstBalls: 0, strikes: 0 });
+    e.firstBalls += 1;
     if (s.result === "Strike") e.strikes += 1;
   }
-  const comparable = Object.values(byBall).filter(b => b.firsts >= 6);
+  const comparable = Object.values(byBall).filter(b => b.firstBalls >= 6);
   if (comparable.length >= 2) {
-    const line = comparable
-      .sort((a, b) => b.firsts - a.firsts)
-      .map(b => `${b.ball}: ${b.strikes} strikes on ${b.firsts} first balls`)
-      .join("; ");
-    add("byBall", `Balls thrown tonight — ${line}. These are one night's samples and small.`);
+    add("byBall", {
+      balls: comparable.sort((a, b) => b.firstBalls - a.firstBalls).slice(0, 4),
+    });
   }
 
   // ── Game by game ──────────────────────────────────────────────────────
   if (games.length > 1) {
-    const line = games.map(g => {
-      const inGame = firsts.filter(s => clean(s.game) === g);
-      const st = inGame.filter(s => s.result === "Strike").length;
-      return `G${g}: ${st} strikes on ${inGame.length} first balls`;
-    }).join("; ");
-    add("byGame", `Strikes by game — ${line}.`);
+    add("byGame", {
+      games: games.slice(0, 12).map(g => {
+        const inGame = firsts.filter(s => clean(s.game) === g);
+        return {
+          game: Number(g) || 0,
+          strikes: inGame.filter(s => s.result === "Strike").length,
+          firstBalls: inGame.length,
+        };
+      }),
+    });
   }
 
   // ── The season this night sits in ─────────────────────────────────────
   //
-  // Only where the history actually supports it. Each line carries BOTH
-  // figures and BOTH samples, because that is what makes the comparison a
-  // fact the model may repeat rather than arithmetic it has to do -- and
-  // arithmetic is the one thing it is not allowed to do here.
+  // Only where the history actually supports it. Each fact carries BOTH
+  // figures and BOTH samples, because that is what lets the server state
+  // the comparison outright rather than leaving arithmetic to the model
+  // -- and arithmetic is the one thing it is not allowed to do here.
   //
   // Gated twice: eight prior nights in this league, and then the same
   // per-statistic threshold Insights uses. A bowler four weeks into a
@@ -325,20 +379,33 @@ export function nightcapFacts(shots, {
 
   if (out.hasSeason) {
     if (meetsThreshold("overallStrikeRate", prior.firstBalls)) {
-      add("seasonStrikes", `Season so far in this league: ${pct(prior.strikes, prior.firstBalls)}% strikes on ${prior.firstBalls} first balls across ${prior.nights} nights. Tonight was ${pct(strikes, firsts.length)}% on ${firsts.length}.`);
+      add("seasonStrikes", {
+        seasonPct: pct(prior.strikes, prior.firstBalls), seasonFirstBalls: prior.firstBalls,
+        seasonNights: prior.nights,
+        tonightPct: pct(strikes, firsts.length), tonightFirstBalls: firsts.length,
+      });
     }
     if (spareAttempts.length && meetsThreshold("spareConversion", prior.spareAttempts)) {
-      add("seasonSpares", `Season spare conversion: ${pct(prior.sparesMade, prior.spareAttempts)}% on ${prior.spareAttempts} attempts. Tonight was ${pct(sparesMade.length, spareAttempts.length)}% on ${spareAttempts.length}.`);
+      add("seasonSpares", {
+        seasonPct: pct(prior.sparesMade, prior.spareAttempts), seasonAttempts: prior.spareAttempts,
+        tonightPct: pct(sparesMade.length, spareAttempts.length), tonightAttempts: spareAttempts.length,
+      });
     }
     if (singles.length >= 3 && meetsThreshold("singlePinSpares", prior.singles)) {
-      add("seasonSinglePins", `Season single-pin spares: ${pct(prior.singlesMade, prior.singles)}% on ${prior.singles}. Tonight was ${pct(singlesMade.length, singles.length)}% on ${singles.length}.`);
+      add("seasonSinglePins", {
+        seasonPct: pct(prior.singlesMade, prior.singles), seasonAttempts: prior.singles,
+        tonightPct: pct(singlesMade.length, singles.length), tonightAttempts: singles.length,
+      });
     }
     if (corners.length >= 2 && meetsThreshold("cornerPinSpares", prior.corners)) {
-      const pin = leftHanded ? "7" : "10";
-      add("seasonCornerPin", `Season ${pin} pin: left ${prior.corners} times, made ${pct(prior.cornersMade, prior.corners)}%. Tonight: left ${corners.length}, made ${cornersMade.length}.`);
+      add("seasonCornerPin", {
+        pin: leftHanded ? 7 : 10,
+        seasonLeft: prior.corners, seasonPct: pct(prior.cornersMade, prior.corners),
+        tonightLeft: corners.length, tonightMade: cornersMade.length,
+      });
     }
     // Where the leaves usually sit, against where they sat tonight. The
-    // most useful season line in here, and the one the scoresheet has
+    // most useful season fact in here, and the one the scoresheet has
     // never been able to show: a bowler whose leaves are normally even
     // and were all on one side tonight learns something real, and one
     // whose leaves are always on that side learns that tonight was
@@ -350,7 +417,12 @@ export function nightcapFacts(shots, {
     if (sided.length >= 4 && meetsThreshold("specificLeave", prior.sided)) {
       const tl = sided.filter(x => x.side === "left").length;
       const tr = sided.filter(x => x.side === "right").length;
-      add("seasonLeaveSide", `Season leaves with a side: ${pct(prior.sidedLeft, prior.sided)}% left / ${pct(prior.sidedRight, prior.sided)}% right on ${prior.sided} leaves. Tonight: ${pct(tl, sided.length)}% left / ${pct(tr, sided.length)}% right on ${sided.length}.`);
+      add("seasonLeaveSide", {
+        seasonLeftPct: pct(prior.sidedLeft, prior.sided), seasonRightPct: pct(prior.sidedRight, prior.sided),
+        seasonTotal: prior.sided,
+        tonightLeftPct: pct(tl, sided.length), tonightRightPct: pct(tr, sided.length),
+        tonightTotal: sided.length,
+      });
     }
   }
 
@@ -369,43 +441,26 @@ export function nightcapFacts(shots, {
 // agree exactly have no margin, and the first fact added later would be
 // refused by a check nobody remembered was there.
 export const MAX_FACTS = 15;
-export const MAX_FACT_CHARS = 240;
 export const MAX_PAYLOAD_CHARS = 3000;
 
-// One line, no control characters, bounded length.
-//
-// Every fact this file produces is already a single sentence, so this
-// changes nothing about normal output. It exists because a fact is prose
-// that ends up inside a prompt, and prose that reaches a prompt with
-// newlines in it is the shape every prompt-injection attempt takes. A
-// bowler's ball name and league name both reach these strings and both
-// are free text they typed.
-//
-// The server checks the same thing again rather than trusting this. This
-// is here so the client never SENDS something the server would refuse --
-// a rejection the bowler could do nothing about.
-function oneLine(text) {
-  return String(text ?? "")
-    // eslint-disable-next-line no-control-regex
-    .replace(/[\u0000-\u001f\u007f]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, MAX_FACT_CHARS);
-}
-
-// A stable 32-bit hash of the facts, so the cache can tell one night's
-// nightcap from the same night re-computed after an edit.
+// A stable hash of the facts, so the cache can tell one night's nightcap
+// from the same night recomputed after an edit.
 //
 // Not for security -- it is a change detector. Without it a bowler who
 // fixed a mis-logged frame would keep seeing the nightcap written from
 // the wrong frame, with no way to know it was stale and no way to clear
-// it. FNV-1a: small, no dependency, and good enough to notice a
-// character changing.
+// it. FNV-1a over UTF-8 bytes: small, no dependency, and identical on
+// every platform regardless of how a name is encoded.
 export function factsFingerprint(facts) {
   let h = 0x811c9dc5;
-  const s = (Array.isArray(facts) ? facts : []).join("\u0001");
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
+  const text = JSON.stringify(Array.isArray(facts) ? facts : []);
+  // TextEncoder rather than per-character codes: it hashes the bytes that
+  // actually travel, so two devices cannot disagree about a name with an
+  // accent in it -- and it keeps this loop free of the string-method call
+  // that the data-flow audit reads as a field nothing ever writes.
+  const bytes = new TextEncoder().encode(text);
+  for (let i = 0; i < bytes.length; i++) {
+    h ^= bytes[i];
     h = Math.imul(h, 0x01000193) >>> 0;
   }
   return h.toString(36);
@@ -415,15 +470,15 @@ export function nightcapPayload(shots, opts = {}) {
   const computed = nightcapFacts(shots, opts);
   if (!computed.enough) return null;
 
-  // Season lines are kept whatever else goes.
+  // Season facts are kept whatever else goes.
   //
   // They are computed last and so sit at the end of the list, which meant
   // a flat slice dropped them first -- and dropped them hardest for the
   // bowler with the most history, whose night produces the most other
   // facts too. That is exactly backwards: a season figure took months to
   // earn and is the only thing here that a single night cannot say.
-  const season = computed.facts.filter(f => f.id.startsWith("season")).map(f => oneLine(f.text));
-  const tonight = computed.facts.filter(f => !f.id.startsWith("season")).map(f => oneLine(f.text));
+  const season = computed.facts.filter(f => f.id.startsWith("season"));
+  const tonight = computed.facts.filter(f => !f.id.startsWith("season"));
   const room = Math.max(0, MAX_FACTS - season.length);
 
   const payload = {
