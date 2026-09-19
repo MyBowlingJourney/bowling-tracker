@@ -1201,17 +1201,21 @@ export default function BowlingTracker(){
   // one from the client, so this is read-only by construction. A missing
   // row is normal for a free bowler, not an error.
   //
-  // NOTE: billing_period is deliberately NOT in the select until that
-  // column exists -- selecting a column that is not there fails the
-  // whole query. Add it here in the same commit as the migration, or
-  // shouldOfferAnnual() can never fire.
+  // billing_period is selected now that the column exists (verified
+  // against the live schema: text, nullable, CHECK in ('month','year')).
+  // Without it shouldOfferAnnual() reads undefined and answers false, so
+  // the annual nudge could never fire.
+  //
+  // Anything added here must exist in the table FIRST. Selecting a
+  // column that is not there fails the whole query, which would leave
+  // every bowler reading as unsubscribed rather than failing loudly.
   useEffect(()=>{
     if(!user?.id){setEntitlement(null);return;}
     let live=true;
     (async()=>{
       try{
         const{data,error}=await supabase.from("entitlements")
-          .select("plan,status,current_period_end,trial_end,kept_league_id,created_at")
+          .select("plan,status,billing_period,current_period_end,trial_end,kept_league_id,created_at")
           .eq("user_id",user.id).maybeSingle();
         if(!live)return;
         if(error){console.error("entitlement read failed:",error.message);return;}
