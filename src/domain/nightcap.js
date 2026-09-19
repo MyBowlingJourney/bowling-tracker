@@ -16,10 +16,21 @@
 //
 // WHAT THIS IS NOT
 //
-// It is not trend-spotting. One night is three games and about thirty
-// frames -- nowhere near enough to support "you tend to" about anything,
-// and Insights already does the across-seasons work with proper sample
-// gating. Every fact here is scoped to tonight and phrased as tonight.
+// It is not trend-spotting FROM ONE NIGHT. Three games and about thirty
+// frames cannot support "you tend to" about anything, and a model given
+// only tonight will still find a pattern in it if nothing stops it.
+//
+// The season is a different matter. Where this bowler has enough history
+// in this league, tonight is stated ALONGSIDE the season figure and its
+// sample, so a comparison is available to the model as a fact rather than
+// as an inference it had to make. Those facts are gated by the same
+// SAMPLE_THRESHOLDS table Insights uses -- no new thresholds were
+// invented for this -- and behind a second gate of eight prior nights,
+// because a rate computed from two long nights is not a season.
+//
+// Nothing here is ever phrased as a trend unless a supplied fact carries
+// both numbers and both samples. The model is forbidden to subtract them
+// itself.
 //
 // It is not diagnosis either. "Your leaves were on the right" is an
 // observation. "You were coming up light" is a claim about a delivery
@@ -31,6 +42,17 @@ import {
   isSplit, isSinglePinLeave, isCornerPinLeave,
   leaveSide, splitKey, splitName,
 } from "./splits.js";
+import { SAMPLE_THRESHOLDS, meetsThreshold } from "./insightGating.js";
+
+// Nights of history in this league before a season figure is offered at
+// all, on top of whatever per-statistic threshold applies.
+//
+// trendOverTime is the existing table's own answer to "how many sessions
+// before a claim spanning sessions is fair", and that is exactly the
+// claim a season comparison makes. Reused rather than re-decided: a
+// second opinion on the same question, held in a second place, is how
+// two numbers end up disagreeing.
+export const MIN_NIGHTS_FOR_SEASON = SAMPLE_THRESHOLDS.trendOverTime;
 
 // Null ELEMENTS, not just a null list -- the convention every domain
 // function here follows. A partial sync puts a null in the array and the
@@ -61,6 +83,48 @@ function tally(values) {
   return [...counts.entries()]
     .map(([value, count]) => ({ value, count }))
     .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value));
+}
+
+// Everything before tonight, for this bowler in this league.
+//
+// Excludes tonight explicitly rather than filtering on "< date": a night
+// logged out of order, or a make-up game entered later, would otherwise
+// be silently dropped from its own season or counted into it twice.
+export function seasonShots(shots, { bowler, league, date }) {
+  return rows(shots).filter(s =>
+    clean(s.bowler) === clean(bowler) &&
+    clean(s.league) === clean(league) &&
+    clean(s.date) && clean(s.date) !== clean(date));
+}
+
+// One set of rates, computed one way.
+//
+// Tonight and the season go through this same function, so a comparison
+// between them is a comparison of like with like. Two parallel
+// implementations of "spare conversion" drift, and the first anyone knows
+// of it is a card saying tonight beat a season average it was never
+// measured against.
+export function rateSet(shotList, leftHanded = false) {
+  const list = rows(shotList);
+  const firsts = list.filter(isFirstBall);
+  const spareAttempts = list.filter(s => s.result !== "Strike" && clean(s.spareMade) !== "" && !isSplit(s));
+  const singles = firsts.filter(isSinglePinLeave);
+  const corners = firsts.filter(s => isCornerPinLeave(s, leftHanded));
+  const sided = firsts.map(leaveSide).filter(v => v && v !== "center");
+  return {
+    nights: [...new Set(list.map(s => clean(s.date)).filter(Boolean))].length,
+    firstBalls: firsts.length,
+    strikes: firsts.filter(s => s.result === "Strike").length,
+    spareAttempts: spareAttempts.length,
+    sparesMade: spareAttempts.filter(s => clean(s.spareMade) === "Yes").length,
+    singles: singles.length,
+    singlesMade: singles.filter(s => clean(s.spareMade) === "Yes").length,
+    corners: corners.length,
+    cornersMade: corners.filter(s => clean(s.spareMade) === "Yes").length,
+    sided: sided.length,
+    sidedLeft: sided.filter(v => v === "left").length,
+    sidedRight: sided.filter(v => v === "right").length,
+  };
 }
 
 // The night's shots for one bowler, in one league, on one date.
@@ -244,6 +308,52 @@ export function nightcapFacts(shots, {
     add("byGame", `Strikes by game — ${line}.`);
   }
 
+  // ── The season this night sits in ─────────────────────────────────────
+  //
+  // Only where the history actually supports it. Each line carries BOTH
+  // figures and BOTH samples, because that is what makes the comparison a
+  // fact the model may repeat rather than arithmetic it has to do -- and
+  // arithmetic is the one thing it is not allowed to do here.
+  //
+  // Gated twice: eight prior nights in this league, and then the same
+  // per-statistic threshold Insights uses. A bowler four weeks into a
+  // season gets tonight and nothing else, which is correct -- there is no
+  // season yet to compare against.
+  const prior = rateSet(seasonShots(shots, { bowler, league, date }), leftHanded);
+  out.seasonNights = prior.nights;
+  out.hasSeason = prior.nights >= MIN_NIGHTS_FOR_SEASON;
+
+  if (out.hasSeason) {
+    if (meetsThreshold("overallStrikeRate", prior.firstBalls)) {
+      add("seasonStrikes", `Season so far in this league: ${pct(prior.strikes, prior.firstBalls)}% strikes on ${prior.firstBalls} first balls across ${prior.nights} nights. Tonight was ${pct(strikes, firsts.length)}% on ${firsts.length}.`);
+    }
+    if (spareAttempts.length && meetsThreshold("spareConversion", prior.spareAttempts)) {
+      add("seasonSpares", `Season spare conversion: ${pct(prior.sparesMade, prior.spareAttempts)}% on ${prior.spareAttempts} attempts. Tonight was ${pct(sparesMade.length, spareAttempts.length)}% on ${spareAttempts.length}.`);
+    }
+    if (singles.length >= 3 && meetsThreshold("singlePinSpares", prior.singles)) {
+      add("seasonSinglePins", `Season single-pin spares: ${pct(prior.singlesMade, prior.singles)}% on ${prior.singles}. Tonight was ${pct(singlesMade.length, singles.length)}% on ${singles.length}.`);
+    }
+    if (corners.length >= 2 && meetsThreshold("cornerPinSpares", prior.corners)) {
+      const pin = leftHanded ? "7" : "10";
+      add("seasonCornerPin", `Season ${pin} pin: left ${prior.corners} times, made ${pct(prior.cornersMade, prior.corners)}%. Tonight: left ${corners.length}, made ${cornersMade.length}.`);
+    }
+    // Where the leaves usually sit, against where they sat tonight. The
+    // most useful season line in here, and the one the scoresheet has
+    // never been able to show: a bowler whose leaves are normally even
+    // and were all on one side tonight learns something real, and one
+    // whose leaves are always on that side learns that tonight was
+    // ordinary -- which is equally worth knowing and saves a pointless
+    // adjustment.
+    //
+    // Gated on specificLeave: this is a rate at a class of leave, which
+    // is what that threshold is for.
+    if (sided.length >= 4 && meetsThreshold("specificLeave", prior.sided)) {
+      const tl = sided.filter(x => x.side === "left").length;
+      const tr = sided.filter(x => x.side === "right").length;
+      add("seasonLeaveSide", `Season leaves with a side: ${pct(prior.sidedLeft, prior.sided)}% left / ${pct(prior.sidedRight, prior.sided)}% right on ${prior.sided} leaves. Tonight: ${pct(tl, sided.length)}% left / ${pct(tr, sided.length)}% right on ${sided.length}.`);
+    }
+  }
+
   return out;
 }
 
@@ -251,23 +361,44 @@ export function nightcapFacts(shots, {
 //
 // Capped, because the far end is billed per token and because a payload
 // that can grow without limit is a payload someone can grow on purpose.
-// The cap is generous against a real night -- twelve facts of a hundred
-// characters -- so trimming means something has gone wrong, not that a
-// bowler had a long night.
-export const MAX_FACTS = 12;
-export const MAX_PAYLOAD_CHARS = 2400;
+// The cap is generous against a real night, so trimming means something
+// has gone wrong rather than that a bowler had a long night.
+//
+// The edge function refuses more than 16 facts. This sits below that on
+// purpose: a client and a server that agree exactly have no margin, and
+// the first fact added later would be rejected by a check nobody
+// remembered was there.
+export const MAX_FACTS = 15;
+export const MAX_PAYLOAD_CHARS = 3000;
 
 export function nightcapPayload(shots, opts = {}) {
   const computed = nightcapFacts(shots, opts);
   if (!computed.enough) return null;
-  const facts = computed.facts.slice(0, MAX_FACTS).map(f => f.text);
+
+  // Season lines are kept whatever else goes.
+  //
+  // They are computed last and so sit at the end of the list, which meant
+  // a flat slice dropped them first -- and dropped them hardest for the
+  // bowler with the most history, whose night produces the most other
+  // facts too. That is exactly backwards: a season figure took months to
+  // earn and is the only thing here that a single night cannot say.
+  const season = computed.facts.filter(f => f.id.startsWith("season")).map(f => f.text);
+  const tonight = computed.facts.filter(f => !f.id.startsWith("season")).map(f => f.text);
+  const room = Math.max(0, MAX_FACTS - season.length);
+
   const payload = {
     firstBalls: computed.firstBalls,
     games: computed.games,
-    facts,
+    // Whether any fact below carries a season figure. The prompt reads
+    // this to know whether comparison language is available at all -- it
+    // is not allowed to reach for it on a night that has none.
+    hasSeason: season.length > 0,
+    seasonNights: computed.seasonNights ?? 0,
+    facts: [...tonight.slice(0, room), ...season],
   };
+
   if (JSON.stringify(payload).length > MAX_PAYLOAD_CHARS) {
-    payload.facts = payload.facts.slice(0, 8);
+    payload.facts = [...tonight.slice(0, Math.max(0, 8 - season.length)), ...season];
   }
   return payload;
 }

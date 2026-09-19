@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { nightcapFacts, nightcapPayload, nightShots, MIN_FIRST_BALLS } from './nightcap.js';
+import { nightcapFacts, nightcapPayload, nightShots, seasonShots, rateSet,
+  MIN_FIRST_BALLS, MIN_NIGHTS_FOR_SEASON, MAX_FACTS } from './nightcap.js';
 
 const NIGHT = { bowler: 'Ryan', league: 'Tuesday House Shot', date: '2026-01-06' };
 
@@ -165,6 +166,86 @@ describe('nightcapFacts', () => {
   });
 });
 
+// A season of nights before tonight: n dates, each a full-ish night, in
+// the same league. Leaves sit on the LEFT so tonight's right-side run is
+// visibly different rather than more of the same.
+function season(nights = MIN_NIGHTS_FOR_SEASON + 1) {
+  const out = [];
+  for (let d = 0; d < nights; d++) {
+    const date = `2025-11-${String(d + 1).padStart(2, '0')}`;
+    for (let i = 0; i < 30; i++) {
+      const frame = String((i % 10) + 1), game = String(Math.floor(i / 10) + 1);
+      out.push(i % 3 === 0
+        ? { ...leave(['4'], { spareMade: 'Yes' }), date, game, frame, id: `s${d}-${i}` }
+        : { ...ball(), date, game, frame, id: `s${d}-${i}` });
+    }
+  }
+  return out;
+}
+
+describe('the season a night sits in', () => {
+  it('offers nothing until there are enough nights behind it', () => {
+    const r = nightcapFacts([...filler(30), ...season(MIN_NIGHTS_FOR_SEASON - 1)], NIGHT);
+    expect(r.hasSeason).toBe(false);
+    expect(r.facts.some(f => f.id.startsWith('season'))).toBe(false);
+  });
+
+  it('compares tonight with the season once the history is there', () => {
+    const r = nightcapFacts([...filler(30), ...season()], NIGHT);
+    expect(r.hasSeason).toBe(true);
+    // Both figures and both samples in one sentence -- the model must
+    // never be left to subtract them itself.
+    const t = textOf(r, 'seasonStrikes');
+    expect(t).toContain('Season so far in this league');
+    expect(t).toContain('Tonight was');
+    expect(t).toContain('nights');
+  });
+
+  it('counts nights, not sessions it was told about', () => {
+    const r = nightcapFacts([...filler(30), ...season(9)], NIGHT);
+    expect(r.seasonNights).toBe(9);
+  });
+
+  // The line the scoresheet has never been able to show.
+  it('says where the leaves usually sit against where they sat tonight', () => {
+    const shots = [...filler(20), ...Array.from({ length: 10 }, (_, i) =>
+      ({ ...leave(['10']), id: `t${i}`, frame: String((i % 10) + 1) })), ...season()];
+    const t = textOf(nightcapFacts(shots, NIGHT), 'seasonLeaveSide');
+    expect(t).toContain('Season leaves with a side');
+    expect(t).toContain('Tonight:');
+  });
+
+  it('holds a statistic back when the season has the nights but not the sample', () => {
+    // Nine nights, but every frame a strike, so there are no season spare
+    // attempts to compare against.
+    const thin = [];
+    for (let d = 0; d < 9; d++) for (let i = 0; i < 30; i++)
+      thin.push({ ...ball(), date: `2025-12-${String(d + 1).padStart(2, '0')}`, id: `x${d}-${i}` });
+    const r = nightcapFacts([...filler(20), leave(['4'], { spareMade: 'No' }), ...thin], NIGHT);
+    expect(r.hasSeason).toBe(true);
+    expect(textOf(r, 'seasonSpares')).toBeUndefined();
+  });
+});
+
+describe('seasonShots', () => {
+  it('excludes tonight by date rather than by ordering', () => {
+    const shots = [ball(), { ...ball(), date: '2025-12-01' }, { ...ball(), date: '2026-02-01' }];
+    // A make-up game entered with a LATER date is still not tonight.
+    expect(seasonShots(shots, NIGHT)).toHaveLength(2);
+  });
+});
+
+describe('rateSet', () => {
+  it('computes tonight and the season the same way', () => {
+    const r = rateSet([...filler(8), leave(['10'], { spareMade: 'Yes' }), leave(['4'], { spareMade: 'No' })]);
+    expect(r.firstBalls).toBe(10);
+    expect(r.strikes).toBe(8);
+    expect(r.spareAttempts).toBe(2);
+    expect(r.sparesMade).toBe(1);
+    expect(r.nights).toBe(1);
+  });
+});
+
 describe('nightcapPayload', () => {
   it('is null when there is nothing worth saying', () => {
     expect(nightcapPayload(filler(2), NIGHT)).toBe(null);
@@ -174,6 +255,16 @@ describe('nightcapPayload', () => {
     const p = nightcapPayload(filler(), NIGHT);
     expect(p.facts.every(f => typeof f === 'string')).toBe(true);
     expect(p.firstBalls).toBe(MIN_FIRST_BALLS);
+  });
+
+  it('keeps every season line when it has to trim', () => {
+    const shots = [...filler(30), ...season(12)];
+    const p = nightcapPayload(shots, { ...NIGHT, scores: [200, 210, 190], priorAverage: 180, pinsLeftOnLane: 40 });
+    const seasonLines = p.facts.filter(f => f.startsWith('Season'));
+    expect(seasonLines.length).toBeGreaterThan(0);
+    expect(p.facts.length).toBeLessThanOrEqual(MAX_FACTS);
+    // Every season line survived -- the trim came out of tonight.
+    expect(p.hasSeason).toBe(true);
   });
 
   it('stays inside its cap', () => {
