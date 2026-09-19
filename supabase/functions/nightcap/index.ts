@@ -36,7 +36,7 @@ const GEMINI_API_KEY = Deno.env.get("gemini_api_key");
 //
 // Overridable by secret so a bad night's output can be moved to a bigger
 // model without a redeploy.
-const MODEL = Deno.env.get("nightcap_gemini_model") || "gemini-3.5-flash-lite";
+const MODEL = Deno.env.get("NIGHTCAP_GEMINI_MODEL")?.trim() || "gemini-3.5-flash-lite";
 
 // Whether ball names reach the model at all.
 //
