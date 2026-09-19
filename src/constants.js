@@ -14,7 +14,16 @@ export const APP_NAME = "My Bowling Journey";
 // to a real domain is this one line -- but QR codes and images already
 // shared keep the old address forever, so the move is worth making before
 // there are many of them.
-export const APP_URL = "https://rynadon290.github.io/bowling-tracker/";
+//
+// Moved to the custom domain 18 Sep 2026, once it actually resolved and
+// served -- deliberately not before. A share card drawn against a domain
+// that isn't answering yet is a wrong address on someone else's phone,
+// and unlike a broken page it never corrects itself.
+//
+// No trailing slash, on purpose. shareCard.js prints this with the
+// protocol stripped, so a trailing slash would render as
+// "mybowlingjourney.com/" on every card. The QR code is happy either way.
+export const APP_URL = "https://mybowlingjourney.com";
 
 // Practice and casual nights aren't leagues, but every per-night record in
 // this app -- manual game scores, session recaps -- is keyed by
