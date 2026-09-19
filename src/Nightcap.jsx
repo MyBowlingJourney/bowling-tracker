@@ -8,30 +8,57 @@
 // tested. This component renders, calls, caches and handles failure. It
 // computes nothing.
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { C, S } from "./ui.jsx";
 import { supabase } from "./supabaseClient.js";
 import { nightcapPayload } from "./domain/nightcap.js";
 import { canPourNightcap, BILLING_LIVE } from "./domain/entitlements.js";
 
-// Cached per night, in the same user-scoped storage everything else uses.
+// Cached per night AND per set of facts.
 //
-// Not an optimisation. The results card remounts every time the bowler
-// leaves the Bowl tab and comes back, and an effect that fires on mount
-// would bill a Gemini call each time -- for a night whose facts cannot
-// have changed, since the session is already filed. One pour per night,
-// and "Pour another" is the only way to spend again.
-const cacheKey = (bowler, league, date) => `nightcap:${bowler}|${league}|${date}`;
+// The night alone is not enough. A bowler who pours the nightcap and then
+// fixes a mis-logged frame would keep being shown the version written
+// from the wrong frame, with no way to tell it was stale and no way to
+// clear it. The fingerprint changes when the facts do, so an edit is a
+// cache miss and a correction rather than a wrong card that persists.
+//
+// The cache is not an optimisation either. The results card remounts
+// every time the bowler leaves the Bowl tab and comes back, and an effect
+// that fired on every mount would bill a call each time for a night whose
+// facts have not changed.
+const cacheKey = (bowler, league, date, fingerprint) =>
+  `nightcap:${bowler}|${league}|${date}|${fingerprint}`;
+
+// A cached or returned nightcap, checked before it reaches the renderer.
+//
+// Cached JSON has been on a device across app versions and can be
+// anything by the time it comes back; a server response is validated at
+// the far end but arrives over a network. React throws if handed an
+// object where it expects a string, and that throw takes the whole
+// results screen with it -- so a malformed nightcap has to degrade to no
+// nightcap, not to a blank app.
+function sane(result) {
+  if (!result || typeof result !== "object") return null;
+  const str = (v, cap) => (typeof v === "string" && v.trim() ? v.trim().slice(0, cap) : null);
+  const notes = (Array.isArray(result.notes) ? result.notes : [])
+    .map(n => str(n, 400)).filter(Boolean).slice(0, 3);
+  if (!notes.length) return null;
+  return {
+    opener: str(result.opener, 300) || "",
+    notes,
+    nudge: str(result.nudge, 300),
+  };
+}
 
 async function readCache(key) {
   try {
     const row = await window.storage?.get(key);
-    return row?.value ? JSON.parse(row.value) : null;
+    return row?.value ? sane(JSON.parse(row.value)) : null;
   } catch { return null; }
 }
 
 async function writeCache(key, value) {
-  try { await window.storage?.set(key, JSON.stringify(value)); } catch { /* cache is a nicety */ }
+  try { await window.storage?.set(key, JSON.stringify(value)); } catch { /* the cache is a nicety */ }
 }
 
 export default function Nightcap({
@@ -45,28 +72,48 @@ export default function Nightcap({
   entitlement = null,
 }) {
   const [state, setState] = useState({ status: "idle", result: null, error: null });
-  // One pour per night, tracked by the night's own key rather than a bare
-  // boolean: scoring a second bowler on the same phone is a different
-  // night's worth of shots and deserves its own.
-  const attempted = useRef(null);
-  const key = `${bowler}|${league}|${date}`;
 
-  const payload = nightcapPayload(shots, {
-    bowler, league, date, leftHanded, scores, priorAverage, pinsLeftOnLane,
-  });
+  // Memoised, and this one matters.
+  //
+  // nightcapPayload walks the bowler's WHOLE history in this league to
+  // build the season comparison. This component renders inside the
+  // results block, which re-renders on every keystroke elsewhere in
+  // LogView -- so without this, a bowler four years into a league is
+  // re-scanning tens of thousands of shot rows on every character they
+  // type into a note, on a phone. That is not a slow card; that is the
+  // screen locking up.
+  //
+  // scores is an array prop with a fresh identity each render, so it is
+  // depended on by value rather than by reference.
+  const scoreKey = (Array.isArray(scores) ? scores : []).join(",");
+  const payload = useMemo(
+    () => nightcapPayload(shots, { bowler, league, date, leftHanded, scores, priorAverage, pinsLeftOnLane }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [shots, bowler, league, date, leftHanded, scoreKey, priorAverage, pinsLeftOnLane],
+  );
 
   const allowed = canPourNightcap(entitlement);
+  const ck = payload ? cacheKey(bowler, league, date, payload.fingerprint) : null;
+
+  // One attempt per distinct night-and-facts. Not a bare boolean:
+  // scoring a second bowler on the same phone is a different night's
+  // worth of shots and deserves its own pour.
+  const attempted = useRef(null);
+  // Stops a double tap, or a tap landing on top of the automatic pour,
+  // from buying the same nightcap twice.
+  const inFlight = useRef(false);
 
   async function pour(force = false) {
     // supabase is null under test, where every component is rendered to
     // prove it does not throw. Calling into it there would fail the
     // render rather than the network.
-    if (!supabase || !payload) return;
-    const ck = cacheKey(bowler, league, date);
+    if (!supabase || !payload || !ck) return;
+    if (inFlight.current) return;
     if (!force) {
       const cached = await readCache(ck);
       if (cached) { setState({ status: "done", result: cached, error: null }); return; }
     }
+    inFlight.current = true;
     setState({ status: "loading", result: null, error: null });
     try {
       const { data, error } = await supabase.functions.invoke("nightcap", { body: { payload } });
@@ -98,39 +145,54 @@ export default function Nightcap({
         setState({ status: "error", result: null, error: data.error });
         return;
       }
-      setState({ status: "done", result: data, error: null });
-      writeCache(ck, data);
+      const ok = sane(data);
+      if (!ok) {
+        setState({ status: "error", result: null,
+          error: "That nightcap came back in a shape the app couldn't read. Tap to try again." });
+        return;
+      }
+      setState({ status: "done", result: ok, error: null });
+      writeCache(ck, ok);
     } catch (e) {
       setState({ status: "error", result: null,
         error: e?.message || "Couldn't pour the nightcap just then. Tap to try again." });
+    } finally {
+      inFlight.current = false;
     }
   }
 
-  // Pours itself once the night is filed, and shows a cached pour
-  // instantly on every visit after that.
+  // Shows a cached pour instantly, and pours once the night is filed.
   //
-  // Deliberately NOT keyed on a scorecard that looks complete: mid-night,
-  // games one and two are scored and game three has not started, which
-  // looks finished and is not. A filed session is unambiguous.
+  // Keyed on the cache key, which carries both the night and the facts.
+  // So switching to another bowler, or correcting a frame, clears what is
+  // on screen rather than leaving one bowler looking at another's card --
+  // which is what happened when this was keyed on mount alone.
   //
-  // A failure is not retried automatically -- the button below is how a
-  // bowler asks again, and a component that re-requests on every mount
-  // after a server error spends money in a loop nobody can see.
+  // Deliberately NOT triggered by a scorecard that merely looks complete:
+  // mid-night, games one and two are scored and game three has not
+  // started, which looks finished and is not.
+  //
+  // A failure is not retried automatically. The button below is how a
+  // bowler asks again; a component that re-requested on every mount after
+  // a server error would spend money in a loop nobody can see.
   useEffect(() => {
-    if (!allowed || !payload) return;
-    if (attempted.current === key) return;
+    if (!ck || !allowed) return;
+    if (attempted.current === ck) return;
     let live = true;
+    // Whatever is on screen belongs to the previous night or the previous
+    // version of this one. Clear it before anything async starts.
+    setState({ status: "idle", result: null, error: null });
     (async () => {
-      const cached = await readCache(cacheKey(bowler, league, date));
+      const cached = await readCache(ck);
       if (!live) return;
-      if (cached) { attempted.current = key; setState({ status: "done", result: cached, error: null }); return; }
+      if (cached) { attempted.current = ck; setState({ status: "done", result: cached, error: null }); return; }
       if (!sessionEnded) return;
-      attempted.current = key;
+      attempted.current = ck;
       pour(true);
     })();
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionEnded, allowed, key, !!payload]);
+  }, [ck, allowed, sessionEnded]);
 
   // Nothing logged, or not enough of it. No card at all rather than an
   // empty one: a bowler who only kept score has not opted into any of
@@ -211,7 +273,7 @@ export default function Nightcap({
               {state.result.opener}
             </div>
           )}
-          {(Array.isArray(state.result.notes) ? state.result.notes : []).map((n, i) => (
+          {state.result.notes.map((n, i) => (
             <div key={i} style={{ display: "flex", gap: "8px", alignItems: "flex-start", marginBottom: "8px" }}>
               <span style={{ color: C.accent, lineHeight: 1.5, flexShrink: 0 }}>•</span>
               <span style={{ fontSize: "13px", color: C.text, lineHeight: 1.5 }}>{n}</span>
