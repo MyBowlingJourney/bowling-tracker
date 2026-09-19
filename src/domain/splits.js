@@ -242,3 +242,44 @@ export function splitConversionByType(shots){
     .map(e=>({...e,rate:e.left?Math.round((e.made/e.left)*100):null}))
     .sort((a,b)=>b.left-a.left||a.key.localeCompare(b.key));
 }
+
+// ── Which side of the deck a leave sat on ───────────────────────────────
+//
+// The fact a scorer never tells you, and the one Nightcap leans on: a
+// night whose leaves all sat on one side went differently from a night
+// that was scattered, and the scoresheet shows neither.
+//
+// Sides come straight from PIN_COL above, whose centre column is the 1
+// and the 5. So left is {7,4,2,8}, right is {3,9,6,10}, and a leave of
+// only the 1 and/or 5 has no side -- which is "center", not "left",
+// because calling it either would be inventing a lean the rack didn't
+// have.
+//
+// PHYSICAL side, not the bowler's. Which delivery produces which side
+// depends on the hand, the line and the lane, and deciding that from a
+// pin count is exactly the invented cause this app refuses to state
+// anywhere else. The hand travels alongside this value for whoever is
+// allowed to interpret it; this function only reports the pins.
+//
+// Returns "left" | "right" | "both" | "center" | null (null when there is
+// no leave to have a side: a strike, a second ball, or a no-tap, which
+// names an outcome rather than pins that stood).
+export function leaveSide(shot){
+  if(!shot)return null;
+  // A corner-pin result is stored as "Weak 10"/"Ringing 10" for both
+  // hands, with the actual pin implied by handedness rather than
+  // recorded. There is no pin number to read, so there is no side to
+  // report -- isCornerPinLeave is the function that already answers that
+  // question properly, with the hand in hand.
+  if(shot.result!=="Other Leave")return null;
+  const leave=Array.isArray(shot.otherLeave)?shot.otherLeave:[];
+  if(leave.includes("9 Pin No-Tap"))return null;
+  const standing=leave.map(p=>parseInt(p,10)).filter(n=>!Number.isNaN(n)&&PIN_COL[n]!==undefined);
+  if(!standing.length)return null;
+  const hasLeft=standing.some(p=>PIN_COL[p]<4);
+  const hasRight=standing.some(p=>PIN_COL[p]>4);
+  if(hasLeft&&hasRight)return "both";
+  if(hasLeft)return "left";
+  if(hasRight)return "right";
+  return "center";
+}

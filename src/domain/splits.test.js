@@ -5,6 +5,7 @@ import { isSplit, isTenPinLeave, isSinglePinLeave, isWashout, isMakeableSpare,
   cornerPinLabel,
   splitConversionByType,
   splitName,
+  leaveSide,
 } from './splits.js';
 
 function leave(pins) {
@@ -270,5 +271,42 @@ describe('splitConversionByType', () => {
   it('handles nothing', () => {
     expect(splitConversionByType([])).toEqual([]);
     expect(splitConversionByType(null)).toEqual([]);
+  });
+});
+
+describe('leaveSide', () => {
+  // The centre column is the 1 and the 5, straight out of PIN_COL. Left
+  // is {7,4,2,8}; right is {3,9,6,10}.
+  it('calls a leave on one side by that side', () => {
+    expect(leaveSide(leave(['3', '6', '10']))).toBe('right');
+    expect(leaveSide(leave(['2', '4', '7']))).toBe('left');
+    expect(leaveSide(leave(['10']))).toBe('right');
+    expect(leaveSide(leave(['7']))).toBe('left');
+  });
+
+  it('calls a leave straddling the deck "both"', () => {
+    expect(leaveSide(leave(['4', '6']))).toBe('both');
+    expect(leaveSide(leave(['7', '10']))).toBe('both');
+  });
+
+  // Not "left", not "right". A 5-pin has no lean and saying it does
+  // would put a side into the count that the rack never had.
+  it('gives the centre pins no side', () => {
+    expect(leaveSide(leave(['5']))).toBe('center');
+    expect(leaveSide(leave(['1', '5']))).toBe('center');
+  });
+
+  it('has nothing to say about a shot with no recorded leave', () => {
+    expect(leaveSide({ result: 'Strike' })).toBe(null);
+    expect(leaveSide({ result: 'Weak 10' })).toBe(null);
+    expect(leaveSide(leave(['9 Pin No-Tap']))).toBe(null);
+    expect(leaveSide(leave([]))).toBe(null);
+    expect(leaveSide(null)).toBe(null);
+    expect(leaveSide({ result: 'Other Leave', otherLeave: null })).toBe(null);
+  });
+
+  it('ignores anything that is not a pin number', () => {
+    expect(leaveSide(leave(['10', 'oops']))).toBe('right');
+    expect(leaveSide(leave(['11', '0']))).toBe(null);
   });
 });
