@@ -225,11 +225,14 @@ export default function Nightcap({
           )}
           {/* What it was drawn from. Conclusions with no visible basis are
               what makes a bowler stop believing the app, and this is one
-              line. It also says out loud that nothing here spans more
-              than tonight. */}
+              line. It also says exactly how far back the comparison
+              reaches, so "more than usual" is never something the bowler
+              has to take on trust. */}
           <div style={{ fontSize: "10px", color: C.textMuted, marginTop: "10px" }}>
-            From tonight only — {payload.firstBalls} first balls across {payload.games} game
-            {payload.games === 1 ? "" : "s"}.
+            {payload.firstBalls} first balls across {payload.games} game{payload.games === 1 ? "" : "s"}
+            {payload.hasSeason
+              ? `, against ${payload.seasonNights} earlier nights in this league.`
+              : " — tonight only."}
           </div>
         </>
       )}
