@@ -6,12 +6,12 @@
 // opens devtools, and HERE bills per call.
 //
 // Deploy with: supabase functions deploy find-centers
-// Secret required: here_api_key  (lowercase -- the Supabase dashboard
+// Secret required: HERE_API_KEY  (lowercase -- the Supabase dashboard
 // forces lowercase secret names)
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const HERE_API_KEY = Deno.env.get("here_api_key");
+const HERE_API_KEY = Deno.env.get("HERE_API_KEY");
 const DISCOVER_URL = "https://discover.search.hereapi.com/v1/discover";
 
 // HERE's category id for a bowling centre. A venue can carry several
