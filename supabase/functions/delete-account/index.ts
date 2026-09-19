@@ -40,6 +40,10 @@
 // someone has to remember to update.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
+// Cancelling whatever they are paying for, before the row that knows
+// about it is deleted along with them.
+import { fetchPurchase, cancelSubscription, configured as playConfigured } from "../_shared/playApi.ts";
+import { cancelSubscriptionNow, stripeConfigured } from "../_shared/stripeApi.ts";
 
 // Allowed origins from the ALLOWED_ORIGINS secret, exactly as the other
 // functions do. Falls back to "*" when unset so an unconfigured deploy
@@ -117,6 +121,57 @@ Deno.serve(async (req: Request) => {
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, serviceKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
+
+  // ── Stop the money BEFORE deleting the account ───────────────────────
+  //
+  // entitlements.user_id references auth.users ON DELETE CASCADE, so the
+  // row holding the purchase token and the Stripe subscription id
+  // disappears the instant the user does. Cancel afterwards and there is
+  // nothing left to cancel WITH -- the subscription goes on renewing
+  // against a customer nobody can trace back to a person, and the first
+  // anyone hears of it is a chargeback.
+  //
+  // No refund on either rail. They keep what they already paid for; they
+  // simply are not charged again. Play's cancel and Stripe's delete both
+  // do exactly that, and both are one word away from a method that
+  // refunds -- see the comments on each.
+  //
+  // Failure here does NOT stop the deletion. The bowler asked to be
+  // deleted and that is the promise that matters; a subscription left
+  // running is a problem for us to fix by hand, and the ids are logged
+  // loudly so it CAN be fixed by hand. Refusing to delete somebody
+  // because Stripe was slow would be the worse trade.
+  try {
+    const { data: ent } = await admin
+      .from("entitlements")
+      .select("play_purchase_token,stripe_subscription_id,status,plan")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    const live = ent && ent.plan === "plus"
+      && ["active", "trialing", "grace", "canceled"].includes(String(ent.status));
+
+    if (live && ent?.stripe_subscription_id && stripeConfigured()) {
+      const done = await cancelSubscriptionNow(String(ent.stripe_subscription_id));
+      if (done) console.log("delete-account: cancelled stripe subscription");
+      else console.error("delete-account: FAILED to cancel stripe subscription",
+        ent.stripe_subscription_id, "-- cancel it by hand in the Stripe dashboard");
+    }
+
+    if (live && ent?.play_purchase_token && playConfigured()) {
+      const token = String(ent.play_purchase_token);
+      // The product id is not stored on the row, and the cancel endpoint
+      // needs it, so the purchase is read back to find it.
+      const purchase = await fetchPurchase(token);
+      const productId = purchase?.lineItems?.find(li => li?.productId)?.productId || "";
+      const done = await cancelSubscription(productId, token);
+      if (done) console.log("delete-account: cancelled play subscription");
+      else console.error("delete-account: FAILED to cancel play subscription for token ending",
+        token.slice(-8), "-- cancel it by hand in the Play Console");
+    }
+  } catch (e) {
+    console.error("delete-account: cancelling subscriptions threw (continuing with deletion)", String(e));
+  }
 
   // user.id, never anything from the request. Worth stating twice.
   const { error: deleteError } = await admin.auth.admin.deleteUser(user.id);
