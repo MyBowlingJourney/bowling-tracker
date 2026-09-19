@@ -70,7 +70,9 @@ export function form(obj: Record<string, unknown>, prefix = ""): string[] {
 export async function stripeRequest(
   path: string,
   body?: Record<string, unknown>,
-  method: "GET" | "POST" = body ? "POST" : "GET",
+  // DELETE is here for cancelSubscriptionNow. Stripe cancels a
+  // subscription with DELETE on its resource, not with a POST.
+  method: "GET" | "POST" | "DELETE" = body ? "POST" : "GET",
 ): Promise<Record<string, unknown> | null> {
   if (!stripeConfigured()) {
     console.error("STRIPE_SECRET_KEY is missing or not a secret key");
@@ -121,4 +123,22 @@ export function timingSafeEqual(a: string, b: string): boolean {
   let diff = 0;
   for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return diff === 0;
+}
+
+// End a subscription now, with no refund and no proration.
+//
+// Used when a bowler deletes their account. DELETE on a subscription
+// cancels it immediately; Stripe's prorate and invoice_now parameters
+// both default to off, so nothing is credited and no final invoice is
+// raised. That is the intent: stop the next charge, keep what was
+// already paid for the period they already had.
+//
+// Immediate rather than at_period_end, because the account is gone. A
+// subscription set to end later would sit in the dashboard attached to a
+// customer whose user no longer exists, and any webhook it fired would
+// arrive with nobody to apply it to.
+export async function cancelSubscriptionNow(subscriptionId: string): Promise<boolean> {
+  if (!subscriptionId) return false;
+  const res = await stripeRequest(`/subscriptions/${encodeURIComponent(subscriptionId)}`, undefined, "DELETE");
+  return !!res;
 }
