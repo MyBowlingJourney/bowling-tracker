@@ -70,6 +70,24 @@ async function startStripe(period) {
   return { ok: true, navigating: true };
 }
 
+// Opens Stripe's Customer Portal so a subscribed bowler can update their
+// card or cancel. Play subscribers manage theirs in the Play Store app
+// instead -- there is nothing for this to do on that rail, so the caller
+// (Subscribe.jsx) only offers this button when currentRail() is "stripe".
+export async function openSubscriptionManager() {
+  try {
+    const { data, error } = await supabase.functions.invoke("create-portal-session", {});
+    if (error || !data?.url) {
+      return { ok: false, message: "Could not open the subscription manager. Please try again." };
+    }
+    window.location.href = data.url;
+    return { ok: true, navigating: true };
+  } catch (e) {
+    console.error("opening the subscription manager threw:", String(e));
+    return { ok: false, message: "Could not open the subscription manager. Please try again." };
+  }
+}
+
 // ── Play ────────────────────────────────────────────────────────────
 //
 // NOT IMPLEMENTED YET, DELIBERATELY AND VISIBLY.

@@ -7,18 +7,12 @@
 // cannot install the Android app at all, so without this they have no
 // way to pay at all.
 //
-// ── The trial runs from SIGN-UP, not from checkout ──────────────────
+// ── The trial runs from CHECKOUT, not from sign-up ───────────────────
 //
-// The decision was 30 days from the day they created an account, so
-// somebody who downloads the app in May and does nothing until September
-// does not get a fresh month in September. That means the trial left is
-// computed from their auth account's created_at and passed to Stripe as
-// an explicit trial_end, rather than as trial_period_days -- which would
-// restart the clock at checkout.
-//
-// Stripe requires trial_end to be at least 48 hours out. Less than that
-// left and the subscription simply starts paid, which is the honest
-// outcome: their trial is over.
+// Full 30 days, every time a bowler actually starts a subscription --
+// regardless of how long they used the app free beforehand. Passed to
+// Stripe as trial_period_days, which starts the clock at checkout,
+// rather than as a computed trial_end tied to account age.
 //
 // Deploy with: supabase functions deploy create-checkout
 // Secrets required:
@@ -39,9 +33,6 @@ import {
 
 const APP_URL = Deno.env.get("APP_URL")?.trim().replace(/\/+$/, "") || "";
 const TRIAL_DAYS = 30;
-// Stripe's own floor. A trial_end closer than this is rejected outright,
-// so it is treated as no trial rather than as an error the bowler sees.
-const MIN_TRIAL_SECONDS = 48 * 3600;
 
 function json(body: unknown, cors: Record<string, string>, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -203,14 +194,6 @@ Deno.serve(async (req: Request) => {
     customerId = String(customer.id);
   }
 
-  // What is left of their 30 days, measured from the day the account was
-  // created -- not from today.
-  const createdMs = Date.parse(String(user!.created_at || ""));
-  const trialEndsMs = Number.isFinite(createdMs) ? createdMs + TRIAL_DAYS * 86_400_000 : 0;
-  const trialEndSec = Math.floor(trialEndsMs / 1000);
-  const nowSec = Math.floor(Date.now() / 1000);
-  const useTrial = trialEndSec - nowSec >= MIN_TRIAL_SECONDS;
-
   const session = await stripeRequest("/checkout/sessions", {
     mode: "subscription",
     customer: customerId,
@@ -223,7 +206,7 @@ Deno.serve(async (req: Request) => {
     client_reference_id: user!.id,
     subscription_data: {
       metadata: { user_id: user!.id },
-      ...(useTrial ? { trial_end: trialEndSec } : {}),
+      trial_period_days: TRIAL_DAYS,
     },
     // ⚠️ THE LINE THAT MOVES THE TAX LIABILITY. ⚠️
     //
@@ -267,5 +250,5 @@ Deno.serve(async (req: Request) => {
     .upsert({ user_id: user!.id, stripe_customer_id: customerId }, { onConflict: "user_id" });
   if (upsertErr) console.error("storing stripe_customer_id failed:", upsertErr.message);
 
-  return json({ url: session.url, trialing: useTrial }, cors);
+  return json({ url: session.url, trialing: true }, cors);
 });

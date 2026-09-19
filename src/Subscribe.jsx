@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { C, S } from "./ui.jsx";
-import { startPurchase, currentRail, DISPLAY_PRICES } from "./purchase.js";
+import { startPurchase, currentRail, DISPLAY_PRICES, openSubscriptionManager } from "./purchase.js";
 import { TRIAL_DAYS, FREE_LEAGUE_LIMIT } from "./domain/entitlements.js";
 
 // The one screen where a bowler decides to pay.
@@ -21,6 +21,8 @@ export default function Subscribe({ entitlement, onClose }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [rail, setRail] = useState("");
+  const [manageBusy, setManageBusy] = useState(false);
+  const [manageError, setManageError] = useState("");
 
   // Which store this bowler will actually be sent to. Only used for the
   // wording below -- "Google Play" versus "our payment provider" -- so a
@@ -50,14 +52,41 @@ export default function Subscribe({ entitlement, onClose }) {
     }
   }
 
+  async function manage() {
+    setManageBusy(true);
+    setManageError("");
+    const result = await openSubscriptionManager();
+    // On success the page is navigating to Stripe, so busy stays on --
+    // same reasoning as buy() above.
+    if (!result.ok) {
+      setManageError(result.message || "Something went wrong.");
+      setManageBusy(false);
+    }
+  }
+
   if (alreadyPaid) {
     return (
       <div style={S.card}>
         <div style={{ ...S.label, color: C.accent }}>You are subscribed</div>
-        <div style={{ fontSize: "13px", color: C.textMuted, lineHeight: 1.5 }}>
-          Everything is unlocked. Manage or cancel your subscription wherever you
-          set it up{rail === "play" ? " — the Play Store app, under Subscriptions" : ""}.
+        <div style={{ fontSize: "13px", color: C.textMuted, lineHeight: 1.5, marginBottom: "12px" }}>
+          Everything is unlocked.{rail === "play"
+            ? " Manage or cancel your subscription in the Play Store app, under Subscriptions."
+            : ""}
         </div>
+        {rail !== "play" && (
+          <button
+            style={{ ...S.btn("primary"), opacity: manageBusy ? 0.6 : 1 }}
+            onClick={manage}
+            disabled={manageBusy}
+          >
+            {manageBusy ? "Opening…" : "Manage subscription"}
+          </button>
+        )}
+        {manageError && (
+          <div style={{ fontSize: "12px", color: C.miss, lineHeight: 1.5, marginTop: "10px" }}>
+            {manageError}
+          </div>
+        )}
         {typeof onClose === "function" && (
           <button style={{ ...S.btn(), marginTop: "12px" }} onClick={onClose}>Back</button>
         )}
@@ -126,8 +155,7 @@ export default function Subscribe({ entitlement, onClose }) {
             only this paragraph should still be able to predict exactly
             what will be taken from their card and when. */}
         <div style={{ fontSize: "11.5px", color: C.textMuted, lineHeight: 1.6, marginTop: "14px" }}>
-          Your {TRIAL_DAYS}-day free trial runs from the day you created your
-          account. When it ends, the {yearly ? "yearly" : "monthly"} plan starts at{" "}
+          Your {TRIAL_DAYS}-day free trial starts today. When it ends, the {yearly ? "yearly" : "monthly"} plan starts at{" "}
           {yearly ? DISPLAY_PRICES.year : DISPLAY_PRICES.month} and renews on its own
           until you cancel. Cancel any time
           {rail === "play"
