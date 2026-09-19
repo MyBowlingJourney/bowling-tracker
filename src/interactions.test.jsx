@@ -45,7 +45,12 @@ function baseProps(overrides = {}) {
   editingId: null,
   saved: false,
   sessionSaved: false,
-  sessionSaveMessage: vi.fn(),
+  // A STRING, not a function. This was vi.fn(), which is truthy, so the
+  // End Session button rendered the mock itself -- "Functions are not
+  // valid as a React child" in every run -- and short-circuited the
+  // entire label chain below it, meaning "End Session" / "End Practice" /
+  // "End Block" were never once exercised by this suite.
+  sessionSaveMessage: null,
   sessionLeague: '',
   setSessionLeague: vi.fn(),
   effectiveSessionLeague: '',
@@ -123,7 +128,11 @@ function baseProps(overrides = {}) {
   sessionEnvChosen: true,
   onSessionEnvChosen: vi.fn(),
   routineNote: '',
-  goalsPanel: vi.fn(),
+  // A ReactNode, not a function -- and in production it is never passed
+  // at all, so the Goals card on the Results tab does not render for a
+  // real bowler. null is what LogView actually receives; a mock here was
+  // testing a screen that has never existed.
+  goalsPanel: null,
   practiceMode: 'games',
   setPracticeMode: vi.fn(),
   gameEquipment: {},
