@@ -79,6 +79,7 @@ import { allowedLeagues, lockedLeagues } from "./domain/entitlements.js";
 // Not lazy: it is one small card, it is rendered conditionally already,
 // and a Suspense boundary around a prompt this short would flash.
 import KeptLeaguePicker from "./KeptLeaguePicker.jsx";
+import TrialBanner from "./TrialBanner.jsx";
 import { visibleLeagues, isLeagueHidden, teamsInLeague, describeLeaveImpact, leaveConfirmationText, isContainerLeague } from "./domain/leagueMembership.js";
 import { decodeShare } from "./domain/badgeShare.js";
 import { allCompetitiveBadges } from "./domain/badgeContext.js";
@@ -7060,7 +7061,21 @@ export default function BowlingTracker(){
           the session. Deliberately plain -- a spinner that flashes for
           80ms is more distracting than a quiet gap. */}
       <Suspense fallback={<div style={{padding:"32px 0",textAlign:"center",color:C.textMuted,fontSize:"13px"}}>Loading…</div>}>
-      
+
+        {/* Top of the content area so it is above whichever screen is
+            showing, and inside the boundary so a fault in it cannot
+            blank the app.
+
+            Home and Settings only, and never mid-night: a countdown is
+            not urgent enough to interrupt scoring, and repeating it on
+            every tab is nagging rather than informing. TrialBanner
+            renders null unless there is something true to say, so these
+            conditions are about WHERE it may appear, not whether it
+            should appear at all. */}
+        {((view==="home"&&!nightLive)||view==="settings")&&(
+          <TrialBanner entitlement={entitlement} />
+        )}
+
         {view==="insights"&&(<>
           {/* Improve is the whole improvement loop, so the two things
               that used to be their own tabs live here as entry points:
