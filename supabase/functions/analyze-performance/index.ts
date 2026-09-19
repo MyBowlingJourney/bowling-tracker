@@ -16,11 +16,11 @@
 //      no claims beyond the numbers supplied.
 //
 // Deploy with: supabase functions deploy analyze-performance
-// Secret required: gemini_api_key (lowercase -- Supabase forces it)
+// Secret required: GEMINI_API_KEY (lowercase -- Supabase forces it)
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const GEMINI_API_KEY = Deno.env.get("gemini_api_key");
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 // Overridable by secret, like the genie and the importer.
 //
 // This was the only one of the four models hardcoded, which made Insights
@@ -250,9 +250,9 @@ function corsFor(req) {
 //
 // OFF by default. Turning it on before purchases work would lock out
 // every existing bowler, because nobody has an entitlement row yet. Set
-// the secret billing_live to "true" in the same release that ships Play
+// the secret BILLING_LIVE to "true" in the same release that ships Play
 // Billing and Stripe -- and not one release earlier.
-const BILLING_LIVE = (Deno.env.get("billing_live") || "").trim().toLowerCase() === "true";
+const BILLING_LIVE = (Deno.env.get("BILLING_LIVE") || "").trim().toLowerCase() === "true";
 
 // FAILS OPEN, deliberately -- the opposite of the rate limit above, and
 // worth understanding before anyone "fixes" it.
