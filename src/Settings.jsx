@@ -1034,7 +1034,17 @@ export default function Settings({
           cardStyle={{ ...S.card, border: `1px solid ${C.miss}44` }}>
 
           {hasData && (!confirmClear ? (
-            <button style={S.btn("warn")} onClick={() => setConfirmClear(true)}>Clear All Data</button>
+            <>
+              <button style={S.btn("warn")} onClick={() => setConfirmClear(true)}>Clear All Data</button>
+              {/* Says what it does AND what it leaves, because the button
+                  below it removes the account entirely. Two red buttons
+                  with similar-sounding names, one recoverable-ish and one
+                  final, is exactly where someone taps the wrong thing. */}
+              <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "8px", lineHeight: 1.5 }}>
+                Removes your bowling history including your shots, match results and lane
+                notes. Your account, profile, arsenal and teams are unaffected.
+              </div>
+            </>
           ) : (
             <>
               <div style={{ fontSize: "12px", color: C.textMuted, marginBottom: "10px" }}>
