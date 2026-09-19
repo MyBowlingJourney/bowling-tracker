@@ -75,7 +75,10 @@ import { archiveOnNewStart, compareSeasons, describeSeasonChange } from "./domai
 import { sessionsForFigures, isBaker, bakerBowlerFor } from "./domain/tournamentFormats.js";
 import { emptyDrill, normalizeDrill, drillToRow, drillFromRow } from "./domain/drills.js";
 import { scorekeepingOptions, allowsOtherBowlers, normalizeGuests, addGuest, removeGuest } from "./domain/scorekeeping.js";
-import { allowedLeagues } from "./domain/entitlements.js";
+import { allowedLeagues, lockedLeagues } from "./domain/entitlements.js";
+// Not lazy: it is one small card, it is rendered conditionally already,
+// and a Suspense boundary around a prompt this short would flash.
+import KeptLeaguePicker from "./KeptLeaguePicker.jsx";
 import { visibleLeagues, isLeagueHidden, teamsInLeague, describeLeaveImpact, leaveConfirmationText, isContainerLeague } from "./domain/leagueMembership.js";
 import { decodeShare } from "./domain/badgeShare.js";
 import { allCompetitiveBadges } from "./domain/badgeContext.js";
@@ -5529,6 +5532,21 @@ export default function BowlingTracker(){
     });
   })();
   const visibleLeagueNames=allowedLeagues(notUserHidden,{entitlement,keptLeagueName,mostRecentLeagueName});
+  // What has gone quiet, for the picker. This is empty whenever billing
+  // is off or the bowler is subscribed -- allowedLeagues returns
+  // everything in both cases -- so it is the whole visibility condition
+  // and no separate BILLING_LIVE check is needed at the call site.
+  const lockedLeagueNames=lockedLeagues(notUserHidden,{entitlement,keptLeagueName,mostRecentLeagueName});
+  // Applied locally rather than re-read from the server. The picker only
+  // calls this after its update came back without an error and with a
+  // row, so the value is already known good -- and a round trip here
+  // would leave the card on screen, still asking, after the bowler had
+  // answered it.
+  const onKeptLeagueSaved=name=>{
+    const id=leagueIdsRef.current?.[name];
+    if(!id)return;
+    setEntitlement(prev=>prev?{...prev,kept_league_id:id}:prev);
+  };
   const visibleLeagueKey=visibleLeagueNames.join("\u0001");
   // Memoised: these run over the bowler's whole history, and this
   // component re-renders on every keystroke anywhere inside it.
@@ -7237,6 +7255,21 @@ export default function BowlingTracker(){
             open Compare To, find nobody there, and the fix is right
             beside it. */}
 
+        {/* The permanent control, on the Leagues screen where the rest of
+            their leagues are. Unlike the Home version this has no
+            keptLeagueName test: once a league is paused, changing which
+            one it is has to stay reachable -- a bowler who picks Tuesday
+            and then switches nights in January needs a way back. */}
+        {view==="teams"&&lockedLeagueNames.length>0&&(
+          <KeptLeaguePicker
+            leagues={notUserHidden}
+            keptLeagueName={keptLeagueName}
+            defaultLeagueName={mostRecentLeagueName}
+            leagueIds={leagueIdsRef.current||{}}
+            userId={user?.id||""}
+            onSaved={onKeptLeagueSaved} />
+        )}
+
         {view==="teams"&&(
           /* RAW shots and sessions below, deliberately.
              
@@ -7404,6 +7437,25 @@ export default function BowlingTracker(){
             sessionIsLive reads SHOTS, not a session row -- a row is only
             written by "End session", so waiting for one would mean Home
             never took over. */}
+        {/* The one-time ask, above everything else on Home, because a
+            bowler whose Thursday night has just gone quiet should not
+            have to go looking for the reason.
+
+            Once they have answered -- keptLeagueName set -- this stops
+            appearing here and lives in Settings instead, which is where
+            you go to change a setting rather than to be asked about one.
+            Without the keptLeagueName test it would sit on Home forever,
+            since a paused league is still paused after they choose. */}
+        {view==="home"&&!nightLive&&lockedLeagueNames.length>0&&!keptLeagueName&&(
+          <KeptLeaguePicker
+            leagues={notUserHidden}
+            keptLeagueName={keptLeagueName}
+            defaultLeagueName={mostRecentLeagueName}
+            leagueIds={leagueIdsRef.current||{}}
+            userId={user?.id||""}
+            onSaved={onKeptLeagueSaved} />
+        )}
+
         {view==="home"&&!nightLive&&(
           <Suspense fallback={null}>
             <HomeScreen
