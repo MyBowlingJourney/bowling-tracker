@@ -20,12 +20,12 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 // Reads BOTH spellings. analyze-performance has always used the
-// lowercase "gemini_api_key", and this function used the uppercase one --
+// lowercase "GEMINI_API_KEY", and this function used the uppercase one --
 // so the secret that made Insights work left the scorecard reader dead,
 // reporting "not configured" on a project where the key was configured
 // all along. Accepting either means one secret serves both, whichever
 // name it happens to be stored under.
-const GEMINI_API_KEY = Deno.env.get("gemini_api_key") || Deno.env.get("GEMINI_API_KEY");
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GEMINI_API_KEY");
 // Kept in step with analyze-performance, which was migrated to this model
 // already. gemini-2.5-flash was retired for new callers and returns a 404
 // -- which surfaced here as a bare "Gemini API error" for a while because
@@ -388,9 +388,9 @@ function corsFor(req) {
 //
 // OFF by default. Turning it on before purchases work would lock out
 // every existing bowler, because nobody has an entitlement row yet. Set
-// the secret billing_live to "true" in the same release that ships Play
+// the secret BILLING_LIVE to "true" in the same release that ships Play
 // Billing and Stripe -- and not one release earlier.
-const BILLING_LIVE = (Deno.env.get("billing_live") || "").trim().toLowerCase() === "true";
+const BILLING_LIVE = (Deno.env.get("BILLING_LIVE") || "").trim().toLowerCase() === "true";
 
 // FAILS OPEN, deliberately -- the opposite of the rate limit above, and
 // worth understanding before anyone "fixes" it.
@@ -433,7 +433,7 @@ Deno.serve(async (req) => {
   try {
     if (!GEMINI_API_KEY) {
       return new Response(JSON.stringify({
-        error: "No Gemini API key configured for this function. Set a secret named gemini_api_key (the same one analyze-performance uses) in Project Settings > Edge Functions > Secrets, then redeploy.",
+        error: "No Gemini API key configured for this function. Set a secret named GEMINI_API_KEY (the same one analyze-performance uses) in Project Settings > Edge Functions > Secrets, then redeploy.",
       }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
