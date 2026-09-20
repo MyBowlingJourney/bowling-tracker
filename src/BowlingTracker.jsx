@@ -5891,14 +5891,34 @@ export default function BowlingTracker(){
   const visibleLeagueKey=visibleLeagueNames.join("\u0001");
   // Memoised: these run over the bowler's whole history, and this
   // component re-renders on every keystroke anywhere inside it.
+  // Container leagues are ALWAYS visible, and this is not an exception --
+  // it is the rule the league filter already follows, finally applied to
+  // the rows as well.
+  //
+  // Containers are deliberately kept OUT of the leagues list so that
+  // "Practice" doesn't sit in the Vault beside real leagues
+  // (isContainerLeague says so in as many words). visibleLeagueNames is
+  // built from that list, so `ok` can never contain one -- and this
+  // filter admitted a shot only if its league was in `ok`.
+  //
+  // The result: every practice, casual and tournament shot was dropped
+  // from every view fed by visibleShots. The shots saved correctly and
+  // scored correctly -- maxScoreThisGame reads the raw list and always
+  // showed a number for them -- they simply never came back out. The
+  // scoresheet stayed blank and tapping a frame did nothing, because
+  // there was no shot behind it to open.
+  //
+  // allowedLeagues already gets this right: it partitions containers out
+  // and returns them unconditionally, paywall or not. The two filters
+  // disagreed, and this is the one that was wrong.
   const visibleShots=useMemo(()=>{
     const ok=new Set(visibleLeagueNames);
-    return shots.filter(s=>!s||!s.league||ok.has(s.league));
+    return shots.filter(s=>!s||!s.league||ok.has(s.league)||isContainerLeague(s.league));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   },[shots,visibleLeagueKey]);
   const visibleSessions=useMemo(()=>{
     const ok=new Set(visibleLeagueNames);
-    return sessions.filter(s=>!s||!s.league||ok.has(s.league));
+    return sessions.filter(s=>!s||!s.league||ok.has(s.league)||isContainerLeague(s.league));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   },[sessions,visibleLeagueKey]);
 
