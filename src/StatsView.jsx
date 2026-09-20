@@ -17,6 +17,7 @@ import { seasonComparison } from "./domain/scoreInsights.js";
 
 import BallPhases from "./BallPhases.jsx";
 import { patternAverages, patternVersusOverall, patternLengthForLeague } from "./domain/oilPatterns.js";
+import { HOUSE_PATTERN } from "./domain/laneTransition.js";
 
 
 import { cardsInGroup } from "./domain/statsGroups.js";
@@ -1005,6 +1006,29 @@ fivePinAttempts.length>0&&(
                   <BallPhases shots={shots} bowler={statsBowler} league={statsLeague}
                     leftHanded={leftHandedForBowler?.(statsBowler)||false} />
                 );
+                // How the bowler SCORES on each pattern, for the band under
+                // the lane card's pattern picker.
+                //
+                // Assembled here rather than in the lane card because the
+                // lane card works from SHOTS and this needs SESSIONS --
+                // game scores, plus tournament days, neither of which the
+                // shot log carries.
+                //
+                // HOUSE_PATTERN as the fallback name, because the lane
+                // card's picker buckets every unrecorded night under that
+                // same name. Without it patternAverages drops those nights
+                // and the picker offers a pattern with no number behind it
+                // -- which, for a bowler who has never bowled a sport
+                // block, is every night they own.
+                //
+                // leaguePatterns is the league-level default, used for any
+                // night with no lane_patterns row of its own -- which is
+                // every night for a bowler who is not on a team.
+                const patternOverall=cAvg(sessions,statsBowler,statsLeague);
+                const patternScores=patternVersusOverall(
+                  patternAverages(sessions,lanePatterns,tournaments,statsBowler,
+                    leaguePatterns,HOUSE_PATTERN),
+                  patternOverall);
                 byId["ballCompare"] = (
                   <BallCompare shots={shots} bowler={statsBowler}
                     league={statsLeague}
@@ -1015,7 +1039,14 @@ fivePinAttempts.length>0&&(
                     /* So the lane can group by pattern and scrub one
                        night at a time -- both need to know which night
                        was bowled on what. */
-                    lanePatterns={lanePatterns} />
+                    lanePatterns={lanePatterns}
+                    /* The league's default pattern. The picker has to
+                       resolve a night's name exactly as patternAverages
+                       does, or it offers a pattern with no numbers. */
+                    leaguePatterns={leaguePatterns}
+                    /* The old "By Oil Pattern" card, folded in. */
+                    patternScores={patternScores}
+                    overallAverage={patternOverall} />
                 );
                 byId["byBall"] = (
 !hideIndividualOnly&&(
@@ -1316,42 +1347,19 @@ sessions.length>0&&(()=>{
                 })();
 
 
-                byId["patternHistory"] = (()=>{
-                  // leaguePatterns is the league-level default, used for any night
-                  // with no lane_patterns row of its own -- which is every night
-                  // for a bowler who is not on a team. See patternAverages.
-                  const rows=patternAverages(sessions,lanePatterns,tournaments,statsBowler,leaguePatterns);
-                  if(!rows||rows.length<2)return null;
-                  const overall=cAvg(sessions,statsBowler,statsLeague);
-                  if(overall===null)return null;
-                  const withDiff=patternVersusOverall(rows,overall)
-                    .sort((a,b)=>b.versusOverall-a.versusOverall);
-                  if(!withDiff.length)return null;
-                  return (
-                    <div style={S.card}>
-                      <div style={S.label}>By Oil Pattern</div>
-                      <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"10px"}}>
-                        Against your overall average of {overall}.
-                      </div>
-                      {withDiff.map(p=>(
-                        <div key={p.name} style={{display:"flex",alignItems:"baseline",
-                          justifyContent:"space-between",gap:"8px",marginBottom:"6px"}}>
-                          <span style={{fontSize:"14px",minWidth:0}}>{p.name}</span>
-                          <span style={{fontSize:"13px",color:C.textMuted,
-                            whiteSpace:"nowrap",flexShrink:0}}>
-                            {p.average}{" "}
-                            <strong style={{color:p.versusOverall>0?C.strike
-                              :(p.versusOverall<0?C.miss:C.textMuted)}}>
-                              {p.versusOverall>0?"+":""}{p.versusOverall}
-                            </strong>
-                            {" · "}{p.games} game{p.games===1?"":"s"}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })();
-
+                // "By Oil Pattern" was here, as its own card, and is now
+                // folded into the lane card -- see patternScores above and
+                // patternScoreband. It compared every pattern against the
+                // overall average from across the screen from the diagram
+                // those patterns explain; the lane card has already chosen
+                // one, so the chosen pattern is the headline there and the
+                // rest open underneath it.
+                //
+                // It is REMOVED rather than left rendering, here and in the
+                // settings list, the hint map, the group map and the paid
+                // list. Two places showing one thing is how they end up
+                // disagreeing, which this card group has already done once
+                // over the leave average.
 
                 byId["seasonCompare"] = (()=>{
                   const lgRow=(leagues||[]).find(l=>l&&(l.name===statsLeague||l===statsLeague));

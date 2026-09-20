@@ -36,7 +36,8 @@ export default function BallCompare({
   shots = [], bowler = "", league = "", leftHanded = false,
   reliableAt = SAMPLE_THRESHOLDS.ballComparison,
   drift, lateralOffset, twoHanded = false, patternLength = null,
-  lanePatterns = [],
+  lanePatterns = [], leaguePatterns = {},
+  patternScores = [], overallAverage = null,
 }) {
   // minShots 0: nothing is filtered out on the way in.
   const raw = ballComparison(shots, {
@@ -91,7 +92,9 @@ export default function BallCompare({
         allBalls={comparison.map(b => b.ball)}
         lanePatterns={lanePatterns}
         drift={drift} lateralOffset={lateralOffset} twoHanded={twoHanded}
-        patternLength={patternLength} />
+        patternLength={patternLength}
+        leaguePatterns={leaguePatterns}
+        patternScores={patternScores} overallAverage={overallAverage} />
     </div>
   );
 }

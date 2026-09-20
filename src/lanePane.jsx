@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { C, S, F } from "./ui.jsx";
+import { patternScoreband } from "./domain/oilPatterns.js";
 import { lanePath, RACK, MARK_BOARDS, pocketPins } from "./domain/lanePath.js";
 import { ballComparison, ballLine, ARROWS_FEET, BREAKPOINT_FEET } from "./domain/ballComparison.js";
 import { isSplit, isCornerPinLeave } from "./domain/splits.js";
@@ -91,10 +92,17 @@ function Picker({ label, value, onChange, children }) {
   );
 }
 
+// Green above, red below, muted at dead level.
+//
+// Zero takes the muted colour rather than the green: "+0" painted as a
+// gain is a claim the number does not make.
+const deltaColour = d => (d > 0 ? C.strike : (d < 0 ? C.miss : C.textMuted));
+
 export default function LanePane({
   shots = [], bowler = "", league = "", leftHanded = false,
   colors = {}, allBalls = [], lanePatterns = [],
   drift, lateralOffset, twoHanded = false, patternLength = null,
+  patternScores = [], overallAverage = null, leaguePatterns = {},
 }) {
   // Every ball on, and the whole night. A ball is turned OFF rather than
   // on, so a newly bagged ball appears by itself instead of being
@@ -106,8 +114,23 @@ export default function LanePane({
   const [at, setAt] = useState(null);
   const [night, setNight] = useState("");      // "" = every night, pooled
 
-  const nights = useMemo(() => nightsIn(shots, lanePatterns), [shots, lanePatterns]);
-  const patterns = useMemo(() => patternsIn(shots, lanePatterns), [shots, lanePatterns]);
+  // Whose shots, and which league.
+  //
+  // `shots` arrives UNFILTERED -- ballComparison has always done its own
+  // filtering from the bowler and league props, so nothing downstream
+  // noticed. The picker did not, and nights are bucketed by DATE: a
+  // bowler in two leagues that both bowl Monday had the two nights
+  // merged into one, with whichever league's pattern happened to be
+  // recorded put on both. Different house, different oil, one line.
+  const mine = useMemo(() => (Array.isArray(shots) ? shots : []).filter(s =>
+    s && typeof s === "object"
+    && (!bowler || s.bowler === bowler)
+    && (!league || s.league === league)), [shots, bowler, league]);
+
+  const nights = useMemo(() => nightsIn(mine, lanePatterns, leaguePatterns),
+    [mine, lanePatterns, leaguePatterns]);
+  const patterns = useMemo(() => patternsIn(mine, lanePatterns, leaguePatterns),
+    [mine, lanePatterns, leaguePatterns]);
 
   // Always exactly one pattern. There is no "every pattern".
   //
@@ -117,11 +140,22 @@ export default function LanePane({
   // silently. The house shot is the default because that is where nearly
   // every league night is bowled; failing that, the most-bowled pattern.
   const [pattern, setPattern] = useState(() => {
-    const list = patternsIn(shots, lanePatterns);
+    const list = patternsIn(mine, lanePatterns, leaguePatterns);
     if (list.some(p => p.name === HOUSE_PATTERN)) return HOUSE_PATTERN;
     return list.length ? list[0].name : HOUSE_PATTERN;
   });
   const games = useMemo(() => typicalGames(shots), [shots]);
+  // Collapsed. The headline answers the question most of the time; the
+  // ranking is for the bowler who wants to know where this pattern sits.
+  const [rankOpen, setRankOpen] = useState(false);
+
+  // How the bowler SCORES on the pattern they are looking at, and where
+  // it sits against the others. Null whenever there is nothing honest to
+  // say -- see patternScoreband; chiefly, with only one pattern the delta
+  // is the bowler's average against itself.
+  const band = useMemo(
+    () => patternScoreband(patternScores, pattern),
+    [patternScores, pattern]);
 
   // Scrubbing off means the card behaves exactly as it did before: one
   // line per ball, every shot behind it.
@@ -129,9 +163,10 @@ export default function LanePane({
 
   const { lines, sampleNights, sampleShots, breakFeet } = useMemo(() => {
     const picked = scrubbing || pattern || night
-      ? shotsAt(shots, { at: at ?? 0.5, date: night, pattern, lanePatterns,
+      ? shotsAt(mine, { at: at ?? 0.5, date: night, pattern, lanePatterns,
+                         leagueDefaults: leaguePatterns,
                          halfWindow: scrubbing ? 0.15 : 1 })
-      : { shots, nights: nights.length };
+      : { shots: mine, nights: nights.length };
 
     // Where the ball turns, in feet.
     //
@@ -169,7 +204,7 @@ export default function LanePane({
             ?.points?.[2]?.feet ?? null)
         : null,
     };
-  }, [shots, at, night, pattern, lanePatterns, bowler, league, leftHanded,
+  }, [mine, at, night, pattern, lanePatterns, leaguePatterns, bowler, league, leftHanded,
       drift, lateralOffset, twoHanded, patternLength, scrubbing, nights.length]);
 
   if (!allBalls.length) return null;
@@ -315,6 +350,78 @@ export default function LanePane({
             </option>
           ))}
         </Picker>
+      )}
+
+      {/* How you score on it, and where it sits.
+
+          This is the old "By Oil Pattern" card, which used to sit on its
+          own in the centre group -- a ranked list of every pattern against
+          the overall average, across the screen from the lane diagram those
+          patterns explain. Here the pattern is already chosen, so the
+          chosen one is the headline and the rest open underneath.
+
+          It is absent, not empty, whenever there is nothing honest to put
+          in it: with a single pattern the pattern average and the overall
+          average come off the same games, so the delta is the bowler's
+          average against itself. A row saying "+0 vs overall" between the
+          picker and the lane is a row that costs height and teaches
+          nothing. */}
+      {band && (
+        <div style={{ marginBottom: "8px", borderRadius: "11px",
+          border: `1px solid ${C.border}`, backgroundColor: C.bg,
+          overflow: "hidden" }}>
+          <button type="button"
+            onClick={() => setRankOpen(o => !o)}
+            aria-expanded={rankOpen}
+            style={{
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+              gap: "10px", width: "100%", padding: "10px 12px", minHeight: "44px",
+              background: "none", border: "none", cursor: "pointer",
+              fontFamily: F.body, textAlign: "left",
+              WebkitTapHighlightColor: "transparent",
+            }}>
+            <span style={{ display: "flex", alignItems: "baseline", gap: "7px",
+              flexWrap: "wrap", minWidth: 0 }}>
+              <span style={{ fontFamily: F.num, fontSize: "20px", fontWeight: 600,
+                color: C.text }}>{band.here.average}</span>
+              <span style={{ fontFamily: F.num, fontSize: "13px", fontWeight: 600,
+                color: deltaColour(band.here.versusOverall) }}>
+                {band.here.versusOverall > 0 ? "+" : ""}{band.here.versusOverall}
+              </span>
+              {/* Named, not just "vs overall". 198 means nothing on its
+                  own and neither does +7; the sentence a bowler plans
+                  practice around is the one with both numbers in it. */}
+              <span style={{ fontSize: "12px", color: C.textMuted }}>
+                vs your {overallAverage} overall
+                {" · "}{band.here.games} game{band.here.games === 1 ? "" : "s"}
+              </span>
+            </span>
+            <span aria-hidden="true" style={{ fontSize: "11px", color: C.textMuted,
+              whiteSpace: "nowrap", flexShrink: 0 }}>
+              {rankOpen ? "▲" : "▼"} {band.others.length} more
+            </span>
+          </button>
+          {rankOpen && (
+            <div style={{ borderTop: `1px solid ${C.border}`,
+              padding: "6px 12px 10px", backgroundColor: C.surface }}>
+              {band.others.map(o => (
+                <div key={o.name} style={{ display: "flex", alignItems: "baseline",
+                  justifyContent: "space-between", gap: "8px", padding: "4px 0" }}>
+                  <span style={{ fontSize: "13px", minWidth: 0, overflow: "hidden",
+                    textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.name}</span>
+                  <span style={{ fontSize: "12px", color: C.textMuted,
+                    fontFamily: F.num, whiteSpace: "nowrap", flexShrink: 0 }}>
+                    {o.average}{" "}
+                    <strong style={{ color: deltaColour(o.versusOverall) }}>
+                      {o.versusOverall > 0 ? "+" : ""}{o.versusOverall}
+                    </strong>
+                    {" · "}{o.games}g
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
       {/* The lane and the filter, side by side. The filter goes on the
