@@ -21,6 +21,7 @@
 // Secret required: GEMINI_API_KEY (lowercase -- Supabase forces it)
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { recordAiTokens } from "../_shared/aiUsage.ts";
 
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 // Overridable without a code deploy, via a GENIE_GEMINI_MODEL secret.
@@ -365,6 +366,13 @@ Deno.serve(async (req: Request) => {
     }
 
     const data = await res.json();
+
+    // Before the text check: a response that came back empty still cost
+    // tokens, and spend with nothing to show for it is the most useful
+    // kind to see in a report. Not awaited -- telemetry never delays a
+    // reply.
+    recordAiTokens(req, "bowling-genie", MODEL, data?.usageMetadata);
+
     const text = (data?.candidates?.[0]?.content?.parts || [])
       .map((p: { text?: string }) => p?.text || "").join("").trim();
 
