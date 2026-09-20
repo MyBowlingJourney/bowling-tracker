@@ -268,10 +268,19 @@ export default function Settings({
       {section === "history" && (
         <>
           <div style={{ ...S.card, padding: "10px 12px" }}>
-            <div style={S.chips}>
-              <Chip label="Sessions" selected={historyTab === "sessions"} onToggle={() => setHistoryTab("sessions")} />
-              <Chip label="Season" selected={historyTab === "season"} onToggle={() => setHistoryTab("season")} />
-              <Chip label="Calendar" selected={historyTab === "calendar"} onToggle={() => setHistoryTab("calendar")} />
+            {/* fill, not a guess at whether five labels fit.
+              
+                They wrapped onto a second line on a phone, which read as
+                two groups of tabs rather than one set of five. Chip's
+                fill prop shares the width equally -- flex:1 with
+                min-width:0 cannot overflow whatever the labels say --
+                so this is one row on every handset without a sideways
+                scroll. Its own comment notes that estimating the fit has
+                already been wrong twice; this stops estimating. */}
+            <div style={{ ...S.chips, flexWrap: "nowrap", marginBottom: 0 }}>
+              <Chip label="Sessions" dense fill selected={historyTab === "sessions"} onToggle={() => setHistoryTab("sessions")} />
+              <Chip label="Season" dense fill selected={historyTab === "season"} onToggle={() => setHistoryTab("season")} />
+              <Chip label="Calendar" dense fill selected={historyTab === "calendar"} onToggle={() => setHistoryTab("calendar")} />
               {/* The journal sits beside the calendar because they
                   answer the same question from opposite ends: the
                   calendar is when you bowled, the journal is what you
@@ -281,9 +290,9 @@ export default function Settings({
                   night ends, which puts Journey out of reach for the
                   length of a session. History is already where they go
                   to look back. */}
-              <Chip label="Journey" selected={historyTab === "journey"}
+              <Chip label="Journey" dense fill selected={historyTab === "journey"}
                 onToggle={() => setHistoryTab("journey")} />
-              <Chip label="Journal" selected={historyTab === "journal"}
+              <Chip label="Journal" dense fill selected={historyTab === "journal"}
                 onToggle={() => setHistoryTab("journal")} />
 
             </div>
