@@ -16,7 +16,7 @@ import { anyMoneyGameShown, visibleStatsCardOrder, MOVABLE_STATS_CARDS } from ".
 import { seasonComparison } from "./domain/scoreInsights.js";
 
 import BallPhases from "./BallPhases.jsx";
-import { patternAverages, patternVersusOverall, patternLengthForLeague } from "./domain/oilPatterns.js";
+import { patternAverages, patternVersusOverall } from "./domain/oilPatterns.js";
 import { HOUSE_PATTERN } from "./domain/laneTransition.js";
 
 
@@ -1035,7 +1035,11 @@ fivePinAttempts.length>0&&(
                     leftHanded={leftHandedForBowler?.(statsBowler)||false}
                     drift={ballProfile?.driftBoards} twoHanded={!!ballProfile?.twoHanded}
                     lateralOffset={ballProfile?.lateralOffset}
-                    patternLength={patternLengthForLeague(lanePatterns, statsLeague, oilPatterns)}
+                    /* The catalogue, so the lane can resolve the length
+                       of the pattern ON SCREEN. It used to be handed one
+                       length resolved from the league, which is how one
+                       block's length ended up drawn on every other. */
+                    oilPatterns={oilPatterns}
                     /* So the lane can group by pattern and scrub one
                        night at a time -- both need to know which night
                        was bowled on what. */

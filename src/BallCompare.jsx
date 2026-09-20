@@ -1,55 +1,48 @@
 import { C, S } from "./ui.jsx";
-import {
-  BALL_METRICS, ballComparison, bestByMetric, ballColors,
-} from "./domain/ballComparison.js";
+import { ballComparison, ballColors } from "./domain/ballComparison.js";
 import { isSplit, isCornerPinLeave } from "./domain/splits.js";
 import LanePane from "./lanePane.jsx";
-import { SAMPLE_THRESHOLDS } from "./domain/insightGating.js";
 
-// Comparing the arsenal.
+// Where the arsenal is being thrown.
 //
-// Two halves, because there are two different questions. The table
-// answers "which ball is working"; the lane answers "and where am I
-// throwing it". Neither is much use without the other -- a ball that
-// carries best from a line you cannot repeat is not the answer.
-
+// This card once had two halves -- a table answering "which ball is
+// working", and the lane answering "and where am I throwing it". The
+// table is gone: By Ball reports each ball's own numbers, and does it
+// SORTABLY, which is the better answer to "which is best" than crowning
+// one. Which ball is best depends on what is being asked, and the one
+// that carries is not always the one that keeps you out of splits.
+//
+// What only this card can show is the lane.
+//
 // A NUMBER IS NEVER HIDDEN FOR BEING EARLY.
 //
-// This card used to drop any ball under `minShots` and then render
-// nothing at all if fewer than two survived -- so a bowler with a new
-// ball in the bag saw the whole comparison vanish, with no explanation
-// and no way to tell whether it was broken or just waiting. Withholding
-// a number the bowler can see on their own scoresheet does not protect
-// them from it; it only makes the app look empty.
+// minShots 0: nothing is filtered out on the way in. This card used to
+// drop any ball under a threshold and then render nothing at all if
+// fewer than two survived -- so a bowler with a new ball in the bag saw
+// the whole comparison vanish, with no way to tell whether it was broken
+// or just waiting. Withholding a number the bowler can see on their own
+// scoresheet does not protect them from it; it only makes the app look
+// empty.
 //
-// So every ball is shown, and the thin ones are MARKED rather than
-// removed. The threshold still does real work: it decides which balls
-// may be declared a winner, because "your Zen Master carries best" drawn
-// from nine shots is a claim, not a display.
+// The thin-sample MARKING went with the table that carried it: there is
+// no column here to mark, and every line the lane draws is labelled with
+// the shot count behind it in the ball filter.
 //
-// The AI gate is deliberately NOT relaxed with it. insightGating still
+// The AI gate is deliberately NOT relaxed to match. insightGating still
 // withholds thin statistics from Brooklyn and from Insights, because a
 // model handed a noisy number writes a confident story about it and the
 // bowler cannot see the sample size behind the sentence. A human reading
 // "31 of 50" can discount it themselves. That asymmetry is the point.
 export default function BallCompare({
   shots = [], bowler = "", league = "", leftHanded = false,
-  reliableAt = SAMPLE_THRESHOLDS.ballComparison,
   drift, lateralOffset, twoHanded = false, oilPatterns = [],
   lanePatterns = [], leaguePatterns = {},
   patternScores = [], overallAverage = null,
 }) {
-  // minShots 0: nothing is filtered out on the way in.
-  const raw = ballComparison(shots, {
+  const comparison = ballComparison(shots, {
     bowler, league, isSplit, isCornerPinLeave, leftHanded, minShots: 0,
   });
-  const comparison = raw.map(b => ({ ...b, provisional: b.shots < reliableAt }));
   if (comparison.length < 2) return null;
-
-  // Only settled balls can win a metric. A provisional one still appears
-  // in every row -- it just cannot be crowned.
-  const settled = comparison.filter(b => !b.provisional);
-  const best = settled.length >= 2 ? bestByMetric(settled) : {};
 
   const colors = ballColors(comparison);
 
