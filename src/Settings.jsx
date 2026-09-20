@@ -237,16 +237,14 @@ export default function Settings({
           {isSubscriber(entitlement) ? (
             <>
               <div style={{ fontWeight: 600, marginBottom: "4px" }}>My Bowling Journey Pro</div>
-              <div style={{ fontSize: "13px", color: C.textDim, marginBottom: "8px" }}>
-                {isTrialing(entitlement)
-                  ? `${trialDaysLeft(entitlement)} day${trialDaysLeft(entitlement) === 1 ? "" : "s"} left in your trial`
-                  : "You're subscribed"}
+              <div style={{ fontSize: "13px", color: C.textMuted, marginBottom: "8px" }}>
+                {subscriptionLine(entitlement)}
               </div>
             </>
           ) : (
             <>
               <div style={{ fontWeight: 600, marginBottom: "4px" }}>Unlock My Bowling Journey Pro</div>
-              <div style={{ fontSize: "13px", color: C.textDim, marginBottom: "8px" }}>
+              <div style={{ fontSize: "13px", color: C.textMuted, marginBottom: "8px" }}>
                 Unlimited leagues, full stats, and more.
               </div>
             </>
@@ -1224,4 +1222,27 @@ export default function Settings({
       </>)}
     </div>
   );
+}
+
+// What the upgrade card says underneath the heading.
+//
+// The countdown is guarded on days > 0, exactly as TrialBanner guards
+// its own. trialDaysLeft() returns 0 both for "the trial is over" and
+// for "trial_end is missing or unreadable", and the first version of
+// this card printed that straight out -- so a bowler whose trial had
+// just converted, or whose trial_end never got recorded, was told
+// "0 days left in your trial" while everything was still unlocked and
+// their card had just been charged. That reads as expired, which is the
+// opposite of true, and it is the kind of thing that produces a refund
+// request from somebody who was perfectly happy.
+//
+// A subscriber with nothing specific to say is simply subscribed.
+function subscriptionLine(entitlement) {
+  if (isTrialing(entitlement)) {
+    const days = trialDaysLeft(entitlement);
+    if (days > 0) return `${days} day${days === 1 ? "" : "s"} left in your trial`;
+  }
+  if (entitlement?.status === "canceled") return "Ending — you keep Pro until the period you paid for runs out";
+  if (entitlement?.status === "grace") return "There's a problem with your payment method";
+  return "You're subscribed";
 }

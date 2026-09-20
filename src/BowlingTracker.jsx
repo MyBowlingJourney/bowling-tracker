@@ -81,6 +81,10 @@ import { allowedLeagues, lockedLeagues } from "./domain/entitlements.js";
 // and a Suspense boundary around a prompt this short would flash.
 import KeptLeaguePicker from "./KeptLeaguePicker.jsx";
 import TrialBanner from "./TrialBanner.jsx";
+// The yearly figure the banner quotes when it nudges a monthly
+// subscriber. Display only -- what is actually charged is whatever the
+// Stripe price says. See purchase.js.
+import { DISPLAY_PRICES } from "./purchase.js";
 import { visibleLeagues, isLeagueHidden, teamsInLeague, describeLeaveImpact, leaveConfirmationText, isContainerLeague } from "./domain/leagueMembership.js";
 import { decodeShare } from "./domain/badgeShare.js";
 import { allCompetitiveBadges } from "./domain/badgeContext.js";
@@ -6139,6 +6143,10 @@ export default function BowlingTracker(){
     badges:"journey",
     settings:"home", profile:"home", inbox:"home",
     coaching:"home", import:"home", help:"home", social:"home",
+    // Reached from the Settings upgrade card, so Settings is the parent
+    // -- the tree, not history, exactly as badges->journey is the tab
+    // the link lives on rather than wherever you happened to come from.
+    subscribe:"settings",
   };
   const parentView=PARENT_VIEW[view]||null;
 
@@ -6870,7 +6878,8 @@ export default function BowlingTracker(){
               : <div style={S.title}>{navTabs.find(t=>t.id===view)?.label
                   ||(view==="settings"?"Settings":view==="profile"?"Profile"
                     :view==="inbox"?"Inbox":view==="coaching"?"Coach"
-                    :view==="help"?"Help":view==="social"?(casualMode?"Standings":"Friends"):view==="import"?"Import scorecard":"")}</div>}
+                    :view==="help"?"Help":view==="social"?(casualMode?"Standings":"Friends"):view==="import"?"Import scorecard"
+                    :view==="subscribe"?"My Bowling Journey Pro":"")}</div>}
           </div>
 
           <div style={{display:"flex",gap:"12px",flexShrink:0,alignItems:"center"}}>
@@ -7084,7 +7093,11 @@ export default function BowlingTracker(){
             say, so this is unconditional at the call site on purpose --
             the decision of whether to appear lives in one file, with the
             dates, rather than being half here and half there. */}
-        <TrialBanner entitlement={entitlement} />
+        <TrialBanner
+          entitlement={entitlement}
+          annualPrice={DISPLAY_PRICES.year}
+          onManage={()=>setView("subscribe")}
+          onSwitchAnnual={()=>setView("subscribe")} />
 
         {view==="insights"&&(<>
           {/* Improve is the whole improvement loop, so the two things

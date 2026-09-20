@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { C, S } from "./ui.jsx";
 import { startPurchase, currentRail, DISPLAY_PRICES, openSubscriptionManager } from "./purchase.js";
-import { TRIAL_DAYS, FREE_LEAGUE_LIMIT } from "./domain/entitlements.js";
+import { TRIAL_DAYS, FREE_LEAGUE_LIMIT, isSubscriber } from "./domain/entitlements.js";
 
 // The one screen where a bowler decides to pay.
 //
@@ -36,8 +36,31 @@ export default function Subscribe({ entitlement, onClose }) {
   // Somebody who has already paid must never see a buy button. Reaching
   // this screen while subscribed means a stale link or a back button,
   // not a decision to pay twice.
-  const alreadyPaid = entitlement?.plan === "plus"
-    && ["active", "trialing", "grace"].includes(String(entitlement?.status));
+  //
+  // isSubscriber() IS the definition, deliberately -- not a status list
+  // repeated here. The list this used to carry was ["active", "trialing",
+  // "grace"], which silently left out "canceled": a bowler who cancels
+  // keeps access until the period they already paid for runs out, so
+  // isSubscriber() says yes while this said no. The Settings card (which
+  // asks isSubscriber) therefore offered "Manage subscription", and this
+  // screen then showed them the BUY button -- and create-checkout, which
+  // repeated the same short list, let the purchase through. That is a
+  // SECOND live subscription on one customer, and because entitlements
+  // holds one row per bowler the older one becomes invisible to the app
+  // and bills forever. delete-account had the list right all along.
+  //
+  // One predicate, one answer, everywhere.
+  const alreadyPaid = isSubscriber(entitlement);
+  // Cancelled but still inside the paid period. They keep everything
+  // until it ends, and the honest thing to offer is a way to resume --
+  // which is what Stripe's portal shows for a subscription set to
+  // cancel at period end -- not a way to buy a duplicate.
+  const winding = alreadyPaid && entitlement?.status === "canceled";
+  // The bowler's own locale and time zone, not the server's -- same
+  // reasoning as TrialBanner: a period ending at 00:30 UTC ends the
+  // previous evening in Pennsylvania, and printing the UTC date names a
+  // day they never see.
+  const endsOn = formatDate(entitlement?.current_period_end);
 
   async function buy() {
     setBusy(true);
@@ -67,9 +90,14 @@ export default function Subscribe({ entitlement, onClose }) {
   if (alreadyPaid) {
     return (
       <div style={S.card}>
-        <div style={{ ...S.label, color: C.accent }}>You are subscribed</div>
+        <div style={{ ...S.label, color: C.accent }}>
+          {winding ? "Your subscription is ending" : "You are subscribed"}
+        </div>
         <div style={{ fontSize: "13px", color: C.textMuted, lineHeight: 1.5, marginBottom: "12px" }}>
-          Everything is unlocked.{rail === "play"
+          {winding
+            ? `You cancelled, so this ends${endsOn ? ` on ${endsOn}` : " when the period you paid for runs out"}. Everything stays unlocked until then, and you can start it again any time before it ends.`
+            : "Everything is unlocked."}
+          {rail === "play"
             ? " Manage or cancel your subscription in the Play Store app, under Subscriptions."
             : ""}
         </div>
@@ -79,7 +107,7 @@ export default function Subscribe({ entitlement, onClose }) {
             onClick={manage}
             disabled={manageBusy}
           >
-            {manageBusy ? "Opening…" : "Manage subscription"}
+            {manageBusy ? "Opening…" : (winding ? "Resume subscription" : "Manage subscription")}
           </button>
         )}
         {manageError && (
@@ -178,4 +206,19 @@ export default function Subscribe({ entitlement, onClose }) {
       )}
     </div>
   );
+}
+
+// Same helper, same reasoning, as TrialBanner's: the bowler's own locale
+// and time zone rather than the server's. Returns "" on anything
+// unreadable so the caller can omit the date rather than print "Invalid
+// Date" at somebody who is deciding whether to keep paying.
+function formatDate(value) {
+  if (!value) return "";
+  const t = Date.parse(value);
+  if (!Number.isFinite(t)) return "";
+  try {
+    return new Date(t).toLocaleDateString(undefined, { month: "long", day: "numeric" });
+  } catch {
+    return "";
+  }
 }
