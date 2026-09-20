@@ -94,19 +94,22 @@ describe('a tenth still being bowled is honestly unscoreable', () => {
   });
 });
 
-describe('the fill ball is earned, not assumed', () => {
-  it('is earned by a strike on ball 1', () => {
-    expect(tenthBall3Earned(X, null)).toBe(true);
+describe('a ball-3 RECORD exists, or does not', () => {
+  // "Earned" here is about a stored record, not about a third delivery.
+  // A strike on ball 1 buys two more deliveries -- but if ball 2 is not
+  // itself a strike it BUNDLES both of them into its own record, so
+  // "X 8 1" is two records and a third would be a fourth delivery.
+  it('needs both balls to be strikes when ball 1 struck', () => {
+    expect(tenthBall3Earned(X, X)).toBe(true);
+    expect(tenthBall3Earned(X, open8)).toBe(false);   // ball 2 is both balls
+    expect(tenthBall3Earned(X, spare)).toBe(false);   // ditto
+    expect(tenthBall3Earned(X, null)).toBe(false);    // cannot precede ball 2
   });
 
   // The one the edit path was getting wrong, and the reason a "9 / X"
   // tenth lost its X the moment anything in the game was edited.
   it('is earned by a spare embedded in ball 1', () => {
     expect(tenthBall3Earned(spare, null)).toBe(true);
-  });
-
-  it('is earned by a spare across two records', () => {
-    expect(tenthBall3Earned(nine, spare)).toBe(true);
   });
 
   it('is not earned by an open tenth', () => {

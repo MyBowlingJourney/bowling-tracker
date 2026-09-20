@@ -716,9 +716,24 @@ describe('a fill ball has to be earned', () => {
   const spare = { result: 'Other Leave', spareMade: 'Yes', pinCount: '1' };
   const miss = { result: 'Other Leave', spareMade: 'No', pinCount: '0' };
 
-  it('is earned by a strike on ball 1', () => {
+  // A ball-3 RECORD, which is not the same as a third delivery.
+  //
+  // A strike on ball 1 does buy two more deliveries -- but when ball 2 is
+  // not itself a strike, its record BUNDLES both of them: `nine` here has
+  // pinCount '9' and spareMade 'No', so secondBallOf reads 0 off it and
+  // the record already means "9 then a miss". nextState agrees, going
+  // straight to the next game after a non-strike ball 2. A ball 3 on top
+  // of that is a fourth delivery in a ten-pin frame.
+  //
+  // This line asserted the delivery meaning, and the edit path uses the
+  // answer to decide whether to DELETE ball 3 -- so "X X X" with ball 2
+  // edited to an open kept a ball it had not earned and scored 288 where
+  // it should have scored 287.
+  it('is earned by a strike on ball 1 only when ball 2 also strikes', () => {
     expect(tenthBall3Earned(X, X)).toBe(true);
-    expect(tenthBall3Earned(X, nine)).toBe(true);
+    expect(tenthBall3Earned(X, nine)).toBe(false);
+    // And never before ball 2 exists -- ball 3 cannot precede it.
+    expect(tenthBall3Earned(X, null)).toBe(false);
   });
 
   it('is earned by a spare across the two balls', () => {

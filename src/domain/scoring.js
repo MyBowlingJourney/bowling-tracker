@@ -85,9 +85,37 @@ export function tenthBall3Available(f10b1,f10b2){
 // ball nobody earned, giving "9 miss, strike" and a score that cannot
 // happen. The entry path never allowed it; only editing could produce
 // it, so only editing had to be taught the rule.
+// ── "Earned" means a ball-3 RECORD, not a third delivery ────────────────
+//
+// Those are not the same thing, and conflating them is what this function
+// kept getting wrong.
+//
+// A strike on ball 1 always buys two more DELIVERIES -- but the app does
+// not store them as two records. If ball 2 is not itself a strike it
+// bundles both remaining deliveries into its own record (pinCount is the
+// pair, spareMade answers the pair), exactly as frames 1-9 do, and
+// nextState goes straight to the next game afterwards. So "X 8 1" is two
+// records, not three, and a surviving ball 3 there is a fourth delivery
+// in a ten-pin frame.
+//
+// The record-level rule, which is what the one caller -- the edit path's
+// pruning in submitShot -- actually needs:
+//
+//   ball 1 not a strike  ball 3 exists iff ball 1 made a spare
+//   ball 1 strike, no b2 no ball 3 (it cannot precede ball 2)
+//   ball 1 + 2 strikes   ball 3 exists
+//   ball 1 strike, b2 not there is no ball 3; b2 is already both balls
+//
+// Found by sweeping every edit against an independent scorer: "X X X"
+// with ball 2 edited to an open kept its ball 3 and scored 288 where it
+// should have scored 287.
 export function tenthBall3Earned(f10b1,f10b2){
   if(!f10b1)return false;
-  if(isStk(f10b1))return true;
+
+  if(isStk(f10b1)){
+    if(!f10b2)return false;
+    return isStk(f10b2);
+  }
 
   // A spare carried INSIDE ball 1's record.
   //
