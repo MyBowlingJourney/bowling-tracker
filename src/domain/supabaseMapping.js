@@ -61,6 +61,13 @@ export function shotToSupabaseRow(shot,userId,leagueIdsMap){
     target_arrows:shot.targetArrows||"",
     result:shot.result||"",
     other_leave:shot.otherLeave||[],
+    // Pins still standing after the SECOND ball, from the spare picker.
+    //
+    // null, not [], when the picker never ran. An empty array is a real
+    // answer -- "I tapped nothing, so nothing fell" -- and collapsing the
+    // two would tell the scoresheet a whiff happened on every shot ever
+    // logged before this field existed.
+    second_leave:Array.isArray(shot.secondLeave)?shot.secondLeave:null,
     spare_made:shot.spareMade||"",
     strike_description:shot.strikeDescription||"",
     release:shot.release||"",
@@ -106,6 +113,8 @@ export function shotFromSupabaseRow(row,leagueNameById){
     targetArrows:row.target_arrows||"",
     result:row.result||"",
     otherLeave:row.other_leave||[],
+    // Same asymmetry on the way back: absent stays absent.
+    secondLeave:Array.isArray(row.second_leave)?row.second_leave:undefined,
     spareMade:row.spare_made||"",
     strikeDescription:row.strike_description||"",
     release:row.release||"",

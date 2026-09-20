@@ -131,8 +131,18 @@ export function framePinDecks(shot, leftHanded) {
   // A spare took everything that was standing -- exact, every time.
   if (shot.spareMade === "Yes") return [makeDeck(first, [], split)];
 
-  // Open, or still being bowled. Which of the standing pins the second
-  // ball took is not recorded, so none of them are claimed.
+  // The spare picker records what the second ball actually left, so an
+  // open frame is exact too whenever it ran.
+  //
+  // Array, not truthiness: an EMPTY secondLeave is a real answer -- the
+  // bowler tapped nothing, so nothing fell. Treating that as "unknown"
+  // would throw away the one case the picker is clearest about.
+  if (Array.isArray(shot.secondLeave)) {
+    return [makeDeck(first, leaveOf({ otherLeave: shot.secondLeave }, leftHanded), split)];
+  }
+
+  // Older shots, and frames still being bowled. Which of the standing
+  // pins the second ball took was never recorded, so none are claimed.
   return [makeDeck(first, null, split)];
 }
 
