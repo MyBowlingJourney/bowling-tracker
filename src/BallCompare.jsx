@@ -35,7 +35,7 @@ import { SAMPLE_THRESHOLDS } from "./domain/insightGating.js";
 export default function BallCompare({
   shots = [], bowler = "", league = "", leftHanded = false,
   reliableAt = SAMPLE_THRESHOLDS.ballComparison,
-  drift, lateralOffset, twoHanded = false, patternLength = null,
+  drift, lateralOffset, twoHanded = false, oilPatterns = [],
   lanePatterns = [], leaguePatterns = {},
   patternScores = [], overallAverage = null,
 }) {
@@ -50,7 +50,6 @@ export default function BallCompare({
   // in every row -- it just cannot be crowned.
   const settled = comparison.filter(b => !b.provisional);
   const best = settled.length >= 2 ? bestByMetric(settled) : {};
-  const anyProvisional = comparison.some(b => b.provisional);
 
   const colors = ballColors(comparison);
 
@@ -60,14 +59,6 @@ export default function BallCompare({
       <div style={{ fontSize: "11px", color: C.textMuted, marginBottom: "10px" }}>
         First balls at a full rack only {"—"} what a strike ball is for.
       </div>
-      {anyProvisional && (
-        <div style={{ fontSize: "11px", color: C.spare, marginBottom: "10px", lineHeight: 1.5 }}>
-          A ball marked {"31/50"}-style has not been thrown enough yet. Its
-          numbers are shown anyway, but treat them as preliminary {"—"} it is
-          not named as leading anything until it gets there.
-        </div>
-      )}
-
       {/* Two tables used to sit here and both have gone.
       
           One showed the same numbers as the By Ball card below it, sorted
@@ -92,7 +83,7 @@ export default function BallCompare({
         allBalls={comparison.map(b => b.ball)}
         lanePatterns={lanePatterns}
         drift={drift} lateralOffset={lateralOffset} twoHanded={twoHanded}
-        patternLength={patternLength}
+        oilPatterns={oilPatterns}
         leaguePatterns={leaguePatterns}
         patternScores={patternScores} overallAverage={overallAverage} />
     </div>

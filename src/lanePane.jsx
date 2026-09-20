@@ -1,12 +1,12 @@
 import { useState, useMemo } from "react";
 import { C, S, F } from "./ui.jsx";
-import { patternScoreband } from "./domain/oilPatterns.js";
+import { patternScoreband, patternLengthByName } from "./domain/oilPatterns.js";
 import { lanePath, RACK, MARK_BOARDS, pocketPins } from "./domain/lanePath.js";
 import { ballComparison, ballLine, ARROWS_FEET, BREAKPOINT_FEET } from "./domain/ballComparison.js";
 import { isSplit, isCornerPinLeave } from "./domain/splits.js";
 import {
   shotsAt, nightsIn, patternsIn, positionLabel, typicalGames,
-  patternLengthFor, SLIDER_STEPS, HOUSE_PATTERN,
+  patternLengthFor, drawLengthFor, nightChoices, SLIDER_STEPS, HOUSE_PATTERN,
 } from "./domain/laneTransition.js";
 
 // The lane, drawn the way a bowler reads one -- and scrubable.
@@ -101,7 +101,7 @@ const deltaColour = d => (d > 0 ? C.strike : (d < 0 ? C.miss : C.textMuted));
 export default function LanePane({
   shots = [], bowler = "", league = "", leftHanded = false,
   colors = {}, allBalls = [], lanePatterns = [],
-  drift, lateralOffset, twoHanded = false, patternLength = null,
+  drift, lateralOffset, twoHanded = false, oilPatterns = [],
   patternScores = [], overallAverage = null, leaguePatterns = {},
 }) {
   // Every ball on, and the whole night. A ball is turned OFF rather than
@@ -144,6 +144,12 @@ export default function LanePane({
     if (list.some(p => p.name === HOUSE_PATTERN)) return HOUSE_PATTERN;
     return list.length ? list[0].name : HOUSE_PATTERN;
   });
+  // The nights this pattern was bowled on, and which of them is showing.
+  // See nightChoices -- the two filters used to be independent, which let
+  // you ask for a night the pattern was never bowled on.
+  const { nights: visibleNights, night: activeNight } = useMemo(
+    () => nightChoices(nights, pattern, night), [nights, pattern, night]);
+
   const games = useMemo(() => typicalGames(shots), [shots]);
   // Collapsed. The headline answers the question most of the time; the
   // ranking is for the bowler who wants to know where this pattern sits.
@@ -162,31 +168,39 @@ export default function LanePane({
   const scrubbing = at !== null;
 
   const { lines, sampleNights, sampleShots, breakFeet } = useMemo(() => {
-    const picked = scrubbing || pattern || night
-      ? shotsAt(mine, { at: at ?? 0.5, date: night, pattern, lanePatterns,
+    const picked = scrubbing || pattern || activeNight
+      ? shotsAt(mine, { at: at ?? 0.5, date: activeNight, pattern, lanePatterns,
                          leagueDefaults: leaguePatterns,
                          halfWindow: scrubbing ? 0.15 : 1 })
       : { shots: mine, nights: nights.length };
 
-    // Where the ball turns, in feet.
+    // Where the ball turns, in feet. Resolved for the pattern ON SCREEN,
+    // and never borrowed from another one.
     //
     // A chosen pattern sets it: a 47-foot block turns the ball later than
     // a 36-foot one, and drawing both at one length would put the same
     // breakpoint on patterns that play nothing alike.
     //
-    // The HOUSE shot takes the house default -- forty feet -- and
-    // explicitly does NOT fall through to patternLength.
+    // In order: what the bowler wrote down for the night, then their own
+    // saved entry for that pattern, then the published spec. When none of
+    // those knows, it is the 40-foot house default.
     //
-    // patternLength is patternLengthForLeague, which returns the length
-    // of the most recent NAMED pattern in the league. Bowl one 37-foot
-    // sport night and that became the house length for every house night
-    // in the season, so the breakpoint sat at 37 feet on a shot that
-    // breaks at 40. The house shot is defined by nobody having written a
-    // length down; borrowing the last sport block's is the opposite of
-    // what that absence means.
-    const feet = pattern === HOUSE_PATTERN
-      ? BREAKPOINT_FEET
-      : (patternLengthFor(lanePatterns, pattern) ?? patternLength);
+    // NOT patternLengthForLeague, which is what this used to end in. That
+    // returns the length of the most recent NAMED pattern in the league,
+    // so one 37-foot sport night became the length drawn for every other
+    // pattern on screen -- including the house shot, which broke at 37
+    // instead of 40 until Ryan caught it. The house shot was only the
+    // most visible case; a named pattern whose length nobody entered had
+    // exactly the same leak with a different label on it.
+    //
+    // An unrecorded length means nobody measured it, and the honest
+    // reading of that is house conditions -- not "whatever block we
+    // happened to bowl last".
+    const feet = drawLengthFor(pattern, {
+      lanePatterns, oilPatterns,
+      lengthByName: patternLengthByName,
+      houseFeet: BREAKPOINT_FEET,
+    });
 
     const entries = ballComparison(picked.shots, {
       bowler, league, isSplit, isCornerPinLeave, leftHanded, minShots: 0,
@@ -204,8 +218,8 @@ export default function LanePane({
             ?.points?.[2]?.feet ?? null)
         : null,
     };
-  }, [mine, at, night, pattern, lanePatterns, leaguePatterns, bowler, league, leftHanded,
-      drift, lateralOffset, twoHanded, patternLength, scrubbing, nights.length]);
+  }, [mine, at, activeNight, pattern, lanePatterns, leaguePatterns, bowler, league, leftHanded,
+      drift, lateralOffset, twoHanded, oilPatterns, scrubbing, nights.length]);
 
   if (!allBalls.length) return null;
 
@@ -341,15 +355,56 @@ export default function LanePane({
           A dropdown showing "House · 14 nights" with nothing else in it
           is not a useless control. It is the card telling you what it is
           showing you. */}
-      {patterns.length > 0 && (
-        <Picker label="Oil pattern" value={pattern}
-          onChange={e => setPattern(e.target.value)}>
-          {patterns.map(p => (
-            <option key={p.name} value={p.name}>
-              {p.name} · {p.nights} {p.nights === 1 ? "night" : "nights"}
-            </option>
-          ))}
-        </Picker>
+      {/* The two filters, on one row.
+      
+          They are read together -- "the house shot, across every night"
+          is one sentence -- and stacked they pushed the lane far enough
+          down that the diagram and the slider stopped sharing a screen,
+          which is the whole feature.
+          
+          Wrapping rather than shrinking below a usable width: on a
+          narrow phone they fall back to a stack, which is worse than
+          side by side and much better than two dropdowns too cramped to
+          read a pattern name in. */}
+      {(patterns.length > 0 || visibleNights.length > 1) && (
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap",
+          alignItems: "flex-start" }}>
+          {patterns.length > 0 && (
+            <div style={{ flex: "1 1 140px", minWidth: 0 }}>
+              <Picker label="Oil pattern" value={pattern}
+                onChange={e => setPattern(e.target.value)}>
+                {patterns.map(p => (
+                  <option key={p.name} value={p.name}>
+                    {p.name} · {p.nights} {p.nights === 1 ? "night" : "nights"}
+                  </option>
+                ))}
+              </Picker>
+            </div>
+          )}
+
+          {/* Pooling every night is the default because it has the data
+              behind it; one night is for reviewing the night you just
+              bowled.
+          
+              The nights are already narrowed to the pattern beside them,
+              so neither the pattern name nor an explanation of how the
+              pooling works belongs in the option text -- it was the
+              longest string in the card and it said the same thing on
+              every row. */}
+          {visibleNights.length > 1 && (
+            <div style={{ flex: "1 1 140px", minWidth: 0 }}>
+              <Picker label="Which nights" value={activeNight}
+                onChange={e => setNight(e.target.value)}>
+                <option value="">Every night</option>
+                {visibleNights.map(n => (
+                  <option key={n.date} value={n.date}>
+                    {n.date} · {n.games} games
+                  </option>
+                ))}
+              </Picker>
+            </div>
+          )}
+        </div>
       )}
 
       {/* How you score on it, and where it sits.
@@ -571,21 +626,6 @@ export default function LanePane({
           </>
         )}
       </div>
-
-      {/* Which nights. Pooling by position is the default because it has
-          the data behind it; one night is for reviewing the night you
-          just bowled. */}
-      {nights.length > 1 && (
-        <Picker label="Which nights" value={night}
-          onChange={e => setNight(e.target.value)}>
-          <option value="">Every night, by position in the block</option>
-          {nights.map(n => (
-            <option key={n.date} value={n.date}>
-              {n.date}{n.pattern ? ` · ${n.pattern}` : ""} · {n.games} games
-            </option>
-          ))}
-        </Picker>
-      )}
 
       {(Object.keys(hidden).length > 0 || allBalls.length > 2) && (
         <div style={{ display: "flex", gap: "6px", marginBottom: "8px" }}>
