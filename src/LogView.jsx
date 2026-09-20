@@ -492,16 +492,16 @@ export default function LogView({
 
   // The tenth's ball chooser has to be looked at to be used.
   //
-  // It renders ABOVE the scoresheet, so tapping the tenth opened it
-  // off-screen behind the bowler: the tap appeared to do nothing at all,
-  // and the tenth read as the one frame that could not be edited. Every
-  // other frame goes straight into edit mode and gets the Result-card
-  // landing; this one asks a question first, and the question was where
-  // nobody could see it.
+  // Top-aligned, not bottom-aligned like the Result card. The chooser
+  // sits directly above the frames, so putting its top under the header
+  // leaves the scoresheet immediately below it -- the question and the
+  // frame it is about, on screen together. Landing on its bottom edge
+  // would push the frames off.
   //
-  // allowUp because it is always upward from the frames.
+  // scrollToTopOf moves in either direction, and the chooser is above
+  // the frames the bowler just tapped, so this is normally upward.
   useEffect(()=>{
-    if(tenthPick)revealBottomOf(tenthPickRef,{cap:true,allowUp:true});
+    if(tenthPick)scrollToTopOf(tenthPickRef);
   },[tenthPick]);
 
   // Entering edit mode lands on the RESULT card, not the banner.
@@ -1610,27 +1610,6 @@ export default function LogView({
                 right under it because "frame 5: strike" is one thought;
                 equipment after because it changes rarely; shoes above
                 notes because both are things you set once and leave. */}
-              {/* Which ball in the tenth.
-                  
-                  Only when there is more than one -- a single-ball tenth
-                  goes straight in, because a chooser with one option is
-                  a tap for nothing. Labels say what was actually thrown,
-                  so the bowler picks the wrong ball by recognising it
-                  rather than by counting. */}
-              {tenthPick&&(
-                <div ref={tenthPickRef}
-                  style={{...S.card,border:`1.5px solid ${C.accent}`}}>
-                  <div style={S.label}>Which ball in the 10th?</div>
-                  <div style={S.chips}>
-                    {tenthPick.balls.map((b,i)=>(
-                      <Chip key={i}
-                        label={`${i===2?"Fill":`Ball ${i+1}`} · ${b.result==="Strike"?"X":(b._displayResult||b.result||"—")}`}
-                        onToggle={()=>{setTenthPick(null);startEdit(b);}} />
-                    ))}
-                    <Chip label="Cancel" onToggle={()=>setTenthPick(null)} />
-                  </div>
-                </div>
-              )}
 
             {/* Says what the second half is for.
                 
@@ -1796,6 +1775,42 @@ export default function LogView({
                 result being entered below -- which is where a bowler
                 looks to check what they just did. Rebuilt from `shots`
                 every render, so a mark appears as soon as a shot saves. */}
+            {/* Which ball in the tenth -- directly above the frames, in
+                the same place as the Editing Shot banner below it.
+                
+                It used to render several cards up, beside Shot Context.
+                But it is the ANSWER to tapping the tenth, so it belongs
+                next to the frame that was tapped: up there it opened
+                off-screen behind the bowler and the tap read as doing
+                nothing at all, which is why the tenth felt like the one
+                frame that could not be edited.
+                
+                The banner and this card are the same idea one step apart
+                -- "which shot do you mean" and "this is the shot you are
+                editing" -- so they share a spot, and only one is ever on
+                screen: picking a ball here starts the edit, which is
+                what puts the banner up.
+                
+                Only when there is more than one ball. A single-ball
+                tenth goes straight in, because a chooser with one option
+                is a tap for nothing. Labels say what was actually
+                thrown, so the bowler finds the right ball by recognising
+                it rather than by counting. */}
+            {tenthPick&&(
+              <div ref={tenthPickRef}
+                style={{...S.card,border:`1.5px solid ${C.accent}`}}>
+                <div style={S.label}>Which ball in the 10th?</div>
+                <div style={S.chips}>
+                  {tenthPick.balls.map((b,i)=>(
+                    <Chip key={i}
+                      label={`${i===2?"Fill":`Ball ${i+1}`} · ${b.result==="Strike"?"X":(b._displayResult||b.result||"—")}`}
+                      onToggle={()=>{setTenthPick(null);startEdit(b);}} />
+                  ))}
+                  <Chip label="Cancel" onToggle={()=>setTenthPick(null)} />
+                </div>
+              </div>
+            )}
+
             {/* Edit banner, directly above the frames.
                 
                 It used to sit near the top of the tab, several cards away
