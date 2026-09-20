@@ -40,7 +40,7 @@ import DrillSession from "./DrillSession.jsx";
 import { useAuth } from "./AuthProvider.jsx";
 import { supabase } from "./supabaseClient.js";
 import { classifySyncError, cloudRead, cloudReadDelta, cloudWrite, cloudInsert, cloudUpdate, cloudDelete, getQueuedRecordsForTable, getPendingCount, onPendingCountChange, inspectPendingQueue, clearPendingQueue, discardQueuedTable, flushPendingQueue } from "./syncQueue.js";
-import { mergeDelta, nextCursor } from "./domain/deltaSync.js";
+import { mergeDelta, nextCursor, seedCursor } from "./domain/deltaSync.js";
 import { normalizeSignupCode, isValidSignupCode } from "./domain/signupCodes.js";
 import { shouldOfferShotByShot } from "./domain/trackingPrompt.js";
 import { shouldPromptForTeam, scoresToAdopt } from "./domain/teamPrompt.js";
@@ -1433,8 +1433,13 @@ export default function BowlingTracker(){
           try{await window.storage.set(STORAGE_KEY,JSON.stringify(migratedShots));}catch{}
           // A completed full sync -- from here on, later opens can ask
           // for only what changed instead of repeating this.
-          const seed=nextCursor(null,shotsRes.data.map(r=>r.updated_at))||new Date().toISOString();
-          try{await window.storage.set(SHOTS_CURSOR_KEY,seed);}catch{}
+          // A SERVER timestamp or no cursor at all -- never the phone's
+          // clock. seedCursor explains why; the short version is that a
+          // cursor seeded from local time can sit ahead of rows that
+          // already exist, and those rows are then never asked for
+          // again. No cursor simply means the next open fetches in full.
+          const seed=seedCursor(shotsRes.data.map(r=>r.updated_at));
+          if(seed){try{await window.storage.set(SHOTS_CURSOR_KEY,seed);}catch{}}
         }else{
           const r=await window.storage.get(STORAGE_KEY);
           if(r){
@@ -1464,8 +1469,13 @@ export default function BowlingTracker(){
           const migratedSessions=migrateSessions([...cloudSessions,...pendingSessionObjs]);
           setSessions(migratedSessions);
           try{await window.storage.set(SESSIONS_KEY,JSON.stringify(migratedSessions));}catch{}
-          const seed=nextCursor(null,sessionsRes.data.map(r=>r.updated_at))||new Date().toISOString();
-          try{await window.storage.set(SESSIONS_CURSOR_KEY,seed);}catch{}
+          // A SERVER timestamp or no cursor at all -- never the phone's
+          // clock. seedCursor explains why; the short version is that a
+          // cursor seeded from local time can sit ahead of rows that
+          // already exist, and those rows are then never asked for
+          // again. No cursor simply means the next open fetches in full.
+          const seed=seedCursor(sessionsRes.data.map(r=>r.updated_at));
+          if(seed){try{await window.storage.set(SESSIONS_CURSOR_KEY,seed);}catch{}}
         }else{
           const s=await window.storage.get(SESSIONS_KEY);
           if(s){
