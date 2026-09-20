@@ -2370,6 +2370,27 @@ export default function BowlingTracker(){
     if(renameFailed){
       alert(`"${clean}" was renamed on this device only and hasn't reached the cloud yet. It'll keep retrying in the background if you're offline; check back if this persists.`);
     }
+    // The per-league maps are keyed by NAME, so a rename orphans every
+    // one of them until the next cloud read rebuilds it. Moved across
+    // here so the league keeps its settings for the rest of the session
+    // rather than appearing to have lost them.
+    //
+    // leaguePatterns matters most of the four: it is the only one whose
+    // value the bowler typed rather than picked, so losing it looks like
+    // the app forgot what they said.
+    const remapByName=(map,setter,key)=>{
+      if(!map||!(oldName in map))return;
+      const next={...map};
+      next[clean]=next[oldName];
+      delete next[oldName];
+      setter(next);
+      if(key){try{window.storage.set(key,JSON.stringify(next));}catch{}}
+    };
+    remapByName(leaguePatterns,setLeaguePatterns,LEAGUE_PATTERNS_KEY);
+    remapByName(leagueCenters,setLeagueCenters,LEAGUE_CENTERS_KEY);
+    remapByName(leagueDates,setLeagueDates,LEAGUE_DATES_KEY);
+    remapByName(leagueFormats,setLeagueFormats,LEAGUE_FORMATS_KEY);
+
     setSessionLeague(v=>v===oldName?clean:v);
     setStatsLeague(v=>v===oldName?clean:v);
     // setTrendScope(...) was here and referenced a state that does not
@@ -4783,6 +4804,29 @@ export default function BowlingTracker(){
       if(getManualScore(manualScoresRef.current,bowler,league,date,g)!=null){
         await updateManualScore(bowler,league,date,g,"");
       }
+    }
+
+    // Tonight's lane conditions go too.
+    //
+    // These were left behind the first time, on the reasoning that a
+    // pattern is setup rather than scoring. That was wrong: what is
+    // recorded here is what THIS session was bowled on, so a cancelled
+    // session that still remembers its pattern is a night the app has
+    // half-forgotten -- start the league again and yesterday's shot is
+    // still sitting in the box.
+    //
+    // Every lane of the night, including the lane-less "Tonight" record
+    // written before a starting lane is known. saveLanePatterns diffs
+    // against the previous list and issues a cloudDelete for each id
+    // that disappeared, so these leave the cloud as well.
+    //
+    // The LEAGUE's usual pattern is deliberately untouched: that is a
+    // property of the league, not of tonight, and cancelling one night
+    // should not make a bowler set their house shot up again.
+    const patternsKept=(lanePatterns||[]).filter(lp=>!(lp
+      &&lp.league===league&&String(lp.date)===String(date)));
+    if(patternsKept.length!==(lanePatterns||[]).length){
+      await saveLanePatterns(patternsKept);
     }
 
     // Back to a clean slate, then home.
