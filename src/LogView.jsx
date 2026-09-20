@@ -1,4 +1,4 @@
-import { useState, useRef, lazy, Suspense} from "react";
+import { useState, useRef, useEffect, lazy, Suspense} from "react";
 import { C, S, F, Chip, PinDeck, CollapsibleCard, StatLead } from "./ui.jsx";
 import { PLASTIC_BALL, formatDate, localDateString, RESULTS, SURFACES, RELEASES, MISSES, BALL_CHANGE_REASONS, resultsForHandedness, storedResultFor, strikeDescriptionsForHand, storedStrikeDescriptionFor, practiceLeagueDisplayName } from "./constants.js";
 import { rAvg, cAvg, threeSixNineResults, cumulativeAvgBeforeDate } from "./domain/stats.js";
@@ -60,7 +60,7 @@ export default function LogView({
   getLanePattern, getMatch, handleBallChange, handleLeaveToggle, handleLineChange,
   handleSpareMadeToggle, matchHandicap, previousShotBall, selectBowler, set, setLanePattern, setMatchHandicap, setMatchOpponent, setPokerWinnings, setThreeSixNineWinnings, winningsSaved, confirmWinningsSaved, setView,
   leagueBuyIns, onSaveLeagueBuyIns, onReplayTour, casualExtraGames = 2, setCasualExtraGames,
-  showSparePins, sparePinsStanding, spareKnocked, toggleSparePin, spareIsAccidental, strictPartial, submitSession, cancelSession, deleteGame, submitShot, theoreticalScoreForGame, maxScoreThisGame, toggle, toggleMulti, toggleSection,
+  showSparePins, sparePinsStanding, spareKnocked, toggleSparePin, spareWillConvert, strictPartial, submitSession, cancelSession, deleteGame, submitShot, theoreticalScoreForGame, maxScoreThisGame, toggle, toggleMulti, toggleSection,
   preferences, setSessionMoneyArray, setSessionMoneyValue, activeBowlerLeftHanded,
   ballLayouts, activeTournament, updateTournament, saveTournament, closeTournament, tournamentSaved,
   manualScores, updateManualScore,
@@ -419,6 +419,39 @@ export default function LogView({
     }catch{ /* no DOM to scroll */ }
   }));
 
+  // Scroll the MINIMUM needed to bring a region fully on screen.
+  //
+  // scrollToTopOf pins an element's TOP under the header, which is right
+  // when something new appears and you want to start reading at it. It is
+  // wrong for "show me the rest of the form": the accessory cards are
+  // shorter than the viewport, so top-aligning them scrolled past the end
+  // of the page and left dead space between the last card and Save Shot.
+  //
+  // This aligns the BOTTOM instead, and refuses to overshoot:
+  //   - already fully visible -> do nothing (never scroll backwards)
+  //   - otherwise scroll just far enough to clear the bottom
+  //   - never so far that the top of the region slips under the header
+  const revealThrough=(topRef,bottomRef)=>requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    const bottomEl=bottomRef&&bottomRef.current;
+    if(!bottomEl)return;
+    try{
+      const header=document.querySelector("header")
+        ||document.querySelector("[data-app-header]");
+      const headerH=header?header.getBoundingClientRect().height:64;
+      const GAP=12;
+      const viewport=window.innerHeight||0;
+      const bottomRect=bottomEl.getBoundingClientRect();
+      const topEl=topRef&&topRef.current;
+      const topRect=topEl?topEl.getBoundingClientRect():bottomRect;
+
+      let delta=bottomRect.bottom+GAP-viewport;
+      if(delta<0)delta=0;
+      const maxDelta=topRect.top-(headerH+GAP);
+      if(delta>maxDelta)delta=Math.max(0,maxDelta);
+      if(delta>2)window.scrollBy({top:delta,behavior:"smooth"});
+    }catch{ /* no DOM to scroll */ }
+  }));
+
   // The fields a result reveals, so the next tap is already on screen.
   // A label above each field, and smaller text inside it.
   //
@@ -439,6 +472,18 @@ export default function LogView({
   const totalPinsRef=useRef(null);
   const detailsRef=useRef(null);
   const shotContextRef=useRef(null);
+  const editBannerRef=useRef(null);
+
+  // Entering edit mode lands on the banner -- which now sits directly
+  // above the frames, so the shot being edited is on screen with it.
+  //
+  // This used to be window.scrollTo(0,0) inside startEdit, which worked
+  // only because the banner happened to be at the top of the page. It
+  // read as "tapping a frame throws you to the top", and on the tenth --
+  // where the ball chooser runs first -- that is exactly what it was.
+  useEffect(()=>{
+    if(editingId)scrollToTopOf(editBannerRef);
+  },[editingId]);
 
 
   // Shot Context (game/frame/lane) is meaningless without shots -- a
@@ -1274,14 +1319,6 @@ export default function LogView({
               </div>
             )}
 
-            {/* Edit banner */}
-            {editingId&&(
-              <div style={{backgroundColor:C.spare+"22",border:`1px solid ${C.spare}44`,borderRadius:"10px",padding:"12px 16px",marginBottom:"12px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <div style={{fontSize:"13px",color:C.spare,fontWeight:600}}>✏️ Editing Shot</div>
-                <button style={{...S.btn(),padding:"6px 12px",fontSize:"12px"}} onClick={cancelEdit}>Cancel</button>
-              </div>
-            )}
-
             {/* Whose game is being recorded. Renamed from "Who's Bowling",
                 which read as "who is here tonight" rather than "whose shot
                 am I logging" -- and the answer differs by environment:
@@ -1645,6 +1682,21 @@ export default function LogView({
                 result being entered below -- which is where a bowler
                 looks to check what they just did. Rebuilt from `shots`
                 every render, so a mark appears as soon as a shot saves. */}
+            {/* Edit banner, directly above the frames.
+                
+                It used to sit near the top of the tab, several cards away
+                from the scoresheet. Tapping a frame scrolled the page to
+                it, which put the banner on screen and the frames -- the
+                thing being edited -- off it. Beside the frames, one
+                scroll target serves both: you see WHICH shot you are
+                editing and the card it belongs to at the same time. */}
+            {editingId&&(
+              <div ref={editBannerRef} style={{backgroundColor:C.spare+"22",border:`1px solid ${C.spare}44`,borderRadius:"10px",padding:"12px 16px",marginBottom:"12px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div style={{fontSize:"13px",color:C.spare,fontWeight:600}}>✏️ Editing Shot</div>
+                <button style={{...S.btn(),padding:"6px 12px",fontSize:"12px"}} onClick={cancelEdit}>Cancel</button>
+              </div>
+            )}
+
             {onTab("scoring")&&showShotContext&&(
               <Scoresheet
 
@@ -1718,7 +1770,7 @@ export default function LogView({
                   // Save Shot rather than silently discarding what was
                   // entered. Same condition the Save button uses -- if it
                   // wouldn't save on tap, it doesn't save here either.
-                  const canSave=form.result&&form.bowler&&!needsSpareMade&&!needsPins&&!spareIsAccidental;
+                  const canSave=form.result&&form.bowler&&!needsSpareMade&&!needsPins;
                   if(canSave&&submitShot){submitShot();return;}
 
                   goTo();
@@ -2047,8 +2099,13 @@ export default function LogView({
                           // button used to be the target, but it is sticky
                           // now and always on screen -- scrolling to
                           // something already visible does nothing.
+                          // Only "No" reveals anything. "Yes" closes the
+                          // frame and adds no field, so scrolling on it
+                          // moved the page for no reason -- most visibly
+                          // on a corner pin, where No adds nothing either
+                          // and the two answers behaved differently for
+                          // no reason a bowler could see.
                           if(s==="No")scrollToTopOf(totalPinsRef);
-                          else scrollToTopOf(detailsRef);
                         }}
                         color={s==="Yes"?C.strike:C.miss}/>
                     ))}
@@ -2073,15 +2130,18 @@ export default function LogView({
                     available={sparePinsStanding.map(String)}
                     onToggle={n=>toggleSparePin(Number(n))}/>
 
-                  {spareIsAccidental?(
-                    /* Taking every standing pin down IS a spare. The old
-                       stepper made this unreachable by capping one below
-                       the total; a picker cannot hide a pin without
-                       looking broken, so the contradiction is named
-                       instead -- and Save is blocked with the reason,
-                       the same way a missing "Spare made?" blocks it. */
-                    <div style={{fontSize:"12px",color:C.miss,lineHeight:1.45}}>
-                      That is every pin — set <strong>Spare made</strong> to Yes instead.
+                  {spareWillConvert?(
+                    /* Every standing pin tapped IS a spare, so say what
+                       will happen rather than asking for a correction --
+                       the bowler has already told us what they did.
+                       
+                       Spare made is deliberately NOT flipped to Yes here:
+                       that would hide the picker mid-tap, and a mis-tap
+                       has to stay undoable. Untap one and this reverts to
+                       an open frame with no fuss. The conversion happens
+                       at save. */
+                    <div style={{fontSize:"12px",color:C.strike,lineHeight:1.45}}>
+                      That's every pin — we'll save this as a spare.
                     </div>
                   ):(
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",fontSize:"12px",color:C.textMuted}}>
@@ -2089,6 +2149,30 @@ export default function LogView({
                       <span>Second ball: <strong style={{color:C.spare,fontFamily:F.num,fontSize:"16px"}}>{spareKnocked.length}</strong></span>
                     </div>
                   )}
+
+                  {/* Nothing can tell when the tapping is finished.
+                      
+                      Every other field in this form reveals the next one
+                      the moment it is answered, but a pin picker has no
+                      such moment -- one pin or four, the bowler is the
+                      only one who knows. So they say so, and this is the
+                      button that says it. Scrolling by hand still works;
+                      this just saves the swipe. */}
+                  <div style={{display:"flex",justifyContent:"flex-end",marginTop:"10px"}}>
+                    <button type="button"
+                      onClick={()=>revealThrough(detailsRef,saveShotRef)}
+                      aria-label="Done picking pins — show the rest of the form"
+                      style={{
+                        display:"flex",alignItems:"center",gap:"6px",
+                        padding:"8px 14px",minHeight:"44px",
+                        borderRadius:"20px",border:`1px solid ${C.border}`,
+                        backgroundColor:C.surface,color:C.textMuted,
+                        fontFamily:F.body,fontSize:"12px",fontWeight:500,
+                        cursor:"pointer",WebkitTapHighlightColor:"transparent",
+                      }}>
+                      Done <span aria-hidden="true" style={{fontSize:"14px",lineHeight:1}}>↓</span>
+                    </button>
+                  </div>
                 </>
               )}
             </div>
@@ -3410,7 +3494,7 @@ export default function LogView({
                   // single shot.
                   scrollToTopOf(shotContextRef);
                 }}
-                disabled={!form.result||!form.bowler||needsPins||needsSpareMade||spareIsAccidental}>
+                disabled={!form.result||!form.bowler||needsPins||needsSpareMade}>
                 {saved?(editingId?"✓ Updated":"✓ Saved"):(editingId?"Update":"Save Shot")}
               </button>
             )}

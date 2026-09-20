@@ -4407,7 +4407,11 @@ export default function BowlingTracker(){
   // The pins the spare ball was thrown at, and which of them fell.
   const sparePinsStanding=standingAfterFirst(form);
   const spareKnocked=knockedFromSecondLeave(sparePinsStanding,form.secondLeave)||[];
-  const spareIsAccidental=showSparePins&&isAccidentalSpare(sparePinsStanding,spareKnocked);
+  // Every standing pin tapped: this frame IS a spare, and will be saved
+  // as one. Not blocked, and NOT written into the form -- flipping
+  // spareMade here would hide the picker mid-tap and make a mis-tap
+  // unrecoverable. The form keeps saying "No" until save.
+  const spareWillConvert=showSparePins&&isAccidentalSpare(sparePinsStanding,spareKnocked);
 
   // Tapping a pin writes BOTH the new field and the old one.
   //
@@ -4558,8 +4562,25 @@ export default function BowlingTracker(){
       // second shot for the same slot — a duplicate would corrupt frame lookups
       // in strictPartial, which expects exactly one shot per slot.
       const existingSlot=findExistingShotSlot(shots,{...form,league:shotLeague,date:shotDate,ballNum:shotBallNum});
+      // Every standing pin tapped means the spare was made, whatever the
+      // Spare made chip still says.
+      //
+      // Resolved HERE rather than in the picker on purpose: writing "Yes"
+      // into the form the moment the last pin is tapped would hide the
+      // picker, and a bowler who mis-tapped would have no way back to it.
+      // Deciding at save keeps every tap reversible right up to the
+      // moment it stops being editable.
+      //
+      // secondLeave is already [] and pinCount already 10 in this case --
+      // both derived from the taps -- so nothing else needs adjusting.
+      const tappedEverything=form.result==="Other Leave"
+        &&form.spareMade==="No"
+        &&isAccidentalSpare(standingAfterFirst(form),
+                            knockedFromSecondLeave(standingAfterFirst(form),form.secondLeave)||[]);
+
       const toSave={
         ...form,
+        spareMade:tappedEverything?"Yes":form.spareMade,
         // league and date EXPLICITLY, after the spread.
         //
         // ...form carried form.league, which is only refreshed when the
@@ -4647,7 +4668,14 @@ export default function BowlingTracker(){
     setForm({...shot,result:shot._displayResult||shot.result,otherLeave:shot._displayLeave||shot.otherLeave||[]});
     setEditingId(shot.id);
     setView("log");
-    window.scrollTo(0,0);
+    // No scroll here any more.
+    //
+    // This was window.scrollTo(0,0), which looked right only because the
+    // edit banner used to sit at the top of the tab. Tapping a frame threw
+    // the bowler to the top of the page and away from the frames they had
+    // just tapped. LogView now scrolls to the banner itself, and the
+    // banner sits directly above the frames -- so the shot being edited
+    // and the card it belongs to arrive together.
   }
 
   function cancelEdit(){
@@ -7988,7 +8016,7 @@ export default function BowlingTracker(){
             offerShotByShot={offerShotByShot} onTryShotByShot={tryShotByShot} onDismissShotByShot={dismissShotPrompt}
             promptForTeam={promptForTeam} onDismissTeamPrompt={dismissTeamPrompt}
             ballNumLabel={ballNumLabel} curSession={curSession} currentLane={currentLane} firstBallPins={firstBallPins} gameScores={gameScores} frameScores={frameScores}
-            hasLeave={hasLeave} leaveDescribed={leaveDescribed} inTenth={inTenth} isNoTap={isNoTap} isStrike={isStrike} needsSpareMade={needsSpareMade} needsPins={needsPins} sessionTotal={sessionTotal} showSparePins={showSparePins} sparePinsStanding={sparePinsStanding} spareKnocked={spareKnocked} spareIsAccidental={spareIsAccidental} toggleSparePin={toggleSparePin}
+            hasLeave={hasLeave} leaveDescribed={leaveDescribed} inTenth={inTenth} isNoTap={isNoTap} isStrike={isStrike} needsSpareMade={needsSpareMade} needsPins={needsPins} sessionTotal={sessionTotal} showSparePins={showSparePins} sparePinsStanding={sparePinsStanding} spareKnocked={spareKnocked} spareWillConvert={spareWillConvert} toggleSparePin={toggleSparePin}
             standingPins={standingPins} tenthOptions={tenthOptions} autoFillLine={autoFillLine} calcLane={calcLane} cancelEdit={cancelEdit} cycleGameResult={cycleGameResult} cycleSeriesResult={cycleSeriesResult}
             getLanePattern={getLanePattern} getMatch={getMatch} handleBallChange={handleBallChange} handleLeaveToggle={handleLeaveToggle} handleLineChange={handleLineChange}
             handleSpareMadeToggle={handleSpareMadeToggle} matchHandicap={matchHandicap} previousShotBall={previousShotBall}
