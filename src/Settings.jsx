@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { C, S, Chip, CollapsibleCard, LockedNote } from "./ui.jsx";
 import { THEMES, DARK_THEME_IDS, LIGHT_THEME_IDS } from "./domain/themes.js";
 import { useAuth } from "./AuthProvider.jsx";
@@ -6,6 +6,10 @@ import { getPendingCount } from "./syncQueue.js";
 import CalendarView from "./CalendarView.jsx";
 import ImportCsv from "./ImportCsv.jsx";
 import JournalView from "./JournalView.jsx";
+// Lazy, exactly as BowlingTracker loads it: Journey is a big screen and
+// most visits to History never open it.
+import { lazyScreen } from "./lazyScreen.js";
+const JourneyScreen = lazyScreen("Journey", () => import("./JourneyView.jsx"));
 import { LEAGUE_FORMATS, leagueFormat, isNoTapLeague } from "./domain/leagueSeasons.js";
 import { availableTours } from "./domain/tour.js";
 import SessionHistory from "./SessionHistory.jsx";
@@ -272,6 +276,13 @@ export default function Settings({
                   answer the same question from opposite ends: the
                   calendar is when you bowled, the journal is what you
                   said about it. */}
+              {/* Journey lives here too, not only on its own tab.
+                  League mode holds a bowler on the Log screen until the
+                  night ends, which puts Journey out of reach for the
+                  length of a session. History is already where they go
+                  to look back. */}
+              <Chip label="Journey" selected={historyTab === "journey"}
+                onToggle={() => setHistoryTab("journey")} />
               <Chip label="Journal" selected={historyTab === "journal"}
                 onToggle={() => setHistoryTab("journal")} />
 
@@ -298,6 +309,15 @@ export default function Settings({
               onDeleteNight={deleteNight ? n => deleteNight(statsBowler || activeBowler, n.league, n.date) : undefined}
               bowler={statsBowler || activeBowler}
               league="" />
+          )}
+          {historyTab === "journey" && (
+            <Suspense fallback={null}>
+              <JourneyScreen
+                sessions={sessions || []}
+                shots={shots || []}
+                tournaments={tournaments || []}
+                bowler={displayName || activeBowler} />
+            </Suspense>
           )}
           {historyTab === "journal" && (
             <JournalView

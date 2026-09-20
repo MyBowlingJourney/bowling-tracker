@@ -4723,6 +4723,48 @@ export default function BowlingTracker(){
   }
 
 
+  // Abandon tonight and go home, taking the data with it.
+  //
+  // League mode holds you until the session is ended, which is right
+  // while a night is genuinely in progress -- and wrong when the night
+  // is not happening: a wrong league picked, a date typo, a practice
+  // logged against a league. Without this the only exits were to end a
+  // session that never was (filing a junk night into the averages) or
+  // to hunt for the entries and delete them one by one.
+  //
+  // DESTRUCTIVE, and deliberately narrow. It removes only what tonight
+  // produced for THIS bowler at THIS league on THIS date: the shots and
+  // the typed game scores. Lane patterns and match points are setup, not
+  // scoring, and a teammate's scores are not this bowler's to discard.
+  //
+  // Nothing here is recoverable, so the button asks twice.
+  async function cancelSession(){
+    const bowler=nightBowler, league=nightLeague, date=nightDate;
+    if(!league||!bowler)return;
+
+    // Shots first. saveShots diffs against the previous list and issues a
+    // cloudDelete for every id that disappeared, so this removes them
+    // from the cloud as well as the device.
+    const keep=(shots||[]).filter(sh=>!(sh
+      &&sh.bowler===bowler&&sh.league===league&&String(sh.date)===String(date)));
+    if(keep.length!==(shots||[]).length)await saveShots(keep);
+
+    // Typed scores, through the normal path so each one's cloud row is
+    // deleted the same way clearing the box by hand would.
+    for(let g=1;g<=12;g++){
+      if(getManualScore(manualScoresRef.current,bowler,league,date,g)!=null){
+        await updateManualScore(bowler,league,date,g,"");
+      }
+    }
+
+    // Back to a clean slate, then home.
+    setSessionSaved(false);
+    setSessionSaveMessage("");
+    setLeagueTabChoice("setup");
+    setView("home");
+    try{window.scrollTo({top:0,behavior:"smooth"});}catch{}
+  }
+
   async function submitSession(){
     // effectiveSessionLeague, not sessionLeague. Practice and casual have
     // no league to pick, so sessionLeague is "" there and this returned
@@ -7733,7 +7775,7 @@ export default function BowlingTracker(){
             selectBowler={selectBowler} set={set} setLanePattern={setLanePattern} setMatchHandicap={setMatchHandicap} setMatchOpponent={setMatchOpponent} setPokerWinnings={setPokerWinnings} setThreeSixNineWinnings={setThreeSixNineWinnings} winningsSaved={winningsSaved} confirmWinningsSaved={confirmWinningsSaved} setView={setView}
             leagueBuyIns={leagueBuyIns} onSaveLeagueBuyIns={saveLeagueBuyIns} onReplayTour={replayTour}
             casualExtraGames={casualExtraGames} setCasualExtraGames={setCasualExtraGames}
-            stepPinCount={stepPinCount} strictPartial={strictPartial} submitSession={submitSession} submitShot={submitShot} theoreticalScoreForGame={theoreticalScoreForGame} maxScoreThisGame={maxScoreThisGame} toggle={toggle} toggleMulti={toggleMulti} toggleSection={toggleSection}
+            stepPinCount={stepPinCount} strictPartial={strictPartial} submitSession={submitSession} cancelSession={cancelSession} submitShot={submitShot} theoreticalScoreForGame={theoreticalScoreForGame} maxScoreThisGame={maxScoreThisGame} toggle={toggle} toggleMulti={toggleMulti} toggleSection={toggleSection}
             preferences={logPreferences}
             setSessionMoneyArray={setSessionMoneyArray} setSessionMoneyValue={setSessionMoneyValue}
             activeBowlerLeftHanded={activeBowlerLeftHanded}

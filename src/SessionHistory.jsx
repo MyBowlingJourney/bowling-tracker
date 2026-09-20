@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { C, S, Chip } from "./ui.jsx";
+import { C, S } from "./ui.jsx";
 import { formatDate, practiceLeagueDisplayName } from "./constants.js";
 
 const PAGE_SIZE = 15;
@@ -69,14 +69,23 @@ export default function SessionHistory({ sessions, bowlers, leagues, teams = [],
               sessions are filed under -- the team just supplies it. */}
           {teamOptions.length > 1 && (
             <>
+              {/* A dropdown, not a chip row.
+                
+                  One chip per team wrapped across several lines for
+                  anyone in more than a couple of leagues, pushing the
+                  history it filters off the screen -- on the screen whose
+                  whole job is showing that history. A picker is one line
+                  whatever the roster looks like. */}
               <div style={S.label}>Filter</div>
-              <div style={S.chips}>
-                <Chip label="All teams" selected={!statsLeague} onToggle={() => updateFilter(setStatsLeague, "")} />
+              <select
+                style={{ ...S.sel, width: "100%" }}
+                value={statsLeague || ""}
+                onChange={e => updateFilter(setStatsLeague, e.target.value)}>
+                <option value="">All teams</option>
                 {teamOptions.map(t => (
-                  <Chip key={t.league} label={t.name} selected={statsLeague === t.league}
-                    onToggle={() => updateFilter(setStatsLeague, t.league)} />
+                  <option key={t.league} value={t.league}>{t.name}</option>
                 ))}
-              </div>
+              </select>
             </>
           )}
         </div>

@@ -60,7 +60,7 @@ export default function LogView({
   getLanePattern, getMatch, handleBallChange, handleLeaveToggle, handleLineChange,
   handleSpareMadeToggle, matchHandicap, previousShotBall, selectBowler, set, setLanePattern, setMatchHandicap, setMatchOpponent, setPokerWinnings, setThreeSixNineWinnings, winningsSaved, confirmWinningsSaved, setView,
   leagueBuyIns, onSaveLeagueBuyIns, onReplayTour, casualExtraGames = 2, setCasualExtraGames,
-  stepPinCount, strictPartial, submitSession, submitShot, theoreticalScoreForGame, maxScoreThisGame, toggle, toggleMulti, toggleSection,
+  stepPinCount, strictPartial, submitSession, cancelSession, submitShot, theoreticalScoreForGame, maxScoreThisGame, toggle, toggleMulti, toggleSection,
   preferences, setSessionMoneyArray, setSessionMoneyValue, activeBowlerLeftHanded,
   ballLayouts, activeTournament, updateTournament, saveTournament, closeTournament, tournamentSaved,
   manualScores, updateManualScore,
@@ -86,6 +86,10 @@ export default function LogView({
   // Session-local: a practice where you added a 4th game shouldn't make
   // every future session start with four empty boxes.
   const [extraGames,setExtraGames]=useState(0);
+  // Cancelling deletes tonight's shots, so it is armed before it fires.
+  // Local, not lifted: nothing outside this screen needs to know that a
+  // confirm is half-open, and it should reset if the screen is left.
+  const [cancelArmed,setCancelArmed]=useState(false);
 
   // Score fields are locked while logging shot by shot.
   //
@@ -837,6 +841,30 @@ export default function LogView({
                         </div>
                       );
                     })()}
+
+                    {/* Into Scoring, from where the setting-up ends.
+                      
+                        Set up is a checklist -- league, date, lane,
+                        pattern -- and finishing it leaves you at the
+                        bottom of a card with the next step a scroll back
+                        up to a chip you have to know to look for. This is
+                        the same navigation, put where the work actually
+                        finishes.
+                      
+                        Not a "start": nothing is created or saved by
+                        pressing it, so leaving Set up and coming back
+                        costs nothing. */}
+                    <button
+                      style={{...S.btn("primary"),marginTop:"4px"}}
+                      onClick={()=>{
+                        setLeagueTabChoice("scoring");
+                        // The tab content above changes, so the useful
+                        // place to be is the top of it, not the bottom of
+                        // the card that was just left.
+                        try{window.scrollTo({top:0,behavior:"smooth"});}catch{}
+                      }}>
+                      Go to Scoring
+                    </button>
 
                     {/* Save moved to the bottom of Enter Game Scores.
 
@@ -3262,6 +3290,48 @@ export default function LogView({
             </button>
             )}
           </div>
+          )}
+
+          {/* The way out of a night that should not be filed.
+            
+              League mode holds you here until the session ends, which is
+              right while a night is happening and wrong when it is not:
+              wrong league picked, date typo, a practice logged against a
+              league. The only exits were to END a session that never
+              was -- putting a junk night into the averages, where it
+              moves a book average -- or to delete entries one at a time.
+            
+              Asks twice, because it deletes tonight's shots and typed
+              scores and none of that comes back. Quiet styling on
+              purpose: it sits beside the button most people want. */}
+          {!editingId&&typeof cancelSession==="function"&&sessionLeague&&(
+            <div style={{marginTop:"10px",textAlign:"center"}}>
+              {!cancelArmed?(
+                <button
+                  style={{background:"none",border:"none",color:C.textMuted,cursor:"pointer",
+                          fontSize:"13px",padding:"8px",WebkitTapHighlightColor:"transparent"}}
+                  onClick={()=>setCancelArmed(true)}>
+                  Cancel this session
+                </button>
+              ):(
+                <div style={{...S.card,padding:"12px",textAlign:"left"}}>
+                  <div style={{fontSize:"13px",color:C.text,lineHeight:1.5,marginBottom:"10px"}}>
+                    This deletes tonight's shots and game scores for{" "}
+                    <strong>{form.bowler||activeBowler}</strong> and takes you back to Home.
+                    Nothing is saved and this can't be undone.
+                  </div>
+                  <div style={{display:"flex",gap:"8px"}}>
+                    <button style={{...S.btn(),flex:1}} onClick={()=>setCancelArmed(false)}>
+                      Keep bowling
+                    </button>
+                    <button style={{...S.btn("warn"),flex:1}}
+                      onClick={()=>{ setCancelArmed(false); cancelSession(); }}>
+                      Delete and exit
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
     </>
   );
