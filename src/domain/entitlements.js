@@ -241,7 +241,32 @@ export function trialDaysLeft(entitlement, now = Date.now()) {
 // stopped -- could not be written until the day it flips, which is the
 // worst possible day to discover they fail. It also gives you a way to
 // preview the locked app without shipping a release.
+// ── "We do not know yet" is not "no" ────────────────────────────────
+//
+// null means we asked and this bowler has no entitlement row: a free
+// bowler, and gating them is correct. ENTITLEMENT_UNKNOWN means we have
+// not been able to ask at all -- first run on a new device with no
+// signal -- and gating THAT is how a paying subscriber ends up staring
+// at a padlock on league night with a receipt in their inbox.
+//
+// Two different facts that were both spelled "null" until billing went
+// live, at which point the difference started costing customers.
+//
+// Fails OPEN, matching the server (see the same reasoning in
+// nightcap/index.ts). The expensive things -- Genie, Nightcap,
+// Insights, scorecard import -- are gated again server-side by
+// is_subscriber(), so an unknown state cannot give away anything that
+// costs money. What it gives away is league count and a few stats
+// cards, to somebody with no connection, which is a price worth paying
+// to never lock out a subscriber who is standing on the approach.
+export const ENTITLEMENT_UNKNOWN = "unknown";
+
+export function isEntitlementKnown(entitlement) {
+  return entitlement !== ENTITLEMENT_UNKNOWN;
+}
+
 export function featureUnlocked(entitlement, { now = Date.now(), billingLive = BILLING_LIVE } = {}) {
+  if (entitlement === ENTITLEMENT_UNKNOWN) return true;
   return !billingLive || isSubscriber(entitlement, now);
 }
 

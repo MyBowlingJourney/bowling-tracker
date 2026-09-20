@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   isSubscriber, hasPaidSubscription, isTestAccount,
+  ENTITLEMENT_UNKNOWN, isEntitlementKnown,
   isTrialing, shouldOfferAnnual, trialDaysLeft, featureUnlocked,
   canUseInsights, canUseGenie, canPourNightcap, canUseCoaching,
   canUseBracketsAndSidePots, canCompareToFriend, canImportScorecard,
@@ -359,5 +360,50 @@ describe('test accounts', () => {
     expect(leagueLimit(testAcct, { billingLive: true })).toBe(Infinity);
     expect(teamLimit(testAcct, { billingLive: true })).toBe(Infinity);
     expect(leagueLimit(freeAcct, { billingLive: true })).toBe(FREE_LEAGUE_LIMIT);
+  });
+});
+
+// ── "Not known yet" must not be read as "no" ────────────────────────
+//
+// These exist because the difference only started mattering the day
+// BILLING_LIVE flipped. Before that an absent entitlement unlocked
+// everything, so null-for-both was harmless; after it, a subscriber
+// whose entitlement query lost a race with bad wifi was locked out of
+// what they had paid for, mid league night.
+describe('unknown entitlement', () => {
+  const NOW_U = Date.parse('2026-01-15T20:00:00Z');
+
+  it('is distinguishable from a known-free bowler', () => {
+    expect(isEntitlementKnown(null)).toBe(true);
+    expect(isEntitlementKnown(ENTITLEMENT_UNKNOWN)).toBe(false);
+  });
+
+  it('fails OPEN, matching the server', () => {
+    expect(featureUnlocked(ENTITLEMENT_UNKNOWN, { now: NOW_U, billingLive: true })).toBe(true);
+  });
+
+  it('still gates a bowler we DID ask about', () => {
+    // The whole value of the distinction: null is an answer, and the
+    // answer is no.
+    expect(featureUnlocked(null, { now: NOW_U, billingLive: true })).toBe(false);
+  });
+
+  it('unlocks every gate and both limits while unknown', () => {
+    for (const [name, gate] of GATES) {
+      expect(`${name}:${gate(ENTITLEMENT_UNKNOWN, { now: NOW_U, billingLive: true })}`).toBe(`${name}:true`);
+    }
+    expect(leagueLimit(ENTITLEMENT_UNKNOWN, { billingLive: true })).toBe(Infinity);
+    expect(teamLimit(ENTITLEMENT_UNKNOWN, { billingLive: true })).toBe(Infinity);
+    expect(canSeeStatsCard('headToHead', ENTITLEMENT_UNKNOWN, { billingLive: true })).toBe(true);
+  });
+
+  // The sentinel is a STRING, and React state updaters elsewhere do
+  // {...prev}. Spreading a string yields {0:'u',1:'n',...}: truthy, no
+  // plan, and therefore a locked-out free bowler. Anything that spreads
+  // the entitlement must check typeof first.
+  it('is not mistaken for a subscriber if something spreads it', () => {
+    const spread = { ...ENTITLEMENT_UNKNOWN };
+    expect(isSubscriber(spread, NOW_U)).toBe(false);
+    expect(featureUnlocked(spread, { now: NOW_U, billingLive: true })).toBe(false);
   });
 });
