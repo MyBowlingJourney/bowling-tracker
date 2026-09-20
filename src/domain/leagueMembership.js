@@ -26,7 +26,7 @@
 // Matched by NAME rather than by hidden id, because the id only exists
 // once the cloud row is created -- so an offline bowler, or one on their
 // very first practice session, would otherwise see "Practice" sitting in
-// the Vault alongside their real leagues.
+// the Team tab alongside their real leagues.
 export function isContainerLeague(name) {
   // "Casual" is the container's OLD name and still appears in data
   // written before the rename. Leaving it out was harmless only

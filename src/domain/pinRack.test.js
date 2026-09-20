@@ -87,6 +87,57 @@ describe('frames 1 through 9 — always one deck', () => {
   });
 });
 
+// ── The corner pin is named, not numbered ───────────────────────────────
+//
+// "Weak 10" and "Ringing 10" store an EMPTY otherLeave -- the pin is in
+// the result name. Reading only otherLeave drew all ten pins down, so a
+// corner-pin leave looked exactly like a strike while every number on
+// the card stayed correct. That combination is why it shipped.
+describe('Weak 10 and Ringing 10 leave a pin standing', () => {
+  const corner = r => ({ result: r, otherLeave: [], spareMade: 'No', pinCount: '9' });
+
+  it('stands the 10 for a right-hander', () => {
+    for (const r of ['Weak 10', 'Ringing 10']) {
+      const [deck] = framePinDecks(corner(r), false);
+      expect(down(deck, 10)).toBe('standing');
+      expect(down(deck, 7)).toBe('down1');
+      expect(ALL_PINS.filter(p => down(deck, p) === 'down1')).toHaveLength(9);
+    }
+  });
+
+  // The stored value is canonical for both hands: a lefty taps "Weak 7"
+  // and the record still says "Weak 10". The pin that physically stood
+  // is the 7, and the rack has to draw the pin, not the label.
+  it('stands the 7 for a left-hander', () => {
+    const [deck] = framePinDecks(corner('Weak 10'), true);
+    expect(down(deck, 7)).toBe('standing');
+    expect(down(deck, 10)).toBe('down1');
+  });
+
+  it('attributes the corner pin to ball two when the spare was made', () => {
+    const [deck] = framePinDecks(
+      { result: 'Weak 10', otherLeave: [], spareMade: 'Yes', pinCount: '10' }, false,
+    );
+    expect(down(deck, 10)).toBe('down2');
+    expect(deck.exact).toBe(true);
+  });
+
+  // The guard that keeps this fix from swallowing real strikes.
+  it('does not stand a pin for an actual strike', () => {
+    const [deck] = framePinDecks(strike, false);
+    expect(ALL_PINS.every(p => down(deck, p) === 'down1')).toBe(true);
+  });
+
+  it('lets pins recorded by number win over the result name', () => {
+    const [deck] = framePinDecks(
+      { result: 'Other Leave', otherLeave: [4, 7], spareMade: 'No', pinCount: '8' }, false,
+    );
+    expect(down(deck, 4)).toBe('standing');
+    expect(down(deck, 7)).toBe('standing');
+    expect(down(deck, 10)).toBe('down1');
+  });
+});
+
 describe('the tenth — one rack per deck, never per ball', () => {
   const b = (n, shot) => ({ ...shot, ballNum: n, frame: 10 });
 

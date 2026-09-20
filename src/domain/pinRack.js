@@ -31,7 +31,7 @@
 // three.
 
 import { isStk } from "./scoring.js";
-import { isSplit } from "./splits.js";
+import { isSplit, pinForHand } from "./splits.js";
 
 // The rack as it is seen from the approach: the four back pins first,
 // the headpin last. Matches how a bowler reads a leave and how
@@ -48,12 +48,42 @@ export const ALL_PINS = Object.freeze([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 // Pin numbers only. "9 Pin No-Tap" rides along in otherLeave as a
 // sentinel meaning "scored as a strike"; it is not a pin and must not
 // become one.
-function leaveOf(shot) {
+//
+// ── The corner pin is named, not numbered ───────────────────────────────
+//
+// "Weak 10" and "Ringing 10" store an EMPTY otherLeave. The pin left
+// standing is carried by the result name instead, because what those
+// results record is how the ball drove through the rack, not which pin
+// survived -- the pin is the same one every time.
+//
+// Reading only otherLeave therefore said "nothing standing", and the
+// rack drew all ten pins down: a corner-pin leave rendered identically
+// to a strike. The score stayed right, because firstBallOf() has always
+// known to return 9 for these, which is exactly why it went unnoticed --
+// every number on the card agreed while the picture disagreed.
+//
+// The stored value is canonical: "Weak 10" means the corner pin for
+// BOTH hands, and a lefty's corner pin is physically the 7. pinForHand
+// is how the rest of the app resolves that (ArsenalList does the same),
+// so the rack follows it rather than inventing a second convention.
+//
+// Pins listed by number are already physical and need no mirroring --
+// a lefty's otherLeave of [7] means the 7 really stood.
+function leaveOf(shot, leftHanded) {
   const raw = Array.isArray(shot?.otherLeave) ? shot.otherLeave : [];
-  return raw
+  const pins = raw
     .filter(p => p !== "9 Pin No-Tap")
     .map(Number)
     .filter(n => Number.isInteger(n) && n >= 1 && n <= 10);
+
+  // Explicit pins win. The named result is only consulted when nothing
+  // was recorded by number.
+  if (pins.length) return pins;
+
+  const r = shot?.result;
+  if (r === "Weak 10" || r === "Ringing 10") return [pinForHand(10, !!leftHanded)];
+
+  return pins;
 }
 
 /**
@@ -91,11 +121,11 @@ function strikeDeck() {
  * Racks for frames 1 through 9. Always exactly one deck: the pins only
  * reset at the end of the frame, never inside it.
  */
-export function framePinDecks(shot) {
+export function framePinDecks(shot, leftHanded) {
   if (!shot) return [];
   if (isStk(shot)) return [strikeDeck()];
 
-  const first = leaveOf(shot);
+  const first = leaveOf(shot, leftHanded);
   const split = isSplit(shot);
 
   // A spare took everything that was standing -- exact, every time.
@@ -116,7 +146,7 @@ export function framePinDecks(shot) {
  *
  * @param tenth  {ball1, ball2, ball3} as frameScoresheet hands it over
  */
-export function tenthPinDecks(tenth) {
+export function tenthPinDecks(tenth, leftHanded) {
   const balls = [tenth?.ball1, tenth?.ball2, tenth?.ball3].filter(Boolean);
   const decks = [];
   let open = null;
@@ -125,7 +155,7 @@ export function tenthPinDecks(tenth) {
     if (open) {
       // Second ball on the deck already in play. Its own leave is
       // recorded, so this one is exact.
-      decks.push(makeDeck(open.firstLeave, leaveOf(b), open.split));
+      decks.push(makeDeck(open.firstLeave, leaveOf(b, leftHanded), open.split));
       open = null;
       continue;
     }
@@ -135,11 +165,11 @@ export function tenthPinDecks(tenth) {
     // The tenth's first ball can carry its spare in the same record, in
     // which case the deck is complete on arrival.
     if (b.spareMade === "Yes") {
-      decks.push(makeDeck(leaveOf(b), [], isSplit(b)));
+      decks.push(makeDeck(leaveOf(b, leftHanded), [], isSplit(b)));
       continue;
     }
 
-    open = { firstLeave: leaveOf(b), split: isSplit(b) };
+    open = { firstLeave: leaveOf(b, leftHanded), split: isSplit(b) };
   }
 
   // A deck still waiting on its second ball -- mid-frame, or an open
@@ -152,9 +182,11 @@ export function tenthPinDecks(tenth) {
 /**
  * The racks for one frameScoresheet row, whichever frame it is.
  */
-export function rowPinDecks(row) {
+export function rowPinDecks(row, leftHanded) {
   if (!row) return [];
-  return row.frame === 10 ? tenthPinDecks(row.tenth) : framePinDecks(row.shot);
+  return row.frame === 10
+    ? tenthPinDecks(row.tenth, leftHanded)
+    : framePinDecks(row.shot, leftHanded);
 }
 
 // How much room a frame needs, relative to a one-deck frame.

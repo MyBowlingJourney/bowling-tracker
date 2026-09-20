@@ -105,10 +105,10 @@ export function drawShareCard(ctx, { bowler, scores, league, date, colors, fonts
   ctx.fillStyle = c.bg || "#14110E";
   ctx.fillRect(0, 0, W, H);
 
-  // The vault wheel, matching the app icon.
+  // The wheel, matching the app icon.
   //
   // Was a 39-board lane with every 5th board lit. That was right for
-  // "Board & Arrow"; it says nothing about a vault, and a shared card
+  // "Board & Arrow"; it says nothing about a wheel, and a shared card
   // should look like the app it came from -- that's the whole point of
   // putting it on someone's feed.
   //
@@ -536,7 +536,7 @@ export function drawBadgeCard(ctx, options) {
 
   ctx.fillStyle = muted;
   ctx.font = `500 30px ${body}`;
-  ctx.fillText("My Bowling Vault", 72, H - 80);
+  ctx.fillText(APP_NAME, 72, H - 80);
 
   return { width: W, height: H };
 }
