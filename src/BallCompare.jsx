@@ -109,8 +109,8 @@ export default function BallCompare({
       {anyProvisional && (
         <div style={{ fontSize: "11px", color: C.spare, marginBottom: "10px", lineHeight: 1.5 }}>
           A ball marked {"31/50"}-style has not been thrown enough yet. Its
-          numbers are shown anyway and will move, and it is not named as
-          leading anything until it gets there.
+          numbers are shown anyway, but treat them as preliminary {"—"} it is
+          not named as leading anything until it gets there.
         </div>
       )}
 
@@ -187,8 +187,8 @@ export default function BallCompare({
             marginBottom: "14px", lineHeight: 1.5 }}>
             Strike rate by part of the night. Bold leads that phase; nothing
             is bold when the gap is small enough to be chance. A rate in
-            amber has fewer than {PHASE_RELIABLE_AT} shots behind it and
-            will move. A dash means no shots at all.
+            amber has fewer than {PHASE_RELIABLE_AT} shots behind it, so treat
+            it as preliminary. A dash means no shots at all.
           </div>
         </>
       )}
