@@ -1589,7 +1589,13 @@ anyMoneyGameShown(preferences)&&statsBowler&&(()=>{
                   <div style={S.card}>
                     <div style={S.label}>By Bowling Center</div>
                     <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"10px"}}>
-                      How you score house to house. Only leagues with a center set are included — set them in Settings.
+                      {/* "in Settings" was wrong. The leagues editor is
+                          rendered by the TEAM tab (view==="teams" in
+                          BowlingTracker), not the settings icon -- so
+                          this line sent anybody who followed it to a
+                          screen with no leagues on it, to fix the exact
+                          thing the card was telling them to fix. */}
+                      How you score house to house. Only leagues with a center set are included — set them under Team.
                     </div>
                     {(centerStats||[]).map(cs=>(
                       <div key={cs.centerId} style={{marginBottom:"10px"}}>
