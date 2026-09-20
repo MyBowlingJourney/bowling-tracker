@@ -144,7 +144,16 @@ function Frames({ highlight }) {
 // back, then 4-5-6, then 2-3, then the headpin. A row of number chips
 // wouldn't teach anything -- the whole point is that it looks like a
 // rack, so a bowler taps the pins they can actually see standing.
-function PinRack({ standing = [] }) {
+// The rack, twice over.
+//
+// `standing` lights the pins left after the first ball. `knocked` is the
+// spare picker's answer -- which of those the second ball took -- and
+// `caption` names whichever question the rack is asking, since the same
+// drawing now appears for two different ones.
+//
+// Pins that were never standing stay faint in both, exactly as they do in
+// the app: the rack loses its shape without them.
+function PinRack({ standing = [], knocked = [], caption = "\u2190 still standing" }) {
   const rows = [
     [["7", 14], ["8", 38], ["9", 62], ["10", 86]],
     [["4", 26], ["5", 50], ["6", 74]],
@@ -156,20 +165,26 @@ function PinRack({ standing = [] }) {
     <div style={{ position: "relative", height: `${gap * 3 + size + 6}px`, margin: "4px 0" }}>
       {rows.map((row, r) => row.map(([n, x]) => {
         const on = standing.includes(n);
+        const down = knocked.includes(n);
+        // Knocked down by the spare ball reads as filled; still standing
+        // reads as outlined. Same two states the scoresheet's rack uses.
+        const border = down ? C.spare : on ? C.spare : C.border;
+        const fill = down ? C.spare : on ? C.spare + "33" : C.surface;
+        const ink = down ? C.onAccent : on ? C.spare : C.textMuted;
         return (
           <div key={n} style={{
             position: "absolute", left: `${x}%`, top: `${r * gap + 3}px`,
             transform: "translateX(-50%)", width: `${size}px`, height: `${size}px`,
             borderRadius: "50%", boxSizing: "border-box",
-            border: `2px solid ${on ? C.spare : C.border}`,
-            background: on ? C.spare + "33" : C.surface,
-            color: on ? C.spare : C.textMuted,
+            border: `2px solid ${border}`,
+            background: fill,
+            color: ink,
             fontSize: "9px", fontWeight: 700, fontFamily: F.body,
             display: "flex", alignItems: "center", justifyContent: "center",
           }}>{n}</div>
         );
       }))}
-      <div style={{ ...muted, position: "absolute", right: 0, bottom: 0 }}>← still standing</div>
+      <div style={{ ...muted, position: "absolute", right: 0, bottom: 0 }}>{caption}</div>
     </div>
   );
 }
@@ -206,6 +221,20 @@ function ResultCard({ stage }) {
               <span style={chip(stage === "miss", C.miss)}>No</span>
             </Spot>
           </div>
+
+          {/* Answering No opens the rack a second time.
+              
+              The lesson used to stop at the chip, because what came next
+              was a number stepper and there was nothing to draw. Now the
+              bowler taps the pins they knocked down, so the tour has to
+              show the step it is describing -- a screen that ends one
+              tap before the real one does is worse than no screen. */}
+          {stage === "miss" && (
+            <>
+              <div style={{ ...label, marginTop: "10px" }}>Which pins did you knock down?</div>
+              <PinRack standing={["3", "10"]} knocked={["3"]} caption="← tap what fell" />
+            </>
+          )}
         </>
       )}
     </div>
