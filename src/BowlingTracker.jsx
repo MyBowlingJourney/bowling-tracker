@@ -7303,8 +7303,31 @@ export default function BowlingTracker(){
                 {"\u2039"}
               </button>
             )}
+            {/* The app name gets its own sizing, because it is the only
+                header title long enough to wrap.
+
+                Every other title here is one short word -- Stats, Badges,
+                Journey -- and 18px is right for those. "🎳 My Bowling
+                Journey" is twenty-one characters, and on a narrow phone it
+                wrapped to a second line and made the whole sticky header a
+                row taller. That cost a row of the scoresheet on every
+                screen, all day, to avoid truncating a name the bowler
+                already knows.
+
+                clamp() sizes it off the viewport rather than a breakpoint:
+                18px where there is room, down to 14px on a small phone,
+                and nothing in between needs a media query.
+
+                nowrap is what actually guarantees one row; the ellipsis is
+                the escape valve for the worst case, which is a 320px
+                screen with both the sync and inbox buttons showing. If
+                that truncation ever shows up in practice, dropping the 🎳
+                buys back about 26px and is a one-line change. */}
             {(view==="home"||view==="log")
-              ? <div style={S.title}>🎳 {APP_NAME}</div>
+              ? <div style={{...S.title,
+                  fontSize:"clamp(14px, 4.4vw, 18px)",
+                  whiteSpace:"nowrap",overflow:"hidden",
+                  textOverflow:"ellipsis",minWidth:0}}>🎳 {APP_NAME}</div>
               : <div style={S.title}>{navTabs.find(t=>t.id===view)?.label
                   ||(view==="settings"?"Settings":view==="profile"?"Profile"
                     :view==="inbox"?"Inbox":view==="coaching"?"Coach"

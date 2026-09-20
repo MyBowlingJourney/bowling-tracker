@@ -25,6 +25,8 @@ import { plasticLast } from "./domain/bags.js";
 
 import { tenthBall3Earned, maxPossibleScore } from "./domain/scoring.js";
 
+import { revealBottomDelta, MIN_SCROLL } from "./domain/scrollReveal.js";
+
 import { isBaker, bakerBowlerFor } from "./domain/tournamentFormats.js";
 
 import { practiceSummary, practiceShotStats } from "./domain/practiceSummary.js";
@@ -358,7 +360,6 @@ export default function LogView({
   // flow where the button used to be. The button itself is sticky now, so
   // there is nothing to scroll TO -- the old scrollToSave helper went
   // with it rather than sitting unused.
-  const saveShotRef=useRef(null);
 
   // Scroll the MINIMUM needed to bring a section fully into view above
   // the bottom nav.
@@ -419,36 +420,51 @@ export default function LogView({
     }catch{ /* no DOM to scroll */ }
   }));
 
-  // Scroll the MINIMUM needed to bring a region fully on screen.
+  // Bring the BOTTOM of a region onto the screen.
   //
   // scrollToTopOf pins an element's TOP under the header, which is right
   // when something new appears and you want to start reading at it. It is
-  // wrong for "show me the rest of the form": the accessory cards are
-  // shorter than the viewport, so top-aligning them scrolled past the end
-  // of the page and left dead space between the last card and Save Shot.
+  // wrong for "show me the rest of the form", where what matters is the
+  // far end: the last accessory cards are Shoes and Execution, and the
+  // bowler wants to see those with Save Shot underneath them.
   //
-  // This aligns the BOTTOM instead, and refuses to overshoot:
-  //   - already fully visible -> do nothing (never scroll backwards)
-  //   - otherwise scroll just far enough to clear the bottom
-  //   - never so far that the top of the region slips under the header
-  const revealThrough=(topRef,bottomRef)=>requestAnimationFrame(()=>requestAnimationFrame(()=>{
-    const bottomEl=bottomRef&&bottomRef.current;
-    if(!bottomEl)return;
+  //   cap = false  the region is TALLER than the screen (the accessory
+  //                grid). Its top cannot stay visible and does not need
+  //                to -- the bowler has already read it on the way down.
+  //                Scroll all the way to the bottom edge.
+  //
+  //   cap = true   the region FITS (the Result card). Reveal its end, but
+  //                never so far that its own top slips under the header,
+  //                which would hide the answer being looked at.
+  //
+  // Either way it refuses to scroll backwards: already visible means
+  // already done, and moving the page then is the app taking a decision
+  // the bowler did not make.
+  // The arithmetic lives in domain/scrollReveal.js so it can be tested;
+  // this half only measures and scrolls.
+  const revealBottomOf=(ref,{cap=false}={})=>requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    const el=ref&&ref.current;
+    if(!el)return;
     try{
       const header=document.querySelector("header")
         ||document.querySelector("[data-app-header]");
-      const headerH=header?header.getBoundingClientRect().height:64;
-      const GAP=12;
-      const viewport=window.innerHeight||0;
-      const bottomRect=bottomEl.getBoundingClientRect();
-      const topEl=topRef&&topRef.current;
-      const topRect=topEl?topEl.getBoundingClientRect():bottomRect;
 
-      let delta=bottomRect.bottom+GAP-viewport;
-      if(delta<0)delta=0;
-      const maxDelta=topRect.top-(headerH+GAP);
-      if(delta>maxDelta)delta=Math.max(0,maxDelta);
-      if(delta>2)window.scrollBy({top:delta,behavior:"smooth"});
+      // The fixed Save Shot bar covers the bottom of the window, so the
+      // useful area ends at ITS top. Measured, not computed: when the bar
+      // is not on screen there is nothing to clear and the window bottom
+      // is the limit.
+      const viewport=window.innerHeight||0;
+      const barTop=footerRef&&footerRef.current
+        ?footerRef.current.getBoundingClientRect().top
+        :viewport;
+
+      const delta=revealBottomDelta({
+        rect:el.getBoundingClientRect(),
+        bottomLimit:Math.min(viewport,barTop>0?barTop:viewport),
+        headerH:header?header.getBoundingClientRect().height:64,
+        cap,
+      });
+      if(delta>MIN_SCROLL)window.scrollBy({top:delta,behavior:"smooth"});
     }catch{ /* no DOM to scroll */ }
   }));
 
@@ -472,17 +488,25 @@ export default function LogView({
   const totalPinsRef=useRef(null);
   const detailsRef=useRef(null);
   const shotContextRef=useRef(null);
-  const editBannerRef=useRef(null);
+  const resultCardRef=useRef(null);
 
-  // Entering edit mode lands on the banner -- which now sits directly
-  // above the frames, so the shot being edited is on screen with it.
+  // Entering edit mode lands on the RESULT card, not the banner.
+  //
+  // The banner says which shot is open; the Result card is the thing you
+  // came to change, and it is the one field a shot cannot be saved
+  // without. Landing on the banner put the answer below the fold and
+  // made every edit start with a scroll.
+  //
+  // Capped, because the Result card fits on a screen: reveal its end
+  // with Save Shot below it, without pushing its own top under the
+  // header.
   //
   // This used to be window.scrollTo(0,0) inside startEdit, which worked
   // only because the banner happened to be at the top of the page. It
   // read as "tapping a frame throws you to the top", and on the tenth --
   // where the ball chooser runs first -- that is exactly what it was.
   useEffect(()=>{
-    if(editingId)scrollToTopOf(editBannerRef);
+    if(editingId)revealBottomOf(resultCardRef,{cap:true});
   },[editingId]);
 
 
@@ -1691,7 +1715,7 @@ export default function LogView({
                 scroll target serves both: you see WHICH shot you are
                 editing and the card it belongs to at the same time. */}
             {editingId&&(
-              <div ref={editBannerRef} style={{backgroundColor:C.spare+"22",border:`1px solid ${C.spare}44`,borderRadius:"10px",padding:"12px 16px",marginBottom:"12px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{backgroundColor:C.spare+"22",border:`1px solid ${C.spare}44`,borderRadius:"10px",padding:"12px 16px",marginBottom:"12px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                 <div style={{fontSize:"13px",color:C.spare,fontWeight:600}}>✏️ Editing Shot</div>
                 <button style={{...S.btn(),padding:"6px 12px",fontSize:"12px"}} onClick={cancelEdit}>Cancel</button>
               </div>
@@ -1877,7 +1901,7 @@ export default function LogView({
 
 
             {onTab("scoring")&&showShotContext&&(
-            <div style={S.card}>
+            <div ref={resultCardRef} style={S.card}>
               {/* The ceiling on the game in progress: strike out from here
                   and this is what you finish with.
                   
@@ -2092,20 +2116,31 @@ export default function LogView({
                       <Chip key={s} label={s} selected={form.spareMade===s}
                         onToggle={()=>{
                           handleSpareMadeToggle(s);
-                          // "No" opens the total-pins field, so that is the
-                          // next thing to answer and it goes to the top.
-                          // "Yes" asks nothing more about the frame, so the
-                          // bowler moves on to the optional detail. The save
-                          // button used to be the target, but it is sticky
-                          // now and always on screen -- scrolling to
-                          // something already visible does nothing.
-                          // Only "No" reveals anything. "Yes" closes the
-                          // frame and adds no field, so scrolling on it
-                          // moved the page for no reason -- most visibly
-                          // on a corner pin, where No adds nothing either
-                          // and the two answers behaved differently for
-                          // no reason a bowler could see.
-                          if(s==="No")scrollToTopOf(totalPinsRef);
+
+                          // Where "Yes" goes depends on what asked the
+                          // question, which is the whole subtlety here.
+                          //
+                          //   Other Leave -> the frame is finished, and
+                          //     the only thing left is the optional
+                          //     detail. Go to the END of it, so Shoes and
+                          //     Execution sit above Save Shot and the
+                          //     shot can be saved without another swipe.
+                          //
+                          //   Weak / Ringing 10 -> a corner pin needs no
+                          //     picker, so "No" reveals nothing either.
+                          //     Scrolling on one answer and not the other
+                          //     made the two behave differently for no
+                          //     reason a bowler could see, so neither
+                          //     moves the page.
+                          //
+                          // "No" on Other Leave opens the pin picker, so
+                          // that is the next thing to answer and it goes
+                          // to the top, with the rest of the form below.
+                          if(s==="No"&&form.result==="Other Leave"){
+                            scrollToTopOf(totalPinsRef);
+                          }else if(s==="Yes"&&form.result==="Other Leave"){
+                            revealBottomOf(detailsRef);
+                          }
                         }}
                         color={s==="Yes"?C.strike:C.miss}/>
                     ))}
@@ -2160,7 +2195,7 @@ export default function LogView({
                       this just saves the swipe. */}
                   <div style={{display:"flex",justifyContent:"flex-end",marginTop:"10px"}}>
                     <button type="button"
-                      onClick={()=>revealThrough(detailsRef,saveShotRef)}
+                      onClick={()=>revealBottomOf(detailsRef)}
                       aria-label="Done picking pins — show the rest of the form"
                       style={{
                         display:"flex",alignItems:"center",gap:"6px",
@@ -2170,7 +2205,18 @@ export default function LogView({
                         fontFamily:F.body,fontSize:"12px",fontWeight:500,
                         cursor:"pointer",WebkitTapHighlightColor:"transparent",
                       }}>
-                      Done <span aria-hidden="true" style={{fontSize:"14px",lineHeight:1}}>↓</span>
+                      Done
+                      {/* Drawn rather than typed. The "↓" glyph is a hairline
+                          at this size and the heavier arrows (⬇ ⇩) are
+                          emoji-presentation on Android, so the font decides
+                          how thick it looks. An SVG does not care. */}
+                      <svg aria-hidden="true" width="14" height="16" viewBox="0 0 14 16"
+                        fill="none" stroke="currentColor" strokeWidth="2.5"
+                        strokeLinecap="round" strokeLinejoin="round"
+                        style={{display:"block",flexShrink:0}}>
+                        <line x1="7" y1="2" x2="7" y2="12"/>
+                        <polyline points="2.5,8 7,13 11.5,8"/>
+                      </svg>
                     </button>
                   </div>
                 </>
@@ -3237,7 +3283,7 @@ export default function LogView({
                  Brackets or Results tab is not a thing a bowler means to
                  do, and it appeared on all four. */
               &&(env!=="tournament"||tournamentTab==="scoring")))&&(
-              <div ref={saveShotRef} style={{marginBottom:"4px"}}>
+              <div style={{marginBottom:"4px"}}>
                 {/* Why the button is disabled, next to the button.
                     Pins first: it is the earlier question, and answering
                     it is what makes Spare Made worth asking. */}
