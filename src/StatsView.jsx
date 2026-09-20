@@ -1220,11 +1220,26 @@ sessions.length>0&&(()=>{
                             <div style={{fontSize:"11px",color:C.textMuted,marginTop:"4px"}}>
                               {r.games} game{r.games===1?"":"s"}
                             </div>
+                            {/* Strike rate first: it is the headline
+                                number, and the messenger rate below is a
+                                share OF it. Reading them the other way
+                                round invites treating both as shares of
+                                the same thing. */}
+                            {r.strikeRate!==null&&(
+                              <div style={{fontSize:"11px",color:C.strike,marginTop:"2px"}}>
+                                {r.strikeRate}% strikes
+                              </div>
+                            )}
                             {/* Only when there are strikes to take a rate of:
-                                0% off no strikes is not a fact about pins. */}
+                                0% off no strikes is not a fact about pins.
+                              
+                                Labelled "of strikes" because it is not a
+                                share of shots -- without that word it
+                                reads as one, and the two numbers stacked
+                                together would look like they add up. */}
                             {r.strikes>0&&r.messengerRate!==null&&(
                               <div style={{fontSize:"11px",color:C.textMuted}}>
-                                {r.messengerRate}% messengers
+                                {r.messengerRate}% of strikes were messengers
                               </div>
                             )}
                           </div>
@@ -1579,8 +1594,13 @@ anyMoneyGameShown(preferences)&&statsBowler&&(()=>{
                               {rackTypeLabel(cs.center.rackType)}
                             </span>
                           )}
+                          {/* "of strikes", for the same reason as the
+                              rack-type card: this is a share of the
+                              strikes thrown, not of every shot, and the
+                              bare "% messengers" reads as the second
+                              one. */}
                           {cs.messengerRate!=null&&cs.strikes>0&&(
-                            <span style={S.tag(C.strike)}>{cs.messengerRate}% messengers</span>
+                            <span style={S.tag(C.strike)}>Messengers {cs.messengerRate}% of strikes</span>
                           )}
                           {cs.high!=null&&<span style={S.tag(C.strike)}>High {cs.high}</span>}
                         </div>
