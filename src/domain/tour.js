@@ -125,7 +125,7 @@ const ALL_STEPS = [
     track: "score",
     tab: "log",
     title: "An open frame",
-    body: "Same start — tap what was standing — then answer No, and say how many of them you knocked down on the second ball.",
+    body: "Same start — tap what was standing — then answer No, and tap which of those pins you knocked down. None of them? Just save. The app works out the count.",
   },
   {
     id: "score-results",
