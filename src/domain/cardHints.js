@@ -27,6 +27,7 @@ export const CARD_HINTS = {
   byCenter: "Averages by house. Bowl at more than one center.",
 
   // ── The ball ──
+  ballPhases: "Strike percentage by part of the night, ball against ball. Log which ball you threw on each shot.",
   ballCompare: "Your line, drawn on the lane. Log start board and arrows on your shots.",
   byBall: "Each ball's numbers. Log which ball you threw on each shot.",
   ballChangeTriggers: "What makes you switch balls. Record a ball-change reason.",

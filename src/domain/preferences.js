@@ -93,6 +93,7 @@ export const STATS_CARDS = [
   { id: "loneFivePin", label: "Lone 5-Pin" },
   { id: "nonSplitLeaves", label: "Non-Split Leaves" },
   { id: "strikeStreak", label: "Longest Strike Streak" },
+  { id: "ballPhases", label: "Strike % Through the Night" },
   { id: "ballCompare", label: "Ball vs Ball" },
   { id: "byBall", label: "By Ball" },
   { id: "byCenter", label: "By Bowling Center" },

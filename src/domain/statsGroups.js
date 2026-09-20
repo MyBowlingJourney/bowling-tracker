@@ -46,6 +46,7 @@ const GROUP_BY_CARD = {
   strikeStreak: "trends",
 
   // The ball in your hand.
+  ballPhases: "ball",
   ballCompare: "ball",
   byBall: "ball",
   ballChangeTriggers: "ball",

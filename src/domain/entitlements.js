@@ -92,6 +92,7 @@ export const PAID_STATS_CARDS = Object.freeze([
   "teamLeaderboard",  // teammates ranked
   "giantKiller",      // every bowler ranked by who beat the league's best
   "hung",             // every bowler ranked by times left hanging
+  "ballPhases",       // strike % by part of the night
   "ballCompare",      // ball against ball
   "byCenter",         // house against house
   "patternHistory",   // pattern against pattern

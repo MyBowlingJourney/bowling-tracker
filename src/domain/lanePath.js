@@ -33,26 +33,29 @@
 // construction: three points, one bend, it cannot inflect whatever the
 // numbers say. The S is not tuned out here, it is unrepresentable.
 //
-// The skid itself is a parabola through the laydown, the arrow board and
-// the breakpoint, so the recorded arrow is honoured rather than ignored
-// -- and a parabola has no inflection point either. Both halves are
-// individually inflection-free, and the guard below makes sure they
-// curve the same way so the join between them is not one.
+// The skid is drawn as the straight line it is -- see below -- so the
+// only curvature in the whole path is the hook's.
 
-// How much bend the skid needs before it is drawn as a curve at all.
+// ── The skid is STRAIGHT ────────────────────────────────────────────────
 //
-// A ball cannot turn right harder and harder: friction only ever takes
-// the turn out of it. A parabola bending that way means the three
-// recorded boards disagree, and a straight skid is the honest drawing.
+// It was a parabola through the laydown, the arrow board and the
+// breakpoint, so that the recorded arrow was honoured rather than
+// ignored. That was the wrong trade. A parabola cannot inflect, so the
+// line was never an S again -- but it was visibly bowed for the whole
+// first forty feet, and a ball on oil does not bow. It skids. Nothing is
+// turning it yet.
 //
-// The floor matters as much as the sign. On a good shot the three boards
-// are very nearly collinear, so the curvature is a rounding error away
-// from zero, its SIGN is noise, and what it describes is a straight line
-// with an invisible wobble in it. A real hook measures around 0.008
-// boards per foot squared and the troublesome near-collinear cases
-// measured about 0.0014, so the floor sits between them rather than
-// just above zero.
-const MIN_CURVATURE = 3e-3;
+// So the skid is a line and the arrow is a MARKER on it, which is what
+// an arrow is: a board you sight over on the way past, not a point the
+// ball is dragged through. Two or three boards of disagreement between
+// the arrow and the line is the bowler's eye and the averaging, not the
+// ball changing direction twice in the heads.
+//
+// All the curvature lives in the hook, where the friction is. That is
+// also what makes this construction trivially safe: one straight
+// segment and one quadratic Bezier, and a quadratic is convex by
+// construction, so the finished line has exactly one bend no matter what
+// the numbers say.
 
 const num = v => {
   const n = Number(v);
@@ -67,16 +70,17 @@ const num = v => {
  * @param x       board -> screen x
  * @param y       feet  -> screen y
  *
- * @returns {skid, hook, usedArrow} -- two `d` strings, and whether the
- *          arrow board could be honoured. Empty strings when there is
- *          not enough to draw.
+ * @returns {skid, hook, arrowCrossing} -- two `d` strings, and the board
+ *          the skid crosses at the arrows, so the card can show it
+ *          against the one that was recorded. Empty strings when there
+ *          is not enough to draw.
  */
 export function lanePath(points, x, y) {
   const p = (Array.isArray(points) ? points : [])
     .filter(q => q && num(q.feet) !== null && num(q.board) !== null)
     .map(q => ({ f: num(q.feet), b: num(q.board) }));
   if (p.length < 2 || typeof x !== "function" || typeof y !== "function") {
-    return { skid: "", hook: "", usedArrow: false };
+    return { skid: "", hook: "", arrowCrossing: null };
   }
 
   const lay = p[0];
@@ -99,63 +103,105 @@ export function lanePath(points, x, y) {
   // per path.
   const at = (b, f) => `${x(b).toFixed(3)} ${y(f).toFixed(3)}`;
 
-  // ── The skid ──────────────────────────────────────────────────────
-  let quad = null;
-  if (arrow && arrow.f > lay.f && brk.f > arrow.f) {
-    // Lagrange's second divided difference: the parabola's curvature.
-    const A = (lay.b / ((lay.f - arrow.f) * (lay.f - brk.f)))
-            + (arrow.b / ((arrow.f - lay.f) * (arrow.f - brk.f)))
-            + (brk.b / ((brk.f - lay.f) * (brk.f - arrow.f)));
-    if (A > MIN_CURVATURE) {
-      const linear = (brk.b - lay.b) / (brk.f - lay.f) - A * (lay.f + brk.f);
-      quad = { A, slopeAt: f => 2 * A * f + linear };
-    }
-  }
+  // ── Where the arc begins ──────────────────────────────────────────
+  //
+  // The breakpoint is, by definition, the point the ball is FURTHEST
+  // out: it stops going right there and starts coming back. So the
+  // drawn line must not pass outside it.
+  //
+  // A single arc leaving the breakpoint along the skid's own direction
+  // cannot do that -- it is still travelling outward at the moment it
+  // starts, so it keeps going and reaches its apex a board or two wide.
+  // Measured, that was one to one and a half boards past the dot the
+  // card draws at the breakpoint, so the line visibly passed outside its
+  // own marker.
+  //
+  // So the ball starts turning BEFORE the breakpoint, which is also what
+  // it really does -- the ball rolls out of the oil over a few feet, it
+  // does not switch. The skid runs dead straight to a point short of the
+  // breakpoint, and from there two quadratics carry it through:
+  //
+  //   skid end -> breakpoint   turning, ending parallel to the lane
+  //   breakpoint -> pocket     turning the same way, back to the pocket
+  //
+  // They meet at the breakpoint with the same horizontal tangent, so
+  // there is no kink, the apex is EXACTLY the recorded board, and both
+  // halves are quadratics -- convex by construction, so the whole line
+  // still has exactly one bend.
+  // ── Does it actually hook back? ───────────────────────────────────
+  //
+  // The apex construction below assumes the breakpoint IS one: that the
+  // ball goes out to it and comes back. Sometimes the recorded numbers
+  // do not say that -- a laydown of 1, a breakpoint of 12 and a pocket
+  // of 17.5 all march the same way, so there is no furthest-out point at
+  // all. Forcing a flat tangent onto a line that never turns puts a bend
+  // in and takes it out again, which is the S this file exists to
+  // prevent.
+  //
+  // So it is asked rather than assumed, and a line that only ever goes
+  // one way is drawn as one.
+  const out = brk.b - lay.b;
+  const back = pocket.b - brk.b;
+  const turnsBack = out * back < 0;
 
-  let skid;
-  let slope;
-  if (quad) {
-    const s0 = quad.slopeAt(lay.f), s2 = quad.slopeAt(brk.f);
-    const third = (brk.f - lay.f) / 3;
-    const c1 = { f: lay.f + third, b: lay.b + s0 * third };
-    const c2 = { f: brk.f - third, b: brk.b - s2 * third };
+  let skid, arrowCrossing, hook;
 
-    // Do the two halves bend the same way?
+  if (turnsBack) {
+    // The breakpoint is by definition the point the ball is FURTHEST
+    // out: it stops going right there and starts coming back. So the
+    // drawn line must not pass outside it.
     //
-    // Each being inflection-free is not enough: if they curve opposite
-    // ways, the JOIN between them is an inflection, and that is an S
-    // with one bend in each half. It only happens on data a bowler
-    // cannot actually produce -- a breakpoint further in than the
-    // pocket, so the ball has to come back the other way -- but the
-    // drawing must not go strange when the numbers do. Compared as
-    // signed areas rather than reasoned about in sign algebra: cheap,
-    // exact, and impossible to get subtly wrong.
-    const cross = (ab, af, bb, bf) => ab * bf - af * bb;
+    // A single arc leaving the breakpoint along the skid's own direction
+    // cannot manage that -- it is still travelling outward at the moment
+    // it starts, so it keeps going and reaches its apex a board or two
+    // wide. Measured, that was one to one and a half boards past the dot
+    // the card draws at the breakpoint: the line passed outside its own
+    // marker.
+    //
+    // So the ball starts turning BEFORE the breakpoint, which is what it
+    // really does -- it rolls out of the oil over a few feet, it does
+    // not switch. The skid runs dead straight to a point short of the
+    // breakpoint, and from there two quadratics carry it through:
+    //
+    //   skid end -> breakpoint   turning, ending parallel to the lane
+    //   breakpoint -> pocket     turning the same way, into the pocket
+    //
+    // They meet at the breakpoint with the same horizontal tangent, so
+    // there is no kink, the apex is EXACTLY the recorded board, and both
+    // halves are quadratics -- convex by construction, so the whole line
+    // still has exactly one bend.
+    const ROLLOUT = 0.25;                  // of the run from laydown
+    const run = brk.f - lay.f;
+    const d = Math.max(0, run * ROLLOUT);
+
+    // The skid's slope, solved so the apex lands on the recorded board.
+    // The arc's control point sits half way through the roll-out, which
+    // fixes where the skid has to end, and that fixes the slope.
+    const denom = run - d / 2;
+    const slope = denom === 0 ? 0 : out / denom;
+    const skidEnd = { f: brk.f - d, b: brk.b - slope * d / 2 };
     const span = pocket.f - brk.f;
-    const ctrl = { f: brk.f + span * 0.55, b: brk.b + s2 * span * 0.55 };
-    const skidTurn = cross(c1.b - lay.b, c1.f - lay.f, c2.b - c1.b, c2.f - c1.f);
-    const hookTurn = cross(ctrl.b - brk.b, ctrl.f - brk.f, pocket.b - ctrl.b, pocket.f - ctrl.f);
 
-    if (skidTurn * hookTurn < 0) {
-      quad = null;
-    } else {
-      // A parabola IS a cubic Bezier, exactly.
-      skid = `M ${at(lay.b, lay.f)} C ${at(c1.b, c1.f)}, ${at(c2.b, c2.f)}, ${at(brk.b, brk.f)}`;
-      slope = s2;
-    }
-  }
+    skid = `M ${at(lay.b, lay.f)} L ${at(skidEnd.b, skidEnd.f)}`;
+    arrowCrossing = arrow ? lay.b + slope * (arrow.f - lay.f) : null;
+    hook = `M ${at(skidEnd.b, skidEnd.f)}`
+      + ` Q ${at(brk.b, skidEnd.f + d / 2)}, ${at(brk.b, brk.f)}`
+      + ` Q ${at(brk.b, brk.f + span * 0.45)}, ${at(pocket.b, pocket.f)}`;
+  } else {
+    // No turn: straight to the breakpoint, then one quadratic easing
+    // into the pocket along the direction it arrived with. Nothing to
+    // overshoot, because there is no apex.
+    const run = brk.f - lay.f;
+    const slope = run === 0 ? 0 : out / run;
+    const span = pocket.f - brk.f;
 
-  if (!quad) {
     skid = `M ${at(lay.b, lay.f)} L ${at(brk.b, brk.f)}`;
-    slope = brk.f === lay.f ? 0 : (brk.b - lay.b) / (brk.f - lay.f);
+    arrowCrossing = arrow ? lay.b + slope * (arrow.f - lay.f) : null;
+    hook = `M ${at(brk.b, brk.f)}`
+      + ` Q ${at(brk.b + slope * span * 0.55, brk.f + span * 0.55)}, ${at(pocket.b, pocket.f)}`;
   }
 
-  // ── The hook ──────────────────────────────────────────────────────
-  const span = pocket.f - brk.f;
-  const ctrl = { f: brk.f + span * 0.55, b: brk.b + slope * span * 0.55 };
-  const hook = `M ${at(brk.b, brk.f)} Q ${at(ctrl.b, ctrl.f)}, ${at(pocket.b, pocket.f)}`;
-
-  return { skid, hook, usedArrow: !!quad };
+  return { skid, hook, arrowCrossing };
 }
 
 // The rack, headpin nearest the bowler.

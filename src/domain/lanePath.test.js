@@ -78,7 +78,7 @@ function bendsBothWays(pts) {
   return changes;
 }
 
-const whole = r => `${r.skid} ${r.hook.slice(r.hook.indexOf('Q') - 1)}`;
+const whole = r => `${r.skid} ${r.hook.slice(r.hook.indexOf(' Q'))}`;
 
 describe('a drawn line never bends twice', () => {
   // Straight through ballLine, which is what the card actually feeds it,
@@ -134,7 +134,7 @@ describe('the two pieces join smoothly', () => {
     // its final direction is the last pair minus the pair before it.
     const endDir = [s[s.length - 2] - s[s.length - 4], s[s.length - 1] - s[s.length - 3]];
 
-    const h = n(r.hook);                       // M brk Q ctrl pocket
+    const h = n(r.hook);                       // M end Q c1 apex Q c2 pocket
     const startDir = [h[2] - h[0], h[3] - h[1]];
 
     const sin = (endDir[0] * startDir[1] - endDir[1] * startDir[0])
@@ -146,33 +146,88 @@ describe('the two pieces join smoothly', () => {
     const line = ballLine({ ball: 'b', startBoard: 25, arrowBoard: 15, breakpointBoard: 7 },
                           { patternLength: 41 });
     const r = lanePath(line.points, x, y);
-    const end = r.skid.slice(r.skid.lastIndexOf(',') + 1).trim();
-    expect(r.hook.startsWith(`M ${end}`)).toBe(true);
+    // Compared as numbers. Matching the printed text instead depends on
+    // how many decimals the path happens to carry, which is a formatting
+    // detail and not the thing being asserted.
+    const s = r.skid.match(/-?[\d.]+/g).map(Number);
+    const h = r.hook.match(/-?[\d.]+/g).map(Number);
+    expect([h[0], h[1]]).toEqual([s[s.length - 2], s[s.length - 1]]);
   });
 });
 
-describe('when the numbers disagree', () => {
-  // A ball cannot turn right harder and harder -- friction only takes
-  // the turn out of it. Three boards describing that shape mean the
-  // recorded numbers disagree, and a straight skid is the honest
-  // drawing of that rather than a curve bending the wrong way.
-  it('falls back to a straight skid rather than an impossible curve', () => {
-    const impossible = [
-      { feet: 0, board: 20 }, { feet: 15, board: 19 },
-      { feet: 40, board: 5 }, { feet: 60, board: 17.5 },
-    ];
-    const r = lanePath(impossible, x, y);
-    expect(r.usedArrow).toBe(false);
+describe('the breakpoint is the apex', () => {
+  // The breakpoint is by definition the point the ball is furthest out.
+  // A single arc leaving it along the skid's direction is still going
+  // outward when it starts, so it reached its apex a board or two wide
+  // -- the line passed outside the very dot the card draws at it.
+  const apexOf = r => {
+    const n = r.hook.match(/-?[\d.]+/g).map(Number);
+    let min = Infinity;
+    // Boards are the even entries; walk each Q in turn.
+    for (let i = 0; i + 5 < n.length + 1; i += 4) {
+      const b0 = n[i], cb = n[i + 2], b1 = n[i + 4];
+      if (b1 === undefined) break;
+      for (let s = 0; s <= 400; s++) {
+        const t = s / 400, u = 1 - t;
+        min = Math.min(min, u * u * b0 + 2 * u * t * cb + t * t * b1);
+      }
+    }
+    return min;
+  };
+
+  it('never draws the line outside its own breakpoint', () => {
+    const idx = v => v;
+    for (const [startBoard, arrowBoard, breakpointBoard] of
+         [[25, 15, 7], [28, 17, 5], [30, 15, 4], [22, 13, 9], [12, 8, 6]]) {
+      const line = ballLine({ ball: 'b', startBoard, arrowBoard, breakpointBoard },
+                            { patternLength: 41 });
+      expect(apexOf(lanePath(line.points, idx, idx))).toBeCloseTo(breakpointBoard, 2);
+    }
+  });
+});
+
+describe('the skid is straight', () => {
+  // It was a parabola through the laydown, the arrow and the breakpoint.
+  // That honoured the recorded arrow and bowed the line for the whole
+  // first forty feet, and a ball on oil does not bow -- nothing is
+  // turning it yet.
+  it('draws a line, not a curve', () => {
+    const line = ballLine({ ball: 'b', startBoard: 25, arrowBoard: 15, breakpointBoard: 7 },
+                          { patternLength: 41 });
+    const r = lanePath(line.points, x, y);
     expect(r.skid).toContain(' L ');
-    expect(bendsBothWays(samplePath(whole(r)))).toBe(0);
+    expect(r.skid).not.toContain(' C ');
   });
 
-  it('uses the arrow when the three boards agree', () => {
-    const agreeing = [
+  // The arrow becomes a marker on that line rather than a point the ball
+  // is dragged through -- so a real gap between where the bowler looked
+  // and where the line goes stays visible instead of being smoothed into
+  // a bend.
+  it('reports where it crosses the arrows', () => {
+    const points = [
       { feet: 0, board: 26 }, { feet: 15, board: 15 },
-      { feet: 42, board: 4 }, { feet: 60, board: 17.5 },
+      { feet: 45, board: 8 }, { feet: 60, board: 17.5 },
     ];
-    expect(lanePath(agreeing, x, y).usedArrow).toBe(true);
+    const crossing = lanePath(points, x, y).arrowCrossing;
+    // On the skid line, between the laydown and the breakpoint, and
+    // heading outward -- the numbers themselves come from the slope that
+    // puts the apex on the recorded board.
+    expect(crossing).toBeLessThan(26);
+    expect(crossing).toBeGreaterThan(8);
+  });
+
+  it('has nothing to report without an arrow', () => {
+    expect(lanePath([{ feet: 0, board: 20 }, { feet: 60, board: 17.5 }], x, y)
+      .arrowCrossing).toBeNull();
+  });
+
+  // Whatever the numbers, one bend.
+  it('still bends exactly once on data a bowler cannot produce', () => {
+    const impossible = [
+      { feet: 0, board: 20 }, { feet: 15, board: 19 },
+      { feet: 40, board: 35 }, { feet: 60, board: 17.5 },
+    ];
+    expect(bendsBothWays(samplePath(whole(lanePath(impossible, x, y))))).toBe(0);
   });
 });
 
