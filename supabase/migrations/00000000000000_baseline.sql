@@ -486,12 +486,12 @@ $function$
 ;
 
 CREATE OR REPLACE FUNCTION public.teammate_bowler_profiles()
- RETURNS TABLE(bowler_name text, left_handed boolean, two_handed boolean, aliases jsonb)
+ RETURNS TABLE(bowler_name text, left_handed boolean, backup_ball boolean, two_handed boolean, aliases jsonb)
  LANGUAGE sql
  STABLE SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
-  select bp.bowler_name, bp.left_handed, bp.two_handed, bp.aliases
+  select bp.bowler_name, bp.left_handed, bp.backup_ball, bp.two_handed, bp.aliases
   from public.bowler_profiles bp
   where exists (
     select 1
@@ -629,7 +629,8 @@ CREATE TABLE IF NOT EXISTS public.bowler_profiles (
   all_time_high_game integer,
   all_time_high_series integer,
   drift_boards text,
-  lateral_offset text
+  lateral_offset text,
+  backup_ball boolean DEFAULT false NOT NULL
 );
 CREATE TABLE IF NOT EXISTS public.bowling_centers (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -851,8 +852,7 @@ CREATE TABLE IF NOT EXISTS public.pending_invites (
 CREATE TABLE IF NOT EXISTS public.profiles (
   id uuid NOT NULL,
   display_name text NOT NULL,
-  created_at timestamp with time zone DEFAULT now() NOT NULL,
-  backup_ball boolean DEFAULT false NOT NULL
+  created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 CREATE TABLE IF NOT EXISTS public.sessions (
   id uuid DEFAULT gen_random_uuid() NOT NULL,

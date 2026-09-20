@@ -82,6 +82,7 @@ column,bowler_names,name,text
 column,bowler_profiles,aliases,jsonb
 column,bowler_profiles,all_time_high_game,integer
 column,bowler_profiles,all_time_high_series,integer
+column,bowler_profiles,backup_ball,boolean NOT NULL
 column,bowler_profiles,book_average,numeric
 column,bowler_profiles,book_average_as_of,date
 column,bowler_profiles,book_games,integer
@@ -281,7 +282,6 @@ column,pending_invites,left_handed,boolean NOT NULL
 column,pending_invites,lineup_position,integer
 column,pending_invites,signup_code,text
 column,pending_invites,team_id,uuid NOT NULL
-column,profiles,backup_ball,boolean NOT NULL
 column,profiles,created_at,timestamp with time zone NOT NULL
 column,profiles,display_name,text NOT NULL
 column,profiles,id,uuid NOT NULL
@@ -570,7 +570,7 @@ function,record_ai_tokens,"p_endpoint text, p_model text, p_variant text, p_prom
 function,record_tombstone,"",trigger security definer
 function,report_error,"p_signature text, p_kind text, p_where text, p_code text, p_mes",void security definer
 function,set_updated_at,"",trigger security invoker
-function,teammate_bowler_profiles,"","TABLE(bowler_name text, left_handed boolean, two_handed boolean, aliases jsonb) security definer"
+function,teammate_bowler_profiles,"","TABLE(bowler_name text, left_handed boolean, backup_ball boolean, two_handed boolean, aliases jsonb) security definer"
 grant,ai_token_usage,REFERENCES,"called_at, endpoint, id, model, output_tokens, prompt_tokens, total_tokens, user_id, variant"
 grant,ai_token_usage_daily,REFERENCES,"calls, day, endpoint, model, output_tokens, prompt_tokens, total_tokens, variant"
 grant,arsenals,INSERT,"ball, bowler_name, core_type, coverstock, created_at, created_by, diff, group_id, id, int_diff, layout_system, layout_values, retired_on, rg, weight"
@@ -605,10 +605,10 @@ grant,bowler_names,INSERT,"created_at, created_by, id, left_handed, name"
 grant,bowler_names,REFERENCES,"created_at, created_by, id, left_handed, name"
 grant,bowler_names,SELECT,"created_at, created_by, id, left_handed, name"
 grant,bowler_names,UPDATE,"created_at, created_by, id, left_handed, name"
-grant,bowler_profiles,INSERT,"aliases, all_time_high_game, all_time_high_series, book_average, book_average_as_of, book_games, book_season, bowler_name, created_at, created_by, drift_boards, home_centers, id, is_coach, lateral_offset, left_handed, notes, two_handed, updated_at"
-grant,bowler_profiles,REFERENCES,"aliases, all_time_high_game, all_time_high_series, book_average, book_average_as_of, book_games, book_season, bowler_name, created_at, created_by, drift_boards, home_centers, id, is_coach, lateral_offset, left_handed, notes, two_handed, updated_at"
-grant,bowler_profiles,SELECT,"aliases, all_time_high_game, all_time_high_series, book_average, book_average_as_of, book_games, book_season, bowler_name, created_at, created_by, drift_boards, home_centers, id, is_coach, lateral_offset, left_handed, notes, two_handed, updated_at"
-grant,bowler_profiles,UPDATE,"aliases, all_time_high_game, all_time_high_series, book_average, book_average_as_of, book_games, book_season, bowler_name, created_at, created_by, drift_boards, home_centers, id, is_coach, lateral_offset, left_handed, notes, two_handed, updated_at"
+grant,bowler_profiles,INSERT,"aliases, all_time_high_game, all_time_high_series, backup_ball, book_average, book_average_as_of, book_games, book_season, bowler_name, created_at, created_by, drift_boards, home_centers, id, is_coach, lateral_offset, left_handed, notes, two_handed, updated_at"
+grant,bowler_profiles,REFERENCES,"aliases, all_time_high_game, all_time_high_series, backup_ball, book_average, book_average_as_of, book_games, book_season, bowler_name, created_at, created_by, drift_boards, home_centers, id, is_coach, lateral_offset, left_handed, notes, two_handed, updated_at"
+grant,bowler_profiles,SELECT,"aliases, all_time_high_game, all_time_high_series, backup_ball, book_average, book_average_as_of, book_games, book_season, bowler_name, created_at, created_by, drift_boards, home_centers, id, is_coach, lateral_offset, left_handed, notes, two_handed, updated_at"
+grant,bowler_profiles,UPDATE,"aliases, all_time_high_game, all_time_high_series, backup_ball, book_average, book_average_as_of, book_games, book_season, bowler_name, created_at, created_by, drift_boards, home_centers, id, is_coach, lateral_offset, left_handed, notes, two_handed, updated_at"
 grant,bowling_centers,INSERT,"address, city, country, created_at, created_by, here_id, id, lat, lng, name, postal_code, rack_type, state"
 grant,bowling_centers,REFERENCES,"address, city, country, created_at, created_by, here_id, id, lat, lng, name, postal_code, rack_type, state"
 grant,bowling_centers,SELECT,"address, city, country, created_at, created_by, here_id, id, lat, lng, name, postal_code, rack_type, state"
@@ -671,10 +671,10 @@ grant,pending_invites,INSERT,"accepted_at, accepted_user_id, code_expires_at, cr
 grant,pending_invites,REFERENCES,"accepted_at, accepted_user_id, code_expires_at, created_at, created_by, declined_at, id, invited_email, invited_name, is_sub, left_handed, lineup_position, signup_code, team_id"
 grant,pending_invites,SELECT,"accepted_at, accepted_user_id, code_expires_at, created_at, created_by, declined_at, id, invited_email, invited_name, is_sub, left_handed, lineup_position, signup_code, team_id"
 grant,pending_invites,UPDATE,"accepted_at, accepted_user_id, code_expires_at, created_at, created_by, declined_at, id, invited_email, invited_name, is_sub, left_handed, lineup_position, signup_code, team_id"
-grant,profiles,INSERT,"backup_ball, created_at, display_name, id"
-grant,profiles,REFERENCES,"backup_ball, created_at, display_name, id"
-grant,profiles,SELECT,"backup_ball, created_at, display_name, id"
-grant,profiles,UPDATE,"backup_ball, created_at, display_name, id"
+grant,profiles,INSERT,"created_at, display_name, id"
+grant,profiles,REFERENCES,"created_at, display_name, id"
+grant,profiles,SELECT,"created_at, display_name, id"
+grant,profiles,UPDATE,"created_at, display_name, id"
 grant,sessions,INSERT,"average, balls_used, bowler_name, created_at, date, high_game_cost, high_game_winnings, id, jackpot_winnings, league_id, misses, notes, poker_dollar, poker_dollar_cost, poker_quarter, poker_quarter_cost, prebowled_on, releases, ringing_tens, scores, shot_count, single_pin_leaves, single_pin_spares, spare_attempts, spares_made, splits, splits_converted, strikes, team_id, ten_pin_leaves, three_six_nine_cost, three_six_nine_winnings, total, updated_at, user_id, weak_tens"
 grant,sessions,REFERENCES,"average, balls_used, bowler_name, created_at, date, high_game_cost, high_game_winnings, id, jackpot_winnings, league_id, misses, notes, poker_dollar, poker_dollar_cost, poker_quarter, poker_quarter_cost, prebowled_on, releases, ringing_tens, scores, shot_count, single_pin_leaves, single_pin_spares, spare_attempts, spares_made, splits, splits_converted, strikes, team_id, ten_pin_leaves, three_six_nine_cost, three_six_nine_winnings, total, updated_at, user_id, weak_tens"
 grant,sessions,SELECT,"average, balls_used, bowler_name, created_at, date, high_game_cost, high_game_winnings, id, jackpot_winnings, league_id, misses, notes, poker_dollar, poker_dollar_cost, poker_quarter, poker_quarter_cost, prebowled_on, releases, ringing_tens, scores, shot_count, single_pin_leaves, single_pin_spares, spare_attempts, spares_made, splits, splits_converted, strikes, team_id, ten_pin_leaves, three_six_nine_cost, three_six_nine_winnings, total, updated_at, user_id, weak_tens"
