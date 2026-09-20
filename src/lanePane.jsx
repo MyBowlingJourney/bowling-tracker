@@ -38,7 +38,7 @@ const LANE_BOARDS = 39;
 // dropdown arrow. Everywhere else in the app that is fine, because the
 // select sits in a form next to other fields and inherits the fact that
 // it is one. Here it sits alone under a heading, full width, showing a
-// sentence -- "Every oil pattern", "Every night, by position in the
+// sentence -- "House · 14 nights", "Every night, by position in the
 // block" -- so with the arrow gone it reads as a caption describing the
 // card rather than a control that changes it. Both filters were being
 // missed for that reason.
@@ -109,16 +109,18 @@ export default function LanePane({
   const nights = useMemo(() => nightsIn(shots, lanePatterns), [shots, lanePatterns]);
   const patterns = useMemo(() => patternsIn(shots, lanePatterns), [shots, lanePatterns]);
 
-  // Starts on the house shot rather than on everything.
+  // Always exactly one pattern. There is no "every pattern".
   //
-  // "Every pattern" averages a house night and a sport block into one
-  // line, and they are not the same shot -- that is most of the reason
-  // the pattern picker exists. The house shot is where nearly every
-  // league night is bowled, so it is the honest default; a bowler who
-  // wants the sport block picks it.
-  const [pattern, setPattern] = useState(
-    () => (patternsIn(shots, lanePatterns).some(p => p.name === HOUSE_PATTERN)
-      ? HOUSE_PATTERN : ""));
+  // Averaging a house night and a sport block into one line describes a
+  // shot nobody threw -- and the breakpoint it draws has to come from
+  // one length or the other, so the mixed bucket was picking one
+  // silently. The house shot is the default because that is where nearly
+  // every league night is bowled; failing that, the most-bowled pattern.
+  const [pattern, setPattern] = useState(() => {
+    const list = patternsIn(shots, lanePatterns);
+    if (list.some(p => p.name === HOUSE_PATTERN)) return HOUSE_PATTERN;
+    return list.length ? list[0].name : HOUSE_PATTERN;
+  });
   const games = useMemo(() => typicalGames(shots), [shots]);
 
   // Scrubbing off means the card behaves exactly as it did before: one
@@ -307,7 +309,6 @@ export default function LanePane({
       {patterns.length > 0 && (
         <Picker label="Oil pattern" value={pattern}
           onChange={e => setPattern(e.target.value)}>
-          <option value="">Every oil pattern</option>
           {patterns.map(p => (
             <option key={p.name} value={p.name}>
               {p.name} · {p.nights} {p.nights === 1 ? "night" : "nights"}
