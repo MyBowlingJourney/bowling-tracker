@@ -162,8 +162,12 @@ export function statsByRackType(sessions, shots, leagues, centers, bowler) {
     if (rt) rackTypeByLeague[league] = rt;
   }
 
-  const buckets = { freefall: { games: [], strikes: 0, messengers: 0 },
-                     string: { games: [], strikes: 0, messengers: 0 } };
+  // firstBalls counts the strike OPPORTUNITIES, which is what a strike
+  // percentage is a percentage of. strikes counts every strike including
+  // the tenth-frame extras, because that is the honest denominator for
+  // "how many of my strikes carried a messenger".
+  const buckets = { freefall: { games: [], strikes: 0, messengers: 0, firstBalls: 0, firstBallStrikes: 0 },
+                     string: { games: [], strikes: 0, messengers: 0, firstBalls: 0, firstBallStrikes: 0 } };
 
   sessions
     .filter(s => !bowler || s.bowler === bowler)
@@ -180,6 +184,14 @@ export function statsByRackType(sessions, shots, leagues, centers, bowler) {
     .forEach(sh => {
       const rt = rackTypeByLeague[sh.league];
       if (!rt) return;
+      // The app's first-ball test, copied from domain/stats.js rather
+      // than invented here: a first ball is ballNum 1 OR absent, because
+      // some paths store it and some do not.
+      const isFirstBall = !sh.ballNum || sh.ballNum === 1;
+      if (isFirstBall) {
+        buckets[rt].firstBalls += 1;
+        if (sh.result === "Strike") buckets[rt].firstBallStrikes += 1;
+      }
       if (sh.result !== "Strike") return;
       buckets[rt].strikes += 1;
       if (sh.strikeDescription === "Messenger") buckets[rt].messengers += 1;
@@ -193,13 +205,24 @@ export function statsByRackType(sessions, shots, leagues, centers, bowler) {
       : null,
     strikes: b.strikes,
     messengers: b.messengers,
+    firstBalls: b.firstBalls,
+    // Strikes as a share of the balls that could have been strikes.
+    // Null rather than 0 with nothing thrown, for the same reason the
+    // messenger rate is: a rate off no attempts is not a rate.
+    strikeRate: b.firstBalls
+      ? Math.round((b.firstBallStrikes / b.firstBalls) * 1000) / 10
+      : null,
+    // A share of STRIKES, not of shots: "how many of the strikes I got
+    // came from a messenger". Strung pins rarely send one, which is the
+    // whole comparison this card exists to show.
+    //
     // Null rather than 0 with no strikes -- "0% of nothing" is not a
     // rate, and showing one invites reading it as "never happens".
     messengerRate: b.strikes ? Math.round((b.messengers / b.strikes) * 1000) / 10 : null,
   });
 
   return [summarize("Free fall", buckets.freefall), summarize("String", buckets.string)]
-    .filter(s => s.games > 0 || s.strikes > 0);
+    .filter(s => s.games > 0 || s.strikes > 0 || s.firstBalls > 0);
 }
 
 export function statsByCenter(sessions, leagues, centers, bowler, shots) {
