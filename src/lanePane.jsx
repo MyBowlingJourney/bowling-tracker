@@ -5,7 +5,7 @@ import { ballComparison, ballLine, ARROWS_FEET } from "./domain/ballComparison.j
 import { isSplit, isCornerPinLeave } from "./domain/splits.js";
 import {
   shotsAt, nightsIn, patternsIn, positionLabel, typicalGames,
-  patternLengthFor, SLIDER_STEPS,
+  patternLengthFor, SLIDER_STEPS, HOUSE_PATTERN,
 } from "./domain/laneTransition.js";
 
 // The lane, drawn the way a bowler reads one -- and scrubable.
@@ -23,10 +23,10 @@ import {
 // nobody can read on a phone. The reference diagrams bowlers actually
 // use compress it to about 1:5, and so does this.
 //
-// ── The slider is the point ─────────────────────────────────────────────
+// ── Following the transition ────────────────────────────────────────────
 //
 // A single averaged line per ball is a fair summary of a ball you have
-// settled on and a lie about a night you moved. Scrubbing through the
+// settled on and a lie about a night you moved. Dragging through the
 // block shows the move instead of averaging it away -- which is also
 // what makes logging the line every shot worth the trouble.
 
@@ -46,17 +46,27 @@ export default function LanePane({
   // not the night.
   const [at, setAt] = useState(null);
   const [night, setNight] = useState("");      // "" = every night, pooled
-  const [pattern, setPattern] = useState("");  // "" = every pattern
 
   const nights = useMemo(() => nightsIn(shots, lanePatterns), [shots, lanePatterns]);
   const patterns = useMemo(() => patternsIn(shots, lanePatterns), [shots, lanePatterns]);
+
+  // Starts on the house shot rather than on everything.
+  //
+  // "Every pattern" averages a house night and a sport block into one
+  // line, and they are not the same shot -- that is most of the reason
+  // the pattern picker exists. The house shot is where nearly every
+  // league night is bowled, so it is the honest default; a bowler who
+  // wants the sport block picks it.
+  const [pattern, setPattern] = useState(
+    () => (patternsIn(shots, lanePatterns).some(p => p.name === HOUSE_PATTERN)
+      ? HOUSE_PATTERN : ""));
   const games = useMemo(() => typicalGames(shots), [shots]);
 
   // Scrubbing off means the card behaves exactly as it did before: one
   // line per ball, every shot behind it.
   const scrubbing = at !== null;
 
-  const { lines, sampleNights, sampleShots } = useMemo(() => {
+  const { lines, sampleNights, sampleShots, breakFeet } = useMemo(() => {
     const picked = scrubbing || pattern || night
       ? shotsAt(shots, { at: at ?? 0.5, date: night, pattern, lanePatterns,
                          halfWindow: scrubbing ? 0.15 : 1 })
@@ -77,6 +87,12 @@ export default function LanePane({
         .filter(v => v.line),
       sampleNights: picked.nights,
       sampleShots: picked.shots.length,
+      // The depth every line turned at, so the diagram can draw it once
+      // rather than each line implying its own.
+      breakFeet: entries.length
+        ? (ballLine(entries[0], { drift, lateralOffset, twoHanded, patternLength: feet })
+            ?.points?.[2]?.feet ?? null)
+        : null,
     };
   }, [shots, at, night, pattern, lanePatterns, bowler, league, leftHanded,
       drift, lateralOffset, twoHanded, patternLength, scrubbing, nights.length]);
@@ -190,7 +206,17 @@ export default function LanePane({
           outside the bowler that decides the line, so it sits with the
           line rather than filed under the centre -- and choosing one
           redraws the breakpoint at that pattern's own length. */}
-      {patterns.length > 0 && (
+      {/* Shown whenever there is more than one bucket to choose between.
+      
+          With only house nights logged there is nothing to pick, and a
+          dropdown with one entry is a control that cannot do anything --
+          the line under the diagram already says what it is drawn from.
+          
+          It was hidden altogether before, on a condition that required a
+          NAMED pattern, so a bowler with a season of ordinary league
+          nights never saw it at all. Those nights are the house shot;
+          they were just never written down. */}
+      {patterns.length > 1 && (
         <select style={{ ...S.sel, width: "100%", marginBottom: "8px" }}
           aria-label="Oil pattern"
           value={pattern} onChange={e => setPattern(e.target.value)}>
@@ -238,6 +264,27 @@ export default function LanePane({
                 fill={pocket.includes(p.pin) ? C.strike : C.textMuted}
                 opacity={pocket.includes(p.pin) ? 1 : 0.6} />
             ))}
+
+            {/* The breakpoint depth, drawn across the lane.
+            
+                It is the one distance on here that is not a fact about
+                the shot: where the ball turns comes from the oil pattern
+                length, not from anything the bowler logged. Drawing it
+                as a dashed line says which depth every breakpoint dot is
+                sitting on, and labelling it in feet says where the
+                number came from. Forty feet is the house default; a
+                47-foot sport block moves this line down the lane and
+                every hook with it. */}
+            {breakFeet != null && (
+              <g>
+                <line x1={laneL} y1={y(breakFeet)} x2={laneR} y2={y(breakFeet)}
+                  stroke={C.compare} strokeDasharray="5 4" opacity="0.65" />
+                <text x={laneR - 2} y={y(breakFeet) - 4} textAnchor="end"
+                  fontSize="8.5" fill={C.compare} fontFamily={F.num}>
+                  breakpoint {breakFeet}′
+                </text>
+              </g>
+            )}
 
             {MARK_BOARDS.map(b => (
               <polygon key={b} fill={C.textMuted} opacity="0.8"
@@ -287,11 +334,15 @@ export default function LanePane({
       <div style={{ marginBottom: "8px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
           <span style={{ ...S.label, marginBottom: 0, flexGrow: 1 }}>
-            {scrubbing ? positionLabel(at, games) : "Whole block"}
+            {scrubbing ? positionLabel(at, games) : "Averaged over the night"}
           </span>
+          {/* Not "scrub the block". That is video-editing language and
+              it describes the gesture rather than what it shows. What it
+              shows is the transition: where the line moved as the night
+              went on. */}
           <button type="button" onClick={() => setAt(scrubbing ? null : 0)}
             style={pill(scrubbing)}>
-            {scrubbing ? "Show the average" : "Scrub the block"}
+            {scrubbing ? "Show my usual line" : "Follow the transition"}
           </button>
         </div>
 
@@ -304,7 +355,7 @@ export default function LanePane({
               style={{ width: "100%", accentColor: C.accent, minHeight: "44px" }} />
             <div style={{ display: "flex", justifyContent: "space-between",
               fontSize: "10px", color: C.textMuted, fontFamily: F.num, marginTop: "-4px" }}>
-              <span>first ball</span><span>last ball</span>
+              <span>fresh oil</span><span>end of the block</span>
             </div>
           </>
         )}

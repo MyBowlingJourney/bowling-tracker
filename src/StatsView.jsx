@@ -1045,17 +1045,46 @@ fivePinAttempts.length>0&&(
                               ? `${b.total} shot${b.total===1?"":"s"}`
                               : `${Math.max(0,SHOT_SAMPLE_THRESHOLD-b.total)} more shots needed`}</span>
                         </div>
-                        <div style={{display:"flex",gap:"6px",marginBottom:"4px",flexWrap:"wrap"}}>
-                          <span style={S.tag(b.reliable?C.strike:C.textMuted)}>Strike {b.rate}%</span>
-                          {/* "First ball", not "Leave Avg". The number is pins
-                              KNOCKED DOWN -- 6.8 is not a leave, and the Ball vs
-                              Ball card computed the opposite quantity under the
-                              same name, so the two disagreed by construction. */}
-                          {b.leaveAvg!=null&&<span style={S.tag(b.reliable?C.accent:C.textMuted)}>Avg. knockdown {b.leaveAvg}</span>}
-                          {/* Spare conversion removed: it measures spare shooting,
-                              not which ball carries on a full rack. */}
-                          <span style={S.tag(b.reliable?C.spare:C.textMuted)}>10-Pin {b.tenPinRate}%</span>
-                          <span style={S.tag(b.reliable?C.miss:C.textMuted)}>Split {b.splitRate}%</span>
+                        {/* Four chips, ONE row.
+                        
+                            They used to wrap, and the one that fell to a
+                            second row was always Split -- so every ball
+                            in the list was two rows tall and the fourth
+                            number looked like an afterthought rather
+                            than one of the set.
+                            
+                            Three things make them fit: "Avg. knockdown"
+                            is now "1st ball", which is what bowlers call
+                            it anyway; the chips may shrink rather than
+                            only grow; and the row does not wrap. On a
+                            very narrow phone a long chip clips with an
+                            ellipsis instead of jumping a line -- the
+                            numbers are short and it is the labels that
+                            would go, and a clipped label beside a whole
+                            number reads better than a stray chip. */}
+                        <div style={{display:"flex",gap:"5px",marginBottom:"4px",
+                          flexWrap:"nowrap",alignItems:"center"}}>
+                          {[
+                            {v:`Strike ${b.rate}%`,c:b.reliable?C.strike:C.textMuted},
+                            ...(b.leaveAvg!=null
+                              /* "1st ball", not "Leave Avg". The number is pins
+                                 KNOCKED DOWN -- 6.8 is not a leave, and the Ball
+                                 vs Ball card computed the opposite quantity under
+                                 the same name, so the two disagreed by
+                                 construction. */
+                              ?[{v:`1st ball ${b.leaveAvg}`,c:b.reliable?C.accent:C.textMuted}]:[]),
+                            /* Spare conversion removed: it measures spare
+                               shooting, not which ball carries on a full rack. */
+                            {v:`10-Pin ${b.tenPinRate}%`,c:b.reliable?C.spare:C.textMuted},
+                            {v:`Split ${b.splitRate}%`,c:b.reliable?C.miss:C.textMuted},
+                          ].map(t=>(
+                            <span key={t.v} style={{...S.tag(t.c),
+                              marginRight:0,marginBottom:0,
+                              fontSize:"11px",padding:"4px 8px",
+                              minWidth:0,flexShrink:1,
+                              overflow:"hidden",textOverflow:"ellipsis",
+                              whiteSpace:"nowrap"}}>{t.v}</span>
+                          ))}
                         </div>
                         {/* This bar is the STRIKE RATE, not progress
                             toward anything. Unlabelled it reads as a
