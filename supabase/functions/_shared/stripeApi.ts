@@ -161,6 +161,34 @@ export async function cancelSubscriptionNow(subscriptionId: string): Promise<boo
   return !!res;
 }
 
+// Has this customer EVER had a subscription with us?
+//
+// The trial runs from checkout rather than from sign-up, which is what
+// was asked for and is right for somebody subscribing the first time.
+// On its own, though, it also means: subscribe, cancel, subscribe again
+// -- another 30 free days, repeatable for as long as somebody cares to
+// keep doing it. The trial has to be a first-time thing, and the only
+// authoritative record of "have they had one" is Stripe's own.
+//
+// status=all matters. The default listing returns active-ish
+// subscriptions only, so a bowler whose subscription had fully ended --
+// exactly the one coming back for a second free month -- would come back
+// as "no prior subscriptions" and be handed another trial.
+//
+// Returns null when Stripe could not be asked. The caller decides what
+// to do with that; it is deliberately NOT folded into false, because
+// "we do not know" and "they are new" must not be the same answer.
+export async function customerHasAnySubscription(customerId: string): Promise<boolean | null> {
+  if (!customerId) return null;
+  const res = await stripeRequest(
+    `/subscriptions?customer=${encodeURIComponent(customerId)}&status=all&limit=1`,
+  );
+  if (!res) return null;
+  const data = (res as { data?: unknown[] }).data;
+  if (!Array.isArray(data)) return null;
+  return data.length > 0;
+}
+
 // A lookup key, turned into the price id Checkout needs.
 //
 // Cached for the life of the function instance. A price id does not
