@@ -488,6 +488,21 @@ export default function LogView({
   const totalPinsRef=useRef(null);
   const detailsRef=useRef(null);
   const resultCardRef=useRef(null);
+  const tenthPickRef=useRef(null);
+
+  // The tenth's ball chooser has to be looked at to be used.
+  //
+  // It renders ABOVE the scoresheet, so tapping the tenth opened it
+  // off-screen behind the bowler: the tap appeared to do nothing at all,
+  // and the tenth read as the one frame that could not be edited. Every
+  // other frame goes straight into edit mode and gets the Result-card
+  // landing; this one asks a question first, and the question was where
+  // nobody could see it.
+  //
+  // allowUp because it is always upward from the frames.
+  useEffect(()=>{
+    if(tenthPick)revealBottomOf(tenthPickRef,{cap:true,allowUp:true});
+  },[tenthPick]);
 
   // Entering edit mode lands on the RESULT card, not the banner.
   //
@@ -1045,7 +1060,25 @@ export default function LogView({
               const standardGames=preferences.environment==="practice"||preferences.environment==="casual"?1:3;
               const highestEntered=[1,2,3,4,5,6,7,8,9,10].reduce((hi,g)=>
                 getManualScore(manualScores,activeBowler,effectiveSessionLeague,sessionDate,g)!=null?g:hi,0);
-              const gameCount=Math.max(standardGames,highestEntered,extraGames);
+              // Games bowled frame by frame count too.
+              //
+              // This card only ever looked at TYPED scores, so a fourth
+              // game bowled in frame tracking had a score, appeared in
+              // the series total and on the scoresheet -- and had no row
+              // here. The card that is supposed to list the night's games
+              // was the one place the game did not exist, and adding it
+              // by hand with "+ Add game" was the only way to see it.
+              //
+              // frameScores is already the right length: BowlingTracker
+              // grows it from the shots. It just was not being asked.
+              //
+              // Capped at 12 to match the ceiling upstream, so a bad
+              // game number in imported data cannot render a hundred
+              // rows.
+              const highestBowled=frameScores.reduce(
+                (hi,v,i)=>(v!=null&&i+1<=12?i+1:hi),0);
+              const gameCount=Math.min(12,
+                Math.max(standardGames,highestEntered,highestBowled,extraGames));
               const gameNums=Array.from({length:gameCount},(_,i)=>i+1);
               const entered=gameNums.map(g=>getManualScore(manualScores,activeBowler,effectiveSessionLeague,sessionDate,g));
               const total=seriesTotal(entered);
@@ -1134,9 +1167,27 @@ export default function LogView({
                       ...(shownBall?[shownBall]:[]),
                     ])],PLASTIC_BALL);
                     return(
-                    <div key={g} style={{marginBottom:isPracticeGames?"12px":"6px"}}>
-                      <div style={{display:"flex",gap:"8px",alignItems:"center",marginBottom:"6px"}}>
-                        <div style={{fontSize:"12px",color:C.textMuted,width:"28px"}}>G{g}</div>
+                    // ── One row per game ──────────────────────────────
+                    //
+                    // This was two stacked rows -- G-label and score, then
+                    // ball and surface indented 36px underneath -- so a
+                    // three-game night cost six rows plus the gaps between
+                    // them, and most of the card was the empty right-hand
+                    // half of the score row.
+                    //
+                    // Everything about one game now sits on one line, and
+                    // the line wraps instead of being cut: the two
+                    // dropdowns are `flex: 1 1 104px`, so where there is
+                    // room they share the space left over, and on a narrow
+                    // phone they drop to a second line as a PAIR rather
+                    // than squeezing to nothing. No breakpoint to pick and
+                    // nothing to keep in step with a stylesheet -- the row
+                    // measures itself.
+                    <div key={g} style={{marginBottom:isPracticeGames?"8px":"6px"}}>
+                      <div style={{display:"flex",flexWrap:"wrap",gap:"6px",
+                        alignItems:"center",marginBottom:0}}>
+                        <div style={{fontSize:"12px",color:C.textMuted,
+                          width:"22px",flexShrink:0}}>G{g}</div>
                         {(()=>{
                           // Locked only when THIS game has frames logged.
                           //
@@ -1177,8 +1228,16 @@ export default function LogView({
                           const manualScore=entered[g-1];
                           const locked=frameScore!=null&&manualScore==null;
                           return(
-                            <input style={{...S.input,flex:1,opacity:locked?0.5:1}}
+                            // Fixed width, not flex:1. A score is three
+                            // digits; letting it take every spare pixel
+                            // is what made the row look half empty, and
+                            // it is now the dropdowns that absorb the
+                            // slack.
+                            <input style={{...S.input,...smallInput,
+                              width:"72px",flexShrink:0,textAlign:"center",
+                              opacity:locked?0.5:1}}
                               type="number" inputMode="numeric" placeholder="Score"
+                              aria-label={`Game ${g} score`}
                               disabled={locked}
                               // Show the frame-derived score when there is one.
                               //
@@ -1208,16 +1267,69 @@ export default function LogView({
                             delete, so an empty row is not decorated with
                             a destructive control. */}
                         {typeof deleteGame==="function"
-                          &&(entered[g-1]!=null||frameScores[g-1]!=null)&&(
+                          &&(entered[g-1]!=null||frameScores[g-1]!=null)?(
                           <button
                             aria-label={`Delete game ${g}`}
                             onClick={()=>setGameToDelete(gameToDelete===g?null:g)}
                             style={{background:"none",border:"none",cursor:"pointer",
                                     color:gameToDelete===g?C.miss:C.textMuted,
-                                    fontSize:"16px",padding:"0 6px",lineHeight:1,
+                                    fontSize:"16px",width:"24px",flexShrink:0,
+                                    padding:0,lineHeight:1,
                                     WebkitTapHighlightColor:"transparent"}}>
                             ×
                           </button>
+                        ):(
+                          // An empty game has nothing to delete, but the
+                          // column still has to be there or the dropdowns
+                          // on that row start 24px further left than the
+                          // ones above them -- which reads as a layout
+                          // bug rather than an absent button.
+                          <span aria-hidden="true"
+                            style={{width:"24px",flexShrink:0}}/>
+                        )}
+
+                        {/* Ball and surface, on the SAME row as the score.
+
+                            What ball, in what state, for what score is one
+                            statement about one game, and it now reads as
+                            one line. They were a second indented row
+                            underneath, which is where most of the card's
+                            height went.
+
+                            `flex: 1 1 104px` is what makes that safe: they
+                            share whatever the score and the label leave
+                            behind, and when that is less than 104px each
+                            they wrap together onto their own line instead
+                            of shrinking into illegibility. */}
+                        {isPracticeGames&&gameBalls.length>0&&(
+                          <>
+                            {/* The list is the selected league bag's balls
+                                (logBalls), not the whole arsenal: the balls
+                                actually carried that night are the only
+                                ones that can have bowled the game. With no
+                                bag defined it falls back to everything, so
+                                nobody is forced to pack one first. */}
+                            <select style={{...S.sel,...smallInput,
+                              flex:"1 1 104px",minWidth:0}}
+                              aria-label={`Game ${g} ball`}
+                              value={shownBall||""}
+                              onChange={e=>updateGameEquipment(activeBowler,effectiveSessionLeague,sessionDate,g,{ball:e.target.value})}>
+                              <option value="">Ball…</option>
+                              {gameBalls.map(b=>(<option key={b} value={b}>{b}</option>))}
+                            </select>
+                            {/* Disabled rather than hidden for plastic: a
+                                field that appears and disappears as you
+                                pick a ball shifts everything under it. */}
+                            <select style={{...S.sel,...smallInput,
+                              flex:"1 1 104px",minWidth:0}}
+                              aria-label={`Game ${g} surface`}
+                              value={equip.surface||""}
+                              disabled={!shownBall||shownBall===PLASTIC_BALL}
+                              onChange={e=>updateGameEquipment(activeBowler,effectiveSessionLeague,sessionDate,g,{surface:e.target.value})}>
+                              <option value="">Surface…</option>
+                              {SURFACES.map(sf=>(<option key={sf} value={sf}>{sf}</option>))}
+                            </select>
+                          </>
                         )}
                       </div>
                       {gameToDelete===g&&(
@@ -1234,53 +1346,6 @@ export default function LogView({
                               onClick={()=>{ setGameToDelete(null); deleteGame(g); }}>
                               Delete game {g}
                             </button>
-                          </div>
-                        </div>
-                      )}
-                      {/* Ball and surface per game, because that's what a
-                          practice is for: which ball, which surface, what
-                          did it average -- and how it held up as the lanes
-                          transitioned across the block. */}
-                      {isPracticeGames&&gameBalls.length>0&&(
-                        <div style={{paddingLeft:"36px"}}>
-                          {/* A dropdown, not a chip row.
-
-                              One chip per ball meant a full arsenal wrapped
-                              across several lines under EVERY game -- three
-                              or four times over on one screen, burying the
-                              score fields it sits between.
-
-                              The list is the selected league bag's balls
-                              (logBalls), not the whole arsenal: the balls
-                              actually carried that night are the only ones
-                              that can have bowled the game. With no bag
-                              defined it falls back to everything, so nobody
-                              is forced to pack one first. */}
-                          {/* Ball and surface on one row.
-                              
-                              Surface was a wrapped row of chips under the
-                              ball, so every game cost two rows and a
-                              three-game night filled the card. They are one
-                              statement -- which ball, in what state -- and
-                              a dropdown says it in half the height. */}
-                          <div style={{display:"grid",
-                            gridTemplateColumns:"repeat(2, minmax(0, 1fr))",gap:"6px"}}>
-                            <select style={{...S.sel,...smallInput,width:"100%"}}
-                              value={shownBall||""}
-                              onChange={e=>updateGameEquipment(activeBowler,effectiveSessionLeague,sessionDate,g,{ball:e.target.value})}>
-                              <option value="">Ball used…</option>
-                              {gameBalls.map(b=>(<option key={b} value={b}>{b}</option>))}
-                            </select>
-                            {/* Disabled rather than hidden for plastic: a
-                                field that appears and disappears as you pick
-                                a ball shifts everything under it. */}
-                            <select style={{...S.sel,...smallInput,width:"100%"}}
-                              value={equip.surface||""}
-                              disabled={!shownBall||shownBall===PLASTIC_BALL}
-                              onChange={e=>updateGameEquipment(activeBowler,effectiveSessionLeague,sessionDate,g,{surface:e.target.value})}>
-                              <option value="">Surface…</option>
-                              {SURFACES.map(sf=>(<option key={sf} value={sf}>{sf}</option>))}
-                            </select>
                           </div>
                         </div>
                       )}
@@ -1553,7 +1618,8 @@ export default function LogView({
                   so the bowler picks the wrong ball by recognising it
                   rather than by counting. */}
               {tenthPick&&(
-                <div style={{...S.card,border:`1.5px solid ${C.accent}`}}>
+                <div ref={tenthPickRef}
+                  style={{...S.card,border:`1.5px solid ${C.accent}`}}>
                   <div style={S.label}>Which ball in the 10th?</div>
                   <div style={S.chips}>
                     {tenthPick.balls.map((b,i)=>(
