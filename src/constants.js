@@ -25,6 +25,32 @@ export const APP_NAME = "My Bowling Journey";
 // "mybowlingjourney.com/" on every card. The QR code is happy either way.
 export const APP_URL = "https://mybowlingjourney.com";
 
+// The Google OAuth **web** client ID, used for "Sign in with Google".
+//
+// HARDCODED, AND THAT IS CORRECT -- this is not a secret.
+//
+// An OAuth client ID is public by design: it identifies the app to
+// Google and ships in the JavaScript bundle of every site that uses one.
+// Anyone can read it out of this app today by opening devtools. The
+// client SECRET is the sensitive half, and it lives only in Supabase,
+// never in this repo.
+//
+// Kept here rather than in a VITE_ env var deliberately. An env var for
+// a public value buys no security and adds a failure mode this project
+// has already been burned by: it would need to exist in .env locally AND
+// as a GitHub Actions secret, and if the CI one were ever missing the
+// build would still succeed and ship `undefined` -- sign-in would break
+// in production only, with nothing failing loudly at build time.
+//
+// ANDROID USES THIS SAME WEB ID. That is not a mistake and it is the
+// single most confusing part of Google sign-in: the Android OAuth client
+// proves the app's identity via its SHA-1 fingerprint, but the ID token
+// Google issues is addressed to the WEB client. Putting the Android
+// client ID here instead produces a token Supabase rejects for a bad
+// audience.
+export const GOOGLE_WEB_CLIENT_ID =
+  "82054895214-dgil1a6989enktahek88uc82iosc8ju9.apps.googleusercontent.com";
+
 // Practice and casual nights aren't leagues, but every per-night record in
 // this app -- manual game scores, session recaps -- is keyed by
 // (bowler, league, date). Rather than special-case every one of those,

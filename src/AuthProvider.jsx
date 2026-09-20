@@ -4,6 +4,11 @@ import { supabase } from './supabaseClient.js';
 // signInWithMagicLink. listenForAuthLinks stays: it costs nothing on the
 // web, and if a link ever does reach the app it still completes.
 import { listenForAuthLinks } from './nativeAuth.js';
+// Imported, not re-implemented: googleAuth owns the platform split and
+// the nonce pairing. Nothing about it needs to leak into this file --
+// SignIn calls it through the context exactly like the email methods,
+// and gets back the same { error } shape.
+import { signInWithGoogle } from './googleAuth.js';
 import { APP_URL } from './constants.js';
 import { cloudRead, cloudWrite, adoptLegacyQueueItems, flushPendingQueue } from './syncQueue.js';
 import { setStorageUser, adoptLegacyData } from './scopedStorage.js';
@@ -343,6 +348,7 @@ export function AuthProvider({ children }) {
     clearAuthError: () => setAuthError(""),
     signInWithMagicLink,
     verifyEmailCode,
+    signInWithGoogle,
     signOut,
     deleteAccount,
     updateDisplayName,
