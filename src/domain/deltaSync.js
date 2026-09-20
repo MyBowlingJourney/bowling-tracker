@@ -45,6 +45,33 @@ export function mergeDelta(existingRows, incomingRows, tombstoneIds) {
 // timestamp get asked for again next time, which the merge already
 // handles for free: merging the same row twice does nothing. A little
 // redundant fetching is a fine price for never missing one.
+// The cursor to store after a FULL fetch, or null meaning "store
+// nothing, fetch everything again next time".
+//
+// ── Why this is not `nextCursor(...) || new Date().toISOString()` ───
+//
+// That is what it used to be, and the fallback is the bug.
+//
+// Every cursor is compared against `updated_at`, which is written by
+// the SERVER. `new Date()` is the PHONE. Mixing the two means the
+// cursor can land ahead of rows that already exist, and since a cursor
+// only ever moves forward, every row in that gap is never requested
+// again. Not on the next sync, not ever. No error is raised, because
+// nothing went wrong as far as either side can tell: the client asked
+// for changes since a time, and was correctly told there were none.
+//
+// It needs no clock skew to bite, either. A row written while the fetch
+// was in flight is already in the past by the time the response is
+// handled, so a second device saving a game during your sync can put
+// that game permanently out of reach.
+//
+// So: a real server timestamp, or nothing. Storing no cursor costs one
+// more full fetch of a table that just came back empty -- which is the
+// cheapest fetch there is -- and it cannot lose data.
+export function seedCursor(timestamps) {
+  return nextCursor(null, timestamps);
+}
+
 export function nextCursor(previousCursor, timestamps) {
   const all = [
     ...(previousCursor ? [previousCursor] : []),
