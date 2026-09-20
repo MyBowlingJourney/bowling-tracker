@@ -23,7 +23,6 @@ export const CARD_HINTS = {
 
   // ── The house ──
   rackType: "Free fall against string pins. Set the rack type on two centers.",
-  patternHistory: "Scores by oil pattern. Record the pattern when you start a night.",
   byCenter: "Averages by house. Bowl at more than one center.",
 
   // ── The ball ──

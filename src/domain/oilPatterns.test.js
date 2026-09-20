@@ -7,6 +7,7 @@ import { patternAverages,
   patternDisplayName,
   patternHistory,
   patternVersusOverall,
+  patternScoreband,
 } from './oilPatterns.js';
 
 const patterns = [
@@ -336,5 +337,102 @@ describe('patternAverages with a league default', () => {
       expect(patternAverages(sessions, [], [], 'Ryan', bad)).toEqual([]);
     }
     expect(patternAverages(sessions, [], [], 'Ryan', { Tuesday: '   ' })).toEqual([]);
+  });
+});
+
+
+// ── The fold ────────────────────────────────────────────────────────────
+//
+// "By Oil Pattern" used to be its own card in Stats. It now lives under
+// the lane card's pattern picker, where the pattern is already chosen.
+
+// The picker and the averages have to bucket a night the same way.
+//
+// The lane card calls a night with no recorded pattern the HOUSE shot,
+// because the house shot is exactly what nobody writes down. patternAverages
+// DROPS such a night. Left alone, the picker would offer "House" and the
+// scoreline under it would have nothing to say -- and for a bowler who has
+// never bowled a sport block, that is every night they own.
+describe('patternAverages with a fallback name', () => {
+  const sessions = [
+    { bowler: 'Ryan', league: 'Monday', date: '2026-01-05', scores: [200, 210, 190] },
+    { bowler: 'Ryan', league: 'Monday', date: '2026-01-12', scores: [180, 170, 175] },
+  ];
+
+  it('names an otherwise-unrecorded night when asked to', () => {
+    const rows = patternAverages(sessions, [], [], 'Ryan', {}, 'House');
+    expect(rows.length).toBe(1);
+    expect(rows[0].name).toBe('House');
+    expect(rows[0].games).toBe(6);
+  });
+
+  it('still drops those nights when not asked', () => {
+    expect(patternAverages(sessions, [], [], 'Ryan')).toEqual([]);
+  });
+
+  // The fallback is the LAST resort, behind both real sources. A night
+  // the bowler actually wrote a pattern on is not a house night.
+  it('never overrides a recorded pattern or a league default', () => {
+    const nightly = [{ league: 'Monday', date: '2026-01-05', patternName: 'Scorpion' }];
+    const rows = patternAverages(sessions, nightly, [], 'Ryan', { Monday: 'Wolf' }, 'House');
+    const byName = Object.fromEntries(rows.map(r => [r.name, r.games]));
+    expect(byName['Scorpion']).toBe(3);   // its own record
+    expect(byName['Wolf']).toBe(3);       // the league default
+    expect(byName['House']).toBeUndefined();
+  });
+
+  it('ignores a blank or whitespace fallback', () => {
+    expect(patternAverages(sessions, [], [], 'Ryan', {}, '   ')).toEqual([]);
+  });
+});
+
+describe('patternScoreband', () => {
+  const rows = [
+    { name: 'House', average: 198, games: 42, versusOverall: 7 },
+    { name: 'Wolf', average: 172, games: 9, versusOverall: -19 },
+    { name: 'Scorpion', average: 165, games: 3, versusOverall: -26 },
+  ];
+
+  it('puts the chosen pattern up front and ranks the rest behind it', () => {
+    const band = patternScoreband(rows, 'Wolf');
+    expect(band.here.name).toBe('Wolf');
+    expect(band.others.map(o => o.name)).toEqual(['House', 'Scorpion']);
+  });
+
+  it('ranks the others best first', () => {
+    expect(patternScoreband(rows, 'Scorpion').others.map(o => o.versusOverall))
+      .toEqual([7, -19]);
+  });
+
+  // With one pattern, the pattern average and the overall average come
+  // from the SAME games. The delta is the bowler's average against
+  // itself -- structurally near zero, and not a fact about oil. Ryan
+  // called this: with only one pattern there is no line worth the row
+  // between the picker and the lane.
+  it('says nothing when there is only one pattern', () => {
+    expect(patternScoreband([rows[0]], 'House')).toBeNull();
+    expect(patternScoreband([], 'House')).toBeNull();
+  });
+
+  // The headline IS the selected pattern's number. Shots can be logged
+  // without game scores, so a pattern can be drawable and unscored.
+  it('says nothing when the chosen pattern has no scored games', () => {
+    expect(patternScoreband(rows, 'Kegel Main St')).toBeNull();
+    expect(patternScoreband(rows, '')).toBeNull();
+  });
+
+  // patternVersusOverall returns [] with no overall average, rather than
+  // comparing every pattern against zero. A row that slipped through
+  // without the field must not be drawn as "+198".
+  it('ignores rows with no comparison on them', () => {
+    const half = [{ name: 'House', average: 198, games: 42 }, rows[1], rows[2]];
+    const band = patternScoreband(half, 'House');
+    expect(band).toBeNull();
+    expect(patternScoreband(half, 'Wolf').others.map(o => o.name)).toEqual(['Scorpion']);
+  });
+
+  it('is safe on junk', () => {
+    expect(() => patternScoreband(null, null)).not.toThrow();
+    expect(patternScoreband([null, {}, 'x'], 'House')).toBeNull();
   });
 });

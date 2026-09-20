@@ -434,7 +434,21 @@ export function patternVersusOverall(history, overallAverage) {
 // The per-night record still WINS wherever one exists. A league that
 // rotates patterns -- PBA Experience, any sport league -- is the reason
 // this is a default rather than a fixed property of the league.
-export function patternAverages(sessions, lanePatterns, tournaments, bowler, leagueDefaults = {}) {
+// fallbackName: what to call a night that has neither a lane_patterns row
+// nor a league default.
+//
+// Left off, such a night is DROPPED -- which is right for the Stats card,
+// where naming a pattern nobody recorded would be inventing one.
+//
+// The lane card needs the opposite, because it has already made the call:
+// its picker buckets every unrecorded night as the house shot, on the
+// grounds that the house shot is precisely what nobody writes down. If
+// the averages here quietly dropped those nights, the picker would offer
+// "House" and the scoreline under it would have nothing to say -- and for
+// a bowler who has never bowled a sport block, that is every night they
+// own. So the caller that made that decision passes the name it used,
+// and the two agree by construction rather than by coincidence.
+export function patternAverages(sessions, lanePatterns, tournaments, bowler, leagueDefaults = {}, fallbackName = "") {
   const byPattern = new Map();
 
   function add(name, scores) {
@@ -459,7 +473,9 @@ export function patternAverages(sessions, lanePatterns, tournaments, bowler, lea
     // the other way round: a bowler who wrote down what they actually
     // bowled on has told us something the default is only guessing at.
     const name = patternByNight.get(`${s.league}|${s.date}`)
-      || (typeof defaults[s.league] === "string" ? defaults[s.league].trim() : "");
+      || (typeof defaults[s.league] === "string" ? defaults[s.league].trim() : "")
+      // Last, and only when the caller asked for it. See fallbackName.
+      || String(fallbackName || "").trim();
     if (name) add(name, s.scores);
   }
 
@@ -520,4 +536,46 @@ export function patternLengthForLeague(lanePatterns, league, oilPatterns) {
 
   const spec = Number(VERIFIED_PATTERN_SPECS[keys[0]]?.lengthFeet);
   return Number.isFinite(spec) && spec > 0 ? spec : null;
+}
+
+/**
+ * The selected pattern's scoring, and the rest ranked behind it.
+ *
+ * This is the old "By Oil Pattern" card folded into the lane card. It was
+ * a standalone list of every pattern against the overall average; here
+ * the pattern is already chosen -- it is the thing drawing the lines --
+ * so the one you are looking at becomes the headline and the others
+ * become the comparison you can open.
+ *
+ * Returns null when there is nothing worth a row:
+ *
+ *   - FEWER THAN TWO PATTERNS. With one, the pattern average and the
+ *     overall average are computed from the same games, so the delta is
+ *     the bowler's average compared against itself -- structurally near
+ *     zero and not a fact about oil. The standalone card refused for the
+ *     same reason and it still holds.
+ *
+ *   - NO SCORED GAMES ON THE SELECTED PATTERN. Shots can be logged
+ *     without game scores, and the headline here IS the selected
+ *     pattern's number. Without it there is no band, only a ranking of
+ *     patterns that are not the one on screen.
+ *
+ * Others are ranked best-first, which is the order that answers "where
+ * does this one sit" at a glance.
+ */
+export function patternScoreband(scores, selectedName) {
+  const rows = (Array.isArray(scores) ? scores : [])
+    .filter(r => r && typeof r === "object" && String(r.name || "").trim()
+      && Number.isFinite(Number(r.average))
+      && Number.isFinite(Number(r.versusOverall)));
+  if (rows.length < 2) return null;
+
+  const want = String(selectedName || "").trim();
+  if (!want) return null;
+  const here = rows.find(r => String(r.name).trim() === want);
+  if (!here) return null;
+
+  const others = rows.filter(r => r !== here)
+    .sort((a, b) => Number(b.versusOverall) - Number(a.versusOverall));
+  return { here, others };
 }

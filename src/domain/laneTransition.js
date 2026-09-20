@@ -86,18 +86,20 @@ function nightKey(s) {
  *
  * @returns [{date, games, shots, pattern}]
  */
-export function nightsIn(shots, lanePatterns) {
+export function nightsIn(shots, lanePatterns, leagueDefaults = {}) {
   const byDate = new Map();
   for (const s of rows(shots)) {
     const date = clean(s.date);
     if (!date) continue;
-    const cur = byDate.get(date) || { date, games: 0, shots: 0 };
+    // The league comes along because a league DEFAULT can name the
+    // night, and resolving that needs to know which league it was.
+    const cur = byDate.get(date) || { date, league: clean(s.league), games: 0, shots: 0 };
     cur.games = Math.max(cur.games, num(s.game) ?? 1);
     cur.shots += 1;
     byDate.set(date, cur);
   }
   return [...byDate.values()]
-    .map(n => ({ ...n, pattern: patternForNight(lanePatterns, n.date) }))
+    .map(n => ({ ...n, pattern: patternForNight(lanePatterns, n.date, n.league, leagueDefaults) }))
     .sort((a, b) => (a.date < b.date ? 1 : -1));
 }
 
@@ -122,15 +124,45 @@ export const HOUSE_PATTERN = "House";
 // A row that names a type but no pattern ("house", with the name left
 // blank) says the same thing as no row at all, so both land in the same
 // bucket rather than one being a pattern and the other a gap.
-export function patternForNight(lanePatterns, date) {
+export function patternForNight(lanePatterns, date, league, leagueDefaults) {
   const d = clean(date);
   if (!d) return HOUSE_PATTERN;
+  const lg = clean(league);
+
+  // Matched on league AND date when both sides carry a league.
+  //
+  // Date alone was wrong for anyone in two leagues: a Monday night with a
+  // pattern written down put that pattern's name on the Thursday night
+  // bowled the same day, in a different house, on different oil. The row
+  // and the caller each have to actually HAVE a league for this to bite,
+  // so a lane_patterns row without one still matches on date as before.
+  let dateOnly = "";
   for (const p of rows(lanePatterns)) {
-    if (clean(p.date) === d) {
-      const name = clean(p.patternName);
-      if (name) return name;
-    }
+    if (clean(p.date) !== d) continue;
+    const name = clean(p.patternName);
+    if (!name) continue;
+    const pl = clean(p.league);
+    if (!pl || !lg) { if (!dateOnly) dateOnly = name; continue; }
+    if (pl === lg) return name;
   }
+  if (dateOnly) return dateOnly;
+
+  // The league's default, second.
+  //
+  // This has to agree with patternAverages, which has consulted the
+  // default since it was added. Without it the picker called a night
+  // "House" while the scoring called it whatever the bowler had set --
+  // so the pattern was offered in the dropdown and had no numbers behind
+  // it, for every night they owned.
+  //
+  // lane_patterns rows only sync when the bowler is on a TEAM in that
+  // league, so for a solo bowler the default is the ONLY record that
+  // reaches another device. Ignoring it here meant ignoring the one
+  // thing they could rely on.
+  const defaults = (leagueDefaults && typeof leagueDefaults === "object") ? leagueDefaults : {};
+  const fromLeague = lg && typeof defaults[lg] === "string" ? defaults[lg].trim() : "";
+  if (fromLeague) return fromLeague;
+
   return HOUSE_PATTERN;
 }
 
@@ -142,8 +174,8 @@ export function patternForNight(lanePatterns, date) {
  * can see on their own scoresheet does not protect them from it -- with
  * its night count, so the card can say so rather than imply otherwise.
  */
-export function patternsIn(shots, lanePatterns) {
-  const nights = nightsIn(shots, lanePatterns);
+export function patternsIn(shots, lanePatterns, leagueDefaults = {}) {
+  const nights = nightsIn(shots, lanePatterns, leagueDefaults);
   const byName = new Map();
   for (const n of nights) {
     if (!n.pattern) continue;   // only a night with no date at all
@@ -181,7 +213,7 @@ export function shotsAt(shots, opts) {
   let pool = rows(shots);
   if (date) pool = pool.filter(s => clean(s.date) === date);
   if (pattern) {
-    const ok = new Set(nightsIn(pool, lanePatterns)
+    const ok = new Set(nightsIn(pool, lanePatterns, o.leagueDefaults)
       .filter(n => n.pattern === pattern).map(n => n.date));
     pool = pool.filter(s => ok.has(clean(s.date)));
   }

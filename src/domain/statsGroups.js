@@ -74,7 +74,6 @@ const GROUP_BY_CARD = {
   // The house and what it was dressed with.
   byCenter: "center",
   rackType: "center",
-  patternHistory: "center",
 };
 
 export function groupForCard(id) {

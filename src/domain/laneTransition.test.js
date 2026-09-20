@@ -273,3 +273,57 @@ describe('how deep the ball turns', () => {
     expect(ballLine(entry, { patternLength: feetFor('Wolf') }).points[2].feet).toBe(37);
   });
 });
+
+// ── Naming a night the same way the rest of the app does ────────────────
+//
+// The picker's name for a night IS the key the scoring band looks up. Any
+// disagreement does not throw or warn -- the band simply does not draw,
+// for that pattern only, while the others work. Both bugs below were found
+// that way and neither was visible from the lane diagram itself.
+
+describe('a league default names the night', () => {
+  const shots = [...night('2026-01-05'), ...night('2026-01-12')];
+  const defaults = { Monday: 'House Shot' };
+
+  // patternAverages has consulted the league default since it was added;
+  // the picker did not, so it offered "House" against scoring filed under
+  // "House Shot" -- for every night a solo bowler owns, since
+  // lane_patterns rows only sync for bowlers on a TEAM.
+  it('uses it when no night has a record of its own', () => {
+    expect(patternForNight([], '2026-01-05', 'Monday', defaults)).toBe('House Shot');
+    expect(patternsIn(shots, [], defaults).map(p => p.name)).toEqual(['House Shot']);
+  });
+
+  // A night the bowler actually wrote a pattern on beats a guess.
+  it('never overrides a night that has its own record', () => {
+    const rows = [{ league: 'Monday', date: '2026-01-12', patternName: 'Wolf' }];
+    expect(patternForNight(rows, '2026-01-12', 'Monday', defaults)).toBe('Wolf');
+    expect(patternsIn(shots, rows, defaults).map(p => p.name).sort())
+      .toEqual(['House Shot', 'Wolf']);
+  });
+
+  it('falls back to the house shot with no default and no record', () => {
+    expect(patternForNight([], '2026-01-05', 'Monday', {})).toBe(HOUSE_PATTERN);
+    expect(patternForNight([], '2026-01-05', 'Monday', null)).toBe(HOUSE_PATTERN);
+  });
+});
+
+describe('two leagues on the same date', () => {
+  const rows = [{ league: 'Monday', date: '2026-01-05', patternName: 'Wolf' }];
+
+  // Same calendar day, different house, different oil. Matching on date
+  // alone put Monday's recorded pattern on the Thursday night too.
+  it('does not put one league\'s pattern on the other', () => {
+    expect(patternForNight(rows, '2026-01-05', 'Monday')).toBe('Wolf');
+    expect(patternForNight(rows, '2026-01-05', 'Thursday')).toBe(HOUSE_PATTERN);
+  });
+
+  // A row with no league of its own, or a caller that has none, still
+  // matches on date -- which is every row written before leagues were
+  // recorded on them.
+  it('still matches on date when either side has no league', () => {
+    const bare = [{ date: '2026-01-05', patternName: 'Wolf' }];
+    expect(patternForNight(bare, '2026-01-05', 'Thursday')).toBe('Wolf');
+    expect(patternForNight(rows, '2026-01-05')).toBe('Wolf');
+  });
+});

@@ -95,7 +95,6 @@ export const PAID_STATS_CARDS = Object.freeze([
   "ballPhases",       // strike % by part of the night
   "ballCompare",      // ball against ball
   "byCenter",         // house against house
-  "patternHistory",   // pattern against pattern
   "rackType",         // free fall against string
   "seasonCompare",    // this season against last
 ]);

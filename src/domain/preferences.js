@@ -76,7 +76,6 @@ export const STATS_CARDS = [
 
   // Oil pattern history. The bowler about to pick a ball for Thursday is
   // exactly the person who needs to know they average 172 on Scorpion.
-  { id: "patternHistory", label: "By Oil Pattern" },
   { id: "weeklyPoints", label: "Weekly Points" },
   { id: "handicapImpact", label: "Handicap Impact" },
   { id: "teamLeaderboard", label: "Team Leaderboard" },
