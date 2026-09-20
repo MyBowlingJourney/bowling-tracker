@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { C, S, F } from "./ui.jsx";
 import { lanePath, RACK, MARK_BOARDS, pocketPins } from "./domain/lanePath.js";
-import { ballComparison, ballLine, ARROWS_FEET } from "./domain/ballComparison.js";
+import { ballComparison, ballLine, ARROWS_FEET, BREAKPOINT_FEET } from "./domain/ballComparison.js";
 import { isSplit, isCornerPinLeave } from "./domain/splits.js";
 import {
   shotsAt, nightsIn, patternsIn, positionLabel, typicalGames,
@@ -72,11 +72,25 @@ export default function LanePane({
                          halfWindow: scrubbing ? 0.15 : 1 })
       : { shots, nights: nights.length };
 
-    // A chosen pattern sets where the ball turns. A 47-foot block turns
-    // it later than a 36-foot one, and drawing both at the league's
-    // default length would put the same breakpoint on patterns that play
-    // nothing alike.
-    const feet = patternLengthFor(lanePatterns, pattern) ?? patternLength;
+    // Where the ball turns, in feet.
+    //
+    // A chosen pattern sets it: a 47-foot block turns the ball later than
+    // a 36-foot one, and drawing both at one length would put the same
+    // breakpoint on patterns that play nothing alike.
+    //
+    // The HOUSE shot takes the house default -- forty feet -- and
+    // explicitly does NOT fall through to patternLength.
+    //
+    // patternLength is patternLengthForLeague, which returns the length
+    // of the most recent NAMED pattern in the league. Bowl one 37-foot
+    // sport night and that became the house length for every house night
+    // in the season, so the breakpoint sat at 37 feet on a shot that
+    // breaks at 40. The house shot is defined by nobody having written a
+    // length down; borrowing the last sport block's is the opposite of
+    // what that absence means.
+    const feet = pattern === HOUSE_PATTERN
+      ? BREAKPOINT_FEET
+      : (patternLengthFor(lanePatterns, pattern) ?? patternLength);
 
     const entries = ballComparison(picked.shots, {
       bowler, league, isSplit, isCornerPinLeave, leftHanded, minShots: 0,
