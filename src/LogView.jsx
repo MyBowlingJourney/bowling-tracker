@@ -16,7 +16,7 @@ import Nightcap from "./Nightcap.jsx";
 import ShareButton from "./ShareButton.jsx";
 import OilPatternPicker from "./OilPatternPicker.jsx";
 import { sessionHighlights } from "./domain/shareCard.js";
-import { getManualScore, seriesTotal, getGameEquipment, defaultPracticeBall } from "./domain/manualScores.js";
+import { getManualScore, resolveGameScore, seriesTotal, getGameEquipment, defaultPracticeBall } from "./domain/manualScores.js";
 import { formatLayout } from "./domain/layouts.js";
 import { otherBowlerSource, scorekeepingHelp, boardMiss, acceptBoardKeystroke } from "./domain/scorekeeping.js";
 import { plasticLast } from "./domain/bags.js";
@@ -1081,7 +1081,28 @@ export default function LogView({
                 Math.max(standardGames,highestEntered,highestBowled,extraGames));
               const gameNums=Array.from({length:gameCount},(_,i)=>i+1);
               const entered=gameNums.map(g=>getManualScore(manualScores,activeBowler,effectiveSessionLeague,sessionDate,g));
-              const total=seriesTotal(entered);
+
+              // The series counts what each game is WORTH, not what was
+              // typed.
+              //
+              // This summed `entered` -- manual scores only -- so a night
+              // bowled frame by frame showed every game's score sitting
+              // in its own box and then no series and no average
+              // underneath them, with the collapsed card's summary blank
+              // too. The numbers were on screen and refused to add up,
+              // which reads as the app being broken rather than as a
+              // missing feature.
+              //
+              // resolveGameScore is the same rule the boxes above already
+              // display and the same one the rest of the app scores a
+              // night by: a typed score wins where there is one, frames
+              // fill in the rest. Anything else lets the card disagree
+              // with itself.
+              const resolved=gameNums.map(g=>
+                resolveGameScore(manualScores,activeBowler,effectiveSessionLeague,
+                                 sessionDate,g,frameScores[g-1]??null));
+              const total=seriesTotal(resolved);
+              const scoredGames=resolved.filter(v=>typeof v==="number").length;
               // The card is defaulted OPEN in BowlingTracker's
               // expandedSections. Reaching it means a league is chosen and
               // the bowler is here to enter scores -- a closed card is one
@@ -1381,7 +1402,13 @@ export default function LogView({
                       </div>
                       <div style={S.statBox}>
                         <div style={{...S.statNum,fontSize:"20px"}}>
-                          {Math.round(total/entered.filter(v=>v!=null).length)}
+                          {/* Divided by the games that HAVE a score, from
+                              the same resolved list the total came from.
+                              Dividing a resolved total by a count of
+                              typed scores gave a 600 series an average of
+                              600 the moment one game was frame-tracked --
+                              or a divide by zero when none were typed. */}
+                          {scoredGames?Math.round(total/scoredGames):"—"}
                         </div>
                         <div style={S.statLbl}>Average</div>
                       </div>
