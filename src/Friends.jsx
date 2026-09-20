@@ -135,7 +135,7 @@ export default function Friends({ onRequestsChanged } = {}) {
     if (!term.trim()) { setSearchResults([]); setSearching(false); return; }
     setSearching(true);
     searchTimer.current=setTimeout(async ()=>{
-      const{data,online}=await cloudRead("profiles",q=>q.select("id,display_name").ilike("display_name",`%${term.trim()}%`).limit(8));
+      const{data,online}=await cloudRead("profiles",q=>q.select("id,display_name").ilike("display_name",`%${term.trim()}%`).limit(8),{paginate:false});
       const results=(online&&data)?data.filter(p=>p.id!==user?.id):[];
       setSearchResults(results);
       setSearching(false);

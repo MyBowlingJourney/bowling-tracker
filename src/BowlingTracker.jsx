@@ -589,7 +589,7 @@ export default function BowlingTracker(){
     const id=crypto.randomUUID();
     let leagueId=leagueIdsRef.current[leagueName];
     if(!leagueId){
-      const{data,online}=await cloudRead("leagues",q=>q.select("id").eq("name",leagueName).limit(1));
+      const{data,online}=await cloudRead("leagues",q=>q.select("id").eq("name",leagueName).limit(1),{paginate:false});
       if(online&&data&&data[0]){
         leagueId=data[0].id;
         leagueIdsRef.current[leagueName]=leagueId;
@@ -3348,7 +3348,7 @@ export default function BowlingTracker(){
     if(!term.trim()){setCoachSearchResults([]);setCoachSearching(false);return;}
     setCoachSearching(true);
     coachSearchTimer.current=setTimeout(async()=>{
-      const{data,online}=await cloudRead("profiles",q=>q.select("id,display_name").ilike("display_name",`%${term.trim()}%`).limit(8));
+      const{data,online}=await cloudRead("profiles",q=>q.select("id,display_name").ilike("display_name",`%${term.trim()}%`).limit(8),{paginate:false});
       setCoachSearchResults((online&&data)?data.filter(p=>p.id!==user?.id):[]);
       setCoachSearching(false);
     },300);

@@ -89,7 +89,7 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const userId = session?.user?.id;
     if (!userId) { setDisplayName(''); return; }
-    cloudRead('profiles', q => q.select('display_name').eq('id', userId).single())
+    cloudRead('profiles', q => q.select('display_name').eq('id', userId).single(), { paginate: false })
       .then(({ data, online }) => {
         if (online && data) setDisplayName(data.display_name || '');
       });
@@ -149,7 +149,7 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const userId = session?.user?.id;
     if (!userId) return;
-    cloudRead('user_preferences', q => q.select('preferences').eq('user_id', userId).single())
+    cloudRead('user_preferences', q => q.select('preferences').eq('user_id', userId).single(), { paginate: false })
       .then(({ data, online }) => {
         if (online && data) {
           const normalized = normalizePreferences(data.preferences);

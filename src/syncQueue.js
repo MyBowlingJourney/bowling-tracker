@@ -481,10 +481,68 @@ export async function cloudDelete(table, match, { timeoutMs = 6000 } = {}) {
 // query builder so the caller can add .select()/.eq()/etc. however that
 // table needs. On failure or timeout, returns online:false so the caller
 // can fall back to whatever it has cached locally.
-export async function cloudRead(table, queryFn, { timeoutMs = 6000 } = {}) {
-  try {
-    const { data, error } = await withTimeout(queryFn(supabase.from(table)), timeoutMs);
+// ── The 1000-row ceiling ────────────────────────────────────────────
+//
+// PostgREST caps every response at a maximum number of rows, and
+// Supabase's default is 1000. Asking for a table with more than that
+// does not error and does not warn: it returns the first 1000 and a
+// `content-range: 0-999/*` header nobody was reading.
+//
+// A bowler with 2020 shots therefore received 1000 of them. Their
+// averages stayed right -- sessions is a much smaller table, under the
+// cap -- while every shot-derived number quietly described half their
+// season. Worse, the sync cursor then advanced to the newest row IN
+// THAT PAGE, so the rows below it could never be requested again: a
+// delta only asks for newer, and a full refresh re-caps at 1000. The
+// missing half became permanently unreachable.
+//
+// It needs roughly one active season to trigger, which is why it went
+// unnoticed: nothing in testing had that much history.
+//
+// PAGE_SIZE is deliberately the same 1000. Asking for more does not
+// raise the ceiling -- the server still truncates -- so the only way
+// through is to ask repeatedly with an explicit range.
+const PAGE_SIZE = 1000;
+
+// Reads every page, not just the first.
+//
+// Stops on a short page, which is the only reliable end signal: the
+// total in content-range is "*" unless the request asks for an exact
+// count, and asking for one makes the server COUNT the table on every
+// page -- a real cost on the largest table, to learn something the
+// short page already tells us.
+//
+// build() must return a FRESH query each call. A PostgREST builder is
+// single-use; re-ranging a spent one returns the first page forever,
+// which would turn this loop into a very effective way to hang the app.
+async function readAllPages(build, timeoutMs) {
+  const all = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await withTimeout(
+      build().range(from, from + PAGE_SIZE - 1),
+      timeoutMs,
+    );
     if (error) throw error;
+    const page = data || [];
+    all.push(...page);
+    if (page.length < PAGE_SIZE) return all;
+    // A guard against a server that keeps returning full pages forever.
+    // 500k rows is far beyond any real bowler and still finite.
+    if (all.length >= PAGE_SIZE * 500) return all;
+  }
+}
+
+// paginate: false for queries that already limit themselves -- a
+// .limit(1) lookup, a .single(). Ranging those achieves nothing and
+// PostgREST does not enjoy being given both.
+export async function cloudRead(table, queryFn, { timeoutMs = 6000, paginate = true } = {}) {
+  try {
+    if (!paginate) {
+      const { data, error } = await withTimeout(queryFn(supabase.from(table)), timeoutMs);
+      if (error) throw error;
+      return { data, online: true };
+    }
+    const data = await readAllPages(() => queryFn(supabase.from(table)), timeoutMs);
     return { data, online: true };
   } catch (err) {
     return { data: null, online: false, reason: formatError(err) };
@@ -513,14 +571,27 @@ export async function cloudReadDelta(table, sinceIso, { timeoutMs = 6000 } = {})
     // Passed as an array, not Promise.all(...): withTimeout needs the
     // individual builders to attach the abort signal to each. Wrapping
     // them first would leave both requests running after a timeout.
-    const [rowsRes, tombstonesRes] = await withTimeout([
-      supabase.from(table).select('*').gte('updated_at', sinceIso),
-      supabase.from('sync_tombstones').select('row_id,deleted_at')
+    // Paged, for the same reason the full read is: a delta can exceed
+    // 1000 rows too -- a device back after a month away, or a bowler who
+    // just imported a season. Truncating here is worse than truncating a
+    // full read, because the cursor then advances past rows that were
+    // never delivered and they become unreachable rather than merely
+    // late.
+    //
+    // Sequential rather than parallel now. The two used to share one
+    // withTimeout so a single abort signal covered both; each page
+    // carries its own timeout instead, which is the right shape when the
+    // number of requests is not known in advance.
+    const rows = await readAllPages(
+      () => supabase.from(table).select('*').gte('updated_at', sinceIso),
+      timeoutMs,
+    );
+    const tombstones = await readAllPages(
+      () => supabase.from('sync_tombstones').select('row_id,deleted_at')
         .eq('table_name', table).gte('deleted_at', sinceIso),
-    ], timeoutMs);
-    if (rowsRes.error) throw rowsRes.error;
-    if (tombstonesRes.error) throw tombstonesRes.error;
-    return { rows: rowsRes.data || [], tombstones: tombstonesRes.data || [], online: true };
+      timeoutMs,
+    );
+    return { rows, tombstones, online: true };
   } catch (err) {
     return { rows: null, tombstones: null, online: false, reason: formatError(err) };
   }

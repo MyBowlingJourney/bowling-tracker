@@ -61,6 +61,13 @@ function fakeQuery(run) {
     // down, which reads like a bug in the code rather than a gap in the
     // fake.
     select() { return q; },
+    // range() is how cloudRead and cloudReadDelta page past the
+    // server's 1000-row ceiling. Added for the same reason select and
+    // gte are here: nothing below calls it yet, and a fake missing a
+    // method the code calls fails in a way that reads like a bug in the
+    // code. The range is recorded so a future test can assert which
+    // pages were asked for.
+    range(from, to) { filters.__range = [from, to]; return q; },
     abortSignal(sig) { supabaseState.signals.push(sig); return q; },
     then(resolve, reject) { Promise.resolve().then(() => run(filters)).then(resolve, reject); },
   };
