@@ -54,6 +54,10 @@ export default function Settings({
   // needs somewhere to go.
   onOpenBadges,
   showBackup, setShowBackup, backupStatus, setBackupStatus,
+  // Repair for the one thing a bowler cannot otherwise fix: a device that
+  // has stopped asking the cloud for rows it has never seen. See
+  // forceResync in BowlingTracker for what it does and why.
+  forceResync, resyncBusy = false, resyncError = "", pendingSyncCount = 0,
   importText, setImportText, exportData, importData,
   confirmClear, setConfirmClear, clearAllData, hasData,
   sessions, bowlers, leagues,
@@ -122,8 +126,8 @@ export default function Settings({
       // policy to be reachable from inside the app, and an account
       // deletion route to be findable -- neither of which stops mattering
       // because someone bowls casually.
-      ? ["session", "look", "walkthroughs", "backup", "account", "about", "dangerZone"]
-      : ["session", "look", "trackingDetail", "moneyGames", "statsLayout", "backup", "walkthroughs", "reset", "account", "about", "dangerZone"],
+      ? ["session", "look", "walkthroughs", "backup", "resync", "account", "about", "dangerZone"]
+      : ["session", "look", "trackingDetail", "moneyGames", "statsLayout", "backup", "resync", "walkthroughs", "reset", "account", "about", "dangerZone"],
   };
   const allowed = mode === "leagues" ? cardsFor.leagues : (mode === "settings" ? cardsFor.settings : null);
   const showCard = id => !allowed || allowed.includes(id);
@@ -147,7 +151,7 @@ export default function Settings({
   const [expanded, setExpanded] = useState({
     session: true, look: false, trackingDetail: false,
     moneyGames: false, statsLayout: false,
-    backup: false, reset: false, account: false, about: false, dangerZone: false,
+    backup: false, resync: false, reset: false, account: false, about: false, dangerZone: false,
     // Open by default. The other cards are settings you go
     // looking for; this is the one a lost bowler needs to SEE.
     walkthroughs: true,
@@ -1022,6 +1026,56 @@ export default function Settings({
               <div style={{ fontSize: "12px", color: backupStatus.startsWith("Couldn't") ? C.miss : C.strike, marginTop: "8px" }}>{backupStatus}</div>
             )}
           </>
+        )}
+      </CollapsibleCard>
+      )}
+
+      {/* Sits directly under Backup & Restore because it is the other
+          half of the same worry -- "my history looks wrong" -- and the
+          two answers are easy to mix up. Backup restores data that is
+          GONE. This asks for data that is safe in the cloud and simply
+          has not come down to this phone. Nothing here deletes
+          anything, which is why it needs no confirmation step, and the
+          description says so plainly so nobody reads "refresh" as
+          "erase". */}
+      {showCard("resync") && typeof forceResync === "function" && (
+      <CollapsibleCard title="Refresh from the Cloud" summary=""
+        expanded={expanded.resync} onToggle={() => toggle("resync")}>
+        <div style={{ fontSize: "12px", color: C.textMuted, marginBottom: "10px", lineHeight: 1.55 }}>
+          <strong>Use this if something you know you bowled is missing here</strong> —
+          a night that will not appear, scores you entered on another phone, or
+          stats that stopped moving even though you have kept bowling.
+        </div>
+        <div style={{ fontSize: "12px", color: C.textMuted, marginBottom: "10px", lineHeight: 1.55 }}>
+          To open fast, this app normally downloads only what has changed since
+          it last checked. Once in a while a phone can lose its place and stop
+          asking for something — usually after bowling somewhere with no signal,
+          or when the same account is used on two devices. Your shots are safe in
+          the cloud the whole time; this phone just is not asking for them.
+        </div>
+        <div style={{ fontSize: "12px", color: C.textMuted, marginBottom: "12px", lineHeight: 1.55 }}>
+          This sends up anything still waiting to save, then downloads your full
+          history again from scratch and reloads the app. <strong>Nothing is
+          deleted</strong>, and nothing you have logged can be lost. It uses more
+          data than a normal open and can take a few moments on a long season, so
+          it is worth being on Wi-Fi.
+        </div>
+        {pendingSyncCount > 0 && (
+          <div style={{ fontSize: "12px", color: C.textMuted, marginBottom: "10px", lineHeight: 1.5 }}>
+            You have {pendingSyncCount} change{pendingSyncCount === 1 ? "" : "s"} still
+            waiting to save. {pendingSyncCount === 1 ? "It" : "They"} will be sent first.
+          </div>
+        )}
+        <button
+          style={{ ...S.btn("primary"), width: "100%", opacity: resyncBusy ? 0.6 : 1 }}
+          onClick={() => forceResync()}
+          disabled={resyncBusy}>
+          {resyncBusy ? "Refreshing…" : "Refresh from the Cloud"}
+        </button>
+        {resyncError && (
+          <div style={{ fontSize: "12px", color: C.miss, marginTop: "10px", lineHeight: 1.5 }}>
+            {resyncError}
+          </div>
         )}
       </CollapsibleCard>
       )}
