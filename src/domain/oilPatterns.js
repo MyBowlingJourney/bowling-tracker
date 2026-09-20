@@ -46,6 +46,27 @@ export function normalizePattern(raw) {
 // wrong specs behind a verified-looking entry, which is worse than blank.
 export const PBA_ANIMAL_PATTERNS = ["Wolf", "Cheetah", "Bat", "Viper", "Bear", "Chameleon", "Scorpion", "Dragon", "Shark", "Badger"];
 
+// A pattern name safe to put in front of a bowler as an example.
+//
+// Both oil-pattern fields are TYPE-AHEADS over the catalogue, so their
+// placeholder is an instruction: type something like this. "Kegel Main
+// Street" sat in both of them and matched nothing -- it is not in the
+// seed list and was never in the table -- so following the example
+// returned an empty dropdown, which reads as the search being broken
+// rather than the example being wrong.
+//
+// Whatever goes here must therefore be findable on a BRAND NEW install,
+// where the community table is empty and the verified PBA seeds are the
+// only rows. patternExampleIsReal() below is the guard; it is asserted
+// in the tests so this cannot quietly stop being true.
+export const EXAMPLE_PATTERN = "Scorpion";
+
+// Is the example above actually in the catalogue a new install ships
+// with? Exported so the test can ask rather than restate the answer.
+export function patternExampleIsReal() {
+  return allVerifiedPbaPatterns().some(p => p.name === EXAMPLE_PATTERN);
+}
+
 // Where the authoritative year-tagged specs live. Kegel makes the
 // patterns and publishes each season's sheet, so a bowler filling these
 // in has one correct place to look rather than a search result.

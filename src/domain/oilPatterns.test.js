@@ -8,6 +8,7 @@ import { patternAverages,
   patternHistory,
   patternVersusOverall,
   patternScoreband,
+  EXAMPLE_PATTERN, patternExampleIsReal, allVerifiedPbaPatterns as seedsForExample,
 } from './oilPatterns.js';
 
 const patterns = [
@@ -434,5 +435,36 @@ describe('patternScoreband', () => {
   it('is safe on junk', () => {
     expect(() => patternScoreband(null, null)).not.toThrow();
     expect(patternScoreband([null, {}, 'x'], 'House')).toBeNull();
+  });
+});
+
+
+// ── The example in the placeholders ─────────────────────────────────────
+//
+// Both oil-pattern fields are type-aheads, so their placeholder is an
+// instruction: type something like this. "Kegel Main Street" sat in both
+// of them and matched nothing, on every install -- following the example
+// produced an empty dropdown, which reads as a broken search rather than
+// a wrong example. Ryan found it on his own screen.
+describe('the pattern shown as an example', () => {
+  it('is in the catalogue a brand new install ships with', () => {
+    expect(patternExampleIsReal()).toBe(true);
+  });
+
+  // The community table is EMPTY on a fresh install, so the example has
+  // to be findable against the seeds alone -- not against a table that
+  // only has rows once somebody has entered some.
+  it('is findable by typing it, against the seeds alone', () => {
+    const hits = searchPatterns(EXAMPLE_PATTERN, seedsForExample());
+    expect(hits.length).toBeGreaterThan(0);
+    expect(hits[0].name).toBe(EXAMPLE_PATTERN);
+  });
+
+  // The thing that was wrong, kept as a negative control: if this ever
+  // starts passing, the seed list changed and the test above is no
+  // longer proving anything.
+  it('is not the name that was wrong', () => {
+    expect(searchPatterns('Kegel Main Street', seedsForExample())).toEqual([]);
+    expect(EXAMPLE_PATTERN).not.toMatch(/Main Street/);
   });
 });
