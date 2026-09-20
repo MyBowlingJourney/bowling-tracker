@@ -1371,7 +1371,7 @@ export default function BowlingTracker(){
           sessionsCursor?cloudReadDelta("sessions",sessionsCursor):cloudRead("sessions",q=>q.select("*")),
           cloudRead("bowler_names",q=>q.select("name")),
           cloudRead("arsenals",q=>q.select("bowler_name,ball,layout_system,layout_values,group_id,coverstock,core_type,weight,rg,diff,int_diff")),
-          cloudRead("bowler_profiles",q=>q.select("bowler_name,left_handed,two_handed,is_coach,aliases,home_centers,notes,book_average,book_games,book_season,book_average_as_of,all_time_high_game,all_time_high_series,drift_boards,lateral_offset")),
+          cloudRead("bowler_profiles",q=>q.select("bowler_name,left_handed,backup_ball,two_handed,is_coach,aliases,home_centers,notes,book_average,book_games,book_season,book_average_as_of,all_time_high_game,all_time_high_series,drift_boards,lateral_offset")),
           cloudRead("ball_bags",q=>q.select("bowler_name,ball,bag_id")),
           cloudRead("drills",q=>q.select("id,bowler_name,date,target,custom_target,custom_pins,ball,made,missed,notes")),
           cloudRead("hidden_leagues",q=>q.select("league_id")),
