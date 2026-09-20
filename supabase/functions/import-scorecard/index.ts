@@ -18,6 +18,7 @@
 // Get a free key (no credit card required) at https://aistudio.google.com
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { recordAiTokens } from "../_shared/aiUsage.ts";
 
 // Reads BOTH spellings. analyze-performance has always used the
 // lowercase "GEMINI_API_KEY", and this function used the uppercase one --
@@ -739,6 +740,33 @@ Deno.serve(async (req) => {
     }
 
     const geminiData = await geminiRes.json();
+
+    // The variant matters more here than anywhere else.
+    //
+    // Import is the one feature that can spend twice on a single card: a
+    // cheap counting look, the real extraction, and -- when the fast
+    // model came back without frame detail -- an escalation to the
+    // stronger model. Recording which kind of call this was turns the
+    // extract-to-detailed ratio into a number you can query, and that
+    // ratio is the escalation rate.
+    //
+    // Worth having specifically because escalation is the only path
+    // running on Gemini 3.8 Flash, whose price doubles on 1 Jan 2027.
+    // Everything else is on Flash Lite and unaffected. Knowing how often
+    // cards escalate is how you find out whether that change costs you
+    // anything at all.
+    //
+    // Recorded before the text check: an empty response still cost
+    // tokens, and a card that burned the stronger model and returned
+    // nothing is the single most expensive outcome there is. Not awaited.
+    recordAiTokens(
+      req,
+      "import-scorecard",
+      modelForRequest,
+      geminiData?.usageMetadata,
+      counting ? "count" : (detailed ? "detailed" : "extract"),
+    );
+
     const text = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!text) {
       return new Response(JSON.stringify({ error: "Gemini returned no extractable content", requestId }), {
