@@ -2350,21 +2350,27 @@ export default function LogView({
                 )}
 
                 <div style={{...S.card,border:`1px solid ${C.accent}44`}}>
-                  <div style={{...S.label}}>
-                    {/* A BAKER night belongs to the pair, not to one of
-                        them. One score for five frames each, so "Ryan's
-                        night" over a shared total credits one bowler with
-                        both halves -- the same mistake as counting a Baker
-                        game as a personal high game, in the heading. */}
-                    {bakerTeamName
-                      ? `${bakerTeamName} — tonight`
-                      : (cs.bowler?`${cs.bowler}'s night`:"Tonight")}
-                    {/* The DISPLAY name. A container league's stored name
-                        carries the user id -- "Tournament·Tourny 5·c3e40233-
-                        c180-4d76-be28-36abd33f9c07" -- and the recap header
-                        was printing the whole thing. */}
-                    <span style={{fontWeight:400,color:C.textMuted}}> — {practiceLeagueDisplayName(cs.league).replace(" House Shot","")}, {formatDate(cs.date)}</span>
-                  </div>
+                  {/* Results only, like the scores below it. On Side
+                      games the bowler already knows whose night it is and
+                      which league they are standing in -- the heading is a
+                      recap title on a tab that is not the recap. */}
+                  {onTab("results")&&(
+                    <div style={{...S.label}}>
+                      {/* A BAKER night belongs to the pair, not to one of
+                          them. One score for five frames each, so "Ryan's
+                          night" over a shared total credits one bowler with
+                          both halves -- the same mistake as counting a Baker
+                          game as a personal high game, in the heading. */}
+                      {bakerTeamName
+                        ? `${bakerTeamName} — tonight`
+                        : (cs.bowler?`${cs.bowler}'s night`:"Tonight")}
+                      {/* The DISPLAY name. A container league's stored name
+                          carries the user id -- "Tournament·Tourny 5·c3e40233-
+                          c180-4d76-be28-36abd33f9c07" -- and the recap header
+                          was printing the whole thing. */}
+                      <span style={{fontWeight:400,color:C.textMuted}}> — {practiceLeagueDisplayName(cs.league).replace(" House Shot","")}, {formatDate(cs.date)}</span>
+                    </div>
+                  )}
                   {/* Results only. This card is shared with Side games,
                       where the game scores are not what you came for: that
                       tab is about what was won and owed, and the bowler
@@ -2381,6 +2387,10 @@ export default function LogView({
                     </div>
                   )}
                   {(()=>{
+                    // Results only. "If every makeable spare had been
+                    // made" is post-match analysis; Side games is about
+                    // what was won and owed.
+                    if(!onTab("results"))return null;
                     if(!anyTheoretical)return null;
                     return(
                       <div style={{marginBottom:"12px"}}>
