@@ -1,6 +1,6 @@
 import { C, S } from "./ui.jsx";
 import {
-  BALL_METRICS, ballComparison, bestByMetric, ballColors, ballLine,
+  BALL_METRICS, ballComparison, bestByMetric, ballColors,
   ballByPhase, bestByPhase, GAME_PHASES,
 } from "./domain/ballComparison.js";
 import { isSplit, isCornerPinLeave } from "./domain/splits.js";
@@ -43,6 +43,7 @@ export default function BallCompare({
   shots = [], bowler = "", league = "", leftHanded = false,
   reliableAt = SAMPLE_THRESHOLDS.ballComparison,
   drift, lateralOffset, twoHanded = false, patternLength = null,
+  lanePatterns = [],
 }) {
   // minShots 0: nothing is filtered out on the way in.
   const raw = ballComparison(shots, {
@@ -62,10 +63,6 @@ export default function BallCompare({
     bowler, league, isSplit, isCornerPinLeave, leftHanded, minShots: 0,
   });
   const bestPhase = bestByPhase(phases);
-
-  const lines = comparison
-    .map(b => ({ entry: b, line: ballLine(b, { drift, lateralOffset, twoHanded, patternLength }) }))
-    .filter(x => x.line);
 
 
   return (
@@ -170,10 +167,20 @@ export default function BallCompare({
 
       {/* The lane. Same colours as the table, so a line is identified
           without a second legend to read. */}
-      {/* The lane, in its own component: it owns which balls are shown,
-          and it is the part of this card people will keep wanting
-          changed. */}
-      <LanePane lines={lines} colors={colors} leftHanded={leftHanded} />
+      {/* The lane, in its own component.
+      
+          It owns the scrub position, which nights and which pattern --
+          and therefore its own aggregation, because the lines it draws
+          depend on all three. What it takes from here is the stable
+          part: the colours and the full ball list, so a ball keeps its
+          colour and keeps its row in the filter even at a moment in the
+          block where it was never thrown. */}
+      <LanePane shots={shots} bowler={bowler} league={league}
+        leftHanded={leftHanded} colors={colors}
+        allBalls={comparison.map(b => b.ball)}
+        lanePatterns={lanePatterns}
+        drift={drift} lateralOffset={lateralOffset} twoHanded={twoHanded}
+        patternLength={patternLength} />
     </div>
   );
 }

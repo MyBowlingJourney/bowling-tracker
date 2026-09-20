@@ -1003,7 +1003,11 @@ fivePinAttempts.length>0&&(
                     leftHanded={leftHandedForBowler?.(statsBowler)||false}
                     drift={ballProfile?.driftBoards} twoHanded={!!ballProfile?.twoHanded}
                     lateralOffset={ballProfile?.lateralOffset}
-                    patternLength={patternLengthForLeague(lanePatterns, statsLeague, oilPatterns)} />
+                    patternLength={patternLengthForLeague(lanePatterns, statsLeague, oilPatterns)}
+                    /* So the lane can group by pattern and scrub one
+                       night at a time -- both need to know which night
+                       was bowled on what. */
+                    lanePatterns={lanePatterns} />
                 );
                 byId["byBall"] = (
 !hideIndividualOnly&&(
