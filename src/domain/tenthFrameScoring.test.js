@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { frameScoresheet, tenthBall3Earned, tenthBall3Available } from './scoring.js';
+import { frameScoresheet, tenthBall3Earned, tenthBall3Available, nextState } from './scoring.js';
 
 // ── The tenth is not always three records ───────────────────────────────
 //
@@ -112,5 +112,70 @@ describe('the fill ball is earned, not assumed', () => {
   it('agrees with tenthBall3Available about the embedded spare', () => {
     expect(tenthBall3Earned(spare, null)).toBe(true);
     expect(tenthBall3Available(spare, null)).toBe(10);   // fresh rack
+  });
+});
+
+// ── An edit can owe the tenth more balls ────────────────────────────────
+//
+// submitShot already dropped a fill ball an edit un-earned. The reverse
+// had no handling: bowl an open tenth (one record, game over), then go
+// back and correct that ball to a strike. The tenth has just earned two
+// balls that do not exist, and the edit finished by restoring the form to
+// the NEXT GAME -- so there was no route back to ball 2. The frame showed
+// a lone strike, frames 9 and 10 went blank because a tenth mid-frame
+// cannot be scored, and the only way out was to delete the frame.
+//
+// These mirror what submitShot now computes: ask nextState where the
+// tenth goes next, and land there when that ball is genuinely missing.
+describe('finishing a tenth that an edit re-opened', () => {
+  const B = 'Ryan', L = 'Monday', D = '2026-09-20';
+  const owed = (tenth, editedBallNum) => {
+    const all = [...nineStrikes(), ...tenth];
+    const ns = nextState(all, B, L, D, '1', '10', editedBallNum);
+    if (!(ns && String(ns.frame) === '10' && String(ns.game) === '1')) return null;
+    const filled = all.some(s => parseInt(s.frame) === 10
+      && Number(s.ballNum) === Number(ns.ballNum));
+    return filled ? null : ns;
+  };
+
+  it('owes ball 2 when an open tenth is edited to a strike', () => {
+    expect(owed([shot(10, { ballNum: 1, ...X })], 1))
+      .toEqual({ game: '1', frame: '10', ballNum: 2 });
+  });
+
+  it('owes nothing while the tenth is genuinely open', () => {
+    expect(owed([shot(10, { ballNum: 1, ...open8 })], 1)).toBeNull();
+  });
+
+  it('skips to the fill ball after a spare', () => {
+    expect(owed([shot(10, { ballNum: 1, ...spare })], 1))
+      .toEqual({ game: '1', frame: '10', ballNum: 3 });
+  });
+
+  // The guard that keeps this from eating data: a ball that already
+  // exists must not be landed on and overwritten.
+  it('does not hijack an edit to a complete tenth', () => {
+    expect(owed(TENTHS['X X X'], 1)).toBeNull();
+    expect(owed(TENTHS['9 / X'], 1)).toBeNull();
+  });
+
+  it('owes the fill ball after two strikes', () => {
+    expect(owed([shot(10, { ballNum: 1, ...X }), shot(10, { ballNum: 2, ...X })], 2))
+      .toEqual({ game: '1', frame: '10', ballNum: 3 });
+  });
+
+  it('ends the frame on a strike then an open ball 2', () => {
+    expect(owed([shot(10, { ballNum: 1, ...X }), shot(10, { ballNum: 2, ...open8 })], 2))
+      .toBeNull();
+  });
+
+  it('never redirects an edit to frames 1-9 into the tenth', () => {
+    const ns = nextState([...nineStrikes(), shot(10, { ballNum: 1, ...open8 })],
+      B, L, D, '1', '4', null);
+    expect(String(ns.frame)).not.toBe('10');
+  });
+
+  it('scores once the owed balls are entered', () => {
+    expect(withTenth(TENTHS['X X X'])[9].running).toBe(300);
   });
 });
