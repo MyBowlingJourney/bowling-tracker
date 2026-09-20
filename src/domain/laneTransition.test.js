@@ -3,7 +3,7 @@ import {
   blockPositions, nightsIn, patternsIn, patternForNight, patternLengthFor,
   shotsAt, positionLabel, typicalGames, HOUSE_PATTERN,
 } from './laneTransition.js';
-import { ballComparison, ballLine } from './ballComparison.js';
+import { ballComparison, ballLine, BREAKPOINT_FEET } from './ballComparison.js';
 import { isSplit, isCornerPinLeave } from './splits.js';
 
 // A bowler who moves. Start on 20 and drift left a couple of boards a
@@ -227,5 +227,49 @@ describe('the drawn line actually migrates', () => {
     // finished on, which is the half of the night each is true for.
     expect(all.startBoard).not.toBe(boards[0]);
     expect(all.startBoard).not.toBe(boards[boards.length - 1]);
+  });
+});
+
+// ── The house shot breaks at forty feet ─────────────────────────────────
+//
+// The card resolves the breakpoint depth like this:
+//
+//   House          the house default, 40 ft
+//   a named block  that pattern's own length
+//   every pattern  the league default
+//
+// The middle case is why the picker exists. The FIRST case is a fix: it
+// used to fall through to the league default, which is
+// patternLengthForLeague -- the length of the most recent NAMED pattern
+// in the league. Bowl one 37-foot sport night and that became the house
+// length for every house night of the season, so the breakpoint sat at
+// 37 feet on a shot that breaks at 40.
+//
+// The house shot is defined by nobody having written a length down.
+// Borrowing the last sport block's is the opposite of what that absence
+// means.
+describe('how deep the ball turns', () => {
+  const LANE_PATTERNS = [{ date: '2026-09-20', patternName: 'Wolf', length: '37' }];
+  const LEAGUE_DEFAULT = 37;               // what patternLengthForLeague returns here
+
+  // The card's own rule, so the assertions describe the card.
+  const feetFor = pattern => (pattern === HOUSE_PATTERN
+    ? BREAKPOINT_FEET
+    : (patternLengthFor(LANE_PATTERNS, pattern) ?? LEAGUE_DEFAULT));
+
+  it('uses forty feet for the house shot, not the last sport block', () => {
+    expect(BREAKPOINT_FEET).toBe(40);
+    expect(feetFor(HOUSE_PATTERN)).toBe(40);
+    expect(feetFor(HOUSE_PATTERN)).not.toBe(LEAGUE_DEFAULT);
+  });
+
+  it('uses a named pattern’s own length', () => {
+    expect(feetFor('Wolf')).toBe(37);
+  });
+
+  it('draws the breakpoint at whatever depth it resolved', () => {
+    const entry = { ball: 'b', startBoard: 25, arrowBoard: 15, breakpointBoard: 7 };
+    expect(ballLine(entry, { patternLength: feetFor(HOUSE_PATTERN) }).points[2].feet).toBe(40);
+    expect(ballLine(entry, { patternLength: feetFor('Wolf') }).points[2].feet).toBe(37);
   });
 });
