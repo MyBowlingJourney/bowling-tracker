@@ -64,6 +64,46 @@ jobs:
             echo "SUPABASE_DB_URL is not set — add it in Settings → Secrets."
             exit 1
           fi
+
+          # A DIRECT connection cannot work from here, and the failure it
+          # produces does not say so.
+          #
+          # db.<ref>.supabase.co resolves to IPv6 only. GitHub-hosted
+          # runners are IPv4 only. psql reports that as "Network
+          # unreachable" against a raw IPv6 address, which reads like the
+          # database is down -- so the obvious next move is to check
+          # Supabase's status page, and the obvious next move is wrong.
+          #
+          # The host is the whole diagnosis, so check it up front and say
+          # what to do. Printing the host is safe: it is the one part of
+          # the URI that is not a credential.
+          host=$(printf '%s' "$DATABASE_URL" | sed -E 's|.*@([^:/?]+).*|\1|')
+          case "$host" in
+            *pooler.supabase.com) : ;;
+            db.*.supabase.co)
+              echo "SUPABASE_DB_URL points at the DIRECT connection ($host)."
+              echo
+              echo "That host is IPv6-only and GitHub Actions runners are IPv4-only,"
+              echo "so this can never connect. Use the SESSION POOLER instead:"
+              echo
+              echo "  Supabase → Project Settings → Database → Connection string"
+              echo "  → Session pooler (NOT Direct connection, NOT Transaction pooler)"
+              echo
+              echo "It looks like:"
+              echo "  postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres"
+              echo
+              echo "Note the username is postgres.<ref>, not postgres."
+              echo "Then update the secret SUPABASE_DB_URL (that exact name)."
+              exit 1
+              ;;
+            *)
+              # Not a shape we recognise. Not fatal -- a self-hosted or
+              # proxied database is legitimate -- but worth naming, so an
+              # unexpected host is visible in the log rather than only in
+              # whatever error it causes three lines later.
+              echo "Note: connecting to $host (not a Supabase pooler host)."
+              ;;
+          esac
           docker run --rm -i -e DATABASE_URL -v "$PWD":/repo -w /repo \
             --entrypoint psql "$PG_IMAGE" "$DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f scripts/audit_schema.sql > schema-snapshot.new.csv
