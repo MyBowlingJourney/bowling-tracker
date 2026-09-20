@@ -25,6 +25,18 @@ export function emptyProfile(bowlerName = "") {
   return {
     bowlerName,
     leftHanded: false,
+    // A backup ball as the STRIKE ball, not as a spare shot.
+    //
+    // A right-hander throwing backup sends the ball out to the left and
+    // hooks it back right -- the mirror of a normal right-handed shot,
+    // and geometrically a left-hander's game. Their corner pin is the 7,
+    // their pocket is the 1-2, and their line lives on the left of the
+    // lane.
+    //
+    // So this flips the handedness that every calculation uses, while
+    // the bowler still describes themselves as right-handed, because
+    // they are. See effectiveLeftHanded.
+    backupBall: false,
     twoHanded: false,
     // Boards between where the feet start and where they slide, and how
     // far outside the slide the ball lays down. Empty means "use the
@@ -86,6 +98,7 @@ export function normalizeProfile(raw, bowlerName = "") {
   return {
     bowlerName: raw.bowlerName || bowlerName,
     leftHanded: !!raw.leftHanded,
+    backupBall: !!raw.backupBall,
     twoHanded: !!raw.twoHanded,
     driftBoards: raw.driftBoards === 0 ? "0" : String(raw.driftBoards ?? "").trim(),
     lateralOffset: raw.lateralOffset === 0 ? "0" : String(raw.lateralOffset ?? "").trim(),
@@ -214,11 +227,37 @@ export function suggestBookAverage(sessions, bowler) {
 // Profile wins; roster is the fallback for bowlers whose profile hasn't
 // been filled in yet. Returns false (right-handed) when neither knows,
 // since that's the safe default for the 10-pin/7-pin chip labels.
+// The hand the bowler SAYS they are. Shown on their profile, and
+// nowhere else.
 export function resolveHandedness(profile, rosterLeftHanded) {
   if (profile && typeof profile.leftHanded === "boolean" && profile.bowlerName) {
     return profile.leftHanded;
   }
   return !!rosterLeftHanded;
+}
+
+// The hand the BALL behaves like, which is what every calculation wants.
+//
+// A backup ball is the mirror of a normal shot: a right-hander throwing
+// one sends it out to the left and hooks it back right, so their corner
+// pin is the 7 rather than the 10, their pocket is the 1-2, and their
+// line lives on the left of the lane. Geometrically they are a
+// left-hander, and every piece of the app that reasons about sides --
+// which pin a "Weak 10" really is, which way the lane is drawn, which
+// side the filter column belongs on -- wants that answer, not the one
+// on their profile.
+//
+// So the two are deliberately separate functions rather than one with a
+// flag. The profile chip asks "what do you call yourself"; everything
+// else asks "which way does the ball go", and a caller that reaches for
+// the wrong one is making a visible mistake rather than a subtle one.
+//
+// A left-hander who throws backup is, by the same logic, a right-hander
+// for this purpose -- hence exclusive-or rather than an override.
+export function effectiveLeftHanded(profile, rosterLeftHanded) {
+  const stated = resolveHandedness(profile, rosterLeftHanded);
+  const backup = !!(profile && profile.backupBall);
+  return backup ? !stated : stated;
 }
 
 // Home centers are stored as shared bowling_centers ids, so a bowler's home
@@ -269,6 +308,7 @@ export function profileToRow(profile, userId) {
     created_by: userId,
     bowler_name: profile.bowlerName,
     left_handed: !!profile.leftHanded,
+    backup_ball: !!profile.backupBall,
     two_handed: !!profile.twoHanded,
     // Stored as text so an unset value is "" rather than 0. Zero drift is
     // a real answer; not having measured it is not.
@@ -296,6 +336,7 @@ export function profileFromRow(row) {
   return normalizeProfile({
     bowlerName: row.bowler_name || "",
     leftHanded: !!row.left_handed,
+    backupBall: !!row.backup_ball,
     twoHanded: !!row.two_handed,
     driftBoards: String(row.drift_boards ?? "").trim(),
     lateralOffset: String(row.lateral_offset ?? "").trim(),

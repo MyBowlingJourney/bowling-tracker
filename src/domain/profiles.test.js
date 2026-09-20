@@ -4,6 +4,7 @@ import {
   removeHomeCenter, profileToRow, profileFromRow, membershipFor,
   resolveHomeCenters, suggestBookAverage,
   normalizeAliases,
+  effectiveLeftHanded
 } from './profiles.js';
 
 function games(bowler, league, scores) {
@@ -160,8 +161,12 @@ describe('home centers', () => {
 
 describe('supabase round trip', () => {
   it('preserves every field in both directions', () => {
+    // Every flag here is deliberately TRUE. A false would round-trip
+    // correctly even if the column were dropped on the way through,
+    // because false is also what a missing value normalizes to -- which
+    // is exactly the trap the coach-flag test below was written for.
     const full = {
-      bowlerName: 'Ryan', leftHanded: true, twoHanded: true, driftBoards: '', lateralOffset: '', isCoach: false, aliases: [],
+      bowlerName: 'Ryan', leftHanded: true, backupBall: true, twoHanded: true, driftBoards: '', lateralOffset: '', isCoach: false, aliases: [],
       homeCenters: ['Bowlero'], notes: 'thumb tape',
       bookAverage: '213', allTimeHighGame: '279', allTimeHighSeries: '742',
       bookGames: '90', bookSeason: '2025-26 Winter', bookAverageAsOf: '2026-08-01',
@@ -175,7 +180,7 @@ describe('supabase round trip', () => {
   // survives the round trip.
   it('preserves the coach flag when it is set', () => {
     const coach = {
-      bowlerName: 'Dave', leftHanded: false, twoHanded: false, driftBoards: '', lateralOffset: '', isCoach: true, aliases: [],
+      bowlerName: 'Dave', leftHanded: false, backupBall: false, twoHanded: false, driftBoards: '', lateralOffset: '', isCoach: true, aliases: [],
       homeCenters: [], notes: '',
       bookAverage: '', allTimeHighGame: '', allTimeHighSeries: '',
       bookGames: '', bookSeason: '', bookAverageAsOf: '',
@@ -243,5 +248,57 @@ describe('scorecard aliases', () => {
 
   it('treats a profile with no aliases as an empty list', () => {
     expect(profileFromRow({ bowler_name: 'X' }).aliases).toEqual([]);
+  });
+});
+
+// ── A backup ball flips the geometry, not the bowler ────────────────────
+//
+// A right-hander throwing a backup ball as their STRIKE ball sends it out
+// to the left and hooks it back right. Geometrically that is a
+// left-hander's game: their corner pin is the 7, their pocket is the 1-2,
+// and their line lives on the left of the lane. But they are still
+// right-handed, and the app has no business telling them otherwise.
+//
+// So there are two questions and two functions. resolveHandedness answers
+// "what do you call yourself" and feeds exactly one thing, the profile
+// chip. effectiveLeftHanded answers "which way does the ball go" and
+// feeds everything else. A caller reaching for the wrong one is then a
+// visible mistake rather than a subtle one.
+describe('a backup ball', () => {
+  const prof = o => ({ ...emptyProfile('Ryan'), ...o });
+
+  it('leaves what the bowler calls themselves alone', () => {
+    expect(resolveHandedness(prof({ leftHanded: false, backupBall: true }))).toBe(false);
+    expect(resolveHandedness(prof({ leftHanded: true, backupBall: true }))).toBe(true);
+  });
+
+  it('flips the hand every calculation uses', () => {
+    expect(effectiveLeftHanded(prof({ leftHanded: false, backupBall: true }))).toBe(true);
+    expect(effectiveLeftHanded(prof({ leftHanded: true, backupBall: true }))).toBe(false);
+  });
+
+  it('changes nothing for a bowler who does not throw one', () => {
+    expect(effectiveLeftHanded(prof({ leftHanded: false }))).toBe(false);
+    expect(effectiveLeftHanded(prof({ leftHanded: true }))).toBe(true);
+  });
+
+  it('still falls back to the roster without a profile', () => {
+    expect(effectiveLeftHanded(null, true)).toBe(true);
+    expect(effectiveLeftHanded(undefined, false)).toBe(false);
+    expect(effectiveLeftHanded({}, true)).toBe(true);
+  });
+
+  it('is off for everyone already in the table', () => {
+    expect(normalizeProfile({ bowlerName: 'R' }).backupBall).toBe(false);
+    expect(emptyProfile('R').backupBall).toBe(false);
+  });
+
+  it('survives a save and a reload', () => {
+    const saved = profileToRow(prof({ leftHanded: false, backupBall: true }), 'u1');
+    expect(saved.backup_ball).toBe(true);
+    expect(saved.left_handed).toBe(false);
+    const back = profileFromRow(saved);
+    expect(back.backupBall).toBe(true);
+    expect(back.leftHanded).toBe(false);
   });
 });
