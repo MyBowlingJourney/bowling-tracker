@@ -518,19 +518,37 @@ export function patternLengthForLeague(lanePatterns, league, oilPatterns) {
     .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
   if (!nights.length) return null;
 
-  const name = String(nights[0].patternName).trim();
-  if (!name) return null;
+  return patternLengthByName(nights[0].patternName, oilPatterns);
+}
+
+/**
+ * How long a NAMED pattern is, from the catalogue rather than from a
+ * night.
+ *
+ * Split out of patternLengthForLeague, which resolved a length for the
+ * league's most recent named pattern and then had that length used for
+ * every pattern on screen. Asking by name is the thing callers actually
+ * want; asking by league was how one block's length leaked onto another.
+ *
+ * The bowler's own saved pattern first -- they may have been told the
+ * real number at the desk -- then the published spec. Null when neither
+ * knows, which is not a failure: the house shot has no published length
+ * because nobody lays it to a sheet.
+ */
+export function patternLengthByName(name, oilPatterns) {
+  const want = String(name || "").trim();
+  if (!want) return null;
 
   const mine = (Array.isArray(oilPatterns) ? oilPatterns : [])
     .find(p => p && typeof p === "object"
-      && String(p.name || "").trim().toLowerCase() === name.toLowerCase());
+      && String(p.name || "").trim().toLowerCase() === want.toLowerCase());
   const ownLength = Number(mine?.lengthFeet);
   if (Number.isFinite(ownLength) && ownLength > 0) return ownLength;
 
   // Published specs are keyed "Name|Year". Newest year wins: the same
   // animal is re-laid at a different length most seasons.
   const keys = Object.keys(VERIFIED_PATTERN_SPECS)
-    .filter(k => k.split("|")[0].toLowerCase() === name.toLowerCase())
+    .filter(k => k.split("|")[0].toLowerCase() === want.toLowerCase())
     .sort((a, b) => Number(b.split("|")[1] || 0) - Number(a.split("|")[1] || 0));
   if (!keys.length) return null;
 

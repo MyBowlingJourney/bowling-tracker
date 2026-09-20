@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  ballComparison, bestByMetric, ballLine, BALL_METRICS, trajectoryPath,
+  ballComparison, ballLine, trajectoryPath,
   catmullRomSegments, laydownBoard, phaseForGame, ballByPhase, bestByPhase, ballColors,
   ARROWS_FEET, BREAKPOINT_FEET,
 } from './ballComparison.js';
@@ -79,38 +79,7 @@ describe('the measures', () => {
   // Spare conversion is about spare shooting, not about which ball
   // carries, so it is deliberately absent.
   it('reports no spare conversion', () => {
-    expect(BALL_METRICS.map(m => m.id)).not.toContain('spareRate');
-  });
-});
-
-describe('naming a leader', () => {
-  const two = [
-    { ball: 'A', shots: 100, strikeRate: 72, firstBallAvg: 9.1, cornerPinRate: 3, splitRate: 4 },
-    { ball: 'B', shots: 100, strikeRate: 71, firstBallAvg: 7.8, cornerPinRate: 12, splitRate: 5 },
-  ];
-
-  // 72 against 71 is a coin flip. Naming a winner there invents a finding
-  // from a rounding error.
-  it('says nothing when two balls are level', () => {
-    expect(bestByMetric(two).strikeRate).toBe(null);
-  });
-
-  it('names a leader when the gap is real', () => {
-    expect(bestByMetric(two).cornerPinRate).toBe('A');
-    expect(bestByMetric(two).firstBallAvg).toBe('A');
-  });
-
-  it('knows lower is better for splits and leaves', () => {
-    const worse = [
-      { ball: 'A', shots: 100, splitRate: 20, firstBallAvg: 6 },
-      { ball: 'B', shots: 100, splitRate: 2, firstBallAvg: 9 },
-    ];
-    expect(bestByMetric(worse).splitRate).toBe('B');
-    expect(bestByMetric(worse).firstBallAvg).toBe('B');
-  });
-
-  it('says nothing with only one ball', () => {
-    expect(bestByMetric([two[0]]).strikeRate).toBe(null);
+    expect(Object.keys(ballComparison(night, opts)[0])).not.toContain('spareRate');
   });
 });
 
@@ -154,7 +123,6 @@ describe('junk', () => {
   it('survives it', () => {
     for (const j of [null, undefined, 'x', 42, {}]) {
       expect(() => ballComparison(j, j)).not.toThrow();
-      expect(() => bestByMetric(j, j)).not.toThrow();
       expect(() => ballLine(j, j)).not.toThrow();
     }
   });
@@ -332,7 +300,6 @@ describe('junk rows, not just junk arrays', () => {
 
   it('survives junk rows in the comparison too', () => {
     for (const rows of [[{}], [null], [{ ball: null }]]) {
-      expect(() => bestByMetric(rows)).not.toThrow();
       expect(() => ballColors(rows)).not.toThrow();
     }
   });

@@ -23,16 +23,21 @@ const num = v => {
   return Number.isFinite(n) ? n : null;
 };
 
-// The measures worth comparing, and which direction is better.
+// BALL_METRICS and bestByMetric were here.
 //
-// "better" matters: a bowler scanning a table should not have to remember
-// that a high split rate is bad.
-export const BALL_METRICS = [
-  { id: "strikeRate", label: "Strike", unit: "%", better: "higher" },
-  { id: "firstBallAvg", label: "First ball", unit: "", better: "higher" },
-  { id: "cornerPinRate", label: "Corner pin", unit: "%", better: "lower" },
-  { id: "splitRate", label: "Splits", unit: "%", better: "lower" },
-];
+// They existed for the ball-vs-ball TABLE, which bolded a single winner
+// in each column. That table is gone: By Ball reports each ball's own
+// numbers and lets you SORT them, which answers "which ball is best"
+// better than crowning one does -- the ball that carries is not always
+// the ball that keeps you out of splits, so the answer depends on what
+// is being asked.
+//
+// Two things worth keeping in mind if a comparison like it comes back:
+// spare conversion was deliberately NOT one of the measures, because it
+// is about spare shooting rather than about which ball carries; and a
+// leader was withheld when the gap was inside the noise -- eight points
+// on a percentage, half a pin on an average -- because a near-tie named
+// as a winner is a finding invented from a rounding error.
 
 // Is this shot a first ball at a full rack?
 //
@@ -144,29 +149,6 @@ export function ballComparison(shots, opts) {
       breakpointBoard: avg(b.bpBoardTotal, b.bpBoardCount),
     }))
     .sort((a, b) => (b.strikeRate ?? -1) - (a.strikeRate ?? -1));
-}
-
-// Which ball leads on each measure.
-//
-// Returns the ball name per metric, or null when it is too close to
-// separate -- a near-tie named as a winner is a finding invented from a
-// rounding error.
-export function bestByMetric(comparison, opts) {
-  const o = (opts && typeof opts === "object") ? opts : {};
-  const list = rows(comparison);
-  const out = {};
-  for (const m of BALL_METRICS) {
-    const withValue = list.filter(b => b[m.id] !== null && b[m.id] !== undefined);
-    if (withValue.length < 2) { out[m.id] = null; continue; }
-    const sorted = [...withValue].sort((a, b) =>
-      m.better === "higher" ? b[m.id] - a[m.id] : a[m.id] - b[m.id]);
-    const gap = Math.abs(sorted[0][m.id] - sorted[1][m.id]);
-    // Percentages need a wider margin than a leave average, which is in
-    // pins and moves in tenths.
-    const need = num(o.margin) ?? (m.unit === "%" ? 8 : 0.5);
-    out[m.id] = gap >= need ? sorted[0].ball : null;
-  }
-  return out;
 }
 
 // The line a ball is typically thrown on, as points down the lane.
