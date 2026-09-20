@@ -120,7 +120,8 @@ CREATE TABLE IF NOT EXISTS public.bowler_profiles (
   all_time_high_game integer,
   all_time_high_series integer,
   drift_boards text,
-  lateral_offset text
+  lateral_offset text,
+  backup_ball boolean DEFAULT false NOT NULL
 );
 CREATE TABLE IF NOT EXISTS public.bowling_centers (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -342,8 +343,7 @@ CREATE TABLE IF NOT EXISTS public.pending_invites (
 CREATE TABLE IF NOT EXISTS public.profiles (
   id uuid NOT NULL,
   display_name text NOT NULL,
-  created_at timestamp with time zone DEFAULT now() NOT NULL,
-  backup_ball boolean DEFAULT false NOT NULL
+  created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 CREATE TABLE IF NOT EXISTS public.sessions (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
