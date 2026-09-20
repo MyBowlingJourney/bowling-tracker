@@ -32,6 +32,65 @@ import {
 
 const LANE_BOARDS = 39;
 
+// A dropdown that looks like one.
+//
+// S.sel carries `appearance: none`, which strips the platform's own
+// dropdown arrow. Everywhere else in the app that is fine, because the
+// select sits in a form next to other fields and inherits the fact that
+// it is one. Here it sits alone under a heading, full width, showing a
+// sentence -- "Every oil pattern", "Every night, by position in the
+// block" -- so with the arrow gone it reads as a caption describing the
+// card rather than a control that changes it. Both filters were being
+// missed for that reason.
+//
+// So the affordance is put back explicitly, three ways at once, because
+// on a touch screen there is no hover to discover it with:
+//   a caption above, naming what the control picks;
+//   a chevron in a tinted well on the trailing edge;
+//   an accent-tinted border, so it reads as live rather than as a box
+//   drawn round some text.
+//
+// The chevron is aria-hidden and the select keeps its own accessible
+// name: to a screen reader this was always announced as a combo box,
+// and none of this is for its benefit.
+function Picker({ label, value, onChange, children }) {
+  return (
+    <div style={{ marginBottom: "8px" }}>
+      <div style={{ fontSize: "11px", color: C.textMuted, fontFamily: F.body,
+        marginBottom: "3px", letterSpacing: "0.02em" }}>{label}</div>
+      <div style={{ position: "relative" }}>
+        <select
+          aria-label={label}
+          value={value}
+          onChange={onChange}
+          style={{
+            ...S.sel,
+            width: "100%",
+            // Room for the well, so a long pattern name never slides
+            // under the chevron.
+            paddingRight: "46px",
+            border: `1px solid ${C.accent}59`,
+            fontWeight: 600,
+            cursor: "pointer",
+          }}>
+          {children}
+        </select>
+        <span aria-hidden="true" style={{
+          position: "absolute", top: "5px", bottom: "5px", right: "5px",
+          width: "34px", borderRadius: "9px",
+          backgroundColor: `${C.accent}1f`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          color: C.accent, fontSize: "11px", lineHeight: 1,
+          // The well is decoration sitting on top of the control; without
+          // this, tapping the most obviously tappable part of it does
+          // nothing.
+          pointerEvents: "none",
+        }}>▼</span>
+      </div>
+    </div>
+  );
+}
+
 export default function LanePane({
   shots = [], bowler = "", league = "", leftHanded = false,
   colors = {}, allBalls = [], lanePatterns = [],
@@ -246,16 +305,15 @@ export default function LanePane({
           is not a useless control. It is the card telling you what it is
           showing you. */}
       {patterns.length > 0 && (
-        <select style={{ ...S.sel, width: "100%", marginBottom: "8px" }}
-          aria-label="Oil pattern"
-          value={pattern} onChange={e => setPattern(e.target.value)}>
+        <Picker label="Oil pattern" value={pattern}
+          onChange={e => setPattern(e.target.value)}>
           <option value="">Every oil pattern</option>
           {patterns.map(p => (
             <option key={p.name} value={p.name}>
               {p.name} · {p.nights} {p.nights === 1 ? "night" : "nights"}
             </option>
           ))}
-        </select>
+        </Picker>
       )}
 
       {/* The lane and the filter, side by side. The filter goes on the
@@ -410,16 +468,15 @@ export default function LanePane({
           the data behind it; one night is for reviewing the night you
           just bowled. */}
       {nights.length > 1 && (
-        <select style={{ ...S.sel, width: "100%", marginBottom: "8px" }}
-          aria-label="Which nights"
-          value={night} onChange={e => setNight(e.target.value)}>
+        <Picker label="Which nights" value={night}
+          onChange={e => setNight(e.target.value)}>
           <option value="">Every night, by position in the block</option>
           {nights.map(n => (
             <option key={n.date} value={n.date}>
               {n.date}{n.pattern ? ` · ${n.pattern}` : ""} · {n.games} games
             </option>
           ))}
-        </select>
+        </Picker>
       )}
 
       {(Object.keys(hidden).length > 0 || allBalls.length > 2) && (
