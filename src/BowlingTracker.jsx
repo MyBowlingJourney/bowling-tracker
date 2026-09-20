@@ -4636,6 +4636,22 @@ export default function BowlingTracker(){
     return resolveGameScore(manualScores,bowler,league,date,game,strictPartial(gs));
   }
 
+  // The FRAME-derived score only -- no manual override.
+  //
+  // getGameStrict above deliberately lets a manual entry win, and every
+  // total in the app goes through it. But "is this game locked" is a
+  // different question from "what did this game score": locking on the
+  // resolved value meant typing a single digit produced a manual score,
+  // which made the box disabled, which DROPPED FOCUS mid-entry and left
+  // the game uneditable forever. One digit in, no way back.
+  //
+  // So the lock asks this instead: are there frames for this game?
+  function getGameFrames(bowler,league,date,game){
+    const gs=shots.filter(s=>s.bowler===bowler&&s.league===league
+      &&String(s.date)===String(date)&&String(s.game)===String(game));
+    return strictPartial(gs);
+  }
+
   function updateManualScore(bowler,league,date,game,value){
     // Built from a ref, not from the `manualScores` closure value.
     //
@@ -6518,6 +6534,12 @@ export default function BowlingTracker(){
       getGameStrict(nightBowler,nightLeague,nightDate,i+1));
   })();
 
+  // Same length as gameScores, frames only. Passed to LogView so the
+  // score boxes can tell "this game was bowled shot by shot" apart from
+  // "this game has a number in it".
+  const frameScores=gameScores.map((_,i)=>
+    getGameFrames(nightBowler,nightLeague,nightDate,i+1));
+
   const sessionTotal=getSessionTotal();
 
   // Corner pin depends on which hand THREW the shot, and a "Stats" view
@@ -7698,7 +7720,7 @@ export default function BowlingTracker(){
             startingLane={startingLane} setStartingLane={setStartingLane} expandedSections={expandedSections}
             offerShotByShot={offerShotByShot} onTryShotByShot={tryShotByShot} onDismissShotByShot={dismissShotPrompt}
             promptForTeam={promptForTeam} onDismissTeamPrompt={dismissTeamPrompt}
-            ballNumLabel={ballNumLabel} curSession={curSession} currentLane={currentLane} firstBallPins={firstBallPins} gameScores={gameScores}
+            ballNumLabel={ballNumLabel} curSession={curSession} currentLane={currentLane} firstBallPins={firstBallPins} gameScores={gameScores} frameScores={frameScores}
             hasLeave={hasLeave} leaveDescribed={leaveDescribed} inTenth={inTenth} isNoTap={isNoTap} isStrike={isStrike} needsSpareMade={needsSpareMade} needsPins={needsPins} sessionTotal={sessionTotal} showPinCount={showPinCount}
             standingPins={standingPins} tenthOptions={tenthOptions} autoFillLine={autoFillLine} calcLane={calcLane} cancelEdit={cancelEdit} cycleGameResult={cycleGameResult} cycleSeriesResult={cycleSeriesResult}
             getLanePattern={getLanePattern} getMatch={getMatch} handleBallChange={handleBallChange} handleLeaveToggle={handleLeaveToggle} handleLineChange={handleLineChange}

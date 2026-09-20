@@ -53,7 +53,7 @@ export default function LogView({
   leagueTabChoice = "scoring", setLeagueTabChoice, tournamentTab = "setup", setTournamentTab,
   sessionLeague, setSessionLeague, effectiveSessionLeague, sessionDate, setSessionDate,
   startingLane, setStartingLane, setShowSummary, expandedSections,
-  ballNumLabel, curSession, currentLane, firstBallPins, gameScores = [],
+  ballNumLabel, curSession, currentLane, firstBallPins, gameScores = [], frameScores = [],
   hasLeave, leaveDescribed, inTenth, isNoTap, isStrike, needsSpareMade, needsPins, sessionTotal, showPinCount,
   standingPins, tenthOptions,
   autoFillLine, calcLane, cancelEdit, cycleGameResult, cycleSeriesResult,
@@ -998,7 +998,25 @@ export default function LogView({
                           // "switch to game scores" control -- nothing could set
                           // it any more, so the flag was always false and this
                           // read as a live choice that was not one.
-                          const locked=gameScores[g-1]!=null;
+                          // LOCKED BY FRAMES, not by "has a number in it".
+                          //
+                          // This read gameScores, which is the RESOLVED
+                          // score -- and a manual entry wins there. So the
+                          // first digit typed produced a manual score, the
+                          // box turned disabled, and a disabled input drops
+                          // focus: the keyboard closed, the remaining
+                          // digits went nowhere, and the game could never
+                          // be edited again. "150" was unreachable; you got
+                          // "1" and a dead box.
+                          //
+                          // A manual score never locks. It is the thing the
+                          // bowler is allowed to change, and being able to
+                          // CLEAR it is what lets frames take the game over
+                          // -- which was impossible while the box was
+                          // disabled.
+                          const frameScore=frameScores[g-1];
+                          const manualScore=entered[g-1];
+                          const locked=frameScore!=null&&manualScore==null;
                           return(
                             <input style={{...S.input,flex:1,opacity:locked?0.5:1}}
                               type="number" inputMode="numeric" placeholder="Score"
@@ -1013,9 +1031,13 @@ export default function LogView({
                               //
                               // Manual entry still wins where no frames exist,
                               // which is the whole point of having both.
-                              value={gameScores[g-1]!=null
-                                ? String(gameScores[g-1])
-                                : (entered[g-1]==null?"":String(entered[g-1]))}
+                              // Shows what is actually USED, so the box
+                              // never disagrees with the series total.
+                              // resolveGameScore prefers the manual score,
+                              // so this does too.
+                              value={manualScore!=null
+                                ? String(manualScore)
+                                : (frameScore==null?"":String(frameScore))}
                               onChange={e=>updateManualScore(activeBowler,effectiveSessionLeague,sessionDate,g,e.target.value)}/>
                           );
                         })()}
