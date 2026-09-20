@@ -20,6 +20,7 @@
 // Secrets required: GEMINI_API_KEY, ALLOWED_ORIGINS (both lowercase-safe)
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { recordAiTokens } from "../_shared/aiUsage.ts";
 // The only place a fact becomes a sentence. Everything that arrives here
 // is numbers and ids from a closed set; render.ts owns every word of
 // structure, and an id or a value it does not recognise is dropped rather
@@ -409,6 +410,11 @@ Deno.serve(async (req) => {
     }
 
     const data = await res.json();
+
+    // Before the text check: an empty response still cost tokens, and
+    // spend with nothing to show for it is worth seeing. Not awaited.
+    recordAiTokens(req, "nightcap", MODEL, data?.usageMetadata);
+
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!text) {
       console.error("Gemini returned no text", JSON.stringify(data).slice(0, 500));
