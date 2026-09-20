@@ -289,12 +289,83 @@ Deno.serve(async (req: Request) => {
   }
 
   const row = entitlementFromStripeSubscription(fresh);
-  const { error: writeErr } = await db
-    .from("entitlements")
-    .upsert({ user_id: userId, ...row }, { onConflict: "user_id" });
-  if (writeErr) {
-    console.error("entitlement write failed:", writeErr.message);
+
+  // ── A write that cannot go backwards ──────────────────────────────
+  //
+  // This was a plain upsert on user_id, and Stripe does not deliver one
+  // event at a time. Two arrive together -- a cancellation and a
+  // renewal, say -- and BOTH re-fetch the truth from Stripe, which is
+  // correct and is what makes redelivery safe. But then both write, and
+  // whichever write lands last wins regardless of which fetch was
+  // newer. A slower fetch of older state silently overwrites newer
+  // state.
+  //
+  // The re-fetch above is what makes processing the SAME event twice
+  // safe. It does nothing about two DIFFERENT events in flight at once,
+  // which is the case actually seen in the logs: two deliveries, three
+  // minutes old, both 200.
+  //
+  // The direction that matters: a stale row reading "active" after a
+  // cancellation costs a little revenue. A stale row reading "canceled"
+  // or "free" after a renewal takes Pro away from somebody who has just
+  // paid for it. That is a refund and a one-star review, so the write
+  // has to be ordered.
+  //
+  // last_event_at is Stripe's own event.created, not our clock -- the
+  // same discipline as the sync cursor, and for the same reason: two
+  // machines' clocks cannot be compared, and the only ordering anyone
+  // can trust here is the one Stripe itself assigned.
+  //
+  // UPDATE-then-INSERT rather than an upsert, because PostgREST cannot
+  // put a WHERE on the conflict branch of an upsert, and "only if
+  // newer" is exactly such a condition.
+  const ordered = `last_event_at.is.null,last_event_at.lte.${eventTime}`;
+
+  async function applyIfNewer(): Promise<{ applied: boolean; error?: string }> {
+    const { data, error } = await db
+      .from("entitlements")
+      .update({ ...row, last_event_at: eventTime })
+      .eq("user_id", userId)
+      .or(ordered)
+      .select("user_id");
+    if (error) return { applied: false, error: error.message };
+    // Rows matched means it was applied. Zero means either there is no
+    // row yet, or a NEWER event already wrote one -- and those two are
+    // told apart by trying the insert below.
+    return { applied: (data?.length ?? 0) > 0 };
+  }
+
+  let result = await applyIfNewer();
+  if (result.error) {
+    console.error("entitlement write failed:", result.error);
     return new Response("Write failed", { status: 500 });
+  }
+
+  if (!result.applied) {
+    const { error: insErr } = await db
+      .from("entitlements")
+      .insert({ user_id: userId, ...row, last_event_at: eventTime });
+
+    if (insErr) {
+      // 23505: the row exists after all. Either a newer event beat us to
+      // it -- correct, nothing to do -- or two first-ever events for one
+      // bowler raced and the other inserted first, in which case ours
+      // may still be the newer of the two. One more ordered update tells
+      // those apart and costs a single round trip.
+      const isConflict = (insErr as { code?: string }).code === "23505";
+      if (!isConflict) {
+        console.error("entitlement write failed:", insErr.message);
+        return new Response("Write failed", { status: 500 });
+      }
+      const retry = await applyIfNewer();
+      if (retry.error) {
+        console.error("entitlement write failed:", retry.error);
+        return new Response("Write failed", { status: 500 });
+      }
+      // retry.applied false here is a SUCCESS: it means the stored row
+      // is newer than this event, so leaving it alone is the right
+      // outcome, not a failure to write.
+    }
   }
 
   await markApplied(userId);
