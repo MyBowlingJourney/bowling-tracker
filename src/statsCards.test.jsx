@@ -4,6 +4,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import StatsView from './StatsView.jsx';
 import { statsByCenter, statsByRackType } from './domain/centers.js';
 import { defaultPreferences } from './domain/preferences.js';
+import fs from 'fs';
+import path from 'path';
 
 // ── Do the cards actually SHOW anything? ────────────────────────────
 //
@@ -87,8 +89,8 @@ const shots = [
 ];
 
 // Exactly how BowlingTracker builds them. If this line and the app's
-// ever disagree, this test is testing a fiction -- which is why
-// statsCallSite.test.js checks that they match.
+// ever disagree, this test is testing a fiction -- so the last block in
+// this file reads the real call site and checks it still matches.
 const leaguesWithCenters = leagues.map(name => ({ name, centerId: leagueCenters[name] }));
 const centerStats = statsByCenter(sessions, leaguesWithCenters, centers, BOWLER, shots);
 const rackTypeStats = statsByRackType(sessions, shots, leaguesWithCenters, centers, BOWLER);
@@ -313,5 +315,50 @@ describe('the paywall on comparison cards', () => {
   it('treats a test account as unlocked', () => {
     const html = renderCenterGroup({ entitlement: { is_test_account: true } });
     expect(html).toContain('Riverside Lanes');
+  });
+});
+
+// ── Is the fixture above still telling the truth? ───────────────────
+//
+// Everything in this file rests on one assumption: that the app builds
+// its stats inputs the way the fixture does. The fixture is a COPY of
+// BowlingTracker's line, and a copy can drift. If the app went back to
+// passing bare league names, every test above would still pass while
+// the card went blank again -- the exact failure this file exists to
+// prevent, now hidden BY the file meant to catch it.
+//
+// So the call site is read from source and checked. Text, not
+// behaviour, because the value being checked is which variable gets
+// passed, and that does not survive being imported.
+describe('the real call site still matches this fixture', () => {
+  const tracker = fs.readFileSync(
+    path.join(path.resolve(__dirname), 'BowlingTracker.jsx'), 'utf8'
+  );
+
+  it('still builds leaguesWithCenters as objects carrying centerId', () => {
+    // The shape, not the formatting: whitespace may change, the fact
+    // that each entry carries a centerId may not.
+    const built = tracker.match(
+      /const\s+leaguesWithCenters\s*=\s*leagues\.map\(\s*\(?\s*\w+\s*\)?\s*=>\s*\(\{([^}]*)\}\)/
+    );
+    expect(built).not.toBeNull();
+    expect(built[1]).toContain('centerId');
+  });
+
+  // Passing `leagues` here instead of `leaguesWithCenters` is the
+  // original bug, verbatim. Both functions take it, and both broke.
+  it('passes leaguesWithCenters -- not leagues -- to both stats functions', () => {
+    const rackCall = tracker.match(/statsByRackType\(([^;]*?)\)\s*;/);
+    const centerCall = tracker.match(/const\s+centerStats\s*=\s*statsByCenter\(([^;]*?)\)\s*;/);
+
+    expect(rackCall).not.toBeNull();
+    expect(centerCall).not.toBeNull();
+
+    for (const [label, call] of [['statsByRackType', rackCall[1]], ['statsByCenter', centerCall[1]]]) {
+      const args = call.split(',').map(a => a.trim());
+      expect(args, `${label} must receive leaguesWithCenters`).toContain('leaguesWithCenters');
+      // And must NOT receive the bare names list in its place.
+      expect(args, `${label} must not receive the bare leagues list`).not.toContain('leagues');
+    }
   });
 });
