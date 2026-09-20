@@ -11,7 +11,6 @@ import { patternDisplayName, searchPatterns, describePattern, patternStats } fro
 import { leagueFormat, isNoTapLeague } from "./domain/leagueSeasons.js";
 import { isBaker, appliesHandicap, bakerFramesFor, BAKER_STARTERS, handicapPins, bakerScoreNote } from "./domain/tournamentFormats.js";
 
-import { tenthBall3Earned } from "./domain/scoring.js";
 
 import {
   SIDE_POT_TYPES, addSidePot, removeSidePot, setSidePotField, sidePotMoney, sidePotTotals,

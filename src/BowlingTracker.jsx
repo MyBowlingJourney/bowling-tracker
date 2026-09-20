@@ -4531,21 +4531,44 @@ export default function BowlingTracker(){
       // happen and a score to match. The entry path never allowed it,
       // because it asks ball by ball; only editing could produce it.
       //
-      // Ball 2 goes too when ball 1 stops being a strike and no spare
-      // follows, for the same reason: the frame is over after two balls
-      // and the second one is now the last.
+      // Ball 2 goes too when ball 1 stops being a strike -- and until now
+      // this comment was the only place that happened.
+      //
+      // A ball-2 record exists for exactly one reason: ball 1 was a
+      // strike, which reset the rack and bought a second delivery of its
+      // own. Edit that strike into anything else and ball 2 has lost the
+      // thing that created it. A non-strike ball 1 carries its own second
+      // delivery inside its own record -- a spare goes straight to ball 3
+      // and an open ends the frame -- so a surviving ball 2 is a delivery
+      // that was never bowled.
+      //
+      // Found by sweeping every edit of every frame against an
+      // independent scorer: "X X X" with ball 1 edited to a spare kept
+      // its ball 2, and the ninth frame scored 268 where it should have
+      // scored 259. Silent and plausible, which is the bad kind.
+      //
+      // Ball 2 first, then ball 3, because whether ball 3 is still earned
+      // depends on the ball 2 that is left behind afterwards.
       if(parseInt(shotData.frame)===10){
         const mine=s=>s.bowler===shotData.bowler&&s.league===shotData.league
           &&s.date===shotData.date&&String(s.game)===String(shotData.game)
           &&parseInt(s.frame)===10;
+        const drop=async pred=>{
+          const stale=updated.filter(s=>mine(s)&&pred(s));
+          if(!stale.length)return;
+          updated=updated.filter(s=>!(mine(s)&&pred(s)));
+          for(const sh of stale)await cloudDelete("shots",sh.id);
+        };
+
+        const firstBall=updated.find(s=>mine(s)&&(!s.ballNum||Number(s.ballNum)===1))||null;
+        if(firstBall&&!isStk(firstBall)){
+          await drop(s=>Number(s.ballNum)===2);
+        }
+
         const b1=updated.find(s=>mine(s)&&(!s.ballNum||Number(s.ballNum)===1))||null;
         const b2=updated.find(s=>mine(s)&&Number(s.ballNum)===2)||null;
         if(!tenthBall3Earned(b1,b2)){
-          const stale=updated.filter(s=>mine(s)&&Number(s.ballNum)===3);
-          if(stale.length){
-            updated=updated.filter(s=>!(mine(s)&&Number(s.ballNum)===3));
-            for(const sh of stale)await cloudDelete("shots",sh.id);
-          }
+          await drop(s=>Number(s.ballNum)===3);
         }
       }
 
@@ -4577,16 +4600,32 @@ export default function BowlingTracker(){
       // complete X X X tenth also "owes" ball 2, but ball 2 is sitting
       // right there -- landing on it would overwrite a ball that was
       // already bowled.
+      // WALKED forward, not asked once.
+      //
+      // Asking nextState for the ball after the edited one finds the gap
+      // only when the gap is immediately next. Edit ball 1 of a tenth
+      // holding "X X" and the answer is ball 2 -- which is already
+      // there -- so it reported nothing owed while ball 3 was missing and
+      // earned, and the bowler was stranded on an unfinishable frame
+      // again, one ball further along.
+      //
+      // So it steps: next ball, and if that one exists, next again, until
+      // it finds one that is missing or the frame ends. Bounded at three
+      // because a tenth has three balls.
       let owed=null;
       if(parseInt(shotData.frame)===10){
-        const ns=nextState(updated,shotData.bowler,shotData.league,shotData.date,
-                           String(shotData.game),"10",shotBallNum);
-        if(ns&&String(ns.frame)==="10"&&String(ns.game)===String(shotData.game)){
-          const filled=updated.some(s=>s&&s.bowler===shotData.bowler
-            &&s.league===shotData.league&&s.date===shotData.date
-            &&String(s.game)===String(shotData.game)
-            &&parseInt(s.frame)===10&&Number(s.ballNum)===Number(ns.ballNum));
-          if(!filled)owed=ns;
+        const here=s=>s&&s.bowler===shotData.bowler&&s.league===shotData.league
+          &&s.date===shotData.date&&String(s.game)===String(shotData.game)
+          &&parseInt(s.frame)===10;
+        let cursor=shotBallNum;
+        for(let step=0;step<3;step++){
+          const ns=nextState(updated,shotData.bowler,shotData.league,shotData.date,
+                             String(shotData.game),"10",cursor);
+          if(!(ns&&String(ns.frame)==="10"&&String(ns.game)===String(shotData.game)))break;
+          const filled=updated.some(s=>here(s)&&Number(s.ballNum)===Number(ns.ballNum));
+          if(!filled){owed=ns;break;}
+          if(Number(ns.ballNum)===Number(cursor))break;   // no progress, stop
+          cursor=Number(ns.ballNum);
         }
       }
 

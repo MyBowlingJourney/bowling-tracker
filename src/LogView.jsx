@@ -23,7 +23,7 @@ import { plasticLast } from "./domain/bags.js";
 
 
 
-import { tenthBall3Earned, maxPossibleScore } from "./domain/scoring.js";
+import { maxPossibleScore } from "./domain/scoring.js";
 
 import { revealBottomDelta, MIN_SCROLL } from "./domain/scrollReveal.js";
 
