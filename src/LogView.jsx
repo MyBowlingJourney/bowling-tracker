@@ -69,7 +69,7 @@ export default function LogView({
   entitlement = null,
   showSessionStart, goalsPanel, practiceMode, setPracticeMode, gameEquipment, updateGameEquipment, activeDrill, setActiveDrill, startDrill, startAnotherDrill, saveDrill, drillSaved, drills, leftHandedForBowler,
   ownerName, scoringForOthers, setScoringForOthers, scoreOptions, guests, newGuestName, setNewGuestName, addGuestBowler, removeGuestBowler,
-  oilPatterns, submitOilPattern, tournaments, practicePriorAverage,
+  oilPatterns, submitOilPattern, leaguePatterns = {}, tournaments, practicePriorAverage,
   envBags, selectedBagId, setSelectedBagId, logBalls,
   }) {
   // What each environment shows on the Log tab. Kept in one place so the
@@ -715,15 +715,43 @@ export default function LogView({
                     tonight's pair, since leagues sometimes run a different
                     pattern on each lane of the pair. Defaults to House Shot
                     implicitly; no record exists until something is changed. */}
-                {startingLane&&sessionLeague&&(()=>{
+                {sessionLeague&&(()=>{
+                  // NO LONGER GATED ON THE STARTING LANE.
+                  //
+                  // Knowing what you are bowling on does not require
+                  // knowing which pair you drew, but this section only
+                  // appeared once a lane had been typed -- so "what is
+                  // tonight's pattern" was invisible to anyone who had not
+                  // filled in a field that has nothing to do with it.
+                  //
+                  // With no lane yet there is one row for the night; with
+                  // a lane there is one per physical lane, because leagues
+                  // do sometimes run a different pattern on each lane of
+                  // the pair. The night-level record is stored under lane
+                  // "" and the per-lane rows FALL BACK to it, so a pattern
+                  // entered before lanes are known is not lost the moment
+                  // one is: it shows on both lanes until one of them is
+                  // deliberately changed.
                   const l=parseInt(startingLane),p=l%2===0?l-1:l+1;
-                  const lanesToShow=[...new Set([l,p])].filter(n=>!isNaN(n));
+                  const lanesToShow=startingLane
+                    ?[...new Set([l,p])].filter(n=>!isNaN(n))
+                    :[""];
+                  // What the league usually runs, so "override" is a
+                  // visible act rather than typing into a blank box and
+                  // hoping. Absent when the league has no default set.
+                  const leagueUsual=(leaguePatterns?.[effectiveSessionLeague]
+                    ||leaguePatterns?.[sessionLeague]||"").trim();
                   const renderLaneRow=(lane)=>{
-                    const rec=getLanePattern(sessionLeague,sessionDate,lane)||{patternType:"house",patternName:"",length:"",volume:"",ratio:""};
+                    const nightly=getLanePattern(sessionLeague,sessionDate,"");
+                    const rec=getLanePattern(sessionLeague,sessionDate,lane)
+                      ||(lane!==""?nightly:null)
+                      ||{patternType:"house",patternName:"",length:"",volume:"",ratio:""};
                     const isOfficial=rec.patternType==="official";
                     return(
                       <div key={lane} style={{marginBottom:"10px"}}>
-                        <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"4px"}}>Lane {lane}</div>
+                        <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"4px"}}>
+                          {lane===""?"Tonight":`Lane ${lane}`}
+                        </div>
                         <div style={S.chips}>
                           <Chip label="House Shot" selected={!isOfficial} onToggle={()=>setLanePattern(form.teamId||sessionLeague,sessionLeague,sessionDate,lane,{patternType:"house"})}/>
                           <Chip label="Official Pattern" selected={isOfficial} onToggle={()=>setLanePattern(form.teamId||sessionLeague,sessionLeague,sessionDate,lane,{patternType:"official"})} color={C.spare}/>
@@ -779,6 +807,12 @@ export default function LogView({
                   return(
                     <div style={{marginBottom:"12px"}}>
                       <div style={S.label}>Lane Conditions</div>
+                      {leagueUsual&&(
+                        <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"6px",lineHeight:1.5}}>
+                          This league usually runs <strong>{leagueUsual}</strong>. Anything you set
+                          here is for tonight only.
+                        </div>
+                      )}
                       {lanesToShow.map(renderLaneRow)}
                     </div>
                   );

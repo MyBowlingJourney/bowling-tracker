@@ -7720,7 +7720,7 @@ export default function BowlingTracker(){
             activeTournament={activeTournament} updateTournament={updateTournament} saveTournament={saveTournament} closeTournament={closeTournament} tournamentSaved={tournamentSaved}
             manualScores={manualScores} updateManualScore={updateManualScore}
             ownerName={ownerName} scoringForOthers={scoringForOthers} setScoringForOthers={setScoringForOthers}
-            oilPatterns={pickerPatterns} submitOilPattern={submitOilPattern} tournaments={tournaments} practicePriorAverage={practicePriorAverage}
+            oilPatterns={pickerPatterns} submitOilPattern={submitOilPattern} leaguePatterns={leaguePatterns} tournaments={tournaments} practicePriorAverage={practicePriorAverage}
             scoreOptions={scoreOptions} guests={guests} newGuestName={newGuestName} setNewGuestName={setNewGuestName}
             addGuestBowler={addGuestBowler} removeGuestBowler={removeGuestBowler}
             gameEquipment={gameEquipment} updateGameEquipment={updateGameEquipment}
