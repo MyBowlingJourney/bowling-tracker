@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import {
   blockPositions, nightsIn, patternsIn, patternForNight, patternLengthFor,
-  shotsAt, positionLabel, typicalGames, HOUSE_PATTERN,
+  shotsAt, positionLabel, typicalGames, HOUSE_PATTERN, drawLengthFor,
+  nightChoices,
 } from './laneTransition.js';
 import { ballComparison, ballLine, BREAKPOINT_FEET } from './ballComparison.js';
+import { patternLengthByName } from './oilPatterns.js';
 import { isSplit, isCornerPinLeave } from './splits.js';
 
 // A bowler who moves. Start on 20 and drift left a couple of boards a
@@ -250,27 +252,65 @@ describe('the drawn line actually migrates', () => {
 // means.
 describe('how deep the ball turns', () => {
   const LANE_PATTERNS = [{ date: '2026-09-20', patternName: 'Wolf', length: '37' }];
-  const LEAGUE_DEFAULT = 37;               // what patternLengthForLeague returns here
+  // What patternLengthForLeague would have returned here -- the most
+  // recent NAMED pattern's length. Nothing may resolve to this except
+  // Wolf itself.
+  const LEAKED = 37;
 
-  // The card's own rule, so the assertions describe the card.
-  const feetFor = pattern => (pattern === HOUSE_PATTERN
-    ? BREAKPOINT_FEET
-    : (patternLengthFor(LANE_PATTERNS, pattern) ?? LEAGUE_DEFAULT));
+  // The card's ACTUAL rule -- the same function lanePane calls, not a
+  // restatement of it. Restating it meant the test could pass over a
+  // card that had quietly stopped agreeing.
+  const feetFor = (pattern, oilPatterns = []) => drawLengthFor(pattern, {
+    lanePatterns: LANE_PATTERNS, oilPatterns,
+    lengthByName: patternLengthByName,
+    houseFeet: BREAKPOINT_FEET,
+  });
 
   it('uses forty feet for the house shot, not the last sport block', () => {
     expect(BREAKPOINT_FEET).toBe(40);
     expect(feetFor(HOUSE_PATTERN)).toBe(40);
-    expect(feetFor(HOUSE_PATTERN)).not.toBe(LEAGUE_DEFAULT);
+    expect(feetFor(HOUSE_PATTERN)).not.toBe(LEAKED);
   });
 
   it('uses a named pattern’s own length', () => {
     expect(feetFor('Wolf')).toBe(37);
   });
 
+  // The same leak the house shot had, wearing a different label. A
+  // pattern nobody recorded a length for used to inherit whatever block
+  // the league last bowled -- so an unmeasured 50-foot Badger drew its
+  // breakpoint at 37 feet because of a Wolf night in September.
+  //
+  // An unrecorded length means nobody measured it, and the honest
+  // reading of that is house conditions.
+  //
+  // "Thursday Night Sport" -- a house's own name for its block, which is
+  // the common case for a name with no published sheet behind it.
+  it('uses forty feet for a named pattern with no length anywhere', () => {
+    expect(patternLengthByName('Thursday Night Sport', [])).toBeNull();
+    expect(feetFor('Thursday Night Sport')).toBe(40);
+    expect(feetFor('Thursday Night Sport')).not.toBe(LEAKED);
+  });
+
+  // Ahead of the house default, because these are real measurements of
+  // the pattern on screen rather than an assumption about it.
+  it('prefers the bowler’s own saved length, then the published spec', () => {
+    expect(feetFor('Scorpion', [{ name: 'Scorpion', lengthFeet: 44 }])).toBe(44);
+    // Nothing saved -- the published sheet. Keyed "Name|Year", newest
+    // year first, because the same animal is re-laid most seasons.
+    expect(feetFor('Dragon')).toBe(47);
+  });
+
+  // The night's own record still wins over both. The bowler stood there.
+  it('lets the night’s own record beat the catalogue', () => {
+    expect(feetFor('Wolf', [{ name: 'Wolf', lengthFeet: 34 }])).toBe(37);
+  });
+
   it('draws the breakpoint at whatever depth it resolved', () => {
     const entry = { ball: 'b', startBoard: 25, arrowBoard: 15, breakpointBoard: 7 };
     expect(ballLine(entry, { patternLength: feetFor(HOUSE_PATTERN) }).points[2].feet).toBe(40);
     expect(ballLine(entry, { patternLength: feetFor('Wolf') }).points[2].feet).toBe(37);
+    expect(ballLine(entry, { patternLength: feetFor('Thursday Night Sport') }).points[2].feet).toBe(40);
   });
 });
 
@@ -325,5 +365,41 @@ describe('two leagues on the same date', () => {
     const bare = [{ date: '2026-01-05', patternName: 'Wolf' }];
     expect(patternForNight(bare, '2026-01-05', 'Thursday')).toBe('Wolf');
     expect(patternForNight(rows, '2026-01-05')).toBe('Wolf');
+  });
+});
+
+
+describe('the night picker follows the pattern', () => {
+  const NIGHTS = [
+    { date: '2026-09-20', pattern: 'Scorpion', games: 3 },
+    { date: '2026-09-13', pattern: HOUSE_PATTERN, games: 3 },
+    { date: '2026-09-06', pattern: HOUSE_PATTERN, games: 3 },
+  ];
+
+  it('offers only the nights bowled on that pattern', () => {
+    expect(nightChoices(NIGHTS, HOUSE_PATTERN, '').nights.map(n => n.date))
+      .toEqual(['2026-09-13', '2026-09-06']);
+    expect(nightChoices(NIGHTS, 'Scorpion', '').nights.map(n => n.date))
+      .toEqual(['2026-09-20']);
+  });
+
+  it('keeps a night that survives the narrowing', () => {
+    expect(nightChoices(NIGHTS, HOUSE_PATTERN, '2026-09-06').night).toBe('2026-09-06');
+  });
+
+  // The bug this exists for: pick a house night, switch to the sport
+  // block, and the card asked for a night that block was never bowled on
+  // -- which draws an empty lane rather than an error.
+  it('drops a night the new pattern was never bowled on', () => {
+    expect(nightChoices(NIGHTS, 'Scorpion', '2026-09-06').night).toBe('');
+  });
+
+  it('leaves the pooled view alone', () => {
+    expect(nightChoices(NIGHTS, HOUSE_PATTERN, '').night).toBe('');
+  });
+
+  it('is safe on junk', () => {
+    expect(() => nightChoices(null, null, null)).not.toThrow();
+    expect(nightChoices([null, {}, 'x'], 'House', 'x').nights).toEqual([]);
   });
 });

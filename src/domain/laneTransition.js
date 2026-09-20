@@ -303,3 +303,72 @@ export function patternLengthFor(lanePatterns, name) {
   }
   return null;
 }
+
+/**
+ * How deep the ball turns on the pattern being drawn, in feet.
+ *
+ * ONE definition, used by the card and asserted by its tests. It existed
+ * twice for a while -- once in the card and once restated in the test --
+ * which means the test was checking a copy of the rule rather than the
+ * rule, and could have passed over a card that did something else.
+ *
+ * In order:
+ *   what the bowler wrote down for that night,
+ *   their own saved entry for the pattern,
+ *   the published spec,
+ *   and failing all of those, the house default.
+ *
+ * `lengthByName` is injected rather than imported so this module keeps
+ * knowing nothing about the pattern catalogue -- it selects shots, and
+ * the catalogue lives in oilPatterns.
+ *
+ * The house shot short-circuits, because it is defined by nobody having
+ * written a length down. What it must NOT do is fall through to a length
+ * resolved from the league, which is where this went wrong twice: that
+ * is the most recent NAMED pattern's length, so one 37-foot sport night
+ * set the depth drawn for the house shot and for every unmeasured
+ * pattern beside it.
+ */
+export function drawLengthFor(pattern, { lanePatterns, oilPatterns, lengthByName, houseFeet }) {
+  const house = Number(houseFeet);
+  const fallback = Number.isFinite(house) && house > 0 ? house : null;
+  const want = clean(pattern);
+  if (!want || want === HOUSE_PATTERN) return fallback;
+
+  const recorded = patternLengthFor(lanePatterns, want);
+  if (recorded !== null) return recorded;
+
+  const known = typeof lengthByName === "function"
+    ? lengthByName(want, oilPatterns) : null;
+  const n = Number(known);
+  if (Number.isFinite(n) && n > 0) return n;
+
+  return fallback;
+}
+
+/**
+ * Which nights the night picker may offer, and which one it is on.
+ *
+ * The two filters used to be independent: pick a sport block, then pick a
+ * night bowled on the house shot, and the card drew an empty lane -- a
+ * combination the data never contained, offered by the interface as
+ * though it did. So the nights are narrowed to the pattern beside them.
+ *
+ * Narrowing can strand the night already chosen. The stale value is
+ * simply not honoured -- it reads as "every night" until the bowler picks
+ * again -- rather than being cleared by an effect a render later, which
+ * draws the empty lane once on the way past.
+ *
+ * @returns {nights, night} -- the list to offer, and the value to show
+ *          selected, which is "" for the pooled view.
+ */
+export function nightChoices(nights, pattern, night) {
+  const want = clean(pattern);
+  const list = (Array.isArray(nights) ? nights : [])
+    .filter(n => n && typeof n === "object" && (!want || n.pattern === want));
+  const chosen = clean(night);
+  return {
+    nights: list,
+    night: list.some(n => clean(n.date) === chosen) ? chosen : "",
+  };
+}
