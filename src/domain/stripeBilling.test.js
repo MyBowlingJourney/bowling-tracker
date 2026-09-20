@@ -11,6 +11,7 @@
 //      the old subscription-level field still honoured.
 //   2. What this writes, isSubscriber() reads back the same way.
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import {
   stripeStateToStatus, stripeStatus, billingPeriodOf, currentPeriodEnd,
   priceIdOf, entitlementFromStripeSubscription, STRIPE_STATUS_TO_STATUS,
@@ -33,6 +34,10 @@ const sub = (status, over = {}) => ({
   },
   ...over,
 });
+
+// Every status OUR entitlements table can hold (the CHECK constraint),
+// which is a different list from Stripe's own statuses above.
+const ALL_OUR_STATUSES = ['none','trialing','active','grace','on_hold','paused','canceled','expired'];
 
 const ALL_STATES = [
   'trialing', 'active', 'past_due', 'unpaid',
@@ -222,5 +227,54 @@ describe('the row we write', () => {
     expect(row.current_period_end).toBe(null);
     expect(row.stripe_subscription_id).toBe(null);
     expect(isSubscriber(row, NOW)).toBe(false);
+  });
+});
+
+// ── The guard that let a bowler buy a second subscription ────────────
+//
+// create-checkout decides whether somebody already has a subscription
+// with a status list written out longhand, because an Edge Function
+// cannot import from src/. A longhand copy of a rule drifts from the
+// rule, and this one did: it read ["active","trialing","grace"] and left
+// out "canceled".
+//
+// "canceled" is ours for "cancelled but paid through the period" --
+// isSubscriber() says yes, the Settings card offers "Manage
+// subscription", delete-account cancels for them. Only this list said
+// no, so the one bowler who cancelled and changed their mind before the
+// period ended could open a SECOND live subscription on the same Stripe
+// customer. entitlements holds one row per bowler, so the older one then
+// becomes invisible to the app and bills on forever.
+//
+// This reads the real file rather than a copy of the list, so the test
+// fails if the deployed function drifts again.
+describe('the create-checkout already-subscribed guard', () => {
+  const src = readFileSync(
+    new URL('../../supabase/functions/create-checkout/index.ts', import.meta.url), 'utf8');
+
+  const statuses = (() => {
+    const m = src.match(/\[([^\]]*)\]\s*\.includes\(String\(existing\.status\)\)/);
+    return m ? m[1].split(',').map(s => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean) : null;
+  })();
+
+  it('was found in the source at all', () => {
+    // If this fails the guard was renamed or restructured -- go LOOK at
+    // it rather than deleting this test, because the whole point is that
+    // nobody notices when it drifts.
+    expect(statuses).not.toBe(null);
+  });
+
+  it('agrees with isSubscriber for every status', () => {
+    const ends = new Date(NOW + 20 * 86_400_000).toISOString();
+    for (const status of ALL_OUR_STATUSES) {
+      const row = { plan: 'plus', status, current_period_end: ends };
+      const theyHaveAccess = isSubscriber(row, NOW);
+      const checkoutBlocks = statuses.includes(status);
+      expect(`${status}:blocked=${checkoutBlocks}`).toBe(`${status}:blocked=${theyHaveAccess}`);
+    }
+  });
+
+  it('specifically blocks a cancelled bowler who is still inside the period', () => {
+    expect(statuses).toContain('canceled');
   });
 });
