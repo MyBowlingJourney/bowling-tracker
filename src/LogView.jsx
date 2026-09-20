@@ -2293,13 +2293,21 @@ export default function LogView({
                         was printing the whole thing. */}
                     <span style={{fontWeight:400,color:C.textMuted}}> — {practiceLeagueDisplayName(cs.league).replace(" House Shot","")}, {formatDate(cs.date)}</span>
                   </div>
-                  <div style={{display:"flex",gap:"6px",marginBottom:"12px"}}>
-                    {cs.scores.map((s,i)=>(<div key={i} style={S.statBox}><div style={{...S.statNum,fontSize:"20px"}}>{s}</div><div style={S.statLbl}>G{i+1}</div></div>))}
-                    <div style={{...S.statBox,border:`1px solid ${C.accent}44`}}>
-                      <div style={{...S.statNum,fontSize:"20px",color:C.accent}}>{cs.total}</div>
-                      <div style={S.statLbl}>Series</div>
+                  {/* Results only. This card is shared with Side games,
+                      where the game scores are not what you came for: that
+                      tab is about what was won and owed, and the bowler
+                      just entered these numbers a tab ago. Repeating them
+                      above the money pushes the thing being looked for
+                      further down the screen. */}
+                  {onTab("results")&&(
+                    <div style={{display:"flex",gap:"6px",marginBottom:"12px"}}>
+                      {cs.scores.map((s,i)=>(<div key={i} style={S.statBox}><div style={{...S.statNum,fontSize:"20px"}}>{s}</div><div style={S.statLbl}>G{i+1}</div></div>))}
+                      <div style={{...S.statBox,border:`1px solid ${C.accent}44`}}>
+                        <div style={{...S.statNum,fontSize:"20px",color:C.accent}}>{cs.total}</div>
+                        <div style={S.statLbl}>Series</div>
+                      </div>
                     </div>
-                  </div>
+                  )}
                   {(()=>{
                     if(!anyTheoretical)return null;
                     return(
