@@ -67,6 +67,26 @@ beforeAll(() => {
   }
 });
 
+// Why these two tests carry their own timeout.
+//
+// This is the only file that loads the ENTIRE app module graph and renders
+// the whole tree, and it's one of only three that boot jsdom. Standalone it
+// takes ~1.6s. But the full suite runs 91 files across parallel workers, and
+// under that contention a 1.6s test has been starved past vitest's 5000ms
+// default -- failing with a timeout that says nothing about the app.
+//
+// The number is deliberately far above what the test needs (~18x) rather
+// than a snug fit. A snug fit would drift back to flaky the next time the
+// tree grows or CI gets a slower runner, and a smoke test that cries wolf
+// gets ignored -- which costs more than the bug it was built to catch.
+//
+// It stays a real check: a genuine infinite render loop, which is exactly
+// what this test exists to catch, blows 30s as surely as it blows 5s.
+//
+// Scoped HERE and not in vitest.config.js on purpose. Raising the global
+// timeout would blunt the other 90 files, where 5s is a useful signal.
+const MOUNT_TIMEOUT_MS = 30_000;
+
 describe('app renders', () => {
   // The first-launch gate decides which of two trees renders, and it reads
   // its flag synchronously from localStorage so the choice is made on the
@@ -86,7 +106,7 @@ describe('app renders', () => {
     // Asserts the wordmark renders, not what it says -- pinning the
     // literal name meant a rename broke a test that isn't about naming.
     expect(html).toContain(APP_NAME.replace(/&/g, '&amp;'));
-  });
+  }, MOUNT_TIMEOUT_MS);
 
   it('mounts the first-launch flow without throwing, for a new bowler', async () => {
     globalThis.window.localStorage.getItem = () => null;
@@ -101,6 +121,10 @@ describe('app renders', () => {
     // Anchored on "Which hand?" rather than the heading because the
     // heading contains an apostrophe, which server rendering escapes to
     // &#x27; and would make this assertion fail for the wrong reason.
+    // Same timeout, though this one runs in ~6ms today -- it's only that
+    // fast because the test above already warmed the module graph. Reorder
+    // or delete that test and this one inherits the cold load, and the
+    // flake moves here instead of disappearing.
     expect(html).toContain('Which hand?');
-  });
+  }, MOUNT_TIMEOUT_MS);
 });
