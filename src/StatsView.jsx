@@ -17,7 +17,7 @@ import { seasonComparison } from "./domain/scoreInsights.js";
 
 import { patternAverages, patternVersusOverall, patternLengthForLeague } from "./domain/oilPatterns.js";
 
-import { statsByRackType, rackTypeLabel } from "./domain/centers.js";
+import { rackTypeLabel } from "./domain/centers.js";
 
 import { cardsInGroup } from "./domain/statsGroups.js";
 import { cardHint } from "./domain/cardHints.js";
@@ -60,7 +60,7 @@ export default function StatsView({
   lanePatterns = [], leaguePatterns = {}, oilPatterns = [], tournaments = [], centers = [], statsGroup = "overview",
   leftHandedForBowler, ballProfile,
   SHOT_SAMPLE_THRESHOLD = 20,
-  centerStats,
+  centerStats, rackTypeStats,
   preferences,
   view, shots, sessions, bowlers, teams, leagues: allLeagues, arsenals, saved,
   statsBowler, setStatsBowler, compareBowler, setCompareBowler,
@@ -1200,7 +1200,10 @@ sessions.length>0&&(()=>{
                 // Needs BOTH types to say anything -- one type is not a
                 // comparison, it is just your average again.
                 byId["rackType"] = (()=>{
-                  const rows=statsByRackType(sessions,shots,allLeagues,centers,statsBowler);
+                  // Precomputed upstream: this needs leagues as OBJECTS
+                  // carrying centerId, and allLeagues here is a list of
+                  // names. See rackTypeStats in BowlingTracker.
+                  const rows=rackTypeStats||[];
                   const withGames=(rows||[]).filter(r=>r&&r.games>0);
                   if(withGames.length<2)return null;
                   return (

@@ -68,7 +68,7 @@ import { coachViewActive, setCoachView, applyEnvironment, setTrackingMode } from
 import { emptyBag, normalizeBag, bagToRow, bagFromRow, availableBalls, bagsForEnvironment, plasticLast, bagHasRoom, toggleBallInBag, removeBagMemberships, ballsByBagFor, membershipKey } from "./domain/bags.js";
 import { DEFAULT_BALL_GROUPS, emptyBallSpecs, normalizeBallSpecs, specsToRow, specsFromRow, groupToRow, groupFromRow } from "./domain/ballSpecs.js";
 import { ballKey, catalogState, bestEntry, rejectedBallsFor, clearedSpecsAfterRejection, canVote } from "./domain/ballCatalog.js";
-import { normalizeCenter, centerToRow, centerFromRow, findExistingCenter, statsByCenter } from "./domain/centers.js";
+import { normalizeCenter, centerToRow, centerFromRow, findExistingCenter, statsByCenter, statsByRackType } from "./domain/centers.js";
 import { normalizePattern, patternFromRow, patternToRow, patternAverages, allVerifiedPbaPatterns } from "./domain/oilPatterns.js";
 import { normalizeLeagueDates, needsBookAverageUpdate , isNoTapLeague, leagueFormat} from "./domain/leagueSeasons.js";
 import { archiveOnNewStart, compareSeasons, describeSeasonChange } from "./domain/seasons.js";
@@ -5826,6 +5826,20 @@ export default function BowlingTracker(){
 
   const leaguesWithCenters=leagues.map(name=>({name,centerId:leagueCenters[name]}));
   const centerStats=statsByCenter(sessions,leaguesWithCenters,centers,statsBowler||activeBowler,shots);
+  // Computed HERE, beside centerStats, and for the same reason.
+  //
+  // StatsView called statsByRackType itself and handed it `allLeagues`,
+  // which is a list of league NAMES. That function reads l.centerId off
+  // each entry to find the centre, and a string has no centerId -- so
+  // centerByLeague came out empty, every session and shot was skipped,
+  // and the free-fall-versus-string card returned nothing. With no data
+  // and no error, it looked exactly like "you have not bowled enough
+  // yet".
+  //
+  // leaguesWithCenters is the shape it actually wants, and it only
+  // exists at this level, which is why centerStats was already computed
+  // here rather than in the view.
+  const rackTypeStats=statsByRackType(sessions,shots,leaguesWithCenters,centers,statsBowler||activeBowler);
 
   // Whether the active bowler should be prompted to update their book
   // average, and what the app would suggest if so. Computed here rather
@@ -7983,6 +7997,7 @@ export default function BowlingTracker(){
             tournaments={tournaments}
 
             closedSeasons={closedSeasons} leagueDates={leagueDates}
+            rackTypeStats={rackTypeStats}
             view={view} entitlement={entitlement} shots={visibleShots} sessions={visibleSessions} bowlers={bowlers} teams={teams} leagues={leagues} arsenals={arsenals} saved={saved}
             statsBowler={statsBowler} setStatsBowler={chooseStatsBowler} compareBowler={compareBowler} setCompareBowler={setCompareBowler}
             compareFriendId={compareFriendId} setCompareFriendId={setCompareFriendId}
