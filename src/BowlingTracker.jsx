@@ -4678,9 +4678,56 @@ export default function BowlingTracker(){
     // and the card it belongs to arrive together.
   }
 
-  function cancelEdit(){
+  // Leaving edit mode, two ways.
+  //
+  //   cancelEdit()                 -- "never mind". The edit is abandoned
+  //                                   and the form goes back to whatever
+  //                                   the bowler was in the middle of
+  //                                   before they tapped the frame.
+  //
+  //   cancelEdit({stayOnFrame:true}) -- the shot was DELETED. Going back
+  //                                   to preEditForm would jump the
+  //                                   bowler forward to the next unbowled
+  //                                   frame, which is exactly the frame
+  //                                   they are not thinking about: they
+  //                                   deleted frame 3 because frame 3 is
+  //                                   wrong, and frame 3 is now empty and
+  //                                   waiting to be re-bowled. So the
+  //                                   form lands ON the deleted frame,
+  //                                   cleared.
+  //
+  // The gear carries either way -- same ball, surface, line and shoes the
+  // shot was bowled with. Re-bowling a frame is not a new setup, and
+  // re-entering all of it to correct one result is the kind of tax that
+  // stops people correcting anything.
+  function cancelEdit(opts){
     setEditingId(null);
-    setForm(preEditForm||emptyShot());
+
+    if(opts&&opts.stayOnFrame){
+      // `form` is still the shot that was just deleted, which is what
+      // makes it the right source for where to land.
+      setForm({
+        ...emptyShot(),
+        bowler:form.bowler,
+        league:form.league,
+        date:form.date,
+        lane:form.lane,
+        game:form.game,
+        frame:form.frame,
+        // The tenth is bowled ball by ball, so a deleted ball 2 comes
+        // back as ball 2. Everywhere else ballNum is null.
+        ballNum:parseInt(form.frame)===10?(form.ballNum||1):null,
+        ball:form.ball,
+        surface:form.surface,
+        startingBoard:form.startingBoard,
+        targetArrows:form.targetArrows,
+        heelNumber:form.heelNumber,
+        soleNumber:form.soleNumber,
+      });
+    }else{
+      setForm(preEditForm||emptyShot());
+    }
+
     setPreEditForm(null);
   }
 

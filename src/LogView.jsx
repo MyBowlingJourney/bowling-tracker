@@ -442,7 +442,7 @@ export default function LogView({
   // the bowler did not make.
   // The arithmetic lives in domain/scrollReveal.js so it can be tested;
   // this half only measures and scrolls.
-  const revealBottomOf=(ref,{cap=false}={})=>requestAnimationFrame(()=>requestAnimationFrame(()=>{
+  const revealBottomOf=(ref,{cap=false,allowUp=false}={})=>requestAnimationFrame(()=>requestAnimationFrame(()=>{
     const el=ref&&ref.current;
     if(!el)return;
     try{
@@ -462,9 +462,9 @@ export default function LogView({
         rect:el.getBoundingClientRect(),
         bottomLimit:Math.min(viewport,barTop>0?barTop:viewport),
         headerH:header?header.getBoundingClientRect().height:64,
-        cap,
+        cap,allowUp,
       });
-      if(delta>MIN_SCROLL)window.scrollBy({top:delta,behavior:"smooth"});
+      if(Math.abs(delta)>MIN_SCROLL)window.scrollBy({top:delta,behavior:"smooth"});
     }catch{ /* no DOM to scroll */ }
   }));
 
@@ -487,7 +487,6 @@ export default function LogView({
   const spareMadeRef=useRef(null);
   const totalPinsRef=useRef(null);
   const detailsRef=useRef(null);
-  const shotContextRef=useRef(null);
   const resultCardRef=useRef(null);
 
   // Entering edit mode lands on the RESULT card, not the banner.
@@ -506,7 +505,7 @@ export default function LogView({
   // read as "tapping a frame throws you to the top", and on the tenth --
   // where the ball chooser runs first -- that is exactly what it was.
   useEffect(()=>{
-    if(editingId)revealBottomOf(resultCardRef,{cap:true});
+    if(editingId)revealBottomOf(resultCardRef,{cap:true,allowUp:true});
   },[editingId]);
 
 
@@ -1564,7 +1563,7 @@ export default function LogView({
             )}
 
             {onTab("scoring")&&showShotContext&&(
-            <div ref={shotContextRef} style={S.card}>
+            <div style={S.card}>
               <div style={S.label}>
                 Shot Context
                 {inTenth&&<span style={{color:C.spare,marginLeft:"8px"}}>10th Frame{ballNumLabel}</span>}
@@ -1717,7 +1716,7 @@ export default function LogView({
             {editingId&&(
               <div style={{backgroundColor:C.spare+"22",border:`1px solid ${C.spare}44`,borderRadius:"10px",padding:"12px 16px",marginBottom:"12px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                 <div style={{fontSize:"13px",color:C.spare,fontWeight:600}}>✏️ Editing Shot</div>
-                <button style={{...S.btn(),padding:"6px 12px",fontSize:"12px"}} onClick={cancelEdit}>Cancel</button>
+                <button style={{...S.btn(),padding:"6px 12px",fontSize:"12px"}} onClick={()=>cancelEdit?.()}>Cancel</button>
               </div>
             )}
 
@@ -1988,7 +1987,12 @@ export default function LogView({
                           const which=`frame ${form.frame}${form.ballNum?`, ball ${form.ballNum}`:""} of game ${form.game}`;
                           if(!window.confirm(`Clearing the result deletes ${which}. Delete it?`))return;
                           deleteShot(editingId);
-                          cancelEdit?.();
+                          // Stay on the frame that was just emptied. It is
+                          // the frame the bowler is looking at and the one
+                          // they are about to re-bowl; the default exit
+                          // would send them forward to the next unbowled
+                          // frame instead.
+                          cancelEdit?.({stayOnFrame:true});
                           return;
                         }
 
@@ -3531,14 +3535,25 @@ export default function LogView({
               <button style={{...S.btn("primary"),flex:1}}
                 onClick={()=>{
                   submitShot();
-                  // Back to Shot Context for the next delivery.
+
+                  // Every new frame starts in the same place: the Result
+                  // card, with Save Shot below it. That is the baseline.
                   //
-                  // Saving leaves the page wherever the last answer was --
-                  // often the bottom of the accessory details -- while the
-                  // next thing a bowler needs is the frame counter at the
-                  // top. Without this they scroll up by hand after every
-                  // single shot.
-                  scrollToTopOf(shotContextRef);
+                  // This used to go to the top of the Shot Context card,
+                  // which put the frame counter on screen and the one
+                  // field the next shot actually needs below the fold --
+                  // most obviously coming out of the 9th, where the
+                  // bowler landed a whole card too high and scrolled back
+                  // down before they could log the 10th.
+                  //
+                  // Shot Context has not gone anywhere; it sits just above
+                  // and the frame counter is still readable. What changed
+                  // is which card the screen is built around.
+                  //
+                  // allowUp because this is a LANDING, not a reveal:
+                  // saving ends at the bottom of the accessory cards and
+                  // the Result card is above that, so the move is upward.
+                  revealBottomOf(resultCardRef,{cap:true,allowUp:true});
                 }}
                 disabled={!form.result||!form.bowler||needsPins||needsSpareMade}>
                 {saved?(editingId?"✓ Updated":"✓ Saved"):(editingId?"Update":"Save Shot")}
