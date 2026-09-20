@@ -44,25 +44,42 @@
  *                     false -- the region is TALLER than the area. Its top
  *                             cannot stay visible and does not need to; go
  *                             all the way to the limit.
+ * @param allowUp      false -- REVEAL. Only ever scrolls down, to bring
+ *                             something hidden onto the screen. A region
+ *                             already visible returns 0, because moving
+ *                             the page to show what the bowler is already
+ *                             looking at is motion they cannot explain.
+ *                     true  -- ALIGN. Put the region's end at the limit
+ *                             whichever way that is. This is for landing
+ *                             somewhere after an action rather than
+ *                             following the bowler's own progress down
+ *                             the form -- saving a shot ends at the
+ *                             bottom of the accessory cards, and the next
+ *                             frame starts at the Result card, which is
+ *                             upward.
  * @param gap          breathing room below the region
  *
- * @returns pixels to scroll DOWN. Never negative: a region already fully
- *          visible returns 0, because scrolling backwards to "reveal"
- *          something the bowler is already looking at moves the page for
- *          a reason they cannot see.
+ * @returns pixels to scroll DOWN, or negative to scroll UP when allowUp.
  */
-export function revealBottomDelta({ rect, bottomLimit, headerH, cap = false, gap = 12 }) {
+export function revealBottomDelta({
+  rect, bottomLimit, headerH, cap = false, allowUp = false, gap = 12,
+}) {
   if (!rect || !Number.isFinite(bottomLimit) || bottomLimit <= 0) return 0;
 
   let delta = rect.bottom + gap - bottomLimit;
-  if (!(delta > 0)) return 0;          // also catches NaN
+  if (!Number.isFinite(delta)) return 0;
+  if (!allowUp && delta <= 0) return 0;
 
   if (cap) {
+    // Only ever pulls the scroll BACK, so it cannot turn an up-scroll
+    // into a down-scroll -- it caps how far down we go, nothing else.
     const maxDelta = rect.top - (headerH + gap);
+    if (!Number.isFinite(maxDelta)) return 0;
     if (delta > maxDelta) delta = maxDelta;
   }
 
-  return delta > 0 ? delta : 0;
+  if (!allowUp && delta < 0) return 0;
+  return delta;
 }
 
 // Below this, a scroll is visual noise rather than a correction -- the

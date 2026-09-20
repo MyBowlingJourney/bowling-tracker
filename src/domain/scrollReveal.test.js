@@ -77,6 +77,41 @@ describe('a region that fits (cap on)', () => {
   });
 });
 
+// ── Landing vs revealing ────────────────────────────────────────────────
+describe('allowUp: landing somewhere rather than revealing something', () => {
+  const A = (top, bottom, cap = true) =>
+    revealBottomDelta({ rect: { top, bottom }, bottomLimit: LIMIT, headerH: H, cap, allowUp: true });
+
+  // Saving a shot ends at the bottom of the accessory cards, so the
+  // Result card the next frame starts on is off the TOP of the screen.
+  it('scrolls up to a card that is above the screen', () => {
+    expect(d(-900, -400, true)).toBe(0);            // reveal: nothing to do
+    expect(A(-900, -400)).toBeLessThan(0);          // align: come back up
+    expect(A(-900, -400)).toBe(-400 + GAP - LIMIT);
+  });
+
+  it('does not jiggle a card already in position', () => {
+    expect(A(200, LIMIT - GAP)).toBe(0);
+  });
+
+  it('agrees with reveal when the move is downward', () => {
+    expect(A(300, 700)).toBe(d(300, 700));
+  });
+
+  // The cap only ever pulls the delta back, so it cannot turn an
+  // up-scroll into a down one.
+  it('never lets the cap flip an up-scroll', () => {
+    const capped = A(-900, -400, true);
+    const uncapped = A(-900, -400, false);
+    expect(capped).toBe(uncapped);
+    expect(capped).toBeLessThan(0);
+  });
+
+  it('still caps downward travel', () => {
+    expect(A(100, 1000)).toBe(24);
+  });
+});
+
 describe('safety', () => {
   it('is safe on a missing rect', () => {
     expect(revealBottomDelta({ rect: null, bottomLimit: LIMIT, headerH: H })).toBe(0);
@@ -90,5 +125,6 @@ describe('safety', () => {
 
   it('never returns NaN from a bogus rect', () => {
     expect(revealBottomDelta({ rect: { top: NaN, bottom: NaN }, bottomLimit: LIMIT, headerH: H })).toBe(0);
+    expect(revealBottomDelta({ rect: { top: NaN, bottom: NaN }, bottomLimit: LIMIT, headerH: H, allowUp: true })).toBe(0);
   });
 });
