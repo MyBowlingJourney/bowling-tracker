@@ -1797,16 +1797,40 @@ export default function LogView({
                 thrown, so the bowler finds the right ball by recognising
                 it rather than by counting. */}
             {tenthPick&&(
+              // Amber, like the Editing Shot banner below it, and for the
+              // same reason: this is an edit in progress. It used to be
+              // an accent-bordered plain card, which is what every other
+              // card on the tab looks like -- so the one card that means
+              // "you are changing something already bowled" was the only
+              // one not saying so.
+              //
+              // Same background, border, radius and padding as the
+              // banner, and the same ✏️ and heading weight, because the
+              // two appear in the same spot one after the other and a
+              // shift in either would read as the page jumping.
               <div ref={tenthPickRef}
-                style={{...S.card,border:`1.5px solid ${C.accent}`}}>
-                <div style={S.label}>Which ball in the 10th?</div>
+                style={{backgroundColor:C.spare+"22",border:`1px solid ${C.spare}44`,
+                  borderRadius:"10px",padding:"12px 16px",marginBottom:"12px"}}>
+                <div style={{display:"flex",justifyContent:"space-between",
+                  alignItems:"center",gap:"8px",marginBottom:"10px"}}>
+                  {/* Says EDIT, not just "which ball".
+
+                      "Which ball in the 10th?" described the choice and
+                      never the reason for it, so a bowler who tapped the
+                      tenth by accident had nothing telling them what
+                      answering would do. */}
+                  <div style={{fontSize:"13px",color:C.spare,fontWeight:600}}>
+                    ✏️ Edit the 10th — which ball?
+                  </div>
+                  <button style={{...S.btn(),padding:"6px 12px",fontSize:"12px",flexShrink:0}}
+                    onClick={()=>setTenthPick(null)}>Cancel</button>
+                </div>
                 <div style={S.chips}>
                   {tenthPick.balls.map((b,i)=>(
                     <Chip key={i}
                       label={`${i===2?"Fill":`Ball ${i+1}`} · ${b.result==="Strike"?"X":(b._displayResult||b.result||"—")}`}
                       onToggle={()=>{setTenthPick(null);startEdit(b);}} />
                   ))}
-                  <Chip label="Cancel" onToggle={()=>setTenthPick(null)} />
                 </div>
               </div>
             )}
