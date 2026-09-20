@@ -1,6 +1,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { C, S, Chip, CollapsibleCard, LockedNote } from "./ui.jsx";
 import { THEMES, DARK_THEME_IDS, LIGHT_THEME_IDS } from "./domain/themes.js";
+import { EXAMPLE_PATTERN } from "./domain/oilPatterns.js";
 import { useAuth } from "./AuthProvider.jsx";
 import { getPendingCount } from "./syncQueue.js";
 import CalendarView from "./CalendarView.jsx";
@@ -93,6 +94,17 @@ export default function Settings({
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [deleteAccountError, setDeleteAccountError] = useState("");
   const [savedFlash, setSavedFlash] = useState(false);
+
+  // "Official pattern chosen, nothing typed yet", per league.
+  //
+  // The saved value is a NAME and nothing else, so an empty string means
+  // house shot. That makes the moment between tapping Official and
+  // typing a name unrepresentable in stored state -- the chip would
+  // spring back to House Shot under the bowler's finger. This remembers
+  // the choice until a name lands; it is deliberately not persisted,
+  // because a league left on Official with no name IS a house shot as
+  // far as everything downstream is concerned.
+  const [patternOfficial, setPatternOfficial] = useState({});
   const [error, setError] = useState(null);
   // Settings has two distinct jobs now: configuring the app, and browsing
   // history. History is long reference data, so it lives behind its own
@@ -674,22 +686,72 @@ export default function Settings({
                     {setLeaguePattern && (
                       <>
                         <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "10px", marginBottom: "4px" }}>
-                          Usual oil pattern
+                          Usual lane condition
                         </div>
-                        {/* Type-ahead over the pattern catalogue rather
-                            than a free-text box -- but free text still
-                            saves, because house shots have local names
-                            and a brand new PBA pattern is not in the
-                            catalogue the week it appears. */}
-                        <OilPatternPicker
-                          value={leaguePatterns?.[league] || ""}
-                          patterns={oilPatterns}
-                          placeholder="e.g. House Shot, Kegel Main Street"
-                          onChange={name => setLeaguePattern(league, name)} />
-                        <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "4px", lineHeight: 1.5 }}>
-                          Used for any night you don't record a pattern for. Leave blank if this
-                          league rotates.
-                        </div>
+                        {/* The question first, the picker only if the
+                            answer needs one.
+                          
+                            A bare type-ahead asked every bowler to name
+                            a pattern, when the true answer for most
+                            league nights is "the house shot" -- which is
+                            not something you look up, and which left the
+                            field blank and looking unfinished. Worse, a
+                            blank field and a deliberate house shot are
+                            the same stored value, so there was no way to
+                            say "yes, I have answered this".
+                          
+                            Same two chips as the Log screen's lane
+                            conditions, in the same order, so the answer
+                            reads the same in both places. */}
+                        {(() => {
+                          const saved = leaguePatterns?.[league] || "";
+                          const isOfficial = !!saved || !!patternOfficial[league];
+                          return (
+                            <>
+                              <div style={S.chips}>
+                                <Chip label="House Shot" selected={!isOfficial}
+                                  onToggle={() => {
+                                    setPatternOfficial(o => ({ ...o, [league]: false }));
+                                    // Clears the stored name too, or
+                                    // answering "house shot" would leave
+                                    // last week's pattern behind it.
+                                    if (saved) setLeaguePattern(league, "");
+                                  }} />
+                                <Chip label="Official Pattern" selected={isOfficial} color={C.spare}
+                                  onToggle={() => setPatternOfficial(o => ({ ...o, [league]: true }))} />
+                              </div>
+                              {isOfficial && (
+                                <div style={{ marginTop: "6px" }}>
+                                  {/* Type-ahead over the pattern
+                                      catalogue rather than a free-text
+                                      box -- but free text still saves,
+                                      because house shots have local
+                                      names and a brand new PBA pattern
+                                      is not in the catalogue the week it
+                                      appears. */}
+                                  <OilPatternPicker
+                                    value={saved}
+                                    patterns={oilPatterns}
+                                    placeholder={`e.g. ${EXAMPLE_PATTERN}`}
+                                    onChange={name => setLeaguePattern(league, name)} />
+                                  {/* No length, volume or ratio here, unlike
+                                      the Log screen's per-night entry.
+                                    
+                                      The league stores a NAME and nothing
+                                      else, and the catalogue already knows
+                                      what a named pattern measures -- the
+                                      lane diagram resolves its depth from
+                                      that name. A second copy on the league
+                                      row could only ever disagree with it. */}
+                                  <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "4px", lineHeight: 1.5 }}>
+                                    Used for any night you don't record a pattern for. Leave the
+                                    name blank if this league rotates.
+                                  </div>
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
                       </>
                     )}
                   </>

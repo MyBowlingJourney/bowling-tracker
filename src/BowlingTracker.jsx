@@ -5183,27 +5183,45 @@ export default function BowlingTracker(){
     //     recap, the running averages and the share button live.
     //   tournament -> the tournament card's own Results tab, which has
     //     the block totals, the cut line and the money.
+    //
+    // PRACTICE KEEPS ITS TABS SOMEWHERE ELSE. Three modes, three pieces
+    // of state: league reads leagueTabChoice, tournament reads
+    // tournamentTab, and practice reads practiceMode (Games / Drill /
+    // Results). This branch set the league one for practice, which
+    // practice never reads -- so ending a practice session saved the
+    // night and left the screen exactly where it was. Casual has no tabs
+    // at all and shows everything, so there is nothing to set.
     if(preferences.environment==="tournament"){
       setTournamentTab("results");
+    } else if(preferences.environment==="practice"){
+      setPracticeMode("results");
     } else {
       setLeagueTab("results");
     }
     // Scroll to the top, or the results open below the fold and it still
     // looks as though nothing happened.
     setSessionSaved(true);
-    // Back to Home once the night is filed.
+    // STAY on Results. This used to jump to Home 1.5s later.
     //
-    // The tabs above are still set, so returning to Bowl later lands on
-    // Results -- but the night is over, and leaving a bowler on the
-    // scoring screen invites them to keep logging into a session they
-    // just ended.
+    // The tab switch above and that jump contradicted each other: the
+    // code carefully moved the bowler to their results and then took
+    // them off it before they could read a word, so the recap, the
+    // running averages and the share button were all somewhere you had
+    // to navigate back to. The comment here used to justify it as
+    // "returning to Bowl later lands on Results", which is a strange
+    // thing to arrange for a screen you were already on.
+    //
+    // The worry it was answering -- do not leave someone on the scoring
+    // form, inviting them to log into a session they just ended -- is
+    // already handled by the tab change itself. Results is not the
+    // scoring screen.
     //
     // After the confirmation, not instead of it: the button says
     // "Session Saved" for a moment first, so the screen changing is the
     // consequence of something they saw work rather than a jump.
     setTimeout(()=>{
       setSessionSaved(false);
-      setView("home");
+      // The results open at the top of the tab, not below the fold.
       try{window.scrollTo({top:0,behavior:"smooth"});}catch{}
     },1500);
   }

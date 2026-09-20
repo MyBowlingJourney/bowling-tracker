@@ -6,6 +6,7 @@ import { buyInsForLeague, costArraysFor, sessionMoney } from "./domain/money.js"
 import { anyMoneyGameShown, visibleMoneyGames } from "./domain/preferences.js";
 import { nextLeagueDate, prebowlConflict } from "./domain/sessions.js";
 import { needsLeagueSetup } from "./domain/tour.js";
+import { EXAMPLE_PATTERN } from "./domain/oilPatterns.js";
 import { achievementsFor, PLACEMENTS } from "./domain/achievements.js";
 import { inferLeagueDay } from "./domain/reminders.js";
 import Scoresheet from "./Scoresheet.jsx";
@@ -92,6 +93,19 @@ export default function LogView({
   // Local, not lifted: nothing outside this screen needs to know that a
   // confirm is half-open, and it should reset if the screen is left.
   const [cancelArmed,setCancelArmed]=useState(false);
+  // The cancel confirmation opens UNDER the fixed End Session bar.
+  //
+  // It expands in place, at the bottom of Set up, and the bar is pinned
+  // over the bottom of the window -- so the two buttons that answer the
+  // question it just asked were behind it, and the only way to reach
+  // them was to scroll a page that had just changed height.
+  //
+  // Same treatment as every other reveal on this screen: measure against
+  // the BAR's top rather than the window's, and bring the card's bottom
+  // above it. allowUp, because this has to land whichever way the page
+  // currently sits; cap, so its own top never slides under the header
+  // and hides what is being agreed to.
+  const cancelRef=useRef(null);
   // Which game number is armed for deletion, or null. One at a time, so
   // arming a second cancels the first rather than leaving two live.
   const [gameToDelete,setGameToDelete]=useState(null);
@@ -884,7 +898,7 @@ export default function LogView({
                               <OilPatternPicker
                                 value={rec.patternName}
                                 patterns={oilPatterns}
-                                placeholder="Pattern name (e.g. Kegel Main Street)"
+                                placeholder={`Pattern name (e.g. ${EXAMPLE_PATTERN})`}
                                 onChange={(name,picked)=>setLanePattern(
                                   form.teamId||sessionLeague,sessionLeague,sessionDate,lane,
                                   picked
@@ -999,11 +1013,16 @@ export default function LogView({
                             style={{background:"none",border:"none",color:C.textMuted,cursor:"pointer",
                                     fontSize:"13px",padding:"8px",width:"100%",
                                     WebkitTapHighlightColor:"transparent"}}
-                            onClick={()=>setCancelArmed(true)}>
+                            onClick={()=>{
+                              setCancelArmed(true);
+                              // After the card exists, not before: it is
+                              // rendered by this very state change.
+                              revealBottomOf(cancelRef,{cap:true,allowUp:true});
+                            }}>
                             Cancel this session
                           </button>
                         ):(
-                          <div style={{...S.card,padding:"12px",marginBottom:0}}>
+                          <div ref={cancelRef} style={{...S.card,padding:"12px",marginBottom:0}}>
                             <div style={{fontSize:"13px",color:C.text,lineHeight:1.5,marginBottom:"10px"}}>
                               This deletes every shot and game score logged tonight for{" "}
                               <strong>{form.bowler||activeBowler}</strong> in{" "}
