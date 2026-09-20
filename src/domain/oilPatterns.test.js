@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { normalizePattern, describePattern, searchPatterns, patternToRow, patternFromRow, patternDays, patternStats, loggedPatternSummaries,
+import { patternAverages,
+  normalizePattern, describePattern, searchPatterns, patternToRow, patternFromRow, patternDays, patternStats, loggedPatternSummaries,
   VERIFIED_PATTERN_SPECS,
   allVerifiedPbaPatterns,
   pbaPatternsForYear,
@@ -291,5 +292,49 @@ describe('pattern history, results and notes', () => {
       expect(() => patternVersusOverall(junk, junk)).not.toThrow();
     }
     expect(patternHistory(null, null, 'Ryan')).toEqual([]);
+  });
+});
+
+// ── The league's default pattern ────────────────────────────────────
+//
+// lane_patterns rows only reach the cloud when the bowler is on a TEAM
+// in that league (syncLanePatternsToCloud: `if(row.team_id)`). A solo
+// league bowler's per-night patterns therefore never leave their device,
+// so this comparison was empty for them no matter how diligently they
+// filled it in. A default on the league syncs like any other league
+// column and closes that gap.
+describe('patternAverages with a league default', () => {
+  const sessions = [
+    { bowler: 'Ryan', league: 'Tuesday', date: '2026-01-06', scores: [200, 210, 190] },
+    { bowler: 'Ryan', league: 'Tuesday', date: '2026-01-13', scores: [180, 170, 175] },
+  ];
+
+  it('uses the league default when the night has no record of its own', () => {
+    const rows = patternAverages(sessions, [], [], 'Ryan', { Tuesday: 'House Shot' });
+    expect(rows.length).toBe(1);
+    expect(rows[0].name).toBe('House Shot');
+    expect(rows[0].games).toBe(6);
+  });
+
+  // The bowler wrote down what they actually bowled on. That beats a
+  // guess every time.
+  it('lets a per-night record override the default', () => {
+    const nightly = [{ league: 'Tuesday', date: '2026-01-13', patternName: 'Chameleon' }];
+    const rows = patternAverages(sessions, nightly, [], 'Ryan', { Tuesday: 'House Shot' });
+    const byName = Object.fromEntries(rows.map(r => [r.name, r.games]));
+    expect(byName['Chameleon']).toBe(3);
+    expect(byName['House Shot']).toBe(3);
+  });
+
+  it('changes nothing when no default is given', () => {
+    expect(patternAverages(sessions, [], [], 'Ryan')).toEqual([]);
+    expect(patternAverages(sessions, [], [], 'Ryan', {})).toEqual([]);
+  });
+
+  it('survives rubbish in the defaults map', () => {
+    for (const bad of [null, undefined, 'nope', 42, []]) {
+      expect(patternAverages(sessions, [], [], 'Ryan', bad)).toEqual([]);
+    }
+    expect(patternAverages(sessions, [], [], 'Ryan', { Tuesday: '   ' })).toEqual([]);
   });
 });

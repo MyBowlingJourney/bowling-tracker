@@ -418,7 +418,23 @@ export function patternVersusOverall(history, overallAverage) {
     .map(h => ({ ...h, versusOverall: Math.round(Number(h.average) - overall) }));
 }
 
-export function patternAverages(sessions, lanePatterns, tournaments, bowler) {
+// leagueDefaults: { [leagueName]: patternName } — the pattern a league is
+// normally bowled on, set once on the league instead of re-entered every
+// week.
+//
+// It exists because the per-night records could not reach most bowlers.
+// lane_patterns rows only sync when the bowler is on a TEAM in that
+// league (see syncLanePatternsToCloud: `if(row.team_id)`), so a solo
+// league bowler entered a pattern, watched it save, and had it live in
+// local storage only -- invisible to this function on any other device
+// and gone when that device was replaced. A default on the league syncs
+// like any other league column, so the comparison finally populates for
+// bowlers who are not on a team.
+//
+// The per-night record still WINS wherever one exists. A league that
+// rotates patterns -- PBA Experience, any sport league -- is the reason
+// this is a default rather than a fixed property of the league.
+export function patternAverages(sessions, lanePatterns, tournaments, bowler, leagueDefaults = {}) {
   const byPattern = new Map();
 
   function add(name, scores) {
@@ -436,9 +452,14 @@ export function patternAverages(sessions, lanePatterns, tournaments, bowler) {
     if (!p?.patternName) continue;
     patternByNight.set(`${p.league}|${p.date}`, p.patternName);
   }
+  const defaults = (leagueDefaults && typeof leagueDefaults === "object") ? leagueDefaults : {};
   for (const s of (Array.isArray(sessions) ? sessions : [])) {
     if (!s || (bowler && s.bowler !== bowler)) continue;
-    const name = patternByNight.get(`${s.league}|${s.date}`);
+    // The night's own record first, the league's default second. Never
+    // the other way round: a bowler who wrote down what they actually
+    // bowled on has told us something the default is only guessing at.
+    const name = patternByNight.get(`${s.league}|${s.date}`)
+      || (typeof defaults[s.league] === "string" ? defaults[s.league].trim() : "");
     if (name) add(name, s.scores);
   }
 
