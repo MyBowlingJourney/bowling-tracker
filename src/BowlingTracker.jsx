@@ -2220,24 +2220,28 @@ export default function BowlingTracker(){
     const clean=newName.trim();
     if(!clean||oldName===clean)return;
     if(leagues.some(l=>l!==oldName&&l.toLowerCase()===clean.toLowerCase())){alert("A league with that name already exists.");return;}
-    const updatedShots=renameLeagueInRecords(shots,oldName,clean);
-    const updatedSessions=renameLeagueInRecords(sessions,oldName,clean);
-    const updatedMatches=renameLeagueInRecords(matches,oldName,clean);
-    const updatedLanePatterns=renameLeagueInRecords(lanePatterns,oldName,clean);
-    const updatedLeagues=leagues.map(l=>l===oldName?clean:l);
-    await saveShots(updatedShots);
-    await saveSessions(updatedSessions);
-    await saveMatches(updatedMatches);
-    await saveLanePatterns(updatedLanePatterns);
-    await saveLeagues(updatedLeagues);
-    // Update the SAME row by its existing id — never delete-and-recreate,
-    // since teams.league_id references this row and deleting it would
-    // cascade-delete every team in the league.
+    // THE CLOUD IS ASKED FIRST, and nothing local moves until it agrees.
+    //
+    // This used to rename every shot, session, match and lane pattern
+    // first and rename the league row afterwards. saveShots and friends
+    // push to the cloud as well as writing locally (see syncShotsToCloud),
+    // so by the time a duplicate came back from the leagues table the
+    // bowler's whole season had ALREADY been relabelled, on this device
+    // and in the cloud, while the league row itself still held the old
+    // name. The duplicate branch undid the id remap and said "pick a
+    // different name" -- which reads as "nothing happened" to somebody
+    // whose every shot had just been re-attributed to a different league
+    // on every device they own.
+    //
+    // A duplicate is the EXPECTED outcome whenever the other name was
+    // created on another device and has not synced here yet, which makes
+    // this a path real bowlers hit, not a theoretical one.
+    //
+    // Renaming the league row first means a refusal costs nothing: there
+    // is nothing to undo, because nothing has been written.
     const existingId=leagueIdsRef.current[oldName];
     let renameFailed=false;
     if(existingId){
-      delete leagueIdsRef.current[oldName];
-      leagueIdsRef.current[clean]=existingId;
       const result=await cloudWrite("leagues",{id:existingId,name:clean});
       // A duplicate here is a REFUSAL, not a success.
       //
@@ -2248,17 +2252,32 @@ export default function BowlingTracker(){
       // the new name while the cloud kept the old one, and the next read
       // would quietly put the old name back.
       if(result.duplicate){
-        // Undo the local remap so state matches the cloud.
-        delete leagueIdsRef.current[clean];
-        leagueIdsRef.current[oldName]=existingId;
+        // Nothing to undo -- see above. No local record has been touched.
         alert(`You already have a league called "${clean}". Pick a different name.`);
         return;
       }
       renameFailed=!result.synced;
+      // Only now that the row carries the new name does the id map move.
+      delete leagueIdsRef.current[oldName];
+      leagueIdsRef.current[clean]=existingId;
     }else{
       const failed=await ensureLeaguesInCloud([clean]);
       renameFailed=failed.length>0;
     }
+
+    // The league row is renamed (or is queued to be). Now the records
+    // that point at it by name can follow.
+    const updatedShots=renameLeagueInRecords(shots,oldName,clean);
+    const updatedSessions=renameLeagueInRecords(sessions,oldName,clean);
+    const updatedMatches=renameLeagueInRecords(matches,oldName,clean);
+    const updatedLanePatterns=renameLeagueInRecords(lanePatterns,oldName,clean);
+    const updatedLeagues=leagues.map(l=>l===oldName?clean:l);
+    await saveShots(updatedShots);
+    await saveSessions(updatedSessions);
+    await saveMatches(updatedMatches);
+    await saveLanePatterns(updatedLanePatterns);
+    await saveLeagues(updatedLeagues);
+
     if(renameFailed){
       alert(`"${clean}" was renamed on this device only and hasn't reached the cloud yet. It'll keep retrying in the background if you're offline; check back if this persists.`);
     }
@@ -3289,7 +3308,19 @@ export default function BowlingTracker(){
   // anyone else.
   async function claimSignupCode(raw){
     const code=normalizeSignupCode(raw);
-    if(!isValidSignupCode(code))return "That doesn't look like a team code.";
+    // Validated against RAW, not against the normalized form -- which is
+    // exactly what isValidSignupCode's own comment asks for, and what
+    // this call site was getting wrong.
+    //
+    // normalizeSignupCode truncates to eight characters. Hand it the
+    // normalized value and a nine-character mistype has already been cut
+    // down to something eight characters long and perfectly valid, so
+    // the check passes and a DIFFERENT code than the one typed goes to
+    // the server: "ABCD23456" is silently claimed as "ABCD-2345". The
+    // code is how a bowler consents to joining a roster, so landing on
+    // the wrong one -- or getting an inexplicable refusal for a code
+    // that looked fine -- is worse than being told about the typo.
+    if(!isValidSignupCode(raw))return "That doesn't look like a team code.";
     try{
       const{error}=await supabase.rpc("claim_signup_code",{code});
       if(error)return error.message||"That code is not valid.";
