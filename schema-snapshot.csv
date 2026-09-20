@@ -1,4 +1,13 @@
 kind,object_name,detail,extra
+column,ai_token_usage,called_at,timestamp with time zone NOT NULL
+column,ai_token_usage,endpoint,text NOT NULL
+column,ai_token_usage,id,uuid NOT NULL
+column,ai_token_usage,model,text NOT NULL
+column,ai_token_usage,output_tokens,integer NOT NULL
+column,ai_token_usage,prompt_tokens,integer NOT NULL
+column,ai_token_usage,total_tokens,integer NOT NULL
+column,ai_token_usage,user_id,uuid
+column,ai_token_usage,variant,text
 column,api_usage,called_at,timestamp with time zone NOT NULL
 column,api_usage,endpoint,text NOT NULL
 column,api_usage,id,uuid NOT NULL
@@ -149,6 +158,32 @@ column,drills,missed,integer NOT NULL
 column,drills,notes,text
 column,drills,target,text NOT NULL
 column,drills,user_id,uuid
+column,entitlements,billing_period,text
+column,entitlements,created_at,timestamp with time zone NOT NULL
+column,entitlements,current_period_end,timestamp with time zone
+column,entitlements,is_test_account,boolean NOT NULL
+column,entitlements,kept_league_id,uuid
+column,entitlements,last_event_at,timestamp with time zone
+column,entitlements,plan,text NOT NULL
+column,entitlements,play_purchase_token,text
+column,entitlements,source,text
+column,entitlements,status,text NOT NULL
+column,entitlements,stripe_customer_id,text
+column,entitlements,stripe_subscription_id,text
+column,entitlements,trial_end,timestamp with time zone
+column,entitlements,updated_at,timestamp with time zone NOT NULL
+column,entitlements,user_id,uuid NOT NULL
+column,error_reports,build,text NOT NULL
+column,error_reports,code,text NOT NULL
+column,error_reports,first_seen,timestamp with time zone NOT NULL
+column,error_reports,hits,integer NOT NULL
+column,error_reports,id,uuid NOT NULL
+column,error_reports,kind,text NOT NULL
+column,error_reports,last_seen,timestamp with time zone NOT NULL
+column,error_reports,message,text NOT NULL
+column,error_reports,signature,text NOT NULL
+column,error_reports,user_id,uuid NOT NULL
+column,error_reports,where_at,text NOT NULL
 column,friendships,addressee_id,uuid NOT NULL
 column,friendships,created_at,timestamp with time zone NOT NULL
 column,friendships,id,uuid NOT NULL
@@ -196,6 +231,7 @@ column,leagues,end_date,date
 column,leagues,format,text
 column,leagues,id,uuid NOT NULL
 column,leagues,name,text NOT NULL
+column,leagues,pattern_name,text
 column,leagues,start_date,date
 column,manual_scores,ball,text
 column,manual_scores,bowler_name,text NOT NULL
@@ -314,6 +350,7 @@ column,shots,pin_count,text NOT NULL
 column,shots,release,text NOT NULL
 column,shots,result,text NOT NULL
 column,shots,rev_rate,numeric
+column,shots,second_leave,jsonb
 column,shots,sole_number,text
 column,shots,spare_made,text NOT NULL
 column,shots,starting_board,text
@@ -323,6 +360,14 @@ column,shots,target_arrows,text
 column,shots,team_id,uuid
 column,shots,updated_at,timestamp with time zone NOT NULL
 column,shots,user_id,uuid NOT NULL
+column,subscription_events,applied,boolean NOT NULL
+column,subscription_events,event_id,text NOT NULL
+column,subscription_events,event_time,timestamp with time zone NOT NULL
+column,subscription_events,event_type,text
+column,subscription_events,id,uuid NOT NULL
+column,subscription_events,received_at,timestamp with time zone NOT NULL
+column,subscription_events,source,text NOT NULL
+column,subscription_events,user_id,uuid
 column,sync_tombstones,deleted_at,timestamp with time zone NOT NULL
 column,sync_tombstones,id,uuid NOT NULL
 column,sync_tombstones,row_id,uuid NOT NULL
@@ -366,11 +411,14 @@ column,tournaments,winnings,numeric
 column,user_preferences,preferences,jsonb NOT NULL
 column,user_preferences,updated_at,timestamp with time zone
 column,user_preferences,user_id,uuid NOT NULL
+constraint,ai_token_usage,ai_token_usage_pkey,PRIMARY KEY (id)
+constraint,ai_token_usage,ai_token_usage_user_id_fkey,FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE SET NULL
 constraint,api_usage,api_usage_pkey,PRIMARY KEY (id)
 constraint,api_usage,api_usage_user_id_fkey,FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
 constraint,arsenals,arsenal_pkey,PRIMARY KEY (id)
 constraint,arsenals,arsenals_core_type_check,"CHECK (((core_type IS NULL) OR (core_type = ANY (ARRAY['symmetric'::text, 'asymmetric'::text]))))"
 constraint,arsenals,arsenals_coverstock_check,"CHECK (((coverstock IS NULL) OR (coverstock = ANY (ARRAY['solid'::text, 'pearl'::text, 'hybrid'::text]))))"
+constraint,arsenals,arsenals_created_by_fkey,FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE CASCADE
 constraint,arsenals,arsenals_group_id_fkey,FOREIGN KEY (group_id) REFERENCES ball_groups(id) ON DELETE SET NULL
 constraint,arsenals,arsenals_layout_system_check,"CHECK (((layout_system IS NULL) OR (layout_system = ANY (ARRAY['dual_angle'::text, 'vls'::text, '2ls'::text]))))"
 constraint,bags,bags_bag_type_check,"CHECK ((bag_type = ANY (ARRAY['league'::text, 'tournament'::text])))"
@@ -395,6 +443,7 @@ constraint,ball_submissions,ball_submissions_submitted_by_fkey,FOREIGN KEY (subm
 constraint,bowler_goals,bowler_goals_created_by_bowler_name_key,"UNIQUE (created_by, bowler_name)"
 constraint,bowler_goals,bowler_goals_created_by_fkey,FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE CASCADE
 constraint,bowler_goals,bowler_goals_pkey,PRIMARY KEY (id)
+constraint,bowler_names,bowler_names_created_by_fkey,FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE CASCADE
 constraint,bowler_names,bowler_names_pkey,PRIMARY KEY (id)
 constraint,bowler_profiles,bowler_profiles_all_time_high_game_check,CHECK (((all_time_high_game IS NULL) OR ((all_time_high_game >= 0) AND (all_time_high_game <= 300))))
 constraint,bowler_profiles,bowler_profiles_all_time_high_series_check,CHECK (((all_time_high_series IS NULL) OR ((all_time_high_series >= 0) AND (all_time_high_series <= 900))))
@@ -425,6 +474,16 @@ constraint,coaching_tasks,coaching_tasks_relationship_id_fkey,FOREIGN KEY (relat
 constraint,coaching_tasks,coaching_tasks_status_check,"CHECK ((status = ANY (ARRAY['open'::text, 'completed'::text, 'attempted'::text])))"
 constraint,drills,drills_pkey,PRIMARY KEY (id)
 constraint,drills,drills_user_id_fkey,FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+constraint,entitlements,entitlements_billing_period_check,"CHECK ((billing_period = ANY (ARRAY['month'::text, 'year'::text])))"
+constraint,entitlements,entitlements_kept_league_id_fkey,FOREIGN KEY (kept_league_id) REFERENCES leagues(id) ON DELETE SET NULL
+constraint,entitlements,entitlements_pkey,PRIMARY KEY (user_id)
+constraint,entitlements,entitlements_plan_check,"CHECK ((plan = ANY (ARRAY['free'::text, 'plus'::text])))"
+constraint,entitlements,entitlements_source_check,"CHECK ((source = ANY (ARRAY['play'::text, 'stripe'::text, 'manual'::text])))"
+constraint,entitlements,entitlements_status_check,"CHECK ((status = ANY (ARRAY['none'::text, 'trialing'::text, 'active'::text, 'grace'::text, 'on_hold'::text, 'paused'::text, 'canceled'::text, 'expired'::text])))"
+constraint,entitlements,entitlements_user_id_fkey,FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+constraint,error_reports,error_reports_pkey,PRIMARY KEY (id)
+constraint,error_reports,error_reports_user_id_fkey,FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+constraint,error_reports,error_reports_user_signature_key,"UNIQUE (user_id, signature)"
 constraint,friendships,friendships_addressee_id_fkey,FOREIGN KEY (addressee_id) REFERENCES profiles(id) ON DELETE CASCADE
 constraint,friendships,friendships_check,CHECK ((requester_id <> addressee_id))
 constraint,friendships,friendships_pkey,PRIMARY KEY (id)
@@ -475,7 +534,11 @@ constraint,shots,shots_league_id_fkey,FOREIGN KEY (league_id) REFERENCES leagues
 constraint,shots,shots_pkey,PRIMARY KEY (id)
 constraint,shots,shots_team_id_fkey,FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE SET NULL
 constraint,shots,shots_user_id_fkey,FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE
+constraint,subscription_events,subscription_events_pkey,PRIMARY KEY (id)
+constraint,subscription_events,subscription_events_source_check,"CHECK ((source = ANY (ARRAY['play'::text, 'stripe'::text])))"
+constraint,subscription_events,subscription_events_user_id_fkey,FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
 constraint,sync_tombstones,sync_tombstones_pkey,PRIMARY KEY (id)
+constraint,sync_tombstones,sync_tombstones_user_id_fkey,FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
 constraint,team_members,team_members_pkey,"PRIMARY KEY (team_id, user_id)"
 constraint,team_members,team_members_team_id_fkey,FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
 constraint,team_members,team_members_user_id_fkey,FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE
@@ -491,16 +554,24 @@ function,accept_team_invite,invite_id uuid,boolean security definer
 function,are_friends,other_user uuid,boolean security definer
 function,check_api_rate_limit,"p_endpoint text, p_limit integer, p_window interval",boolean security definer
 function,claim_signup_code,code text,uuid security definer
+function,cleanup_orphaned_groups,"","TABLE(deleted_teams integer, deleted_leagues integer) security definer"
 function,coached_bowler_handedness,"","TABLE(bowler_user_id uuid, bowler_name text, left_handed boolean) security definer"
 function,handle_new_user,"",trigger security definer
 function,is_accepted_coach_of,target_bowler_id uuid,boolean security definer
 function,is_league_member,check_league_id uuid,boolean security definer
+function,is_subscriber,"",boolean security invoker
 function,is_team_member,check_team_id uuid,boolean security definer
+function,prune_ai_token_usage,"",integer security definer
 function,prune_api_usage,"",void security definer
+function,prune_error_reports,"",void security definer
 function,prune_sync_tombstones,"",integer security definer
+function,record_ai_tokens,"p_endpoint text, p_model text, p_variant text, p_prompt integer",void security definer
 function,record_tombstone,"",trigger security definer
+function,report_error,"p_signature text, p_kind text, p_where text, p_code text, p_mes",void security definer
 function,set_updated_at,"",trigger security invoker
 function,teammate_bowler_profiles,"","TABLE(bowler_name text, left_handed boolean, two_handed boolean, aliases jsonb) security definer"
+grant,ai_token_usage,REFERENCES,"called_at, endpoint, id, model, output_tokens, prompt_tokens, total_tokens, user_id, variant"
+grant,ai_token_usage_daily,REFERENCES,"calls, day, endpoint, model, output_tokens, prompt_tokens, total_tokens, variant"
 grant,arsenals,INSERT,"ball, bowler_name, core_type, coverstock, created_at, created_by, diff, group_id, id, int_diff, layout_system, layout_values, retired_on, rg, weight"
 grant,arsenals,REFERENCES,"ball, bowler_name, core_type, coverstock, created_at, created_by, diff, group_id, id, int_diff, layout_system, layout_values, retired_on, rg, weight"
 grant,arsenals,SELECT,"ball, bowler_name, core_type, coverstock, created_at, created_by, diff, group_id, id, int_diff, layout_system, layout_values, retired_on, rg, weight"
@@ -541,7 +612,9 @@ grant,bowling_centers,INSERT,"address, city, country, created_at, created_by, he
 grant,bowling_centers,REFERENCES,"address, city, country, created_at, created_by, here_id, id, lat, lng, name, postal_code, rack_type, state"
 grant,bowling_centers,SELECT,"address, city, country, created_at, created_by, here_id, id, lat, lng, name, postal_code, rack_type, state"
 grant,bowling_centers,UPDATE,"address, city, country, created_at, created_by, here_id, id, lat, lng, name, postal_code, rack_type, state"
+grant,closed_seasons,INSERT,"closed_at, created_at, end_date, id, league, start_date, user_id"
 grant,closed_seasons,REFERENCES,"closed_at, created_at, end_date, id, league, start_date, user_id"
+grant,closed_seasons,SELECT,"closed_at, created_at, end_date, id, league, start_date, user_id"
 grant,coaching_notes,INSERT,"author_id, body, created_at, id, relationship_id"
 grant,coaching_notes,REFERENCES,"author_id, body, created_at, id, relationship_id"
 grant,coaching_notes,SELECT,"author_id, body, created_at, id, relationship_id"
@@ -558,6 +631,9 @@ grant,drills,INSERT,"ball, bowler_name, created_at, custom_pins, custom_target, 
 grant,drills,REFERENCES,"ball, bowler_name, created_at, custom_pins, custom_target, date, id, made, missed, notes, target, user_id"
 grant,drills,SELECT,"ball, bowler_name, created_at, custom_pins, custom_target, date, id, made, missed, notes, target, user_id"
 grant,drills,UPDATE,"ball, bowler_name, created_at, custom_pins, custom_target, date, id, made, missed, notes, target, user_id"
+grant,entitlements,REFERENCES,"billing_period, created_at, current_period_end, is_test_account, kept_league_id, last_event_at, plan, play_purchase_token, source, status, stripe_customer_id, stripe_subscription_id, trial_end, updated_at, user_id"
+grant,entitlements,SELECT,"billing_period, created_at, current_period_end, is_test_account, kept_league_id, last_event_at, plan, play_purchase_token, source, status, stripe_customer_id, stripe_subscription_id, trial_end, updated_at, user_id"
+grant,entitlements,UPDATE,kept_league_id
 grant,friendships,INSERT,"addressee_id, created_at, id, requester_id, responded_at, status"
 grant,friendships,REFERENCES,"addressee_id, created_at, id, requester_id, responded_at, status"
 grant,friendships,SELECT,"addressee_id, created_at, id, requester_id, responded_at, status"
@@ -574,10 +650,10 @@ grant,lane_patterns,INSERT,"created_at, date, id, lane, league_id, length, notes
 grant,lane_patterns,REFERENCES,"created_at, date, id, lane, league_id, length, notes, pattern_name, pattern_type, ratio, team_id, updated_at, volume"
 grant,lane_patterns,SELECT,"created_at, date, id, lane, league_id, length, notes, pattern_name, pattern_type, ratio, team_id, updated_at, volume"
 grant,lane_patterns,UPDATE,"created_at, date, id, lane, league_id, length, notes, pattern_name, pattern_type, ratio, team_id, updated_at, volume"
-grant,leagues,INSERT,"center_id, created_at, created_by, end_date, format, id, name, start_date"
-grant,leagues,REFERENCES,"center_id, created_at, created_by, end_date, format, id, name, start_date"
-grant,leagues,SELECT,"center_id, created_at, created_by, end_date, format, id, name, start_date"
-grant,leagues,UPDATE,"center_id, created_at, created_by, end_date, format, id, name, start_date"
+grant,leagues,INSERT,"center_id, created_at, created_by, end_date, format, id, name, pattern_name, start_date"
+grant,leagues,REFERENCES,"center_id, created_at, created_by, end_date, format, id, name, pattern_name, start_date"
+grant,leagues,SELECT,"center_id, created_at, created_by, end_date, format, id, name, pattern_name, start_date"
+grant,leagues,UPDATE,"center_id, created_at, created_by, end_date, format, id, name, pattern_name, start_date"
 grant,manual_scores,INSERT,"ball, bowler_name, created_at, date, game, id, league_id, score, surface, updated_at, user_id"
 grant,manual_scores,REFERENCES,"ball, bowler_name, created_at, date, game, id, league_id, score, surface, updated_at, user_id"
 grant,manual_scores,SELECT,"ball, bowler_name, created_at, date, game, id, league_id, score, surface, updated_at, user_id"
@@ -602,11 +678,13 @@ grant,sessions,INSERT,"average, balls_used, bowler_name, created_at, date, high_
 grant,sessions,REFERENCES,"average, balls_used, bowler_name, created_at, date, high_game_cost, high_game_winnings, id, jackpot_winnings, league_id, misses, notes, poker_dollar, poker_dollar_cost, poker_quarter, poker_quarter_cost, prebowled_on, releases, ringing_tens, scores, shot_count, single_pin_leaves, single_pin_spares, spare_attempts, spares_made, splits, splits_converted, strikes, team_id, ten_pin_leaves, three_six_nine_cost, three_six_nine_winnings, total, updated_at, user_id, weak_tens"
 grant,sessions,SELECT,"average, balls_used, bowler_name, created_at, date, high_game_cost, high_game_winnings, id, jackpot_winnings, league_id, misses, notes, poker_dollar, poker_dollar_cost, poker_quarter, poker_quarter_cost, prebowled_on, releases, ringing_tens, scores, shot_count, single_pin_leaves, single_pin_spares, spare_attempts, spares_made, splits, splits_converted, strikes, team_id, ten_pin_leaves, three_six_nine_cost, three_six_nine_winnings, total, updated_at, user_id, weak_tens"
 grant,sessions,UPDATE,"average, balls_used, bowler_name, created_at, date, high_game_cost, high_game_winnings, id, jackpot_winnings, league_id, misses, notes, poker_dollar, poker_dollar_cost, poker_quarter, poker_quarter_cost, prebowled_on, releases, ringing_tens, scores, shot_count, single_pin_leaves, single_pin_spares, spare_attempts, spares_made, splits, splits_converted, strikes, team_id, ten_pin_leaves, three_six_nine_cost, three_six_nine_winnings, total, updated_at, user_id, weak_tens"
-grant,shots,INSERT,"actual_arrows, axis_rotation, axis_tilt, ball, ball_change_reason, ball_num, ball_speed, bowler_name, breakpoint_board, breakpoint_distance, created_at, date, display_leave, display_result, frame, game, heel_number, id, imported_from, lane, league_id, league_name, miss, no_tap, notes, other_leave, pin_count, release, result, rev_rate, sole_number, spare_made, starting_board, strike_description, surface, target_arrows, team_id, updated_at, user_id"
-grant,shots,REFERENCES,"actual_arrows, axis_rotation, axis_tilt, ball, ball_change_reason, ball_num, ball_speed, bowler_name, breakpoint_board, breakpoint_distance, created_at, date, display_leave, display_result, frame, game, heel_number, id, imported_from, lane, league_id, league_name, miss, no_tap, notes, other_leave, pin_count, release, result, rev_rate, sole_number, spare_made, starting_board, strike_description, surface, target_arrows, team_id, updated_at, user_id"
-grant,shots,SELECT,"actual_arrows, axis_rotation, axis_tilt, ball, ball_change_reason, ball_num, ball_speed, bowler_name, breakpoint_board, breakpoint_distance, created_at, date, display_leave, display_result, frame, game, heel_number, id, imported_from, lane, league_id, league_name, miss, no_tap, notes, other_leave, pin_count, release, result, rev_rate, sole_number, spare_made, starting_board, strike_description, surface, target_arrows, team_id, updated_at, user_id"
-grant,shots,UPDATE,"actual_arrows, axis_rotation, axis_tilt, ball, ball_change_reason, ball_num, ball_speed, bowler_name, breakpoint_board, breakpoint_distance, created_at, date, display_leave, display_result, frame, game, heel_number, id, imported_from, lane, league_id, league_name, miss, no_tap, notes, other_leave, pin_count, release, result, rev_rate, sole_number, spare_made, starting_board, strike_description, surface, target_arrows, team_id, updated_at, user_id"
+grant,shots,INSERT,"actual_arrows, axis_rotation, axis_tilt, ball, ball_change_reason, ball_num, ball_speed, bowler_name, breakpoint_board, breakpoint_distance, created_at, date, display_leave, display_result, frame, game, heel_number, id, imported_from, lane, league_id, league_name, miss, no_tap, notes, other_leave, pin_count, release, result, rev_rate, second_leave, sole_number, spare_made, starting_board, strike_description, surface, target_arrows, team_id, updated_at, user_id"
+grant,shots,REFERENCES,"actual_arrows, axis_rotation, axis_tilt, ball, ball_change_reason, ball_num, ball_speed, bowler_name, breakpoint_board, breakpoint_distance, created_at, date, display_leave, display_result, frame, game, heel_number, id, imported_from, lane, league_id, league_name, miss, no_tap, notes, other_leave, pin_count, release, result, rev_rate, second_leave, sole_number, spare_made, starting_board, strike_description, surface, target_arrows, team_id, updated_at, user_id"
+grant,shots,SELECT,"actual_arrows, axis_rotation, axis_tilt, ball, ball_change_reason, ball_num, ball_speed, bowler_name, breakpoint_board, breakpoint_distance, created_at, date, display_leave, display_result, frame, game, heel_number, id, imported_from, lane, league_id, league_name, miss, no_tap, notes, other_leave, pin_count, release, result, rev_rate, second_leave, sole_number, spare_made, starting_board, strike_description, surface, target_arrows, team_id, updated_at, user_id"
+grant,shots,UPDATE,"actual_arrows, axis_rotation, axis_tilt, ball, ball_change_reason, ball_num, ball_speed, bowler_name, breakpoint_board, breakpoint_distance, created_at, date, display_leave, display_result, frame, game, heel_number, id, imported_from, lane, league_id, league_name, miss, no_tap, notes, other_leave, pin_count, release, result, rev_rate, second_leave, sole_number, spare_made, starting_board, strike_description, surface, target_arrows, team_id, updated_at, user_id"
+grant,subscription_events,REFERENCES,"applied, event_id, event_time, event_type, id, received_at, source, user_id"
 grant,sync_tombstones,REFERENCES,"deleted_at, id, row_id, table_name, user_id"
+grant,sync_tombstones,SELECT,"deleted_at, id, row_id, table_name, user_id"
 grant,team_members,INSERT,"is_sub, joined_at, left_handed, lineup_position, team_id, user_id"
 grant,team_members,REFERENCES,"is_sub, joined_at, left_handed, lineup_position, team_id, user_id"
 grant,team_members,SELECT,"is_sub, joined_at, left_handed, lineup_position, team_id, user_id"
@@ -623,6 +701,8 @@ grant,user_preferences,INSERT,"preferences, updated_at, user_id"
 grant,user_preferences,REFERENCES,"preferences, updated_at, user_id"
 grant,user_preferences,SELECT,"preferences, updated_at, user_id"
 grant,user_preferences,UPDATE,"preferences, updated_at, user_id"
+index,ai_token_usage,ai_token_usage_pkey,CREATE UNIQUE INDEX ai_token_usage_pkey ON public.ai_token_usage USING btree (id)
+index,ai_token_usage,ai_token_usage_report_idx,"CREATE INDEX ai_token_usage_report_idx ON public.ai_token_usage USING btree (called_at DESC, endpoint, model)"
 index,api_usage,api_usage_lookup_idx,"CREATE INDEX api_usage_lookup_idx ON public.api_usage USING btree (user_id, endpoint, called_at DESC)"
 index,api_usage,api_usage_pkey,CREATE UNIQUE INDEX api_usage_pkey ON public.api_usage USING btree (id)
 index,arsenals,arsenal_pkey,CREATE UNIQUE INDEX arsenal_pkey ON public.arsenals USING btree (id)
@@ -662,6 +742,12 @@ index,coaching_tasks,coaching_tasks_pkey,CREATE UNIQUE INDEX coaching_tasks_pkey
 index,coaching_tasks,coaching_tasks_relationship_idx,CREATE INDEX coaching_tasks_relationship_idx ON public.coaching_tasks USING btree (relationship_id)
 index,drills,drills_lookup_idx,"CREATE INDEX drills_lookup_idx ON public.drills USING btree (user_id, bowler_name, target)"
 index,drills,drills_pkey,CREATE UNIQUE INDEX drills_pkey ON public.drills USING btree (id)
+index,entitlements,entitlements_pkey,CREATE UNIQUE INDEX entitlements_pkey ON public.entitlements USING btree (user_id)
+index,entitlements,entitlements_play_purchase_token_uniq,CREATE UNIQUE INDEX entitlements_play_purchase_token_uniq ON public.entitlements USING btree (play_purchase_token) WHERE (play_purchase_token IS NOT NULL)
+index,entitlements,entitlements_stripe_customer_uniq,CREATE UNIQUE INDEX entitlements_stripe_customer_uniq ON public.entitlements USING btree (stripe_customer_id) WHERE (stripe_customer_id IS NOT NULL)
+index,entitlements,entitlements_stripe_subscription_uniq,CREATE UNIQUE INDEX entitlements_stripe_subscription_uniq ON public.entitlements USING btree (stripe_subscription_id) WHERE (stripe_subscription_id IS NOT NULL)
+index,error_reports,error_reports_pkey,CREATE UNIQUE INDEX error_reports_pkey ON public.error_reports USING btree (id)
+index,error_reports,error_reports_user_signature_key,"CREATE UNIQUE INDEX error_reports_user_signature_key ON public.error_reports USING btree (user_id, signature)"
 index,friendships,friendships_addressee_idx,CREATE INDEX friendships_addressee_idx ON public.friendships USING btree (addressee_id)
 index,friendships,friendships_pkey,CREATE UNIQUE INDEX friendships_pkey ON public.friendships USING btree (id)
 index,friendships,friendships_requester_id_addressee_id_key,"CREATE UNIQUE INDEX friendships_requester_id_addressee_id_key ON public.friendships USING btree (requester_id, addressee_id)"
@@ -709,6 +795,8 @@ index,shots,shots_team_id_idx,CREATE INDEX shots_team_id_idx ON public.shots USI
 index,shots,shots_user_date_idx,"CREATE INDEX shots_user_date_idx ON public.shots USING btree (user_id, date)"
 index,shots,shots_user_id_idx,CREATE INDEX shots_user_id_idx ON public.shots USING btree (user_id)
 index,shots,shots_user_updated_idx,"CREATE INDEX shots_user_updated_idx ON public.shots USING btree (user_id, updated_at)"
+index,subscription_events,subscription_events_pkey,CREATE UNIQUE INDEX subscription_events_pkey ON public.subscription_events USING btree (id)
+index,subscription_events,subscription_events_source_event_uniq,"CREATE UNIQUE INDEX subscription_events_source_event_uniq ON public.subscription_events USING btree (source, event_id)"
 index,sync_tombstones,sync_tombstones_lookup_idx,"CREATE INDEX sync_tombstones_lookup_idx ON public.sync_tombstones USING btree (table_name, user_id, deleted_at)"
 index,sync_tombstones,sync_tombstones_pkey,CREATE UNIQUE INDEX sync_tombstones_pkey ON public.sync_tombstones USING btree (id)
 index,team_members,team_members_pkey,"CREATE UNIQUE INDEX team_members_pkey ON public.team_members USING btree (team_id, user_id)"
@@ -809,6 +897,8 @@ policy,coaching_tasks,the coach can remove tasks,"DELETE :: using (EXISTS ( SELE
    FROM coaching_relationships r
   WHERE ((r.id = coaching_tasks.relationship_id) AND (r.status = 'accepted'::text) AND (r.coach_id = auth.uid())))) :: check none :: to authenticated"
 policy,drills,users manage their own drills,ALL :: using (user_id = auth.uid()) :: check (user_id = auth.uid()) :: to authenticated
+policy,entitlements,read own entitlement,SELECT :: using (auth.uid() = user_id) :: check none :: to authenticated
+policy,entitlements,set own kept league,UPDATE :: using (auth.uid() = user_id) :: check (auth.uid() = user_id) :: to authenticated
 policy,friendships,either side can delete a friendship,DELETE :: using ((requester_id = auth.uid()) OR (addressee_id = auth.uid())) :: check none :: to authenticated
 policy,friendships,either side can respond to or cancel a request,UPDATE :: using ((requester_id = auth.uid()) OR (addressee_id = auth.uid())) :: check ((requester_id = auth.uid()) OR (addressee_id = auth.uid())) :: to authenticated
 policy,friendships,users can send friend requests,INSERT :: no using :: check (requester_id = auth.uid()) :: to authenticated
@@ -895,6 +985,7 @@ policy,tournaments,users can view their own tournaments,SELECT :: using (user_id
 policy,user_preferences,users can insert their own preferences,INSERT :: no using :: check (user_id = auth.uid()) :: to authenticated
 policy,user_preferences,users can update their own preferences,UPDATE :: using (user_id = auth.uid()) :: check (user_id = auth.uid()) :: to authenticated
 policy,user_preferences,users can view their own preferences,SELECT :: using (user_id = auth.uid()) :: check none :: to authenticated
+rls,ai_token_usage,enabled,""
 rls,api_usage,enabled,""
 rls,arsenals,enabled,""
 rls,bags,enabled,""
@@ -911,6 +1002,8 @@ rls,coaching_notes,enabled,""
 rls,coaching_relationships,enabled,""
 rls,coaching_tasks,enabled,""
 rls,drills,enabled,""
+rls,entitlements,enabled,""
+rls,error_reports,enabled,""
 rls,friendships,enabled,""
 rls,hidden_leagues,enabled,""
 rls,imported_scores,enabled,""
@@ -923,11 +1016,13 @@ rls,pending_invites,enabled,""
 rls,profiles,enabled,""
 rls,sessions,enabled,""
 rls,shots,enabled,""
+rls,subscription_events,enabled,""
 rls,sync_tombstones,enabled,""
 rls,team_members,enabled,""
 rls,teams,enabled,""
 rls,tournaments,enabled,""
 rls,user_preferences,enabled,""
+trigger,entitlements,entitlements_set_updated_at,set_updated_at
 trigger,sessions,sessions_record_tombstone,record_tombstone
 trigger,sessions,sessions_set_updated_at,set_updated_at
 trigger,shots,shots_record_tombstone,record_tombstone

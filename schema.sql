@@ -1,6 +1,17 @@
 -- Generated from the live catalog. Do not edit by hand.
 -- Rebuilds an EMPTY database: no data, no function bodies.
 
+CREATE TABLE IF NOT EXISTS public.ai_token_usage (
+  id uuid DEFAULT gen_random_uuid() NOT NULL,
+  user_id uuid,
+  endpoint text NOT NULL,
+  model text NOT NULL,
+  variant text,
+  prompt_tokens integer DEFAULT 0 NOT NULL,
+  output_tokens integer DEFAULT 0 NOT NULL,
+  total_tokens integer DEFAULT 0 NOT NULL,
+  called_at timestamp with time zone DEFAULT now() NOT NULL
+);
 CREATE TABLE IF NOT EXISTS public.api_usage (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
   user_id uuid NOT NULL,
@@ -183,6 +194,36 @@ CREATE TABLE IF NOT EXISTS public.drills (
   created_at timestamp with time zone DEFAULT now() NOT NULL,
   custom_pins jsonb
 );
+CREATE TABLE IF NOT EXISTS public.entitlements (
+  user_id uuid NOT NULL,
+  plan text DEFAULT 'free'::text NOT NULL,
+  source text,
+  status text DEFAULT 'none'::text NOT NULL,
+  current_period_end timestamp with time zone,
+  trial_end timestamp with time zone,
+  kept_league_id uuid,
+  play_purchase_token text,
+  stripe_customer_id text,
+  stripe_subscription_id text,
+  created_at timestamp with time zone DEFAULT now() NOT NULL,
+  updated_at timestamp with time zone DEFAULT now() NOT NULL,
+  billing_period text,
+  is_test_account boolean DEFAULT false NOT NULL,
+  last_event_at timestamp with time zone
+);
+CREATE TABLE IF NOT EXISTS public.error_reports (
+  id uuid DEFAULT gen_random_uuid() NOT NULL,
+  user_id uuid NOT NULL,
+  signature text NOT NULL,
+  kind text DEFAULT ''::text NOT NULL,
+  where_at text DEFAULT ''::text NOT NULL,
+  code text DEFAULT ''::text NOT NULL,
+  message text DEFAULT ''::text NOT NULL,
+  hits integer DEFAULT 1 NOT NULL,
+  build text DEFAULT ''::text NOT NULL,
+  first_seen timestamp with time zone DEFAULT now() NOT NULL,
+  last_seen timestamp with time zone DEFAULT now() NOT NULL
+);
 CREATE TABLE IF NOT EXISTS public.friendships (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
   requester_id uuid NOT NULL,
@@ -239,7 +280,8 @@ CREATE TABLE IF NOT EXISTS public.leagues (
   center_id uuid,
   start_date date,
   end_date date,
-  format text
+  format text,
+  pattern_name text
 );
 CREATE TABLE IF NOT EXISTS public.manual_scores (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -379,7 +421,18 @@ CREATE TABLE IF NOT EXISTS public.shots (
   league_name text,
   axis_tilt numeric,
   breakpoint_board text,
-  breakpoint_distance text
+  breakpoint_distance text,
+  second_leave jsonb
+);
+CREATE TABLE IF NOT EXISTS public.subscription_events (
+  id uuid DEFAULT gen_random_uuid() NOT NULL,
+  source text NOT NULL,
+  event_id text NOT NULL,
+  event_type text,
+  event_time timestamp with time zone NOT NULL,
+  user_id uuid,
+  applied boolean DEFAULT false NOT NULL,
+  received_at timestamp with time zone DEFAULT now() NOT NULL
 );
 CREATE TABLE IF NOT EXISTS public.sync_tombstones (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -434,12 +487,15 @@ CREATE TABLE IF NOT EXISTS public.user_preferences (
   preferences jsonb DEFAULT '{}'::jsonb NOT NULL,
   updated_at timestamp with time zone DEFAULT now()
 );
+ALTER TABLE public.ai_token_usage ADD CONSTRAINT ai_token_usage_pkey PRIMARY KEY (id);
+ALTER TABLE public.ai_token_usage ADD CONSTRAINT ai_token_usage_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE SET NULL;
 ALTER TABLE public.api_usage ADD CONSTRAINT api_usage_pkey PRIMARY KEY (id);
 ALTER TABLE public.api_usage ADD CONSTRAINT api_usage_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.arsenals ADD CONSTRAINT arsenal_pkey PRIMARY KEY (id);
 ALTER TABLE public.arsenals ADD CONSTRAINT arsenals_core_type_check CHECK (((core_type IS NULL) OR (core_type = ANY (ARRAY['symmetric'::text, 'asymmetric'::text]))));
 ALTER TABLE public.arsenals ADD CONSTRAINT arsenals_coverstock_check CHECK (((coverstock IS NULL) OR (coverstock = ANY (ARRAY['solid'::text, 'pearl'::text, 'hybrid'::text]))));
 ALTER TABLE public.arsenals ADD CONSTRAINT arsenals_layout_system_check CHECK (((layout_system IS NULL) OR (layout_system = ANY (ARRAY['dual_angle'::text, 'vls'::text, '2ls'::text]))));
+ALTER TABLE public.arsenals ADD CONSTRAINT arsenals_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.arsenals ADD CONSTRAINT arsenals_group_id_fkey FOREIGN KEY (group_id) REFERENCES ball_groups(id) ON DELETE SET NULL;
 ALTER TABLE public.bags ADD CONSTRAINT bags_pkey PRIMARY KEY (id);
 ALTER TABLE public.bags ADD CONSTRAINT bags_created_by_bowler_name_name_key UNIQUE (created_by, bowler_name, name);
@@ -464,6 +520,7 @@ ALTER TABLE public.bowler_goals ADD CONSTRAINT bowler_goals_pkey PRIMARY KEY (id
 ALTER TABLE public.bowler_goals ADD CONSTRAINT bowler_goals_created_by_bowler_name_key UNIQUE (created_by, bowler_name);
 ALTER TABLE public.bowler_goals ADD CONSTRAINT bowler_goals_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.bowler_names ADD CONSTRAINT bowler_names_pkey PRIMARY KEY (id);
+ALTER TABLE public.bowler_names ADD CONSTRAINT bowler_names_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.bowler_profiles ADD CONSTRAINT bowler_profiles_pkey PRIMARY KEY (id);
 ALTER TABLE public.bowler_profiles ADD CONSTRAINT bowler_profiles_created_by_bowler_name_key UNIQUE (created_by, bowler_name);
 ALTER TABLE public.bowler_profiles ADD CONSTRAINT bowler_profiles_owner_name_key UNIQUE (created_by, bowler_name);
@@ -493,6 +550,16 @@ ALTER TABLE public.coaching_tasks ADD CONSTRAINT coaching_tasks_assigned_by_fkey
 ALTER TABLE public.coaching_tasks ADD CONSTRAINT coaching_tasks_relationship_id_fkey FOREIGN KEY (relationship_id) REFERENCES coaching_relationships(id) ON DELETE CASCADE;
 ALTER TABLE public.drills ADD CONSTRAINT drills_pkey PRIMARY KEY (id);
 ALTER TABLE public.drills ADD CONSTRAINT drills_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.entitlements ADD CONSTRAINT entitlements_pkey PRIMARY KEY (user_id);
+ALTER TABLE public.entitlements ADD CONSTRAINT entitlements_billing_period_check CHECK ((billing_period = ANY (ARRAY['month'::text, 'year'::text])));
+ALTER TABLE public.entitlements ADD CONSTRAINT entitlements_plan_check CHECK ((plan = ANY (ARRAY['free'::text, 'plus'::text])));
+ALTER TABLE public.entitlements ADD CONSTRAINT entitlements_source_check CHECK ((source = ANY (ARRAY['play'::text, 'stripe'::text, 'manual'::text])));
+ALTER TABLE public.entitlements ADD CONSTRAINT entitlements_status_check CHECK ((status = ANY (ARRAY['none'::text, 'trialing'::text, 'active'::text, 'grace'::text, 'on_hold'::text, 'paused'::text, 'canceled'::text, 'expired'::text])));
+ALTER TABLE public.entitlements ADD CONSTRAINT entitlements_kept_league_id_fkey FOREIGN KEY (kept_league_id) REFERENCES leagues(id) ON DELETE SET NULL;
+ALTER TABLE public.entitlements ADD CONSTRAINT entitlements_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.error_reports ADD CONSTRAINT error_reports_pkey PRIMARY KEY (id);
+ALTER TABLE public.error_reports ADD CONSTRAINT error_reports_user_signature_key UNIQUE (user_id, signature);
+ALTER TABLE public.error_reports ADD CONSTRAINT error_reports_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.friendships ADD CONSTRAINT friendships_pkey PRIMARY KEY (id);
 ALTER TABLE public.friendships ADD CONSTRAINT friendships_requester_id_addressee_id_key UNIQUE (requester_id, addressee_id);
 ALTER TABLE public.friendships ADD CONSTRAINT friendships_check CHECK ((requester_id <> addressee_id));
@@ -543,7 +610,11 @@ ALTER TABLE public.shots ADD CONSTRAINT shots_pkey PRIMARY KEY (id);
 ALTER TABLE public.shots ADD CONSTRAINT shots_league_id_fkey FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE SET NULL;
 ALTER TABLE public.shots ADD CONSTRAINT shots_team_id_fkey FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE SET NULL;
 ALTER TABLE public.shots ADD CONSTRAINT shots_user_id_fkey FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE;
+ALTER TABLE public.subscription_events ADD CONSTRAINT subscription_events_pkey PRIMARY KEY (id);
+ALTER TABLE public.subscription_events ADD CONSTRAINT subscription_events_source_check CHECK ((source = ANY (ARRAY['play'::text, 'stripe'::text])));
+ALTER TABLE public.subscription_events ADD CONSTRAINT subscription_events_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.sync_tombstones ADD CONSTRAINT sync_tombstones_pkey PRIMARY KEY (id);
+ALTER TABLE public.sync_tombstones ADD CONSTRAINT sync_tombstones_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.team_members ADD CONSTRAINT team_members_pkey PRIMARY KEY (team_id, user_id);
 ALTER TABLE public.team_members ADD CONSTRAINT team_members_team_id_fkey FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE;
 ALTER TABLE public.team_members ADD CONSTRAINT team_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE;
@@ -555,6 +626,7 @@ ALTER TABLE public.tournaments ADD CONSTRAINT tournaments_user_id_fkey FOREIGN K
 ALTER TABLE public.user_preferences ADD CONSTRAINT user_preferences_pkey PRIMARY KEY (user_id);
 ALTER TABLE public.user_preferences ADD CONSTRAINT user_preferences_user_id_key UNIQUE (user_id);
 ALTER TABLE public.user_preferences ADD CONSTRAINT user_preferences_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+CREATE INDEX ai_token_usage_report_idx ON public.ai_token_usage USING btree (called_at DESC, endpoint, model);
 CREATE INDEX api_usage_lookup_idx ON public.api_usage USING btree (user_id, endpoint, called_at DESC);
 CREATE INDEX bags_lookup_idx ON public.bags USING btree (created_by, bowler_name);
 CREATE INDEX ball_bags_lookup_idx ON public.ball_bags USING btree (created_by, bowler_name);
@@ -567,6 +639,9 @@ CREATE INDEX closed_seasons_user_league_idx ON public.closed_seasons USING btree
 CREATE INDEX coaching_notes_relationship_idx ON public.coaching_notes USING btree (relationship_id);
 CREATE INDEX coaching_tasks_relationship_idx ON public.coaching_tasks USING btree (relationship_id);
 CREATE INDEX drills_lookup_idx ON public.drills USING btree (user_id, bowler_name, target);
+CREATE UNIQUE INDEX entitlements_play_purchase_token_uniq ON public.entitlements USING btree (play_purchase_token) WHERE (play_purchase_token IS NOT NULL);
+CREATE UNIQUE INDEX entitlements_stripe_customer_uniq ON public.entitlements USING btree (stripe_customer_id) WHERE (stripe_customer_id IS NOT NULL);
+CREATE UNIQUE INDEX entitlements_stripe_subscription_uniq ON public.entitlements USING btree (stripe_subscription_id) WHERE (stripe_subscription_id IS NOT NULL);
 CREATE INDEX friendships_addressee_idx ON public.friendships USING btree (addressee_id);
 CREATE INDEX friendships_requester_idx ON public.friendships USING btree (requester_id);
 CREATE INDEX hidden_leagues_user_idx ON public.hidden_leagues USING btree (user_id);
@@ -593,10 +668,12 @@ CREATE INDEX shots_team_id_idx ON public.shots USING btree (team_id);
 CREATE INDEX shots_user_date_idx ON public.shots USING btree (user_id, date);
 CREATE INDEX shots_user_id_idx ON public.shots USING btree (user_id);
 CREATE INDEX shots_user_updated_idx ON public.shots USING btree (user_id, updated_at);
+CREATE UNIQUE INDEX subscription_events_source_event_uniq ON public.subscription_events USING btree (source, event_id);
 CREATE INDEX sync_tombstones_lookup_idx ON public.sync_tombstones USING btree (table_name, user_id, deleted_at);
 CREATE INDEX team_members_user_id_idx ON public.team_members USING btree (user_id);
 CREATE INDEX teams_league_id_idx ON public.teams USING btree (league_id);
 CREATE INDEX tournaments_user_bowler_idx ON public.tournaments USING btree (user_id, bowler_name);
+ALTER TABLE public.ai_token_usage ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.api_usage ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.arsenals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bags ENABLE ROW LEVEL SECURITY;
@@ -613,6 +690,8 @@ ALTER TABLE public.coaching_notes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.coaching_relationships ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.coaching_tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.drills ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.entitlements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.error_reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.friendships ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.hidden_leagues ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.imported_scores ENABLE ROW LEVEL SECURITY;
@@ -625,6 +704,7 @@ ALTER TABLE public.pending_invites ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.shots ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.subscription_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sync_tombstones ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.team_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.teams ENABLE ROW LEVEL SECURITY;
@@ -796,6 +876,11 @@ CREATE POLICY 'the coach can remove tasks' ON public.coaching_tasks FOR DELETE T
 CREATE POLICY 'users manage their own drills' ON public.drills FOR ALL TO authenticated
   USING ((user_id = auth.uid()))
   WITH CHECK ((user_id = auth.uid()));
+CREATE POLICY 'read own entitlement' ON public.entitlements FOR SELECT TO authenticated
+  USING ((auth.uid() = user_id));
+CREATE POLICY 'set own kept league' ON public.entitlements FOR UPDATE TO authenticated
+  USING ((auth.uid() = user_id))
+  WITH CHECK ((auth.uid() = user_id));
 CREATE POLICY 'either side can delete a friendship' ON public.friendships FOR DELETE TO authenticated
   USING (((requester_id = auth.uid()) OR (addressee_id = auth.uid())));
 CREATE POLICY 'either side can respond to or cancel a request' ON public.friendships FOR UPDATE TO authenticated
@@ -976,6 +1061,7 @@ CREATE POLICY 'users can update their own preferences' ON public.user_preference
   WITH CHECK ((user_id = auth.uid()));
 CREATE POLICY 'users can view their own preferences' ON public.user_preferences FOR SELECT TO authenticated
   USING ((user_id = auth.uid()));
+CREATE TRIGGER entitlements_set_updated_at BEFORE UPDATE ON public.entitlements FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER sessions_record_tombstone AFTER DELETE ON public.sessions FOR EACH ROW EXECUTE FUNCTION record_tombstone();
 CREATE TRIGGER sessions_set_updated_at BEFORE UPDATE ON public.sessions FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER shots_record_tombstone AFTER DELETE ON public.shots FOR EACH ROW EXECUTE FUNCTION record_tombstone();
