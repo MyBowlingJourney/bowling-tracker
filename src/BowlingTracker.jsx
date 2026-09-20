@@ -1370,7 +1370,7 @@ export default function BowlingTracker(){
           sessionsCursor?cloudReadDelta("sessions",sessionsCursor):cloudRead("sessions",q=>q.select("*")),
           cloudRead("bowler_names",q=>q.select("name")),
           cloudRead("arsenals",q=>q.select("bowler_name,ball,layout_system,layout_values,group_id,coverstock,core_type,weight,rg,diff,int_diff")),
-          cloudRead("bowler_profiles",q=>q.select("bowler_name,left_handed,two_handed,is_coach,aliases,home_centers,notes,book_average,book_games,book_season,book_average_as_of")),
+          cloudRead("bowler_profiles",q=>q.select("bowler_name,left_handed,two_handed,is_coach,aliases,home_centers,notes,book_average,book_games,book_season,book_average_as_of,all_time_high_game,all_time_high_series,drift_boards,lateral_offset")),
           cloudRead("ball_bags",q=>q.select("bowler_name,ball,bag_id")),
           cloudRead("drills",q=>q.select("id,bowler_name,date,target,custom_target,custom_pins,ball,made,missed,notes")),
           cloudRead("hidden_leagues",q=>q.select("league_id")),
@@ -1395,7 +1395,7 @@ export default function BowlingTracker(){
           cloudRead("bowling_centers",q=>q.select("id,here_id,name,address,city,state,postal_code,country,lat,lng,rack_type,created_by")),
           cloudRead("oil_patterns",q=>q.select("id,name,series,length_feet,ratio,volume_ml,forward_ml,reverse_ml,verified,source_note,year")),
           cloudRead("bowler_goals",q=>q.select("bowler_name,goals")),
-          cloudRead("tournaments",q=>q.select("id,bowler_name,name,center,days,buy_in,winnings,side_pots,match_play,notes")),
+          cloudRead("tournaments",q=>q.select("id,bowler_name,name,center,days,buy_in,winnings,side_pots,match_play,notes,handicap,baker_partner,baker_starter,scoring_basis,pin_format,play_style")),
           cloudRead("leagues",q=>q.select("name,center_id,start_date,end_date,format,pattern_name")),
           cloudRead("ball_submissions",q=>q.select("id,submitted_by,ball_key,ball_name,brand,coverstock,core_type,weight,rg,diff,int_diff,created_at,official,source_note,weight_specs")),
           cloudRead("ball_confirmations",q=>q.select("submission_id,confirmed_by,vote")),
@@ -1977,6 +1977,74 @@ export default function BowlingTracker(){
     await syncLanePatternsToCloud([],lanePatterns);
   }
 
+
+  // ── Refresh everything from the cloud ───────────────────────────────
+  //
+  // Shots and sessions are the only two tables fetched INCREMENTALLY:
+  // each load asks for rows changed since a stored cursor, instead of
+  // re-downloading a whole career every time the app opens. That is the
+  // right default -- a bowler with ten seasons should not wait for all
+  // ten to come down to see tonight -- but it has one failure mode with
+  // no way out of it from inside the app.
+  //
+  // If the cursor ever ends up AHEAD of a row's updated_at, that row is
+  // never asked for again. Rows written directly to the database rather
+  // than through the app do this routinely; so does a device whose clock
+  // ran ahead, or a write that landed while a sync was mid-flight. The
+  // data is in the cloud, correct and owned by the right person, and the
+  // app simply never requests it. Nothing errors. The bowler sees a
+  // history with a hole in it and no reason for it.
+  //
+  // Every other table is read in full on every load, so this affects
+  // exactly the two that are not.
+  //
+  // WHY THIS CLEARS ONLY THE CURSORS, NOT THE CACHED ROWS:
+  //
+  // With no cursor, the next load takes the full-fetch path and replaces
+  // the cached array wholesale, which is the fix. Deleting the cached
+  // rows here as well would buy nothing and cost something real -- if
+  // that fetch then fails (a dead spot at the alley, and this is a
+  // phone), the load falls back to the cache, and the cache would be the
+  // thing we had just thrown away. The bowler would be looking at an
+  // empty app.
+  //
+  // So the worst case here is an ordinary failed sync: they still see
+  // everything they saw before, and the refresh happens next time.
+  //
+  // Pending local changes are flushed FIRST. They survive either way --
+  // the full-fetch path re-adds anything still queued -- but sending
+  // them before the refresh means the cloud is the newer copy, which is
+  // the direction that cannot lose anything.
+  const[resyncBusy,setResyncBusy]=useState(false);
+  const[resyncError,setResyncError]=useState("");
+  async function forceResync(){
+    setResyncBusy(true);
+    setResyncError("");
+    // Flushing is best-effort: a queue that will not send is a reason to
+    // refresh, not a reason to refuse to.
+    try{await flushPendingQueue();}catch{}
+    try{
+      // `delete`, not `remove` -- the adapter in this file and the scoped
+      // wrapper in scopedStorage.js both expose get/set/delete, and a
+      // call to a method that does not exist would throw, be swallowed,
+      // and leave the cursors in place while still reloading. The button
+      // would look like it worked and change nothing.
+      await window.storage.delete(SHOTS_CURSOR_KEY);
+      await window.storage.delete(SESSIONS_CURSOR_KEY);
+    }catch{
+      // Said out loud rather than reloading anyway. A reload that did not
+      // clear the cursors changes nothing, and "I pressed it and it did
+      // not help" is the worst thing a repair button can do.
+      setResyncError("Could not clear the sync markers on this device. Nothing was changed.");
+      setResyncBusy(false);
+      return;
+    }
+    // Reload rather than re-running load() in place: the cursors are
+    // read once at the top of it, so an in-place re-run would have to
+    // re-enter the same effect anyway, and a reload is the one thing
+    // guaranteed to start from a clean read of storage.
+    try{window.location.reload();}catch{setResyncBusy(false);}
+  }
 
   const[syncingNow,setSyncingNow]=useState(false);
   async function handleSyncNow(){
@@ -7612,6 +7680,8 @@ export default function BowlingTracker(){
             restartOnboarding={restartOnboarding} replayTour={replayTour} isCoach={showCoachingTab}
             showBackup={showBackup} setShowBackup={setShowBackup}
             backupStatus={backupStatus} setBackupStatus={setBackupStatus}
+            forceResync={forceResync} resyncBusy={resyncBusy} resyncError={resyncError}
+            pendingSyncCount={pendingSyncCount}
             importText={importText} setImportText={setImportText}
             exportData={exportData} importData={importData}
             confirmClear={confirmClear} setConfirmClear={setConfirmClear}
@@ -7702,6 +7772,8 @@ export default function BowlingTracker(){
             restartOnboarding={restartOnboarding} replayTour={replayTour} isCoach={showCoachingTab}
             showBackup={showBackup} setShowBackup={setShowBackup}
             backupStatus={backupStatus} setBackupStatus={setBackupStatus}
+            forceResync={forceResync} resyncBusy={resyncBusy} resyncError={resyncError}
+            pendingSyncCount={pendingSyncCount}
             importText={importText} setImportText={setImportText}
             exportData={exportData} importData={importData}
             confirmClear={confirmClear} setConfirmClear={setConfirmClear}
