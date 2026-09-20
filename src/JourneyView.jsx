@@ -78,7 +78,31 @@ export default function JourneyView({ onOpenBadges, sessions = [], tournaments =
 
   return (
     <div style={{ ...S.card, paddingTop: "14px" }}>
-      <div style={{ textAlign: "center", marginBottom: "10px" }}>
+      {/* position:relative so the badges link can sit in the corner
+          without pushing the title off centre. A flex row would trade a
+          centred heading for a left-aligned one. */}
+      <div style={{ textAlign: "center", marginBottom: "10px", position: "relative" }}>
+        {/* Badges, reachable from the TOP as well as the foot.
+          
+            The row at the bottom of the road is the right place to end
+            up after reading the timeline -- but the timeline grows with
+            every milestone earned, so on an established account that row
+            is a long scroll away from where you land. This is the same
+            destination, one tap from the top. */}
+        {onOpenBadges && (
+          <button
+            onClick={onOpenBadges}
+            aria-label="Badges"
+            style={{
+              position: "absolute", right: 0, top: 0,
+              background: "none", border: "none", cursor: "pointer",
+              color: C.spare, fontSize: "12px", fontWeight: 600,
+              padding: "2px 4px", lineHeight: 1.2,
+              WebkitTapHighlightColor: "transparent",
+            }}>
+            {"\u{1F3C5}"} Badges
+          </button>
+        )}
         <div style={{ fontSize: "14px", fontWeight: 600, color: C.text }}>My journey</div>
         <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "2px" }}>
           {/* A count of what HAPPENED, not a score out of a total.

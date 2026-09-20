@@ -50,6 +50,9 @@ export default function Settings({
   // this is the one door out to it, so the upgrade card below can only
   // exist if the caller wires this up.
   onOpenSubscribe,
+  // Journey renders here too (History > Journey), and its badges link
+  // needs somewhere to go.
+  onOpenBadges,
   showBackup, setShowBackup, backupStatus, setBackupStatus,
   importText, setImportText, exportData, importData,
   confirmClear, setConfirmClear, clearAllData, hasData,
@@ -325,7 +328,8 @@ export default function Settings({
                 sessions={sessions || []}
                 shots={shots || []}
                 tournaments={tournaments || []}
-                bowler={displayName || activeBowler} />
+                bowler={displayName || activeBowler}
+                onOpenBadges={onOpenBadges} />
             </Suspense>
           )}
           {historyTab === "journal" && (

@@ -7662,7 +7662,8 @@ export default function BowlingTracker(){
             hiddenLeagues={hiddenLeagues} leagueIds={leagueIdsRef.current} toggleLeagueHidden={toggleLeagueHidden}
             shots={shots}
             teams={teams} activeBowler={activeBowler} leaveTeam={leaveTeam} leftHandedForBowler={leftHandedForBowler}
-            onOpenSubscribe={()=>setView("subscribe")}/>
+            onOpenSubscribe={()=>setView("subscribe")}
+            onOpenBadges={()=>setView("badges")}/>
         )}
 
         {view==="subscribe"&&(
