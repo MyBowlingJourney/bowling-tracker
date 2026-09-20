@@ -19,6 +19,7 @@
 // Secret required: GEMINI_API_KEY (lowercase -- Supabase forces it)
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { recordAiTokens } from "../_shared/aiUsage.ts";
 
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 // Overridable by secret, like the genie and the importer.
@@ -382,6 +383,15 @@ Deno.serve(async (req) => {
     }
 
     const data = await res.json();
+
+    // Recorded before the text is checked, on purpose. Gemini bills for a
+    // response whether or not it was the response we wanted, so a call
+    // that comes back empty still cost tokens -- and those are exactly
+    // the calls worth seeing in a cost report, since they are spend with
+    // nothing to show for it. Not awaited: telemetry never delays a
+    // bowler's insight.
+    recordAiTokens(req, "analyze-performance", MODEL, data?.usageMetadata);
+
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!text) {
       console.error("Gemini returned no text", JSON.stringify(data).slice(0, 500));
