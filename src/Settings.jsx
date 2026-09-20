@@ -56,6 +56,7 @@ export default function Settings({
   centers, leagueCenters, setLeagueCenter, searchCenters,
   leagueDates, setLeagueDates, renameLeague,
   leagueFormats = {}, setLeagueFormat,
+  leaguePatterns = {}, setLeaguePattern,
   updateCenter,
   tournaments = [], deleteNight, onImportCsv,
   hiddenLeagues, leagueIds, toggleLeagueHidden, teams, activeBowler, leaveTeam, onCreateTeam,
@@ -615,6 +616,41 @@ export default function Settings({
                         Nine on the first ball counts as a strike. Those are kept separate from your
                         regular strike percentage, but still count toward how your ball carries.
                       </div>
+                    )}
+
+                    {/* The pattern this league is normally bowled on.
+                      
+                        A DEFAULT, not a fact about the league: whatever
+                        you record for a specific night on the Log screen
+                        still wins. Sport and PBA Experience leagues
+                        rotate weekly, so a fixed league property would be
+                        wrong for them -- but a house league runs the same
+                        shot every week, and re-entering it every night is
+                        friction for no reason.
+                      
+                        It also fills a real gap. The per-night records
+                        only reach the cloud when you are on a TEAM in the
+                        league; set here, the pattern rides along with the
+                        league itself, so pattern stats work whether or
+                        not you bowl on a team. */}
+                    {setLeaguePattern && (
+                      <>
+                        <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "10px", marginBottom: "4px" }}>
+                          Usual oil pattern
+                        </div>
+                        <input
+                          style={{ ...S.input, width: "100%" }}
+                          placeholder="e.g. House Shot, Kegel Main Street"
+                          defaultValue={leaguePatterns?.[league] || ""}
+                          onBlur={e => {
+                            const next = e.target.value.trim();
+                            if (next !== (leaguePatterns?.[league] || "")) setLeaguePattern(league, next);
+                          }} />
+                        <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "4px", lineHeight: 1.5 }}>
+                          Used for any night you don't record a pattern for. Leave blank if this
+                          league rotates.
+                        </div>
+                      </>
                     )}
                   </>
                 )}

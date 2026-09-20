@@ -57,10 +57,9 @@ export default function StatsView({
   // every caller passes before billing exists.
   entitlement = null,
   // Already passed by BowlingTracker, never read until now.
-  lanePatterns = [], oilPatterns = [], tournaments = [], centers = [], statsGroup = "overview",
+  lanePatterns = [], leaguePatterns = {}, oilPatterns = [], tournaments = [], centers = [], statsGroup = "overview",
   leftHandedForBowler, ballProfile,
   SHOT_SAMPLE_THRESHOLD = 20,
-  onOpenImprove,
   centerStats,
   preferences,
   view, shots, sessions, bowlers, teams, leagues: allLeagues, arsenals, saved,
@@ -1234,7 +1233,10 @@ sessions.length>0&&(()=>{
 
 
                 byId["patternHistory"] = (()=>{
-                  const rows=patternAverages(sessions,lanePatterns,tournaments,statsBowler);
+                  // leaguePatterns is the league-level default, used for any night
+                  // with no lane_patterns row of its own -- which is every night
+                  // for a bowler who is not on a team. See patternAverages.
+                  const rows=patternAverages(sessions,lanePatterns,tournaments,statsBowler,leaguePatterns);
                   if(!rows||rows.length<2)return null;
                   const overall=cAvg(sessions,statsBowler,statsLeague);
                   if(overall===null)return null;
@@ -1653,23 +1655,6 @@ anyMoneyGameShown(preferences)&&statsBowler&&(()=>{
                   </>
                 );
               })()
-            )}
-            {onOpenImprove && (
-              <div style={{marginTop:"12px"}}>
-                {/* The way into coaching, from the screen that raises the
-                    question. Improve lost its tab in the five-tab nav,
-                    and nothing else linked to it.
-
-                    Uses the shared ActionRow so it matches every other
-                    "go somewhere" row in the app rather than being a
-                    one-off built here. */}
-                <ActionRow
-                  icon={"\u25CE"}
-                  color={C.accent}
-                  label="What to work on"
-                  detail="Drills and coaching built on these numbers"
-                  onClick={onOpenImprove} />
-              </div>
             )}
             <div style={{height:"32px"}}/>
           </>

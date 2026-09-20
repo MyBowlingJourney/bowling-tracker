@@ -211,6 +211,11 @@ const LEAGUE_CENTERS_KEY = "bowling-league-centers-v1";
 // domain/money.js.
 const LEAGUE_BUY_INS_KEY = "bowling-league-buy-ins-v1";
 const LEAGUE_DATES_KEY = "bowling-league-dates-v1";
+// The pattern a league is normally bowled on. A DEFAULT, not a fact:
+// a per-night record in lane_patterns still wins wherever one exists.
+// Module scope, beside the other league-metadata keys, because the load
+// block reads it before the component body reaches saveLeaguePattern.
+const LEAGUE_PATTERNS_KEY = "bowling-league-patterns-v1";
 
 const CLOSED_SEASONS_KEY = "bowling-closed-seasons-v1";
 const HIDDEN_LEAGUES_KEY = "bowling-hidden-leagues-v1";
@@ -793,6 +798,7 @@ export default function BowlingTracker(){
   // Scoring format per league. Absent means 10 pin, so no existing
   // league changes meaning because this was added.
   const[leagueFormats,setLeagueFormats]=useState({});
+  const[leaguePatterns,setLeaguePatterns]=useState({});
   // Archived season ranges, one row per season that has ended. Written
   // when a new start date would otherwise overwrite the old range.
   const[closedSeasons,setClosedSeasons]=useState([]);
@@ -1368,11 +1374,29 @@ export default function BowlingTracker(){
           cloudRead("ball_bags",q=>q.select("bowler_name,ball,bag_id")),
           cloudRead("drills",q=>q.select("id,bowler_name,date,target,custom_target,custom_pins,ball,made,missed,notes")),
           cloudRead("hidden_leagues",q=>q.select("league_id")),
-          cloudRead("bowling_centers",q=>q.select("id,here_id,name,address,city,state,postal_code,country,lat,lng")),
+          // rack_type and created_by are BOTH read here, and both were
+          // missing.
+          //
+          // centerFromRow maps `rackType: row.rack_type || ""` and
+          // `createdBy: row.created_by || ""`, but neither column was in
+          // this select -- so rackType was "" for every centre ever
+          // loaded, rackTypeByLeague came out empty, and statsByRackType
+          // returned nothing. The string-versus-free-fall comparison
+          // could not populate for anybody, with any data, ever.
+          //
+          // created_by has its own consequence, described in
+          // centerFromRow: without it the client cannot tell that a
+          // centre belongs to someone else, so it rewrites a shared row,
+          // gets refused by RLS, and tries again tomorrow.
+          //
+          // A mapper that reads a column the query does not ask for
+          // fails silently in exactly this way: no error, just a field
+          // that is quietly always empty.
+          cloudRead("bowling_centers",q=>q.select("id,here_id,name,address,city,state,postal_code,country,lat,lng,rack_type,created_by")),
           cloudRead("oil_patterns",q=>q.select("id,name,series,length_feet,ratio,volume_ml,forward_ml,reverse_ml,verified,source_note,year")),
           cloudRead("bowler_goals",q=>q.select("bowler_name,goals")),
           cloudRead("tournaments",q=>q.select("id,bowler_name,name,center,days,buy_in,winnings,side_pots,match_play,notes")),
-          cloudRead("leagues",q=>q.select("name,center_id,start_date,end_date")),
+          cloudRead("leagues",q=>q.select("name,center_id,start_date,end_date,format,pattern_name")),
           cloudRead("ball_submissions",q=>q.select("id,submitted_by,ball_key,ball_name,brand,coverstock,core_type,weight,rg,diff,int_diff,created_at,official,source_note,weight_specs")),
           cloudRead("ball_confirmations",q=>q.select("submission_id,confirmed_by,vote")),
           cloudRead("ball_groups",q=>q.select("id,bowler_name,name,sort_order")),
@@ -1661,22 +1685,30 @@ export default function BowlingTracker(){
           const map={};
           const dateMap={};
           const formatMap={};
+          const patternMap={};
           leagueCentersRes.data.forEach(r=>{
             if(r.center_id)map[r.name]=r.center_id;
             if(r.start_date||r.end_date)dateMap[r.name]=normalizeLeagueDates({startDate:r.start_date||"",endDate:r.end_date||""});
 
             if(r.format)formatMap[r.name]=leagueFormat(r.format);
+            if(r.pattern_name)patternMap[r.name]=String(r.pattern_name);
           });
           setLeagueCenters(map);
           setLeagueDates(dateMap);
           setLeagueFormats(formatMap);
+          setLeaguePatterns(patternMap);
           try{await window.storage.set(LEAGUE_CENTERS_KEY,JSON.stringify(map));}catch{}
           try{await window.storage.set(LEAGUE_DATES_KEY,JSON.stringify(dateMap));}catch{}
+          try{await window.storage.set(LEAGUE_PATTERNS_KEY,JSON.stringify(patternMap));}catch{}
         }else{
           const lc=await readCached(LEAGUE_CENTERS_KEY,"object");
           if(lc)setLeagueCenters(lc);
           const ld=await readCached(LEAGUE_DATES_KEY,"object");
           if(ld)setLeagueDates(ld);
+          // Cached too, so the pattern comparison still has its
+          // defaults on an offline open.
+          const lp=await readCached(LEAGUE_PATTERNS_KEY,"object");
+          if(lp)setLeaguePatterns(lp);
         }
 
         // Archived seasons. Cloud first, local cache when offline --
@@ -2226,6 +2258,19 @@ export default function BowlingTracker(){
     // cloudUpdate, not cloudWrite: an upsert would send the whole row and
     // blank the league's other columns.
     if(id)await cloudUpdate("leagues",{id},{format:leagueFormat(format)});
+  }
+
+  // Mirrors saveLeagueFormat exactly, including the cloudUpdate: an
+  // upsert would send the whole row and blank the league's centre, dates
+  // and format along the way.
+  async function saveLeaguePattern(name,patternName){
+    const clean=String(patternName||"").trim();
+    const next={...leaguePatterns};
+    if(clean)next[name]=clean; else delete next[name];
+    setLeaguePatterns(next);
+    try{window.storage.set(LEAGUE_PATTERNS_KEY,JSON.stringify(next));}catch{}
+    const id=leagueIdsRef.current?.[name];
+    if(id)await cloudUpdate("leagues",{id},{pattern_name:clean||null});
   }
 
   async function saveLeagueDates(name,startDate,endDate){
@@ -7433,6 +7478,7 @@ export default function BowlingTracker(){
             centers={centers} leagueCenters={leagueCenters} setLeagueCenter={setLeagueCenter} searchCenters={searchCenters}
             leagueDates={leagueDates} setLeagueDates={saveLeagueDates}
             leagueFormats={leagueFormats} setLeagueFormat={saveLeagueFormat} updateCenter={updateCenter} renameLeague={renameLeague}
+            leaguePatterns={leaguePatterns} setLeaguePattern={saveLeaguePattern}
             hiddenLeagues={hiddenLeagues} leagueIds={leagueIdsRef.current} toggleLeagueHidden={toggleLeagueHidden}
             shots={shots}
             teams={teams} activeBowler={activeBowler} leaveTeam={leaveTeam} leftHandedForBowler={leftHandedForBowler}/>
@@ -7776,9 +7822,8 @@ export default function BowlingTracker(){
           <StatsView
             // Improve lost its tab; Stats is where a bowler is already
             // asking "why", so the coaching is reached from there.
-            onOpenImprove={()=>setView("insights")}
             centerStats={centerStats}
-            lanePatterns={lanePatterns}
+            lanePatterns={lanePatterns} leaguePatterns={leaguePatterns}
             oilPatterns={oilPatterns}
             statsGroup={dataTab}
 
