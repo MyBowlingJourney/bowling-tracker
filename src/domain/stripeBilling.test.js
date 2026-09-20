@@ -16,7 +16,7 @@ import {
   stripeStateToStatus, stripeStatus, billingPeriodOf, currentPeriodEnd,
   priceIdOf, entitlementFromStripeSubscription, STRIPE_STATUS_TO_STATUS,
 } from '../../supabase/functions/_shared/stripe.ts';
-import { isSubscriber } from './entitlements.js';
+import { isSubscriber, hasPaidSubscription } from './entitlements.js';
 
 const NOW = Date.parse('2026-01-15T20:00:00Z');
 const unix = d => Math.floor((NOW + d * 86_400_000) / 1000);
@@ -268,9 +268,12 @@ describe('the create-checkout already-subscribed guard', () => {
     const ends = new Date(NOW + 20 * 86_400_000).toISOString();
     for (const status of ALL_OUR_STATUSES) {
       const row = { plan: 'plus', status, current_period_end: ends };
-      const theyHaveAccess = isSubscriber(row, NOW);
+      // hasPaidSubscription, not isSubscriber: the checkout guard asks
+      // "do they already HAVE a subscription", and a test account has
+      // access without having one.
+      const theyHaveOne = hasPaidSubscription(row, NOW);
       const checkoutBlocks = statuses.includes(status);
-      expect(`${status}:blocked=${checkoutBlocks}`).toBe(`${status}:blocked=${theyHaveAccess}`);
+      expect(`${status}:blocked=${checkoutBlocks}`).toBe(`${status}:blocked=${theyHaveOne}`);
     }
   });
 

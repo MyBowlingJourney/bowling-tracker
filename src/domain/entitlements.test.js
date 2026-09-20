@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
-  isSubscriber, isTrialing, shouldOfferAnnual, trialDaysLeft, featureUnlocked,
+  isSubscriber, hasPaidSubscription, isTestAccount,
+  isTrialing, shouldOfferAnnual, trialDaysLeft, featureUnlocked,
   canUseInsights, canUseGenie, canPourNightcap, canUseCoaching,
   canUseBracketsAndSidePots, canCompareToFriend, canImportScorecard,
   canSeeStatsCard, leagueLimit, teamLimit, allowedLeagues, lockedLeagues,
@@ -23,18 +24,34 @@ const GATES = [
   ['canCompareToFriend', (e, o) => canCompareToFriend(e, o)],
 ];
 
-// Billing is off today, so this is what the app actually does. The tests
-// below that pass billingLive: true are the ones describing the paywall
-// once it is switched on.
+// Billing is ON as of the release that shipped Stripe. This test used to
+// assert the switch was off and every gate open; it now asserts the
+// opposite, and that flip was the point of the test -- it is a tripwire
+// that fails loudly when somebody changes the switch, in either
+// direction, so the change is always deliberate.
+//
+// A free bowler with no entitlement row is now GATED. That is the whole
+// business model, and the thing to keep an eye on: the server half lives
+// in the BILLING_LIVE secret on the Edge Functions, and if that is not
+// also "true" the app hides features the backend still serves.
 describe('the kill switch', () => {
-  it('is off, so nothing is gated yet', () => {
-    expect(BILLING_LIVE).toBe(false);
+  it('is on, so a free bowler is gated', () => {
+    expect(BILLING_LIVE).toBe(true);
     for (const [name, gate] of GATES) {
-      expect(`${name}:${gate(null)}`).toBe(`${name}:true`);
+      expect(`${name}:${gate(null)}`).toBe(`${name}:false`);
     }
-    expect(canSeeStatsCard('headToHead', null)).toBe(true);
-    expect(leagueLimit(null)).toBe(Infinity);
-    expect(canImportScorecard(null)).toBe(true);
+    expect(canSeeStatsCard('headToHead', null)).toBe(false);
+    expect(leagueLimit(null)).toBe(FREE_LEAGUE_LIMIT);
+    expect(canImportScorecard(null)).toBe(false);
+  });
+
+  // The free tier is not nothing. Scores, averages, spares and ball
+  // numbers stay free forever -- that is what the landing page and the
+  // terms both promise, so a stats card that is not on the paid list
+  // must still answer yes with billing live.
+  it('leaves the free tier genuinely usable', () => {
+    expect(canSeeStatsCard('someFreeCard', null)).toBe(true);
+    expect(leagueLimit(null)).toBeGreaterThan(0);
   });
 
   it('gates everything for a free bowler once it is on', () => {
@@ -285,5 +302,62 @@ describe('featureUnlocked', () => {
 
   it('defaults to the shipped switch when not told otherwise', () => {
     expect(featureUnlocked(null)).toBe(!BILLING_LIVE);
+  });
+});
+
+// ── Test accounts ───────────────────────────────────────────────────
+//
+// One flag that unlocks everything regardless of BILLING_LIVE, for us
+// and for an App Store reviewer who must be able to see every paid
+// screen without a card.
+//
+// The whole point of these tests is the SPLIT: a test account has
+// access but does not have a subscription, and merging those two
+// questions back into one predicate would silently make billing
+// untestable from the only account set up to test it.
+describe('test accounts', () => {
+  const NOW_T = Date.parse('2026-01-15T20:00:00Z');
+  const testAcct = { plan: 'free', status: 'none', is_test_account: true };
+  const freeAcct = { plan: 'free', status: 'none' };
+  const paidAcct = {
+    plan: 'plus', status: 'active',
+    current_period_end: new Date(NOW_T + 20 * 86_400_000).toISOString(),
+  };
+
+  it('unlocks everything even with billing live', () => {
+    expect(featureUnlocked(testAcct, { now: NOW_T, billingLive: true })).toBe(true);
+    expect(featureUnlocked(freeAcct, { now: NOW_T, billingLive: true })).toBe(false);
+  });
+
+  it('has access but does NOT have a subscription', () => {
+    expect(isSubscriber(testAcct, NOW_T)).toBe(true);
+    expect(hasPaidSubscription(testAcct, NOW_T)).toBe(false);
+  });
+
+  it('can therefore still reach checkout, which is the point', () => {
+    // The Subscribe screen and create-checkout both gate on
+    // hasPaidSubscription. False here means the buy button is reachable.
+    expect(hasPaidSubscription(testAcct, NOW_T)).toBe(false);
+  });
+
+  it('leaves a real subscriber answering yes to both', () => {
+    expect(isSubscriber(paidAcct, NOW_T)).toBe(true);
+    expect(hasPaidSubscription(paidAcct, NOW_T)).toBe(true);
+  });
+
+  it('only a literal true counts, never a truthy value', () => {
+    for (const v of ['true', 1, 'yes', {}, [], 'false']) {
+      expect(`${JSON.stringify(v)}:${isTestAccount({ is_test_account: v })}`)
+        .toBe(`${JSON.stringify(v)}:false`);
+    }
+    expect(isTestAccount({ is_test_account: true })).toBe(true);
+    expect(isTestAccount(null)).toBe(false);
+    expect(isTestAccount(undefined)).toBe(false);
+  });
+
+  it('gives limits away too, not just the AI features', () => {
+    expect(leagueLimit(testAcct, { billingLive: true })).toBe(Infinity);
+    expect(teamLimit(testAcct, { billingLive: true })).toBe(Infinity);
+    expect(leagueLimit(freeAcct, { billingLive: true })).toBe(FREE_LEAGUE_LIMIT);
   });
 });

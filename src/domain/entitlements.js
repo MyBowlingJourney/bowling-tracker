@@ -40,7 +40,7 @@ import { isContainerLeague } from "./leagueMembership.js";
 //
 // Flip it in the same release that ships Play Billing and Stripe, not
 // before. It is one line so that the decision is one line.
-export const BILLING_LIVE = false;
+export const BILLING_LIVE = true;
 
 // ── The plan ────────────────────────────────────────────────────────
 //
@@ -138,7 +138,7 @@ const at = v => {
 //
 // A null current_period_end means no end was recorded -- a manual grant
 // -- and is open-ended rather than expired.
-export function isSubscriber(entitlement, now = Date.now()) {
+export function hasPaidSubscription(entitlement, now = Date.now()) {
   const e = entitlement && typeof entitlement === "object" ? entitlement : null;
   if (!e || e.plan !== "plus") return false;
   const ends = at(e.current_period_end);
@@ -157,6 +157,43 @@ export function isSubscriber(entitlement, now = Date.now()) {
     default:
       return false;
   }
+}
+
+// ── Test accounts ───────────────────────────────────────────────────
+//
+// One flag, set in the database, that unlocks everything regardless of
+// BILLING_LIVE. It exists so the app can be used in full without a
+// subscription: by us, and by an App Store or Play reviewer, who has to
+// be able to see every paid screen without being asked for a card.
+//
+// NOT the same thing as comping somebody. A comped bowler has been GIVEN
+// a subscription -- free months, goodwill after a bad night of sync --
+// and should behave like a subscriber everywhere, including in the
+// dashboard and in any revenue figure. A test account is not a customer
+// at all and must never be counted as one. Keeping them as separate
+// ideas is what stops "how many subscribers do we have" from quietly
+// including the developer.
+//
+// SAFE TO TRUST CLIENT-SIDE: `authenticated` holds only SELECT on
+// entitlements -- no UPDATE, no INSERT -- so a bowler cannot set this on
+// themselves. Only service_role and postgres can write it, which means
+// the flag arriving in the browser was put there by us.
+export function isTestAccount(entitlement) {
+  return entitlement?.is_test_account === true;
+}
+
+// The question every ACCESS gate asks: may they use Pro things?
+//
+// Deliberately split from hasPaidSubscription, which is the question the
+// CHECKOUT guards ask: do they already have a subscription, so block a
+// second purchase? Fold the two together and a test account can never
+// exercise the purchase flow -- Subscribe and create-checkout would both
+// refuse it -- and testing billing is half the reason the flag exists.
+//
+// Two questions, two predicates, each defined once. The double-charge
+// bug came from one question having two different answers in two files.
+export function isSubscriber(entitlement, now = Date.now()) {
+  return isTestAccount(entitlement) || hasPaidSubscription(entitlement, now);
 }
 
 export function isTrialing(entitlement, now = Date.now()) {
