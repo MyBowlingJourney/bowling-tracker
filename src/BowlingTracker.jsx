@@ -76,7 +76,7 @@ import { archiveOnNewStart, compareSeasons, describeSeasonChange } from "./domai
 import { sessionsForFigures, isBaker, bakerBowlerFor } from "./domain/tournamentFormats.js";
 import { emptyDrill, normalizeDrill, drillToRow, drillFromRow } from "./domain/drills.js";
 import { scorekeepingOptions, allowsOtherBowlers, normalizeGuests, addGuest, removeGuest } from "./domain/scorekeeping.js";
-import { allowedLeagues, lockedLeagues } from "./domain/entitlements.js";
+import { allowedLeagues, lockedLeagues, ENTITLEMENT_UNKNOWN } from "./domain/entitlements.js";
 // Not lazy: it is one small card, it is rendered conditionally already,
 // and a Suspense boundary around a prompt this short would flash.
 import KeptLeaguePicker from "./KeptLeaguePicker.jsx";
@@ -155,6 +155,9 @@ if (typeof window !== "undefined" && !window.storage) {
 }
 
 const STORAGE_KEY = "bowling-shots-v2";
+// The last entitlement we successfully read. Scoped per user by
+// scopedStorage, so this cannot cross accounts on a shared device.
+const ENTITLEMENT_CACHE_KEY = "bowling-entitlement-v1";
 // Delta sync cursors: the timestamp of the latest change this device has
 // already pulled for shots/sessions. Present means "ask for what changed
 // since this"; absent means "this device has never completed a sync" and
@@ -447,7 +450,12 @@ export default function BowlingTracker(){
   const[leagues,setLeagues]=useState(DEFAULT_LEAGUES);
   // The subscription. Null is the normal state for a free bowler, and
   // every gate in domain/entitlements.js reads null as unsubscribed.
-  const[entitlement,setEntitlement]=useState(null);
+  // Starts UNKNOWN, not null. null is "asked, and they are free"; unknown
+  // is "could not ask yet". Before billing went live both spelled null
+  // and it did not matter. Now the difference is whether a paying
+  // subscriber is locked out while the query is in flight. See
+  // ENTITLEMENT_UNKNOWN in domain/entitlements.js.
+  const[entitlement,setEntitlement]=useState(ENTITLEMENT_UNKNOWN);
   const[activeBowler,setActiveBowler]=useState("");
   const[newBowlerName,setNewBowlerName]=useState("");
   const[arsenals,setArsenals]=useState({}); // {bowlerName: [ballName,...]}
@@ -1214,18 +1222,54 @@ export default function BowlingTracker(){
   // Anything added here must exist in the table FIRST. Selecting a
   // column that is not there fails the whole query, which would leave
   // every bowler reading as unsubscribed rather than failing loudly.
+  // CLOUD-FIRST, LOCAL CACHE AS THE OFFLINE FALLBACK -- the same shape as
+  // shots, leagues and seasons, and for a much sharper reason.
+  //
+  // This used to fetch fresh on every load and keep nothing. While
+  // BILLING_LIVE was false that was invisible: an absent entitlement
+  // unlocked everything anyway. With billing on it inverted, and a
+  // subscriber whose entitlement query lost a race with bowling-alley
+  // wifi got their leagues cut to one and every paid screen locked --
+  // mid league night, having paid. The server refuses to fail that way
+  // on purpose (see nightcap/index.ts); the client should not either.
+  //
+  // window.storage is already user-scoped, so a cached row cannot leak
+  // from one account into another on a shared phone.
   useEffect(()=>{
     if(!user?.id){setEntitlement(null);return;}
     let live=true;
     (async()=>{
+      // Last known answer first, so the gates are right before the
+      // network has said anything -- and stay right if it never does.
+      let hadCache=false;
+      try{
+        const cached=await window.storage.get(ENTITLEMENT_CACHE_KEY);
+        if(cached?.value&&live){
+          const parsed=JSON.parse(cached.value);
+          // null is a legitimate cached answer: "asked, they are free".
+          setEntitlement(parsed);
+          hadCache=true;
+        }
+      }catch{ /* unreadable cache is the same as no cache */ }
+
       try{
         const{data,error}=await supabase.from("entitlements")
           .select("plan,status,billing_period,current_period_end,trial_end,kept_league_id,created_at,is_test_account")
           .eq("user_id",user.id).maybeSingle();
         if(!live)return;
-        if(error){console.error("entitlement read failed:",error.message);return;}
-        setEntitlement(data||null);
-      }catch(e){ if(live)console.error("entitlement read threw:",String(e)); }
+        if(error){
+          // Keep whatever the cache gave us. With no cache this stays
+          // UNKNOWN, which fails OPEN rather than locking out somebody
+          // who may well have paid.
+          console.error("entitlement read failed, using cached value:",error.message,hadCache?"(cache hit)":"(no cache -- unlocked until we can ask)");
+          return;
+        }
+        const row=data||null;
+        setEntitlement(row);
+        try{ await window.storage.set(ENTITLEMENT_CACHE_KEY,JSON.stringify(row)); }catch{ /* cache is best effort */ }
+      }catch(e){
+        if(live)console.error("entitlement read threw, using cached value:",String(e),hadCache?"(cache hit)":"(no cache -- unlocked until we can ask)");
+      }
     })();
     return()=>{live=false;};
   },[user?.id]);
@@ -5586,7 +5630,10 @@ export default function BowlingTracker(){
   const onKeptLeagueSaved=name=>{
     const id=leagueIdsRef.current?.[name];
     if(!id)return;
-    setEntitlement(prev=>prev?{...prev,kept_league_id:id}:prev);
+    // Guarded on typeof: prev can be the ENTITLEMENT_UNKNOWN string, and
+    // spreading a string would produce {0:"u",1:"n",...} -- an object that
+    // is truthy, has no plan, and reads as a locked-out free bowler.
+    setEntitlement(prev=>(prev&&typeof prev==="object")?{...prev,kept_league_id:id}:prev);
   };
   const visibleLeagueKey=visibleLeagueNames.join("\u0001");
   // Memoised: these run over the bowler's whole history, and this
