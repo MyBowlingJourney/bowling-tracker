@@ -14,6 +14,7 @@ import DrillSession from "./DrillSession.jsx";
 import SessionRecap from "./SessionRecap.jsx";
 import Nightcap from "./Nightcap.jsx";
 import ShareButton from "./ShareButton.jsx";
+import OilPatternPicker from "./OilPatternPicker.jsx";
 import { sessionHighlights } from "./domain/shareCard.js";
 import { getManualScore, seriesTotal, getGameEquipment, defaultPracticeBall } from "./domain/manualScores.js";
 import { formatLayout } from "./domain/layouts.js";
@@ -729,8 +730,27 @@ export default function LogView({
                         </div>
                         {isOfficial&&(
                           <div style={{marginTop:"6px"}}>
-                            <input style={{...S.input,marginBottom:"6px"}} placeholder="Pattern name (e.g. Kegel Main Street)"
-                              value={rec.patternName} onChange={e=>setLanePattern(form.teamId||sessionLeague,sessionLeague,sessionDate,lane,{patternName:e.target.value})}/>
+                            {/* Picking a known pattern brings its specs
+                                with it. Length, volume and ratio are
+                                properties OF the pattern, so asking a
+                                bowler to copy three numbers off the sheet
+                                on the wall was work the catalogue could
+                                already do. Typed-in names still save --
+                                the list accelerates, it does not gate. */}
+                            <div style={{marginBottom:"6px"}}>
+                              <OilPatternPicker
+                                value={rec.patternName}
+                                patterns={oilPatterns}
+                                placeholder="Pattern name (e.g. Kegel Main Street)"
+                                onChange={(name,picked)=>setLanePattern(
+                                  form.teamId||sessionLeague,sessionLeague,sessionDate,lane,
+                                  picked
+                                    ? {patternName:name,
+                                       length:picked.lengthFeet!=null?String(picked.lengthFeet):rec.length,
+                                       volume:picked.volumeMl!=null?String(picked.volumeMl):rec.volume,
+                                       ratio:picked.ratio||rec.ratio}
+                                    : {patternName:name})}/>
+                            </div>
                             <div style={S.row}>
                               <input style={{...S.input,flex:1}} type="number" placeholder="Length (ft)"
                                 value={rec.length} onChange={e=>setLanePattern(form.teamId||sessionLeague,sessionLeague,sessionDate,lane,{length:e.target.value})}/>

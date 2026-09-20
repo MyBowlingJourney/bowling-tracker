@@ -7479,6 +7479,7 @@ export default function BowlingTracker(){
             leagueDates={leagueDates} setLeagueDates={saveLeagueDates}
             leagueFormats={leagueFormats} setLeagueFormat={saveLeagueFormat} updateCenter={updateCenter} renameLeague={renameLeague}
             leaguePatterns={leaguePatterns} setLeaguePattern={saveLeaguePattern}
+            oilPatterns={oilPatterns}
             hiddenLeagues={hiddenLeagues} leagueIds={leagueIdsRef.current} toggleLeagueHidden={toggleLeagueHidden}
             shots={shots}
             teams={teams} activeBowler={activeBowler} leaveTeam={leaveTeam} leftHandedForBowler={leftHandedForBowler}/>

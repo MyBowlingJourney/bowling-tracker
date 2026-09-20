@@ -10,6 +10,7 @@ import { LEAGUE_FORMATS, leagueFormat, isNoTapLeague } from "./domain/leagueSeas
 import { availableTours } from "./domain/tour.js";
 import SessionHistory from "./SessionHistory.jsx";
 import CenterPicker from "./CenterPicker.jsx";
+import OilPatternPicker from "./OilPatternPicker.jsx";
 import { isContainerLeague, isLeagueHidden, teamsInLeague } from "./domain/leagueMembership.js";
 import { sessionsToCsv, shotsToCsv, seasonSummary, summaryToText } from "./domain/seasonExport.js";
 import { inferLeagueDay, dayName, reminderSpec, reminderToIcs } from "./domain/reminders.js";
@@ -56,7 +57,7 @@ export default function Settings({
   centers, leagueCenters, setLeagueCenter, searchCenters,
   leagueDates, setLeagueDates, renameLeague,
   leagueFormats = {}, setLeagueFormat,
-  leaguePatterns = {}, setLeaguePattern,
+  leaguePatterns = {}, setLeaguePattern, oilPatterns = [],
   updateCenter,
   tournaments = [], deleteNight, onImportCsv,
   hiddenLeagues, leagueIds, toggleLeagueHidden, teams, activeBowler, leaveTeam, onCreateTeam,
@@ -638,14 +639,16 @@ export default function Settings({
                         <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "10px", marginBottom: "4px" }}>
                           Usual oil pattern
                         </div>
-                        <input
-                          style={{ ...S.input, width: "100%" }}
+                        {/* Type-ahead over the pattern catalogue rather
+                            than a free-text box -- but free text still
+                            saves, because house shots have local names
+                            and a brand new PBA pattern is not in the
+                            catalogue the week it appears. */}
+                        <OilPatternPicker
+                          value={leaguePatterns?.[league] || ""}
+                          patterns={oilPatterns}
                           placeholder="e.g. House Shot, Kegel Main Street"
-                          defaultValue={leaguePatterns?.[league] || ""}
-                          onBlur={e => {
-                            const next = e.target.value.trim();
-                            if (next !== (leaguePatterns?.[league] || "")) setLeaguePattern(league, next);
-                          }} />
+                          onChange={name => setLeaguePattern(league, name)} />
                         <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "4px", lineHeight: 1.5 }}>
                           Used for any night you don't record a pattern for. Leave blank if this
                           league rotates.
