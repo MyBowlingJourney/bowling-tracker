@@ -4723,6 +4723,34 @@ export default function BowlingTracker(){
   }
 
 
+  // Delete ONE game: the typed score and the frames behind it.
+  //
+  // A game can be wrong in two different ways -- a score typed into the
+  // wrong box, or a game logged shot by shot that never happened -- and
+  // clearing the number only fixed the first. With frames still there
+  // the game reappeared from the shots the moment the box was cleared,
+  // which reads as the app refusing to forget.
+  //
+  // Scoped exactly like cancelSession: this bowler, this league, this
+  // date, this game number. Games are NOT renumbered afterwards --
+  // deleting game 2 of three leaves 1 and 3, because renumbering would
+  // silently move game 3's shots onto game 2 and make a bowler's own
+  // record disagree with the scoresheet they bowled it on.
+  async function deleteGame(game){
+    const bowler=nightBowler, league=nightLeague, date=nightDate;
+    const g=parseInt(game);
+    if(!league||!bowler||!Number.isFinite(g))return;
+
+    const keep=(shots||[]).filter(sh=>!(sh
+      &&sh.bowler===bowler&&sh.league===league
+      &&String(sh.date)===String(date)&&String(sh.game)===String(g)));
+    if(keep.length!==(shots||[]).length)await saveShots(keep);
+
+    if(getManualScore(manualScoresRef.current,bowler,league,date,g)!=null){
+      await updateManualScore(bowler,league,date,g,"");
+    }
+  }
+
   // Abandon tonight and go home, taking the data with it.
   //
   // League mode holds you until the session is ended, which is right
@@ -7775,7 +7803,7 @@ export default function BowlingTracker(){
             selectBowler={selectBowler} set={set} setLanePattern={setLanePattern} setMatchHandicap={setMatchHandicap} setMatchOpponent={setMatchOpponent} setPokerWinnings={setPokerWinnings} setThreeSixNineWinnings={setThreeSixNineWinnings} winningsSaved={winningsSaved} confirmWinningsSaved={confirmWinningsSaved} setView={setView}
             leagueBuyIns={leagueBuyIns} onSaveLeagueBuyIns={saveLeagueBuyIns} onReplayTour={replayTour}
             casualExtraGames={casualExtraGames} setCasualExtraGames={setCasualExtraGames}
-            stepPinCount={stepPinCount} strictPartial={strictPartial} submitSession={submitSession} cancelSession={cancelSession} submitShot={submitShot} theoreticalScoreForGame={theoreticalScoreForGame} maxScoreThisGame={maxScoreThisGame} toggle={toggle} toggleMulti={toggleMulti} toggleSection={toggleSection}
+            stepPinCount={stepPinCount} strictPartial={strictPartial} submitSession={submitSession} cancelSession={cancelSession} deleteGame={deleteGame} submitShot={submitShot} theoreticalScoreForGame={theoreticalScoreForGame} maxScoreThisGame={maxScoreThisGame} toggle={toggle} toggleMulti={toggleMulti} toggleSection={toggleSection}
             preferences={logPreferences}
             setSessionMoneyArray={setSessionMoneyArray} setSessionMoneyValue={setSessionMoneyValue}
             activeBowlerLeftHanded={activeBowlerLeftHanded}
