@@ -85,6 +85,7 @@ import TrialBanner from "./TrialBanner.jsx";
 // subscriber. Display only -- what is actually charged is whatever the
 // Stripe price says. See purchase.js.
 import { DISPLAY_PRICES } from "./purchase.js";
+import { standingAfterFirst, knockedFromSecondLeave, toggleKnocked, secondLeaveFrom, pinCountFrom, isAccidentalSpare } from "./domain/spareAttempt.js";
 import { visibleLeagues, isLeagueHidden, teamsInLeague, describeLeaveImpact, leaveConfirmationText, isContainerLeague } from "./domain/leagueMembership.js";
 import { decodeShare } from "./domain/badgeShare.js";
 import { allCompetitiveBadges } from "./domain/badgeContext.js";
@@ -3807,7 +3808,7 @@ export default function BowlingTracker(){
     // or linger from this same bowler's last completed shot.
     const resetFields={
       ball:"",surface:"",startingBoard:"",targetArrows:"",
-      result:"",otherLeave:[],spareMade:"",strikeDescription:"",
+      result:"",otherLeave:[],spareMade:"",secondLeave:undefined,strikeDescription:"",
       release:"",miss:[],ballChangeReason:[],pinCount:"",notes:"",
     };
 
@@ -4171,7 +4172,13 @@ export default function BowlingTracker(){
         const fb=f.result==="Other Leave"?Math.max(0,10-standingCount(f.otherLeave)):9;
         pc=String(fb);
       }
-      return{...f,spareMade:newVal,pinCount:pc};
+      // Re-answering clears the pin taps.
+      //
+      // "Yes" means everything went down, so a partial list contradicts
+      // it. Clearing on any change also stops a stale list surviving a
+      // No -> Yes -> No round trip, where the picker would reopen with
+      // pins already lit that the bowler never tapped this time.
+      return{...f,spareMade:newVal,pinCount:pc,secondLeave:undefined};
     });
   }
 
@@ -4193,14 +4200,15 @@ export default function BowlingTracker(){
       const newLeave=arr.includes(pin)?arr.filter(x=>x!==pin):[...arr,pin];
       const standing=newLeave.filter(p=>p!=="9 Pin No-Tap").length;
       const fb=Math.max(0,10-standing);
-      return{...f,otherLeave:newLeave,pinCount:String(fb),spareMade:""};
+      // Changing what stood after the FIRST ball invalidates any answer
+      // about the second: the spare ball was thrown at a different rack.
+      // It already resets spareMade for the same reason.
+      return{...f,otherLeave:newLeave,pinCount:String(fb),spareMade:"",secondLeave:undefined};
     });
   }
 
   const standingPins=standingCount(form.otherLeave);
   const firstBallPins=form.result==="Other Leave"?Math.max(0,10-standingPins):null;
-  const maxPinCount=firstBallPins!==null?firstBallPins+Math.max(0,standingPins-1):9;
-  const minPinCount=firstBallPins!==null?firstBallPins:0;
   const isSinglePin=standingPins===1;
   // Declared here, above its first use.
   //
@@ -4334,7 +4342,7 @@ export default function BowlingTracker(){
   //
   // The pin COUNT used to satisfy this too ("...or enter how many you
   // knocked down"), but the only control that sets a count is the stepper
-  // behind showPinCount, which itself requires standingPins > 0 -- so with
+  // behind showSparePins, which itself requires standingPins > 0 -- so with
   // an empty leave that path was unreachable by hand. The only thing that
   // ever filled it was handleSpareMadeToggle writing "10" for a made
   // spare, which is precisely the sequence this is meant to stop. Keying
@@ -4389,15 +4397,38 @@ export default function BowlingTracker(){
     attach();
     return()=>{cancelled=true;cancelAnimationFrame(raf);if(ro)ro.disconnect();};
   },[view,preferences.trackingMode,preferences.environment,practiceMode,editingId,needsSpareMade]);
-  const showPinCount=hasLeave&&form.spareMade==="No"&&!isSinglePin&&standingPins>0;
+  // Same condition the stepper used, renamed for what it now shows.
+  //
+  // A single pin never reaches it: "Spare made?" has already asked the
+  // only question a single pin has. That is why Weak 10 and Ringing 10
+  // skip it -- they are single-pin leaves by definition.
+  const showSparePins=hasLeave&&form.spareMade==="No"&&!isSinglePin&&standingPins>0;
 
-  function stepPinCount(delta){
+  // The pins the spare ball was thrown at, and which of them fell.
+  const sparePinsStanding=standingAfterFirst(form);
+  const spareKnocked=knockedFromSecondLeave(sparePinsStanding,form.secondLeave)||[];
+  const spareIsAccidental=showSparePins&&isAccidentalSpare(sparePinsStanding,spareKnocked);
+
+  // Tapping a pin writes BOTH the new field and the old one.
+  //
+  // pinCount stays exactly as it was -- the frame total -- so scoring,
+  // stats and every existing consumer carry on untouched. It is simply
+  // derived now instead of typed, which also means the two can never
+  // disagree the way a stepper and a leave could.
+  function toggleSparePin(pin){
     setForm(f=>{
-      const cur=f.pinCount!==""?parseInt(f.pinCount):minPinCount;
-      const next=Math.max(minPinCount,Math.min(maxPinCount,cur+delta));
-      return{...f,pinCount:String(next)};
+      const standing=standingAfterFirst(f);
+      const wasKnocked=knockedFromSecondLeave(standing,f.secondLeave)||[];
+      const knocked=toggleKnocked(wasKnocked,pin);
+      return{
+        ...f,
+        secondLeave:secondLeaveFrom(standing,knocked),
+        pinCount:String(pinCountFrom(standing,knocked)),
+      };
     });
   }
+
+
 
   // ── Submit shot ───────────────────────────────────────────────────────────
   // True when the shot being logged belongs to a local-only guest.
@@ -7957,14 +7988,14 @@ export default function BowlingTracker(){
             offerShotByShot={offerShotByShot} onTryShotByShot={tryShotByShot} onDismissShotByShot={dismissShotPrompt}
             promptForTeam={promptForTeam} onDismissTeamPrompt={dismissTeamPrompt}
             ballNumLabel={ballNumLabel} curSession={curSession} currentLane={currentLane} firstBallPins={firstBallPins} gameScores={gameScores} frameScores={frameScores}
-            hasLeave={hasLeave} leaveDescribed={leaveDescribed} inTenth={inTenth} isNoTap={isNoTap} isStrike={isStrike} needsSpareMade={needsSpareMade} needsPins={needsPins} sessionTotal={sessionTotal} showPinCount={showPinCount}
+            hasLeave={hasLeave} leaveDescribed={leaveDescribed} inTenth={inTenth} isNoTap={isNoTap} isStrike={isStrike} needsSpareMade={needsSpareMade} needsPins={needsPins} sessionTotal={sessionTotal} showSparePins={showSparePins} sparePinsStanding={sparePinsStanding} spareKnocked={spareKnocked} spareIsAccidental={spareIsAccidental} toggleSparePin={toggleSparePin}
             standingPins={standingPins} tenthOptions={tenthOptions} autoFillLine={autoFillLine} calcLane={calcLane} cancelEdit={cancelEdit} cycleGameResult={cycleGameResult} cycleSeriesResult={cycleSeriesResult}
             getLanePattern={getLanePattern} getMatch={getMatch} handleBallChange={handleBallChange} handleLeaveToggle={handleLeaveToggle} handleLineChange={handleLineChange}
             handleSpareMadeToggle={handleSpareMadeToggle} matchHandicap={matchHandicap} previousShotBall={previousShotBall}
             selectBowler={selectBowler} set={set} setLanePattern={setLanePattern} setMatchHandicap={setMatchHandicap} setMatchOpponent={setMatchOpponent} setPokerWinnings={setPokerWinnings} setThreeSixNineWinnings={setThreeSixNineWinnings} winningsSaved={winningsSaved} confirmWinningsSaved={confirmWinningsSaved} setView={setView}
             leagueBuyIns={leagueBuyIns} onSaveLeagueBuyIns={saveLeagueBuyIns} onReplayTour={replayTour}
             casualExtraGames={casualExtraGames} setCasualExtraGames={setCasualExtraGames}
-            stepPinCount={stepPinCount} strictPartial={strictPartial} submitSession={submitSession} cancelSession={cancelSession} deleteGame={deleteGame} submitShot={submitShot} theoreticalScoreForGame={theoreticalScoreForGame} maxScoreThisGame={maxScoreThisGame} toggle={toggle} toggleMulti={toggleMulti} toggleSection={toggleSection}
+            strictPartial={strictPartial} submitSession={submitSession} cancelSession={cancelSession} deleteGame={deleteGame} submitShot={submitShot} theoreticalScoreForGame={theoreticalScoreForGame} maxScoreThisGame={maxScoreThisGame} toggle={toggle} toggleMulti={toggleMulti} toggleSection={toggleSection}
             preferences={logPreferences}
             setSessionMoneyArray={setSessionMoneyArray} setSessionMoneyValue={setSessionMoneyValue}
             activeBowlerLeftHanded={activeBowlerLeftHanded}

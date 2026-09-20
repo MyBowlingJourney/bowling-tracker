@@ -210,7 +210,19 @@ export function Chip({label,selected,onToggle,color,dense,fill}){
 // top, headpin (1) at bottom — so tapping matches where the pin physically
 // stood, rather than a linear row of numbered chips a bowler has to
 // translate from memory.
-export function PinDeck({selected,onToggle}){
+// The rack, at thumb size.
+//
+// `available` is optional and exists for the spare picker. Without it
+// every pin is tappable, which is what picking a leave wants: any pin
+// could be the one still standing.
+//
+// With it, only those pins can be tapped and the rest are drawn faint --
+// they were already down before this ball, so they are not a choice. They
+// still have to be DRAWN, because a rack missing its fallen pins loses
+// its shape and you can no longer tell where the live pins are standing.
+// They render as spans rather than disabled buttons so they are out of
+// the tab order entirely rather than merely unclickable.
+export function PinDeck({selected,onToggle,available}){
   const rows=[
     [{n:"7",x:14},{n:"8",x:38},{n:"9",x:62},{n:"10",x:86}],
     [{n:"4",x:26},{n:"5",x:50},{n:"6",x:74}],
@@ -218,18 +230,36 @@ export function PinDeck({selected,onToggle}){
     [{n:"1",x:50}],
   ];
   const pinSize=52,rowGap=58,topPad=8;
+  // Compared as strings throughout: this component has always spoken
+  // "7", and a caller holding numbers would silently match nothing.
+  const limited=Array.isArray(available);
+  const canTap=n=>!limited||available.map(String).includes(n);
   return (
     <div style={{position:"relative",height:`${topPad*2+rowGap*3+pinSize}px`,margin:"12px 0"}}>
       {rows.map((row,rowIdx)=>row.map(pin=>{
-        const isSelected=Array.isArray(selected)&&selected.includes(pin.n);
+        const isSelected=Array.isArray(selected)&&selected.map(String).includes(pin.n);
+        const place={
+          position:"absolute",left:`${pin.x}%`,top:`${rowIdx*rowGap+topPad}px`,
+          transform:"translateX(-50%)",width:`${pinSize}px`,height:`${pinSize}px`,
+          borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",
+          fontSize:"16px",fontWeight:700,boxSizing:"border-box",
+        };
+        if(!canTap(pin.n)){
+          return (
+            <span key={pin.n} aria-hidden="true" style={{
+              ...place,border:`1px solid ${C.border}`,backgroundColor:"transparent",
+              color:"transparent",
+            }}/>
+          );
+        }
         return (
-          <button key={pin.n} onClick={()=>onToggle(pin.n)}
+          <button key={pin.n} type="button" onClick={()=>onToggle(pin.n)}
+            aria-pressed={isSelected}
+            aria-label={`Pin ${pin.n}`}
             style={{
-              position:"absolute",left:`${pin.x}%`,top:`${rowIdx*rowGap+topPad}px`,
-              transform:"translateX(-50%)",width:`${pinSize}px`,height:`${pinSize}px`,
-              borderRadius:"50%",border:`2px solid ${isSelected?C.spare:C.border}`,
+              ...place,
+              border:`2px solid ${isSelected?C.spare:C.border}`,
               backgroundColor:isSelected?C.spare+"33":C.surface,color:isSelected?C.spare:C.textMuted,
-              fontSize:"16px",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",
               WebkitTapHighlightColor:"transparent",cursor:"pointer",
             }}>{pin.n}</button>
         );

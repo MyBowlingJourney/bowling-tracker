@@ -54,13 +54,13 @@ export default function LogView({
   sessionLeague, setSessionLeague, effectiveSessionLeague, sessionDate, setSessionDate,
   startingLane, setStartingLane, setShowSummary, expandedSections,
   ballNumLabel, curSession, currentLane, firstBallPins, gameScores = [], frameScores = [],
-  hasLeave, leaveDescribed, inTenth, isNoTap, isStrike, needsSpareMade, needsPins, sessionTotal, showPinCount,
+  hasLeave, leaveDescribed, inTenth, isNoTap, isStrike, needsSpareMade, needsPins, sessionTotal,
   standingPins, tenthOptions,
   autoFillLine, calcLane, cancelEdit, cycleGameResult, cycleSeriesResult,
   getLanePattern, getMatch, handleBallChange, handleLeaveToggle, handleLineChange,
   handleSpareMadeToggle, matchHandicap, previousShotBall, selectBowler, set, setLanePattern, setMatchHandicap, setMatchOpponent, setPokerWinnings, setThreeSixNineWinnings, winningsSaved, confirmWinningsSaved, setView,
   leagueBuyIns, onSaveLeagueBuyIns, onReplayTour, casualExtraGames = 2, setCasualExtraGames,
-  stepPinCount, strictPartial, submitSession, cancelSession, deleteGame, submitShot, theoreticalScoreForGame, maxScoreThisGame, toggle, toggleMulti, toggleSection,
+  showSparePins, sparePinsStanding, spareKnocked, toggleSparePin, spareIsAccidental, strictPartial, submitSession, cancelSession, deleteGame, submitShot, theoreticalScoreForGame, maxScoreThisGame, toggle, toggleMulti, toggleSection,
   preferences, setSessionMoneyArray, setSessionMoneyValue, activeBowlerLeftHanded,
   ballLayouts, activeTournament, updateTournament, saveTournament, closeTournament, tournamentSaved,
   manualScores, updateManualScore,
@@ -1718,7 +1718,7 @@ export default function LogView({
                   // Save Shot rather than silently discarding what was
                   // entered. Same condition the Save button uses -- if it
                   // wouldn't save on tap, it doesn't save here either.
-                  const canSave=form.result&&form.bowler&&!needsSpareMade&&!needsPins;
+                  const canSave=form.result&&form.bowler&&!needsSpareMade&&!needsPins&&!spareIsAccidental;
                   if(canSave&&submitShot){submitShot();return;}
 
                   goTo();
@@ -1921,6 +1921,9 @@ export default function LogView({
                           result:newResult,
                           otherLeave:newResult==="Other Leave"?f.otherLeave:[],
                           spareMade:"",
+                          // A new result rebuilds the frame, so the
+                          // spare ball's answer no longer describes it.
+                          secondLeave:undefined,
                           // Weak/Ringing always leave a single corner pin:
                           // first ball = 9, and if missed, adds 0 — so the frame total is
                           // deterministic and doesn't need a manual pin-count entry.
@@ -1952,8 +1955,8 @@ export default function LogView({
                       onToggle={()=>{
                         const isGutter=form.otherLeave.length===10;
                         setForm(f=>(isGutter
-                          ?{...f,otherLeave:[],pinCount:"",spareMade:""}
-                          :{...f,otherLeave:["1","2","3","4","5","6","7","8","9","10"],pinCount:"0",spareMade:""}
+                          ?{...f,otherLeave:[],pinCount:"",spareMade:"",secondLeave:undefined}
+                          :{...f,otherLeave:["1","2","3","4","5","6","7","8","9","10"],pinCount:"0",spareMade:"",secondLeave:undefined}
                         ));
                       }}
                       color={C.miss}/>
@@ -2053,21 +2056,39 @@ export default function LogView({
                 </>
               )}
 
-              {showPinCount&&(
+              {showSparePins&&(
                 <>
                   <div style={S.divider}/>
-                  <div ref={totalPinsRef} style={S.label}>Total Pins This Frame</div>
-                  <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"8px"}}>
-                    <button style={{...S.btn("sm"),padding:"10px 18px",fontSize:"20px"}} onClick={()=>stepPinCount(-1)}>−</button>
-                    <div style={{flex:1,textAlign:"center",fontSize:"30px",fontWeight:700,color:C.spare}}>
-                      {form.pinCount!==""?form.pinCount:"—"}
+                  <div ref={totalPinsRef} style={S.label}>Which pins did you knock down?</div>
+                  <div style={{fontSize:"12px",color:C.textMuted,lineHeight:1.45,marginBottom:"14px"}}>
+                    Tap the ones that fell. None of them? Just save the shot.
+                  </div>
+
+                  {/* The shared rack, with the pins that are no longer a
+                      choice locked out. Same component the leave is
+                      picked with, so the gesture is one the bowler has
+                      already made this frame. */}
+                  <PinDeck
+                    selected={spareKnocked.map(String)}
+                    available={sparePinsStanding.map(String)}
+                    onToggle={n=>toggleSparePin(Number(n))}/>
+
+                  {spareIsAccidental?(
+                    /* Taking every standing pin down IS a spare. The old
+                       stepper made this unreachable by capping one below
+                       the total; a picker cannot hide a pin without
+                       looking broken, so the contradiction is named
+                       instead -- and Save is blocked with the reason,
+                       the same way a missing "Spare made?" blocks it. */
+                    <div style={{fontSize:"12px",color:C.miss,lineHeight:1.45}}>
+                      That is every pin — set <strong>Spare made</strong> to Yes instead.
                     </div>
-                    <button style={{...S.btn("sm"),padding:"10px 18px",fontSize:"20px"}} onClick={()=>stepPinCount(1)}>+</button>
-                  </div>
-                  <div style={{display:"flex",justifyContent:"space-around",fontSize:"12px",color:C.textMuted}}>
-                    <span>First ball: <strong style={{color:C.text}}>{firstBallPins}</strong></span>
-                    <span>Second ball: <strong style={{color:C.text}}>{form.pinCount!==""?parseInt(form.pinCount)-firstBallPins:"—"}</strong></span>
-                  </div>
+                  ):(
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",fontSize:"12px",color:C.textMuted}}>
+                      <span>First ball: <strong style={{color:C.text}}>{firstBallPins}</strong></span>
+                      <span>Second ball: <strong style={{color:C.spare,fontFamily:F.num,fontSize:"16px"}}>{spareKnocked.length}</strong></span>
+                    </div>
+                  )}
                 </>
               )}
             </div>
@@ -3389,7 +3410,7 @@ export default function LogView({
                   // single shot.
                   scrollToTopOf(shotContextRef);
                 }}
-                disabled={!form.result||!form.bowler||needsPins||needsSpareMade}>
+                disabled={!form.result||!form.bowler||needsPins||needsSpareMade||spareIsAccidental}>
                 {saved?(editingId?"✓ Updated":"✓ Saved"):(editingId?"Update":"Save Shot")}
               </button>
             )}
