@@ -1,10 +1,10 @@
 import { C, S } from "./ui.jsx";
 import {
   BALL_METRICS, ballComparison, bestByMetric, ballColors, ballLine,
-  ARROWS_FEET, BREAKPOINT_FEET, FOUL_LINE_TO_PINS, catmullRomSegments,
   ballByPhase, bestByPhase, GAME_PHASES,
 } from "./domain/ballComparison.js";
 import { isSplit, isCornerPinLeave } from "./domain/splits.js";
+import LanePane from "./lanePane.jsx";
 import { SAMPLE_THRESHOLDS } from "./domain/insightGating.js";
 
 // Comparing the arsenal.
@@ -13,8 +13,6 @@ import { SAMPLE_THRESHOLDS } from "./domain/insightGating.js";
 // answers "which ball is working"; the lane answers "and where am I
 // throwing it". Neither is much use without the other -- a ball that
 // carries best from a line you cannot repeat is not the answer.
-
-const LANE_BOARDS = 39;
 
 // Shots in ONE phase of the night before its rate is treated as settled.
 // Lower than the whole-season bar: a phase is a third of a night by
@@ -69,36 +67,6 @@ export default function BallCompare({
     .map(b => ({ entry: b, line: ballLine(b, { drift, lateralOffset, twoHanded, patternLength }) }))
     .filter(x => x.line);
 
-  // Lane geometry. Sixty feet deep, thirty-nine boards across, drawn
-  // looking down the lane from the approach.
-  // Proportions. A lane is 41.5 inches wide and sixty feet long -- 1:17.3,
-  // which drawn honestly is a thread nobody can read on a phone. The
-  // reference diagrams bowlers actually use compress it to about 1:5.
-  //
-  // 1:3 here, capped at 190px wide so the card comes out around 570px
-  // tall. Still compressed, but the arrows now sit a quarter of the way
-  // up rather than two-thirds, which is what made the old one wrong.
-  //
-  // Depth runs to 63ft: the headpin is at 60 and the rack sits BEHIND it.
-  const W = 300, H = 900, PAD = 10;
-  const DEPTH = 63;
-  // Board 1 is the bowler's OWN gutter. For a right-hander that is the
-  // right-hand side of the lane, so low boards belong on the RIGHT of the
-  // screen -- drawn the other way round, a right-hander's ball swung out
-  // to the left, which is backwards.
-  //
-  // This is the only place handedness is applied. ballLine used to mirror
-  // as well, which flipped it twice and cancelled out.
-  const x = board => {
-    const frac = (board - 1) / (LANE_BOARDS - 1);
-    return leftHanded
-      ? PAD + frac * (W - PAD * 2)
-      : (W - PAD) - frac * (W - PAD * 2);
-  };
-  // Down the lane is UP the screen: the bowler stands at the bottom and
-  // the pins are at the far end. Drawn the other way it read as a ball
-  // travelling towards you, which is nobody's view of a lane.
-  const y = feet => (H - PAD) - (feet / DEPTH) * (H - PAD * 2);
 
   return (
     <div style={S.card}>
@@ -202,92 +170,10 @@ export default function BallCompare({
 
       {/* The lane. Same colours as the table, so a line is identified
           without a second legend to read. */}
-      {lines.length > 0 && (
-        <>
-          
-          <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto",
-            display: "block", marginBottom: "4px" }}>
-            <rect x={PAD} y={PAD} width={W - PAD * 2} height={H - PAD * 2}
-              fill={C.surface} stroke={C.border} />
-
-            {/* The seven arrows, at fifteen feet. */}
-            {[5, 10, 15, 20, 25, 30, 35].map(b => (
-              <polygon key={b}
-                points={`${x(b)},${y(ARROWS_FEET) - 9} ${x(b) - 4},${y(ARROWS_FEET) + 3} ${x(b) + 4},${y(ARROWS_FEET) + 3}`}
-                fill={C.border} />
-            ))}
-
-            {/* Breakpoint depth, marked because it is the assumption. */}
-            <line x1={PAD} y1={y(BREAKPOINT_FEET)} x2={W - PAD} y2={y(BREAKPOINT_FEET)}
-              stroke={C.border} strokeDasharray="6 5" />
-            <text x={W - PAD - 2} y={y(BREAKPOINT_FEET) - 6} textAnchor="end"
-              fontSize="13" fill={C.textMuted}>breakpoint ~40ft</text>
-
-            {/* The pocket. */}
-            {/* The rack. The HEADPIN IS IN FRONT, nearest the bowler, with
-                the rows behind it -- I had the four-pin back row closest,
-                which is the rack upside down.
-                
-                Real geometry: pins are 12 inches apart, which is 11.3
-                boards on a 41.5-inch lane, and the rows are 10.4 inches
-                deep. Not a decorative triangle. */}
-            {[[[20], 60], [[14.4, 25.6], 60.87], [[8.7, 20, 31.3], 61.73],
-              [[3.1, 14.4, 25.6, 36.9], 62.6]].map(([boards, feet], r) => (
-              boards.map((b, i) => (
-                <circle key={`${r}-${i}`} cx={x(b)} cy={y(feet)} r="4.5"
-                  fill={C.textMuted} opacity={r === 0 ? 1 : 0.65} />
-              ))
-            ))}
-
-            {/* The foul line, just ahead of the feet. */}
-            <line x1={PAD} y1={y(0)} x2={W - PAD} y2={y(0)} stroke={C.border} strokeWidth="1.5" />
-            <text x={PAD + 2} y={y(0) - 6} fontSize="13" fill={C.textMuted}>foul line</text>
-
-            {lines.map(({ entry, line }) => {
-              const pts = line.points;
-              // Two paths, not four straight segments. A ball does not
-              // change direction at the arrows and again at the
-              // breakpoint -- it runs fairly straight and then arcs.
-              //
-              // Solid to the arrows is what was logged; dashed past them
-              // is projected, because nothing records where it turns.
-              // Solid before the arrows, dashed after -- but BOTH come
-              // from the same spline, so the join has no kink. Splitting
-              // the points and curving each half separately gave two
-              // curves that met at an angle.
-              const segs = catmullRomSegments(pts);
-              const draw = list => {
-                if (!list.length) return "";
-                let d = `M ${x(list[0].from.board)} ${y(list[0].from.feet)}`;
-                for (const g of list) {
-                  d += ` C ${x(g.c1.board)} ${y(g.c1.feet)},`
-                    + ` ${x(g.c2.board)} ${y(g.c2.feet)},`
-                    + ` ${x(g.to.board)} ${y(g.to.feet)}`;
-                }
-                return d;
-              };
-              const solid = segs.filter(g => g.to.feet <= ARROWS_FEET);
-              const dashed = segs.filter(g => g.to.feet > ARROWS_FEET);
-              return (
-                <g key={entry.ball}>
-                  <path fill="none" stroke={colors[entry.ball]} strokeWidth="4"
-                    strokeLinecap="round" d={draw(solid)} />
-                  <path fill="none" stroke={colors[entry.ball]} strokeWidth="4"
-                    strokeLinecap="round" strokeDasharray="9 7" opacity="0.75"
-                    d={draw(dashed)} />
-                  {/* The feet, at the bottom where the bowler stands. */}
-                  <circle cx={x(pts[0].board)} cy={y(0)} r="6"
-                    fill={colors[entry.ball]} />
-                </g>
-              );
-            })}
-          </svg>
-          <div style={{ fontSize: "11px", color: C.textMuted, lineHeight: 1.5 }}>
-            Solid to the arrows is what you logged. Dashed past them is
-            projected {"—"} nothing records where the ball actually turns.
-          </div>
-        </>
-      )}
+      {/* The lane, in its own component: it owns which balls are shown,
+          and it is the part of this card people will keep wanting
+          changed. */}
+      <LanePane lines={lines} colors={colors} leftHanded={leftHanded} />
     </div>
   );
 }
