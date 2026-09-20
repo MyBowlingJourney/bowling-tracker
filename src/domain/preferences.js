@@ -93,9 +93,9 @@ export const STATS_CARDS = [
   { id: "loneFivePin", label: "Lone 5-Pin" },
   { id: "nonSplitLeaves", label: "Non-Split Leaves" },
   { id: "strikeStreak", label: "Longest Strike Streak" },
+  { id: "byBall", label: "By Ball" },
   { id: "ballPhases", label: "Strike % Through the Night" },
   { id: "ballCompare", label: "Ball vs Ball" },
-  { id: "byBall", label: "By Ball" },
   { id: "byCenter", label: "By Bowling Center" },
   { id: "missDistribution", label: "Miss Distribution" },
   { id: "releaseQuality", label: "Release Quality" },
@@ -407,10 +407,10 @@ export function reconcileCardOrder(storedOrder) {
   // it was to go looking in the settings.
   //
   // The canonical list says where a card belongs. So each missing id is
-  // slotted in beside the neighbour it was defined next to: just BEFORE
-  // the first card that follows it canonically and that the person
-  // actually has, falling back to just after its nearest canonical
-  // predecessor, and only then to the end.
+  // slotted in beside the neighbour it was defined next to: just AFTER
+  // the nearest card that precedes it canonically and that the person
+  // actually has, falling back to just before its nearest canonical
+  // successor, and only then to the end.
   //
   // The person's own arrangement is untouched either way -- nothing is
   // reordered, one thing is inserted.
@@ -418,15 +418,21 @@ export function reconcileCardOrder(storedOrder) {
     if (seen.has(id)) continue;
     const canonical = MOVABLE_STATS_CARD_IDS.indexOf(id);
 
+    // AFTER the card it follows, first. That is what "I added a card
+    // between these two" means, and it survives the person having
+    // dragged the pair apart: it lands next to the one it was defined
+    // after, wherever that ended up.
     let at = -1;
-    for (let i = canonical + 1; i < MOVABLE_STATS_CARD_IDS.length; i++) {
-      const next = out.indexOf(MOVABLE_STATS_CARD_IDS[i]);
-      if (next >= 0) { at = next; break; }
+    for (let i = canonical - 1; i >= 0; i--) {
+      const prev = out.indexOf(MOVABLE_STATS_CARD_IDS[i]);
+      if (prev >= 0) { at = prev + 1; break; }
     }
+    // Nothing before it -- it is the first card in the canonical list --
+    // so go before whatever follows it instead.
     if (at < 0) {
-      for (let i = canonical - 1; i >= 0; i--) {
-        const prev = out.indexOf(MOVABLE_STATS_CARD_IDS[i]);
-        if (prev >= 0) { at = prev + 1; break; }
+      for (let i = canonical + 1; i < MOVABLE_STATS_CARD_IDS.length; i++) {
+        const next = out.indexOf(MOVABLE_STATS_CARD_IDS[i]);
+        if (next >= 0) { at = next; break; }
       }
     }
     if (at < 0) at = out.length;
