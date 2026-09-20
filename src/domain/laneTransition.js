@@ -101,22 +101,37 @@ export function nightsIn(shots, lanePatterns) {
     .sort((a, b) => (a.date < b.date ? 1 : -1));
 }
 
+// Nights nobody recorded a pattern for.
+//
+// Not "unknown", and not left out. The overwhelming majority of league
+// nights are bowled on the house shot and nobody writes that down,
+// because it is the default -- so an unnamed night IS the house pattern
+// for every purpose this card has. Filing those under a blank and
+// dropping them would throw away most of a league bowler's season and
+// leave the picker empty for anyone who has never bowled a sport
+// pattern.
+export const HOUSE_PATTERN = "House";
+
 // The pattern a night was bowled on, by date.
 //
 // Lane patterns are recorded per league, date and LANE, and a night is
 // bowled on a pair -- so several rows can describe the same night. They
 // name the same pattern in every case that matters; the first one found
 // is that name.
+//
+// A row that names a type but no pattern ("house", with the name left
+// blank) says the same thing as no row at all, so both land in the same
+// bucket rather than one being a pattern and the other a gap.
 export function patternForNight(lanePatterns, date) {
   const d = clean(date);
-  if (!d) return "";
+  if (!d) return HOUSE_PATTERN;
   for (const p of rows(lanePatterns)) {
     if (clean(p.date) === d) {
       const name = clean(p.patternName);
       if (name) return name;
     }
   }
-  return "";
+  return HOUSE_PATTERN;
 }
 
 /**
@@ -131,7 +146,7 @@ export function patternsIn(shots, lanePatterns) {
   const nights = nightsIn(shots, lanePatterns);
   const byName = new Map();
   for (const n of nights) {
-    if (!n.pattern) continue;
+    if (!n.pattern) continue;   // only a night with no date at all
     const cur = byName.get(n.pattern) || { name: n.pattern, nights: 0, shots: 0 };
     cur.nights += 1;
     cur.shots += n.shots;
@@ -244,7 +259,10 @@ export function typicalGames(shots) {
  */
 export function patternLengthFor(lanePatterns, name) {
   const want = clean(name);
-  if (!want) return null;
+  // The house shot has no recorded length -- that is what makes it the
+  // house shot. The caller falls back to the league default, which is
+  // where a house length would have been configured anyway.
+  if (!want || want === HOUSE_PATTERN) return null;
   for (const p of rows(lanePatterns)) {
     if (clean(p.patternName) === want) {
       const feet = num(p.length) ?? num(p.lengthFeet);

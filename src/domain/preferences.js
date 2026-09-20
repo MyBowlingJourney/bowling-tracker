@@ -393,10 +393,48 @@ export function defaultPreferences(environment = "league") {
 // card would make it invisible to every existing user.
 export function reconcileCardOrder(storedOrder) {
   const stored = Array.isArray(storedOrder) ? storedOrder : [];
-  const known = stored.filter(id => MOVABLE_STATS_CARD_IDS.includes(id));
-  const seen = new Set(known);
-  const missing = MOVABLE_STATS_CARD_IDS.filter(id => !seen.has(id));
-  return [...known, ...missing];
+  const out = stored.filter(id => MOVABLE_STATS_CARD_IDS.includes(id));
+  const seen = new Set(out);
+
+  // A card added after someone last arranged their stats goes WHERE IT
+  // BELONGS, not on the end.
+  //
+  // This used to append: `[...known, ...missing]`. So a new card that
+  // was defined as the first thing in its group arrived last on the
+  // screen for everyone who had ever dragged a card -- which is
+  // everyone who has used the app for a while, and nobody else. It read
+  // as the card not having been added at all, and the only way to find
+  // it was to go looking in the settings.
+  //
+  // The canonical list says where a card belongs. So each missing id is
+  // slotted in beside the neighbour it was defined next to: just BEFORE
+  // the first card that follows it canonically and that the person
+  // actually has, falling back to just after its nearest canonical
+  // predecessor, and only then to the end.
+  //
+  // The person's own arrangement is untouched either way -- nothing is
+  // reordered, one thing is inserted.
+  for (const id of MOVABLE_STATS_CARD_IDS) {
+    if (seen.has(id)) continue;
+    const canonical = MOVABLE_STATS_CARD_IDS.indexOf(id);
+
+    let at = -1;
+    for (let i = canonical + 1; i < MOVABLE_STATS_CARD_IDS.length; i++) {
+      const next = out.indexOf(MOVABLE_STATS_CARD_IDS[i]);
+      if (next >= 0) { at = next; break; }
+    }
+    if (at < 0) {
+      for (let i = canonical - 1; i >= 0; i--) {
+        const prev = out.indexOf(MOVABLE_STATS_CARD_IDS[i]);
+        if (prev >= 0) { at = prev + 1; break; }
+      }
+    }
+    if (at < 0) at = out.length;
+
+    out.splice(at, 0, id);
+    seen.add(id);
+  }
+  return out;
 }
 
 // Normalizes whatever's stored (which may be missing keys if it predates a

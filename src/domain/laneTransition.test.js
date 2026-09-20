@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   blockPositions, nightsIn, patternsIn, patternForNight, patternLengthFor,
-  shotsAt, positionLabel, typicalGames,
+  shotsAt, positionLabel, typicalGames, HOUSE_PATTERN,
 } from './laneTransition.js';
 import { ballComparison, ballLine } from './ballComparison.js';
 import { isSplit, isCornerPinLeave } from './splits.js';
@@ -129,9 +129,36 @@ describe('nights and patterns', () => {
     expect(list.find(p => p.name === 'Scorpion').nights).toBe(1);
   });
 
-  it('has no pattern for a night nobody recorded one on', () => {
-    expect(patternForNight(PATTERNS, '2026-10-01')).toBe('');
-    expect(patternForNight(null, '2026-09-06')).toBe('');
+  // An unrecorded night is the HOUSE shot, not a gap.
+  //
+  // Nearly every league night is bowled on the house pattern and nobody
+  // writes that down, because it is the default. Filing those under a
+  // blank and dropping them threw away most of a league bowler's season
+  // and left the picker empty for anyone who had never bowled a sport
+  // pattern -- so the control was invisible for exactly the people who
+  // had the most nights in it.
+  it('treats a night nobody recorded a pattern for as the house shot', () => {
+    expect(patternForNight(PATTERNS, '2026-10-01')).toBe(HOUSE_PATTERN);
+    expect(patternForNight(null, '2026-09-06')).toBe(HOUSE_PATTERN);
+  });
+
+  it('buckets unrecorded nights together and keeps named ones apart', () => {
+    const shots2 = [...night('2026-09-20'), ...night('2026-10-04')];
+    const list = patternsIn(shots2, PATTERNS);
+    expect(list.map(p => p.name).sort()).toEqual([HOUSE_PATTERN, 'Scorpion']);
+    expect(list.find(p => p.name === HOUSE_PATTERN).nights).toBe(1);
+  });
+
+  it('filters to the house nights when the house shot is chosen', () => {
+    const shots2 = [...night('2026-09-20'), ...night('2026-10-04')];
+    const r = shotsAt(shots2, { at: 0.5, pattern: HOUSE_PATTERN, lanePatterns: PATTERNS });
+    expect(r.shots.every(s => s.date === '2026-10-04')).toBe(true);
+  });
+
+  // The house shot has no recorded length -- that is what makes it the
+  // house shot -- so the caller falls back to the league default.
+  it('has no length of its own for the house shot', () => {
+    expect(patternLengthFor(PATTERNS, HOUSE_PATTERN)).toBeNull();
   });
 
   // Where the ball turns comes from the pattern, so a 47-foot block has
