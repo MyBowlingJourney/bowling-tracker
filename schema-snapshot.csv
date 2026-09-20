@@ -281,6 +281,7 @@ column,pending_invites,left_handed,boolean NOT NULL
 column,pending_invites,lineup_position,integer
 column,pending_invites,signup_code,text
 column,pending_invites,team_id,uuid NOT NULL
+column,profiles,backup_ball,boolean NOT NULL
 column,profiles,created_at,timestamp with time zone NOT NULL
 column,profiles,display_name,text NOT NULL
 column,profiles,id,uuid NOT NULL
@@ -670,10 +671,10 @@ grant,pending_invites,INSERT,"accepted_at, accepted_user_id, code_expires_at, cr
 grant,pending_invites,REFERENCES,"accepted_at, accepted_user_id, code_expires_at, created_at, created_by, declined_at, id, invited_email, invited_name, is_sub, left_handed, lineup_position, signup_code, team_id"
 grant,pending_invites,SELECT,"accepted_at, accepted_user_id, code_expires_at, created_at, created_by, declined_at, id, invited_email, invited_name, is_sub, left_handed, lineup_position, signup_code, team_id"
 grant,pending_invites,UPDATE,"accepted_at, accepted_user_id, code_expires_at, created_at, created_by, declined_at, id, invited_email, invited_name, is_sub, left_handed, lineup_position, signup_code, team_id"
-grant,profiles,INSERT,"created_at, display_name, id"
-grant,profiles,REFERENCES,"created_at, display_name, id"
-grant,profiles,SELECT,"created_at, display_name, id"
-grant,profiles,UPDATE,"created_at, display_name, id"
+grant,profiles,INSERT,"backup_ball, created_at, display_name, id"
+grant,profiles,REFERENCES,"backup_ball, created_at, display_name, id"
+grant,profiles,SELECT,"backup_ball, created_at, display_name, id"
+grant,profiles,UPDATE,"backup_ball, created_at, display_name, id"
 grant,sessions,INSERT,"average, balls_used, bowler_name, created_at, date, high_game_cost, high_game_winnings, id, jackpot_winnings, league_id, misses, notes, poker_dollar, poker_dollar_cost, poker_quarter, poker_quarter_cost, prebowled_on, releases, ringing_tens, scores, shot_count, single_pin_leaves, single_pin_spares, spare_attempts, spares_made, splits, splits_converted, strikes, team_id, ten_pin_leaves, three_six_nine_cost, three_six_nine_winnings, total, updated_at, user_id, weak_tens"
 grant,sessions,REFERENCES,"average, balls_used, bowler_name, created_at, date, high_game_cost, high_game_winnings, id, jackpot_winnings, league_id, misses, notes, poker_dollar, poker_dollar_cost, poker_quarter, poker_quarter_cost, prebowled_on, releases, ringing_tens, scores, shot_count, single_pin_leaves, single_pin_spares, spare_attempts, spares_made, splits, splits_converted, strikes, team_id, ten_pin_leaves, three_six_nine_cost, three_six_nine_winnings, total, updated_at, user_id, weak_tens"
 grant,sessions,SELECT,"average, balls_used, bowler_name, created_at, date, high_game_cost, high_game_winnings, id, jackpot_winnings, league_id, misses, notes, poker_dollar, poker_dollar_cost, poker_quarter, poker_quarter_cost, prebowled_on, releases, ringing_tens, scores, shot_count, single_pin_leaves, single_pin_spares, spare_attempts, spares_made, splits, splits_converted, strikes, team_id, ten_pin_leaves, three_six_nine_cost, three_six_nine_winnings, total, updated_at, user_id, weak_tens"
