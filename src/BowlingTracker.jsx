@@ -7036,8 +7036,24 @@ export default function BowlingTracker(){
           the welcome only hides itself while a tour is running, so
           leaving it set meant this screen reappeared the moment the tour
           finished. */}
+      {/* zIndex 300, ABOVE everything else on the screen.
+        
+          It was 60, which is under the nav bar (100) and under Brooklyn's
+          bubble and the tour (199-200) -- so the one screen whose whole
+          job is to be "the only thing on it" rendered with the nav and
+          the bubble sitting on top of it. Worse, a nav bar painted above
+          a full-screen overlay is still TAPPABLE: tapping a tab changed
+          the view underneath while showWelcome stayed true, so the
+          "You're all set" message followed the bowler around the app
+          with no way to dismiss it except the tour buttons it was
+          covering.
+        
+          Raising the layer fixes both halves at once -- nothing above it
+          to see, and nothing above it to tap. If another overlay is ever
+          added, this is the one that has to stay on top: it is the only
+          screen shown before the app is usable. */}
       {showWelcome&&onboarded&&!activeTour&&(
-        <div style={{position:"fixed",inset:0,zIndex:60,background:C.bg,
+        <div style={{position:"fixed",inset:0,zIndex:300,background:C.bg,
           display:"flex",alignItems:"center",justifyContent:"center",padding:"24px"}}>
           <div style={{maxWidth:"420px",width:"100%"}}>
             <div style={{fontSize:"22px",fontWeight:600,color:C.text,marginBottom:"10px"}}>
