@@ -10,7 +10,7 @@ import { centerLabel } from "./domain/centers.js";
 import {
   emptyProfile, normalizeProfile, addHomeCenter, removeHomeCenter,
   setProfileField, membershipFor, resolveHomeCenters,
-  normalizeAliases,
+  normalizeAliases, effectiveLeftHanded,
 } from "./domain/profiles.js";
 
 function BookAverageUpdatePrompt({ currentAverage, suggestion, onSave, onDismiss }) {
@@ -189,7 +189,7 @@ export default function Profile({
 
       {show("identity") && (
       <CollapsibleCard title={profileBowler}
-        summary={`${profile.leftHanded ? "Left" : "Right"}-handed · ${profile.twoHanded ? "Two-handed" : "One-handed"}`}
+        summary={`${profile.leftHanded ? "Left" : "Right"}-handed${profile.backupBall ? ", backup" : ""} · ${profile.twoHanded ? "Two-handed" : "One-handed"}`}
         expanded={expanded.identity} onToggle={() => toggle("identity")}>
         <div style={S.label}>Handedness</div>
         <div style={{ fontSize: "11px", color: C.textMuted, marginBottom: "8px" }}>
@@ -200,6 +200,36 @@ export default function Profile({
             onToggle={() => update(setProfileField(profile, "leftHanded", false))} />
           <Chip label="Left-handed" selected={profile.leftHanded}
             onToggle={() => update(setProfileField(profile, "leftHanded", true))} />
+        </div>
+
+        {/* A backup ball as the STRIKE ball.
+        
+            The chip above stays on the hand the bowler actually is --
+            that is what they call themselves and it is not this app's
+            business to argue. But a backup ball is the mirror of a
+            normal shot: it goes out to the other side and hooks back, so
+            everything the app reasons about sides has to flip. Their
+            corner pin, their pocket, which way the lane is drawn, which
+            side the ball filter sits on.
+            
+            Spelled out here rather than left to be discovered, because
+            the consequence is large and invisible: a backup player who
+            leaves this off has every corner pin in their history filed
+            under the wrong number. */}
+        <div style={{ ...S.label, marginTop: "10px" }}>Strike ball</div>
+        <div style={{ fontSize: "11px", color: C.textMuted, marginBottom: "8px" }}>
+          A backup ball goes out to the {profile.leftHanded ? "right" : "left"} and
+          hooks back, so your corner pin is the {profile.leftHanded ? "10" : "7"} and
+          your pocket is the {profile.leftHanded ? "1-3" : "1-2"}. Turning this on
+          flips every leave, split and lane drawing to match — you are still
+          {profile.leftHanded ? " left" : " right"}-handed everywhere it says so.
+        </div>
+        <div style={S.chips}>
+          <Chip label={`Normal ${profile.leftHanded ? "left" : "right"}-hand hook`}
+            selected={!profile.backupBall}
+            onToggle={() => update(setProfileField(profile, "backupBall", false))} />
+          <Chip label="I throw a backup ball" selected={!!profile.backupBall}
+            onToggle={() => update(setProfileField(profile, "backupBall", true))} />
         </div>
 
         <div style={{ ...S.label, marginTop: "10px" }}>Delivery</div>
@@ -436,7 +466,9 @@ export default function Profile({
 
         <ArsenalList
           ballStats={ballStats}
-          leftHanded={!!profile.leftHanded}
+          /* The hand the BALL behaves like: the arsenal resolves corner
+             pins, and a backup player's corner pin is the other one. */
+          leftHanded={effectiveLeftHanded(profile)}
           activeBowler={profileBowler}
           retired={(retiredBalls || {})[profileBowler] || {}}
           setBallRetired={setBallRetired} shots={shots || []}

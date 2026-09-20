@@ -138,6 +138,20 @@ export default function LanePane({
   const foulY = y(0), arrowY = y(ARROWS_FEET);
   const pocket = pocketPins(leftHanded);
 
+  // Which half of the lane the bowler's own lines live on, decided once.
+  //
+  // Board 1 is their own gutter, so a left-hander's lines are on the
+  // LEFT of the screen and everything that must stay clear of them --
+  // the filter column, the breakpoint label -- goes right. A right-
+  // hander is the mirror.
+  //
+  // `leftHanded` here is already the hand the BALL behaves like, not
+  // necessarily the hand the bowler calls themselves: a right-hander
+  // throwing a backup ball plays the left side of the lane, so their
+  // filter belongs on the right along with everything else about them
+  // that is geometrically left-handed.
+  const labelSide = leftHanded ? "right" : "left";
+
   const shown = lines.filter(({ entry }) => !hidden[entry.ball]);
   const toggle = ball => setHidden(prev => {
     const next = { ...prev };
@@ -156,10 +170,9 @@ export default function LanePane({
 
   // ── The filter column ─────────────────────────────────────────────
   //
-  // On the side the ball is NOT on. Board 1 is the bowler's own gutter,
-  // so a right-hander's line lives on the right of the lane and the
-  // filter goes left; a left-hander is the mirror. Put it on the same
-  // side and the buttons sit against the busiest part of the drawing.
+  // Placed by labelSide, the same rule the breakpoint label uses, so the
+  // two can never end up on opposite assumptions about which half of the
+  // lane is busy.
   const filterColumn = (
     <div style={{ width: "96px", flexShrink: 0, display: "flex",
       flexDirection: "column", gap: "4px", overflowY: "auto",
@@ -206,17 +219,19 @@ export default function LanePane({
           outside the bowler that decides the line, so it sits with the
           line rather than filed under the centre -- and choosing one
           redraws the breakpoint at that pattern's own length. */}
-      {/* Shown whenever there is more than one bucket to choose between.
+      {/* Always shown, whenever there is a pattern at all.
       
-          With only house nights logged there is nothing to pick, and a
-          dropdown with one entry is a control that cannot do anything --
-          the line under the diagram already says what it is drawn from.
+          It has now been hidden twice for being clever: once on a
+          condition that required a NAMED pattern, so a season of
+          ordinary league nights showed nothing, and once on "more than
+          one bucket", which hides it for exactly the bowler who only
+          ever bowls the house shot -- who then cannot see what the lane
+          is drawn from, or that the filter exists at all.
           
-          It was hidden altogether before, on a condition that required a
-          NAMED pattern, so a bowler with a season of ordinary league
-          nights never saw it at all. Those nights are the house shot;
-          they were just never written down. */}
-      {patterns.length > 1 && (
+          A dropdown showing "House · 14 nights" with nothing else in it
+          is not a useless control. It is the card telling you what it is
+          showing you. */}
+      {patterns.length > 0 && (
         <select style={{ ...S.sel, width: "100%", marginBottom: "8px" }}
           aria-label="Oil pattern"
           value={pattern} onChange={e => setPattern(e.target.value)}>
@@ -233,7 +248,7 @@ export default function LanePane({
           side the bowler's line is NOT on. */}
       <div style={{ display: "flex", gap: "8px", alignItems: "flex-start",
         marginBottom: "8px" }}>
-        {!leftHanded && filterColumn}
+        {labelSide === "left" && filterColumn}
         <div style={{ flexGrow: 1, minWidth: 0, height: LANE_HEIGHT }}>
           <svg viewBox={`0 0 ${W} ${H}`} role="img"
             preserveAspectRatio="xMidYMid meet"
@@ -279,7 +294,23 @@ export default function LanePane({
               <g>
                 <line x1={laneL} y1={y(breakFeet)} x2={laneR} y2={y(breakFeet)}
                   stroke={C.compare} strokeDasharray="5 4" opacity="0.65" />
-                <text x={laneR - 2} y={y(breakFeet) - 4} textAnchor="end"
+                {/* On the side the ball is NOT on, and sitting ON the
+                    line rather than beside it.
+                
+                    Every line on this diagram converges on the pocket,
+                    so the busy half of the lane is the bowler's own
+                    gutter side -- board 1, which is the RIGHT of the
+                    screen for a right-hander. Put the label there and
+                    the ball paths are drawn straight through the text.
+                
+                    The patch behind it is what stops the dashed line
+                    striking through the words. */}
+                <rect x={labelSide === "left" ? laneL + 2 : laneR - 60}
+                  y={y(breakFeet) - 8} width="58" height="11" rx="2"
+                  fill={C.card} />
+                <text x={labelSide === "left" ? laneL + 4 : laneR - 3}
+                  y={y(breakFeet) + 0.5}
+                  textAnchor={labelSide === "left" ? "start" : "end"}
                   fontSize="8.5" fill={C.compare} fontFamily={F.num}>
                   breakpoint {breakFeet}′
                 </text>
@@ -324,7 +355,7 @@ export default function LanePane({
             })}
           </svg>
         </div>
-        {leftHanded && filterColumn}
+        {labelSide === "right" && filterColumn}
       </div>
 
       {/* ── Through the block ──────────────────────────────────────────

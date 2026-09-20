@@ -53,7 +53,7 @@ import { maxPossibleScore,
 import { emptyShot, computeSessionStats, findExistingShotSlot } from "./domain/sessions.js";
 import { buyInsForLeague, costArraysFor } from "./domain/money.js";
 import { normalizeLayout } from "./domain/layouts.js";
-import { profileFromRow, profileToRow, emptyProfile, normalizeProfile, resolveHandedness, suggestBookAverage } from "./domain/profiles.js";
+import { profileFromRow, profileToRow, emptyProfile, normalizeProfile, resolveHandedness, effectiveLeftHanded, suggestBookAverage } from "./domain/profiles.js";
 import { emptyTournament, normalizeTournament, tournamentToRow, tournamentFromRow } from "./domain/tournaments.js";
 import { todaysRoutine, shouldShowLaunchPrompt } from "./domain/launchPrompt.js";
 import { normalizeGoals, goalsToRow, goalsFromRow, measurementsFor } from "./domain/goals.js";
@@ -6908,7 +6908,15 @@ export default function BowlingTracker(){
   const logBalls=plasticLast(availableBalls(preferences.environment,ballsByBag,effectiveBagId,bowlerBalls,envBags.length>0),PLASTIC_BALL);
 
   const rosterLeftHanded=!!teams.find(t=>t.memberHandedness&&activeBowler in t.memberHandedness)?.memberHandedness?.[activeBowler];
-  const activeBowlerLeftHanded=resolveHandedness(profiles[activeBowler],rosterLeftHanded);
+  // effectiveLeftHanded, not resolveHandedness.
+  //
+  // A backup ball mirrors the shot, so a right-hander throwing one plays
+  // the left side of the lane and their corner pin is the 7. Everything
+  // downstream of here reasons about sides -- corner pins, splits, the
+  // lane drawing -- and wants the hand the BALL behaves like. The hand
+  // the bowler calls themselves is read straight off the profile, in the
+  // one place that asks the question: their profile chip.
+  const activeBowlerLeftHanded=effectiveLeftHanded(profiles[activeBowler],rosterLeftHanded);
 
   const inTenth=parseInt(form.frame)===10;
 
@@ -6981,7 +6989,7 @@ export default function BowlingTracker(){
   // filters below call it per shot.
   function leftHandedForBowler(name){
     const rosterLeftHanded=!!teams.find(t=>t.memberHandedness&&name in t.memberHandedness)?.memberHandedness?.[name];
-    return resolveHandedness(profiles[name],rosterLeftHanded);
+    return effectiveLeftHanded(profiles[name],rosterLeftHanded);
   }
 
   // ── Stats ─────────────────────────────────────────────────────────────────
