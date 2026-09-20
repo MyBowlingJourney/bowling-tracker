@@ -508,6 +508,31 @@ export default function LogView({
     if(editingId)revealBottomOf(resultCardRef,{cap:true,allowUp:true});
   },[editingId]);
 
+  // ── Landing after a save has to wait for the form to empty ───────────
+  //
+  // Saving is async, and the form reset that follows it collapses every
+  // field the result opened -- the pin picker, the strike description,
+  // the spare question. The page gets several hundred pixels SHORTER.
+  //
+  // Scrolling from inside the click handler therefore measured the tall
+  // page, asked for a position that no longer existed once the form
+  // emptied, and got silently clamped to whatever the new bottom was.
+  // The arithmetic was right and aimed at a layout that was about to
+  // stop existing -- which is why this looked like a tuning problem and
+  // was not one.
+  //
+  // So the click only raises a flag, and the scroll happens on the
+  // render that installs the fresh form. emptyShot() mints a new id
+  // every time, so form.id changing IS "a new blank form is now on
+  // screen" -- and it covers an edit being saved as well as a new shot,
+  // which a shot count would not.
+  const landAfterSave=useRef(false);
+  useEffect(()=>{
+    if(!landAfterSave.current)return;
+    landAfterSave.current=false;
+    revealBottomOf(resultCardRef,{cap:true,allowUp:true});
+  },[form.id]);
+
 
   // Shot Context (game/frame/lane) is meaningless without shots -- a
   // scores-only night has games, not frames.
@@ -1756,6 +1781,10 @@ export default function LogView({
                 })}
                 currentFrame={form.frame}
                 currentBall={form.ballNum}
+                /* So the row can start over at frame 1 when the game
+                   rolls, instead of staying parked on the last game's
+                   tenth. */
+                game={form.game}
                 bowlerName={form.bowler||activeBowler}
                 maxScore={maxScoreThisGame}
                 /* The card's own bowler, not the active one -- logging for
@@ -3534,26 +3563,19 @@ export default function LogView({
             {(editingId||(onTab("scoring")&&showShotContext))&&(
               <button style={{...S.btn("primary"),flex:1}}
                 onClick={()=>{
-                  submitShot();
-
                   // Every new frame starts in the same place: the Result
-                  // card, with Save Shot below it. That is the baseline.
+                  // card's bottom just above Save Shot, which leaves most
+                  // of Shot Context visible above it. That is the
+                  // baseline, and the effect above performs it once the
+                  // fresh form has rendered -- not here, where the page
+                  // is still the tall one.
                   //
-                  // This used to go to the top of the Shot Context card,
-                  // which put the frame counter on screen and the one
-                  // field the next shot actually needs below the fold --
-                  // most obviously coming out of the 9th, where the
-                  // bowler landed a whole card too high and scrolled back
-                  // down before they could log the 10th.
-                  //
-                  // Shot Context has not gone anywhere; it sits just above
-                  // and the frame counter is still readable. What changed
-                  // is which card the screen is built around.
-                  //
-                  // allowUp because this is a LANDING, not a reveal:
-                  // saving ends at the bottom of the accessory cards and
-                  // the Result card is above that, so the move is upward.
-                  revealBottomOf(resultCardRef,{cap:true,allowUp:true});
+                  // It used to go to the top of Shot Context, which put
+                  // the frame counter on screen and the one field the
+                  // next shot actually needs below the fold -- most
+                  // obviously coming out of the 9th.
+                  landAfterSave.current=true;
+                  submitShot();
                 }}
                 disabled={!form.result||!form.bowler||needsPins||needsSpareMade}>
                 {saved?(editingId?"✓ Updated":"✓ Saved"):(editingId?"Update":"Save Shot")}

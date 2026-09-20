@@ -67,6 +67,15 @@ export default function Scoresheet({
   shots = [],
   currentFrame = null,   // string|number — the frame being logged now
   currentBall = null,    // 1|2|3 within the tenth
+  // Which game this card is. Only used to notice when it CHANGES: a new
+  // game is a new card, and it has to start at frame 1 with the row
+  // scrolled all the way back.
+  //
+  // Passed explicitly rather than inferred from "currentFrame went 10 ->
+  // 1" or "shots emptied", because both of those also happen when a
+  // bowler taps frame 1 to correct it, and re-deriving it here would be
+  // a second, worse copy of something the caller already knows.
+  game = null,
   onSelectFrame,         // (frame, shot) => void
   bowlerName = "",       // whose card this is
   maxScore = null,       // ceiling if they strike out from here
@@ -128,6 +137,37 @@ export default function Scoresheet({
     if (!following) return;
     scrollToCurrent(true);
   }, [currentFrame, shots.length, following, scrollToCurrent]);
+
+  // A new game starts the row over at frame 1.
+  //
+  // This deliberately ignores `following`. That rule protects a bowler
+  // reading back through the game they are bowling -- but the tenth is
+  // the frame most likely to have been scrolled to by hand, so at the
+  // exact moment the game ends, `following` is very often false. The row
+  // then stayed parked on frame 10 of a card that no longer exists while
+  // the new game's frame 1 sat off-screen to the left.
+  //
+  // There is nothing to protect here: the shots are gone and the frames
+  // under the scroll position belong to a different game. Following
+  // resumes too, since frame 1 IS the live frame now.
+  //
+  // Not smooth: the old game sliding away frame by frame reads as the
+  // row losing its place rather than a new card arriving.
+  const prevGame = useRef(game);
+  useEffect(() => {
+    if (prevGame.current === game) return;
+    prevGame.current = game;
+
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    autoLeftRef.current = 0;
+    if (typeof scroller.scrollTo === "function") {
+      scroller.scrollTo({ left: 0, behavior: "auto" });
+    } else {
+      scroller.scrollLeft = 0;
+    }
+    setFollowing(true);
+  }, [game]);
 
   const onScroll = useCallback(() => {
     const scroller = scrollerRef.current;

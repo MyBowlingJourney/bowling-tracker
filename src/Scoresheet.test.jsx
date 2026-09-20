@@ -120,3 +120,59 @@ describe('what the frames show', () => {
     expect(frame(1)).toBeInTheDocument();
   });
 });
+
+// ── Starting a new game ─────────────────────────────────────────────────
+//
+// jsdom has no layout, so offsetLeft/offsetWidth are 0 and the follow
+// scroll always computes a target of 0. What CAN be proved here is the
+// part that had the bug: that a game change resets the row even when the
+// bowler had scrolled away, which is the state the tenth leaves them in.
+describe('a new game resets the row', () => {
+  // The scroller is the one element with horizontal overflow.
+  const scroller = c => c.querySelector('[style*="overflow-x"], [style*="overflowX"]')
+    || c.firstChild.firstChild;
+
+  it('scrolls back to the left when the game changes', () => {
+    const played = [strike(1), strike(2), open(3, 8)];
+    const { container, rerender } = render(
+      <Scoresheet shots={played} currentFrame="10" game="1" />,
+    );
+
+    const el = scroller(container);
+    // Stand in for "the bowler swiped back through the game".
+    el.scrollLeft = 240;
+
+    rerender(<Scoresheet shots={[]} currentFrame="1" game="2" />);
+    expect(el.scrollLeft).toBe(0);
+  });
+
+  // The manual-scroll-wins rule protects reading back through the game
+  // you are bowling. A game that has ended is not that game.
+  it('does so even though following was switched off', () => {
+    const played = [strike(1), strike(2)];
+    const { container, rerender } = render(
+      <Scoresheet shots={played} currentFrame="10" game="1" />,
+    );
+
+    const el = scroller(container);
+    el.scrollLeft = 300;
+    fireEvent.scroll(el);              // turns following off
+
+    rerender(<Scoresheet shots={[]} currentFrame="1" game="2" />);
+    expect(el.scrollLeft).toBe(0);
+  });
+
+  it('leaves the row alone while the game is unchanged', () => {
+    const played = [strike(1), strike(2)];
+    const { container, rerender } = render(
+      <Scoresheet shots={played} currentFrame="6" game="1" />,
+    );
+
+    const el = scroller(container);
+    el.scrollLeft = 120;
+    fireEvent.scroll(el);              // following off: bowler is reading back
+
+    rerender(<Scoresheet shots={played} currentFrame="7" game="1" />);
+    expect(el.scrollLeft).toBe(120);
+  });
+});
