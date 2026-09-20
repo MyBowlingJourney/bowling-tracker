@@ -88,6 +88,26 @@ export function tenthBall3Available(f10b1,f10b2){
 export function tenthBall3Earned(f10b1,f10b2){
   if(!f10b1)return false;
   if(isStk(f10b1))return true;
+
+  // A spare carried INSIDE ball 1's record.
+  //
+  // The tenth normally stores each ball separately, but a spare can
+  // arrive embedded: one record, spareMade "Yes", both balls in it. That
+  // frame has earned its fill ball exactly as much as "9 then /" in two
+  // records has.
+  //
+  // tenthBall3Available already knew this -- its very first line reads
+  // "ball 3 only reached here via ball1's embedded spare -> fresh rack".
+  // This function did not, and bailed on `!f10b2` before ever looking at
+  // ball 1's own spareMade. Two functions describing the same frame,
+  // disagreeing about whether it has a third ball.
+  //
+  // The consequence was not a wrong number, it was DELETION: the edit
+  // path in submitShot calls this to drop a fill ball the edit
+  // un-earned, so on a tenth like "9 / X", editing anything at all
+  // decided the X was never earned and deleted it.
+  if(f10b1.spareMade==="Yes")return true;
+
   if(!f10b2)return false;
   // A spare across the two balls. spareMade is the app's own record of
   // it; the pin arithmetic is the fallback for shots that predate it.
@@ -625,7 +645,38 @@ export function frameScoresheet(shots) {
         if (!sh || isStk(sh)) return null;
         return secondBallOf(sh);
       }
-      if (!f10b2) return null;
+      if (!f10b2) {
+        // The same embedded spare tenthBall3Earned had to be taught
+        // about: one record for the tenth carrying BOTH balls, with
+        // spareMade "Yes" and no ball-2 row behind it.
+        //
+        // Frame 9's bonus is the tenth's first ball plus its second, so
+        // with no ball-2 record this returned null, frame 9 could not be
+        // scored -- and once a frame cannot be scored every frame after
+        // it is null too. A finished game with a spare in the tenth
+        // therefore showed a running total through frame 8 and two blank
+        // boxes, and editing anything earlier "did not recalculate 9 and
+        // 10" because 9 and 10 had never been scoreable in the first
+        // place.
+        //
+        // The second ball is not unknown here, it is implied -- and it is
+        // implied in exactly the way frames 1-9 imply it, so this is
+        // secondBallOf and not a second copy of the same rule. A spare
+        // took everything standing; an open frame took pinCount minus
+        // the first ball.
+        //
+        // This covers an OPEN tenth too, which nextState also stores as a
+        // single ball-1 record (spareMade "No", then straight on to the
+        // next game). A game ending in an open tenth had the same two
+        // blank boxes for the same reason.
+        //
+        // Still null when ball 1 has been thrown and not yet answered --
+        // there the second ball genuinely is unknown, and frame 9 is not
+        // scoreable yet. That is a mid-frame state, not a finished game.
+        if (!f10b1 || isStk(f10b1)) return null;
+        if (f10b1.spareMade !== "Yes" && f10b1.spareMade !== "No") return null;
+        return secondBallOf(f10b1);
+      }
       return isStk(f10b2) ? 10 : firstBallOf(f10b2);
     };
 
