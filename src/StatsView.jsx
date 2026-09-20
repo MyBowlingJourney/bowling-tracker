@@ -15,6 +15,7 @@ import { anyMoneyGameShown, visibleStatsCardOrder, MOVABLE_STATS_CARDS } from ".
 
 import { seasonComparison } from "./domain/scoreInsights.js";
 
+import BallPhases from "./BallPhases.jsx";
 import { patternAverages, patternVersusOverall, patternLengthForLeague } from "./domain/oilPatterns.js";
 
 
@@ -997,6 +998,13 @@ fivePinAttempts.length>0&&(
                 // The comparison card leads the Ball group. The By Ball
                 // list below it is the per-ball detail; this is the
                 // answer to "which one should I be throwing".
+                // Leads the Ball group: "which ball is carrying" is the
+                // question asked first, and the lane diagram below is how
+                // you act on the answer.
+                byId["ballPhases"] = (
+                  <BallPhases shots={shots} bowler={statsBowler} league={statsLeague}
+                    leftHanded={leftHandedForBowler?.(statsBowler)||false} />
+                );
                 byId["ballCompare"] = (
                   <BallCompare shots={shots} bowler={statsBowler}
                     league={statsLeague}

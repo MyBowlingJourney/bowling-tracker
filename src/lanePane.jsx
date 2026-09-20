@@ -31,7 +31,6 @@ import {
 // what makes logging the line every shot worth the trouble.
 
 const LANE_BOARDS = 39;
-const APPROACH_FEET = 12;
 
 export default function LanePane({
   shots = [], bowler = "", league = "", leftHanded = false,
@@ -84,10 +83,31 @@ export default function LanePane({
 
   if (!allBalls.length) return null;
 
-  const W = 300, H = 760, PAD = 12;
-  const RULER = 34;
+  // ── Fitting on a phone ────────────────────────────────────────────
+  //
+  // The lane, the pattern picker and the slider have to be on screen
+  // together: scrubbing while the lane is scrolled off is scrubbing
+  // blind, and that is the whole feature.
+  //
+  // So the lane is given whatever height is left after the controls,
+  // in dvh rather than vh -- on a phone vh is the height the viewport
+  // would have with the address bar hidden, so a vh-sized diagram is
+  // cut off by the bar until you scroll. dvh is the height it actually
+  // has right now.
+  //
+  // The SVG then scales to that box rather than the box being computed
+  // from the SVG, so nothing here needs to know the font size, the
+  // number of balls or the phone.
+  //
+  // And the approach is gone. Twelve feet of empty boards behind the
+  // foul line, for a card whose subject starts at the foul line -- it
+  // was a fifth of the height for a stripe with a dot on it.
+  const LANE_HEIGHT = "min(52dvh, 460px)";
+
+  const W = 300, H = 640, PAD = 10;
+  const RULER = 30;
   const laneL = PAD + RULER, laneR = W - PAD;
-  const FT_TOP = 63, FT_BOT = -APPROACH_FEET;
+  const FT_TOP = 63, FT_BOT = 0;
 
   const x = board => {
     const frac = (board - 1) / (LANE_BOARDS - 1);
@@ -99,7 +119,7 @@ export default function LanePane({
   // the pins are at the far end.
   const y = feet => PAD + ((FT_TOP - feet) / (FT_TOP - FT_BOT)) * (H - PAD * 2);
 
-  const foulY = y(0), arrowY = y(ARROWS_FEET), approachY = y(-APPROACH_FEET);
+  const foulY = y(0), arrowY = y(ARROWS_FEET);
   const pocket = pocketPins(leftHanded);
 
   const shown = lines.filter(({ entry }) => !hidden[entry.ball]);
@@ -110,7 +130,7 @@ export default function LanePane({
   });
 
   const pill = active => ({
-    padding: "7px 11px", minHeight: "40px", borderRadius: "8px",
+    padding: "6px 10px", minHeight: "38px", borderRadius: "8px",
     border: `1px solid ${active ? C.accent : C.border}`,
     backgroundColor: active ? C.accentDim : "transparent",
     color: active ? C.text : C.textMuted,
@@ -118,83 +138,153 @@ export default function LanePane({
     WebkitTapHighlightColor: "transparent",
   });
 
+  // ── The filter column ─────────────────────────────────────────────
+  //
+  // On the side the ball is NOT on. Board 1 is the bowler's own gutter,
+  // so a right-hander's line lives on the right of the lane and the
+  // filter goes left; a left-hander is the mirror. Put it on the same
+  // side and the buttons sit against the busiest part of the drawing.
+  const filterColumn = (
+    <div style={{ width: "96px", flexShrink: 0, display: "flex",
+      flexDirection: "column", gap: "4px", overflowY: "auto",
+      maxHeight: LANE_HEIGHT }}>
+      {allBalls.map(ball => {
+        const on = !hidden[ball];
+        const here = lines.find(l => l.entry.ball === ball);
+        const colour = colors[ball] || C.accent;
+        return (
+          <button key={ball} type="button" onClick={() => toggle(ball)} aria-pressed={on}
+            style={{
+              display: "flex", flexDirection: "column", alignItems: "flex-start",
+              gap: "2px", width: "100%", padding: "5px 6px", minHeight: "44px",
+              boxSizing: "border-box",
+              backgroundColor: on ? C.card : "transparent",
+              border: `1px solid ${on ? colour + "66" : C.border}`,
+              borderRadius: "8px", cursor: "pointer", textAlign: "left",
+              fontFamily: F.body, WebkitTapHighlightColor: "transparent",
+              opacity: here ? 1 : 0.45,
+            }}>
+            <span style={{ display: "flex", alignItems: "center", gap: "5px",
+              width: "100%", minWidth: 0 }}>
+              <span aria-hidden="true" style={{ width: "12px", height: "3px",
+                borderRadius: "2px", flexShrink: 0,
+                backgroundColor: on ? colour : C.border }} />
+              <span style={{ flexGrow: 1, minWidth: 0, fontSize: "11px",
+                color: on ? C.text : C.textMuted, overflow: "hidden",
+                textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ball}</span>
+            </span>
+            <span style={{ fontSize: "10px", color: C.textMuted, fontFamily: F.num }}>
+              {/* Not thrown in this window: say so rather than leave a
+                  button that looks broken. */}
+              {here ? `${here.entry.shots} shots` : "none here"}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+
   return (
     <>
-      <svg viewBox={`0 0 ${W} ${H}`} role="img"
-        aria-label={`Lane diagram, ${shown.length} of ${allBalls.length} balls shown`}
-        style={{ width: "100%", height: "auto", display: "block", marginBottom: "8px" }}>
+      {/* Oil pattern, directly above the lane. The single biggest thing
+          outside the bowler that decides the line, so it sits with the
+          line rather than filed under the centre -- and choosing one
+          redraws the breakpoint at that pattern's own length. */}
+      {patterns.length > 0 && (
+        <select style={{ ...S.sel, width: "100%", marginBottom: "8px" }}
+          aria-label="Oil pattern"
+          value={pattern} onChange={e => setPattern(e.target.value)}>
+          <option value="">Every oil pattern</option>
+          {patterns.map(p => (
+            <option key={p.name} value={p.name}>
+              {p.name} · {p.nights} {p.nights === 1 ? "night" : "nights"}
+            </option>
+          ))}
+        </select>
+      )}
 
-        {/* The approach, behind the foul line, where the feet are. */}
-        <rect x={laneL} y={foulY} width={laneR - laneL} height={approachY - foulY} fill={C.bg} />
-        <line x1={laneL} y1={approachY} x2={laneR} y2={approachY}
-          stroke={C.border} strokeDasharray="4 4" />
+      {/* The lane and the filter, side by side. The filter goes on the
+          side the bowler's line is NOT on. */}
+      <div style={{ display: "flex", gap: "8px", alignItems: "flex-start",
+        marginBottom: "8px" }}>
+        {!leftHanded && filterColumn}
+        <div style={{ flexGrow: 1, minWidth: 0, height: LANE_HEIGHT }}>
+          <svg viewBox={`0 0 ${W} ${H}`} role="img"
+            preserveAspectRatio="xMidYMid meet"
+            aria-label={`Lane diagram, ${shown.length} of ${allBalls.length} balls shown`}
+            style={{ width: "100%", height: "100%", display: "block" }}>
 
-        {/* The lane bed, board by board. */}
-        <rect x={laneL} y={PAD} width={laneR - laneL} height={foulY - PAD} fill={C.card} />
-        {Array.from({ length: LANE_BOARDS }, (_, i) => i + 1).map(b => (
-          <line key={b} x1={x(b)} y1={PAD} x2={x(b)} y2={foulY}
-            stroke={C.border} strokeWidth="0.5"
-            opacity={MARK_BOARDS.includes(b) ? 0.9 : 0.4} />
-        ))}
-        <rect x={laneL} y={PAD} width={laneR - laneL} height={foulY - PAD}
-          fill="none" stroke={C.border} />
+            {/* The lane bed, board by board. */}
+            <rect x={laneL} y={PAD} width={laneR - laneL} height={foulY - PAD} fill={C.card} />
+            {Array.from({ length: LANE_BOARDS }, (_, i) => i + 1).map(b => (
+              <line key={b} x1={x(b)} y1={PAD} x2={x(b)} y2={foulY}
+                stroke={C.border} strokeWidth="0.5"
+                opacity={MARK_BOARDS.includes(b) ? 0.9 : 0.4} />
+            ))}
+            <rect x={laneL} y={PAD} width={laneR - laneL} height={foulY - PAD}
+              fill="none" stroke={C.border} />
 
-        {[0, 15, 30, 45, 60].map(f => (
-          <g key={f}>
-            <line x1={laneL - 6} y1={y(f)} x2={laneL} y2={y(f)} stroke={C.border} />
-            <text x={laneL - 9} y={y(f) + 3.5} textAnchor="end" fontSize="9"
-              fill={C.textMuted} fontFamily={F.num}>{f}′</text>
-          </g>
-        ))}
+            {[15, 30, 45, 60].map(f => (
+              <g key={f}>
+                <line x1={laneL - 5} y1={y(f)} x2={laneL} y2={y(f)} stroke={C.border} />
+                <text x={laneL - 8} y={y(f) + 3.5} textAnchor="end" fontSize="9"
+                  fill={C.textMuted} fontFamily={F.num}>{f}′</text>
+              </g>
+            ))}
 
-        {/* The rack. The pocket is the 1-2 for a left-hander. */}
-        {RACK.map(p => (
-          <circle key={p.pin} cx={x(p.board)} cy={y(p.feet)} r="4.5"
-            fill={pocket.includes(p.pin) ? C.strike : C.textMuted}
-            opacity={pocket.includes(p.pin) ? 1 : 0.6} />
-        ))}
+            {/* The rack. The pocket is the 1-2 for a left-hander. */}
+            {RACK.map(p => (
+              <circle key={p.pin} cx={x(p.board)} cy={y(p.feet)} r="4.5"
+                fill={pocket.includes(p.pin) ? C.strike : C.textMuted}
+                opacity={pocket.includes(p.pin) ? 1 : 0.6} />
+            ))}
 
-        {MARK_BOARDS.map(b => (
-          <polygon key={b} fill={C.textMuted} opacity="0.8"
-            points={`${x(b)},${arrowY - 7} ${x(b) - 3.5},${arrowY + 3} ${x(b) + 3.5},${arrowY + 3}`} />
-        ))}
+            {MARK_BOARDS.map(b => (
+              <polygon key={b} fill={C.textMuted} opacity="0.8"
+                points={`${x(b)},${arrowY - 7} ${x(b) - 3.5},${arrowY + 3} ${x(b) + 3.5},${arrowY + 3}`} />
+            ))}
 
-        <line x1={laneL} y1={foulY} x2={laneR} y2={foulY} stroke={C.text} strokeWidth="1.5" />
-        {MARK_BOARDS.map(b => (
-          <circle key={b} cx={x(b)} cy={foulY + 11} r="2" fill={C.textMuted} />
-        ))}
-        {MARK_BOARDS.map(b => (
-          <text key={b} x={x(b)} y={foulY + 26} textAnchor="middle" fontSize="8"
-            fill={C.textMuted} fontFamily={F.num}>{b}</text>
-        ))}
+            {/* The foul line, its guide dots and the board numbers. The
+                approach behind it is gone -- twelve feet of empty boards
+                for a card whose subject starts here. */}
+            <line x1={laneL} y1={foulY} x2={laneR} y2={foulY} stroke={C.text} strokeWidth="1.5" />
+            {MARK_BOARDS.map(b => (
+              <circle key={b} cx={x(b)} cy={foulY + 9} r="1.8" fill={C.textMuted} />
+            ))}
+            {MARK_BOARDS.map(b => (
+              <text key={b} x={x(b)} y={foulY + 23} textAnchor="middle" fontSize="8"
+                fill={C.textMuted} fontFamily={F.num}>{b}</text>
+            ))}
 
-        {/* The lines. Left free to overlap: two balls that run the same
-            line SHOULD sit on top of each other -- that is the finding,
-            and nudging them apart would draw a difference that is not
-            there. */}
-        {shown.map(({ entry, line }) => {
-          const { skid, hook } = lanePath(line.points, x, y);
-          const colour = colors[entry.ball] || C.accent;
-          const brk = line.points[line.points.length - 2];
-          return (
-            <g key={entry.ball}>
-              <path fill="none" stroke={colour} strokeWidth="3" strokeLinecap="round"
-                strokeDasharray="7 6" opacity="0.75" d={hook} />
-              <path fill="none" stroke={colour} strokeWidth="3" strokeLinecap="round" d={skid} />
-              <circle cx={x(brk.board)} cy={y(brk.feet)} r="3"
-                fill={C.card} stroke={colour} strokeWidth="2" />
-              <circle cx={x(line.points[0].board)} cy={foulY} r="3.5" fill={colour} />
-            </g>
-          );
-        })}
-      </svg>
+            {/* The lines. Left free to overlap: two balls that run the
+                same line SHOULD sit on top of each other -- that is the
+                finding, and nudging them apart would draw a difference
+                that is not there. */}
+            {shown.map(({ entry, line }) => {
+              const { skid, hook } = lanePath(line.points, x, y);
+              const colour = colors[entry.ball] || C.accent;
+              const brk = line.points[line.points.length - 2];
+              return (
+                <g key={entry.ball}>
+                  <path fill="none" stroke={colour} strokeWidth="3" strokeLinecap="round"
+                    strokeDasharray="7 6" opacity="0.75" d={hook} />
+                  <path fill="none" stroke={colour} strokeWidth="3" strokeLinecap="round" d={skid} />
+                  <circle cx={x(brk.board)} cy={y(brk.feet)} r="3"
+                    fill={C.card} stroke={colour} strokeWidth="2" />
+                  <circle cx={x(line.points[0].board)} cy={foulY} r="3.5" fill={colour} />
+                </g>
+              );
+            })}
+          </svg>
+        </div>
+        {leftHanded && filterColumn}
+      </div>
 
       {/* ── Through the block ──────────────────────────────────────────
-
-          The transition is measured in FRAMES, not games: the move that
-          matters is usually made in the middle of one, and stepping by
-          game hides exactly that. */}
-      <div style={{ marginBottom: "10px" }}>
+          
+          Measured in FRAMES, not games: the move that matters is usually
+          made in the middle of one, and stepping by game hides it. */}
+      <div style={{ marginBottom: "8px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
           <span style={{ ...S.label, marginBottom: 0, flexGrow: 1 }}>
             {scrubbing ? positionLabel(at, games) : "Whole block"}
@@ -224,88 +314,34 @@ export default function LanePane({
           the data behind it; one night is for reviewing the night you
           just bowled. */}
       {nights.length > 1 && (
-        <div style={{ marginBottom: "8px" }}>
-          <div style={{ ...S.label, marginBottom: "4px" }}>Nights</div>
-          <select style={{ ...S.sel, width: "100%" }}
-            value={night} onChange={e => setNight(e.target.value)}>
-            <option value="">Every night, by position in the block</option>
-            {nights.map(n => (
-              <option key={n.date} value={n.date}>
-                {n.date}{n.pattern ? ` · ${n.pattern}` : ""} · {n.games} games
-              </option>
-            ))}
-          </select>
-        </div>
+        <select style={{ ...S.sel, width: "100%", marginBottom: "8px" }}
+          aria-label="Which nights"
+          value={night} onChange={e => setNight(e.target.value)}>
+          <option value="">Every night, by position in the block</option>
+          {nights.map(n => (
+            <option key={n.date} value={n.date}>
+              {n.date}{n.pattern ? ` · ${n.pattern}` : ""} · {n.games} games
+            </option>
+          ))}
+        </select>
       )}
 
-      {/* Oil pattern. The single biggest thing outside the bowler that
-          decides the line, so it belongs beside the line rather than
-          filed under the centre. */}
-      {patterns.length > 0 && (
-        <div style={{ marginBottom: "8px" }}>
-          <div style={{ ...S.label, marginBottom: "4px" }}>Oil pattern</div>
-          <select style={{ ...S.sel, width: "100%" }}
-            value={pattern} onChange={e => setPattern(e.target.value)}>
-            <option value="">Every pattern</option>
-            {patterns.map(p => (
-              <option key={p.name} value={p.name}>
-                {p.name} · {p.nights} {p.nights === 1 ? "night" : "nights"}
-              </option>
-            ))}
-          </select>
+      {(Object.keys(hidden).length > 0 || allBalls.length > 2) && (
+        <div style={{ display: "flex", gap: "6px", marginBottom: "8px" }}>
+          <button type="button" onClick={() => setHidden({})}
+            style={{ ...S.btn("sm"), flex: 1, fontSize: "12px", minHeight: "40px" }}>Show all</button>
+          <button type="button"
+            onClick={() => setHidden(Object.fromEntries(allBalls.map(b => [b, true])))}
+            style={{ ...S.btn("sm"), flex: 1, fontSize: "12px", minHeight: "40px" }}>Hide all</button>
         </div>
       )}
-
-      {/* The filter. The row IS the legend -- a separate one would be
-          the same information twice. */}
-      <div style={{ display: "grid", gap: "4px", marginBottom: "8px" }}>
-        {allBalls.map(ball => {
-          const on = !hidden[ball];
-          const here = lines.find(l => l.entry.ball === ball);
-          const colour = colors[ball] || C.accent;
-          return (
-            <button key={ball} type="button" onClick={() => toggle(ball)} aria-pressed={on}
-              style={{
-                display: "flex", alignItems: "center", gap: "8px", width: "100%",
-                padding: "6px 8px", minHeight: "44px", boxSizing: "border-box",
-                backgroundColor: on ? C.card : "transparent",
-                border: `1px solid ${on ? colour + "66" : C.border}`,
-                borderRadius: "8px", cursor: "pointer", textAlign: "left",
-                fontFamily: F.body, WebkitTapHighlightColor: "transparent",
-                opacity: here ? 1 : 0.45,
-              }}>
-              <span aria-hidden="true" style={{
-                width: "18px", height: "3px", borderRadius: "2px", flexShrink: 0,
-                backgroundColor: on ? colour : C.border,
-              }} />
-              <span style={{ flexGrow: 1, minWidth: 0, fontSize: "12px",
-                color: on ? C.text : C.textMuted, overflow: "hidden",
-                textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ball}</span>
-              <span style={{ fontSize: "12px", color: C.textMuted, fontFamily: F.num }}>
-                {/* Not thrown in this window: say so rather than leave a
-                    button that looks broken. */}
-                {here ? `${here.entry.shots} shots` : "none here"}
-              </span>
-            </button>
-          );
-        })}
-        {(Object.keys(hidden).length > 0 || allBalls.length > 2) && (
-          <div style={{ display: "flex", gap: "6px", marginTop: "2px" }}>
-            <button type="button" onClick={() => setHidden({})}
-              style={{ ...S.btn("sm"), flex: 1, fontSize: "12px", minHeight: "40px" }}>Show all</button>
-            <button type="button"
-              onClick={() => setHidden(Object.fromEntries(allBalls.map(b => [b, true])))}
-              style={{ ...S.btn("sm"), flex: 1, fontSize: "12px", minHeight: "40px" }}>Hide all</button>
-          </div>
-        )}
-      </div>
 
       {/* What is behind what is drawn. A line from four shots and a line
           from four hundred look identical, so the count is not a detail
           -- it is the difference between a pattern and an anecdote. */}
       <div style={{ fontSize: "11px", color: C.textMuted, lineHeight: 1.5 }}>
         {shown.length === 0
-          ? "Nothing on the lane — turn a ball back on, or widen the window."
+          ? "Nothing on the lane — turn a ball back on."
           : <>
               {scrubbing
                 ? `${sampleShots} shots around ${positionLabel(at, games).toLowerCase()}`
