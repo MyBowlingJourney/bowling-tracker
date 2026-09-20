@@ -14,7 +14,7 @@ import { isContainerLeague, isLeagueHidden, teamsInLeague } from "./domain/leagu
 import { sessionsToCsv, shotsToCsv, seasonSummary, summaryToText } from "./domain/seasonExport.js";
 import { inferLeagueDay, dayName, reminderSpec, reminderToIcs } from "./domain/reminders.js";
 import { localDateString, APP_URL, APP_NAME } from "./constants.js";
-import { leagueLimit, teamLimit, isSubscriber, isTrialing, trialDaysLeft } from "./domain/entitlements.js";
+import { leagueLimit, teamLimit, isSubscriber, isTestAccount, hasPaidSubscription, isTrialing, trialDaysLeft } from "./domain/entitlements.js";
 import {
   ENVIRONMENT_LABELS,
   ENVIRONMENT_DESCRIPTIONS,
@@ -249,8 +249,12 @@ export default function Settings({
               </div>
             </>
           )}
+          {/* A test account is unlocked but has no subscription, so
+              "Manage subscription" would open a screen with nothing to
+              manage. It gets the buy entry point instead -- which is
+              also how billing gets tested from that account. */}
           <button style={S.btn("primary")} onClick={onOpenSubscribe}>
-            {isSubscriber(entitlement) ? "Manage subscription" : "See Pro"}
+            {hasPaidSubscription(entitlement) ? "Manage subscription" : "See Pro"}
           </button>
         </div>
       )}
@@ -1238,6 +1242,10 @@ export default function Settings({
 //
 // A subscriber with nothing specific to say is simply subscribed.
 function subscriptionLine(entitlement) {
+  // Named, not disguised as a subscription. If this said "You're
+  // subscribed" we would have no way to tell a working paywall from a
+  // flag left switched on.
+  if (isTestAccount(entitlement)) return "Test account — everything unlocked";
   if (isTrialing(entitlement)) {
     const days = trialDaysLeft(entitlement);
     if (days > 0) return `${days} day${days === 1 ? "" : "s"} left in your trial`;

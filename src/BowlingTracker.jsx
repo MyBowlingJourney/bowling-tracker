@@ -1220,7 +1220,7 @@ export default function BowlingTracker(){
     (async()=>{
       try{
         const{data,error}=await supabase.from("entitlements")
-          .select("plan,status,billing_period,current_period_end,trial_end,kept_league_id,created_at")
+          .select("plan,status,billing_period,current_period_end,trial_end,kept_league_id,created_at,is_test_account")
           .eq("user_id",user.id).maybeSingle();
         if(!live)return;
         if(error){console.error("entitlement read failed:",error.message);return;}

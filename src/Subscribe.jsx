@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { C, S } from "./ui.jsx";
 import { startPurchase, currentRail, DISPLAY_PRICES, openSubscriptionManager } from "./purchase.js";
-import { TRIAL_DAYS, FREE_LEAGUE_LIMIT, isSubscriber } from "./domain/entitlements.js";
+import { TRIAL_DAYS, FREE_LEAGUE_LIMIT, hasPaidSubscription, isTestAccount } from "./domain/entitlements.js";
 
 // The one screen where a bowler decides to pay.
 //
@@ -37,20 +37,29 @@ export default function Subscribe({ entitlement, onClose }) {
   // this screen while subscribed means a stale link or a back button,
   // not a decision to pay twice.
   //
-  // isSubscriber() IS the definition, deliberately -- not a status list
-  // repeated here. The list this used to carry was ["active", "trialing",
-  // "grace"], which silently left out "canceled": a bowler who cancels
-  // keeps access until the period they already paid for runs out, so
-  // isSubscriber() says yes while this said no. The Settings card (which
-  // asks isSubscriber) therefore offered "Manage subscription", and this
-  // screen then showed them the BUY button -- and create-checkout, which
-  // repeated the same short list, let the purchase through. That is a
-  // SECOND live subscription on one customer, and because entitlements
-  // holds one row per bowler the older one becomes invisible to the app
-  // and bills forever. delete-account had the list right all along.
+  // hasPaidSubscription, NOT isSubscriber, and NOT a status list copied
+  // out by hand. Two distinct questions live here and must not be merged:
   //
-  // One predicate, one answer, everywhere.
-  const alreadyPaid = isSubscriber(entitlement);
+  //   isSubscriber()        may they USE Pro things?   paid OR test account
+  //   hasPaidSubscription() do they already HAVE one?  paid only
+  //
+  // This screen asks the second. A test account has no subscription, so
+  // it still reaches the buy button -- which is the point, since it is
+  // the account billing gets tested on.
+  //
+  // The list this once carried was ["active", "trialing", "grace"], which
+  // silently left out "canceled": a bowler who cancels keeps access until
+  // the period they paid for runs out. The Settings card asked one
+  // predicate and got "subscriber", this screen asked a hand-copied list
+  // and got "not a subscriber", and create-checkout repeated the same
+  // short list -- so the buy went through and opened a SECOND live
+  // subscription on one customer. entitlements holds one row per bowler,
+  // so the older one then bills on invisibly. delete-account had the
+  // list right all along.
+  //
+  // One question, one predicate, defined once.
+  const alreadyPaid = hasPaidSubscription(entitlement);
+  const testing = isTestAccount(entitlement);
   // Cancelled but still inside the paid period. They keep everything
   // until it ends, and the honest thing to offer is a way to resume --
   // which is what Stripe's portal shows for a subscription set to
@@ -126,6 +135,19 @@ export default function Subscribe({ entitlement, onClose }) {
 
   return (
     <div>
+      {/* Said plainly, because a test account looks exactly like a free
+          one on this screen otherwise -- and mistaking "unlocked because
+          I am a test account" for "unlocked because the paywall works"
+          is how a broken paywall ships. */}
+      {testing && (
+        <div style={{ ...S.card, borderLeft: `3px solid ${C.accent}` }}>
+          <div style={{ fontSize: "13px", color: C.text, lineHeight: 1.5 }}>
+            <strong>Test account.</strong> Everything is already unlocked for you
+            regardless of billing. You can still buy below to test checkout.
+          </div>
+        </div>
+      )}
+
       <div style={S.card}>
         <div style={{ ...S.label, color: C.accent }}>My Bowling Journey Pro</div>
         <div style={{ fontSize: "13px", color: C.text, lineHeight: 1.55, marginBottom: "14px" }}>
