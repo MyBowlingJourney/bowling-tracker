@@ -4551,9 +4551,69 @@ export default function BowlingTracker(){
 
       await saveShots(updated);
       setEditingId(null);
-      // Return to wherever the user was actively logging before they jumped
-      // into edit mode, instead of resetting all the way back to Frame 1.
-      setForm(preEditForm||emptyShot());
+
+      // ── An edit can OWE the tenth more balls ────────────────────────
+      //
+      // The block above drops a fill ball an edit un-earned. This is the
+      // same problem in reverse, and it had no handling at all.
+      //
+      // Bowl an open tenth: one record, the game is over, and the form
+      // moves on to the next game. Now go back and correct that first
+      // ball to a strike. The tenth has just earned two more balls that
+      // do not exist -- and the edit finished by restoring preEditForm,
+      // which is the NEXT GAME. There was no route back to ball 2: the
+      // tenth showed a lone strike, frames 9 and 10 went blank because a
+      // tenth mid-frame genuinely cannot be scored, and the only way to
+      // finish the frame was to delete it and bowl it again.
+      //
+      // nextState is the same function the normal save path uses to
+      // decide where to go after a ball, and it already knows every
+      // version of this rule -- strike on ball 1 owes ball 2, a strike
+      // on ball 2 owes ball 3, a spare skips to ball 3. Asking it here
+      // rather than re-deriving the sequence keeps one answer to the
+      // question.
+      //
+      // Only when that ball is genuinely MISSING. Editing ball 1 of a
+      // complete X X X tenth also "owes" ball 2, but ball 2 is sitting
+      // right there -- landing on it would overwrite a ball that was
+      // already bowled.
+      let owed=null;
+      if(parseInt(shotData.frame)===10){
+        const ns=nextState(updated,shotData.bowler,shotData.league,shotData.date,
+                           String(shotData.game),"10",shotBallNum);
+        if(ns&&String(ns.frame)==="10"&&String(ns.game)===String(shotData.game)){
+          const filled=updated.some(s=>s&&s.bowler===shotData.bowler
+            &&s.league===shotData.league&&s.date===shotData.date
+            &&String(s.game)===String(shotData.game)
+            &&parseInt(s.frame)===10&&Number(s.ballNum)===Number(ns.ballNum));
+          if(!filled)owed=ns;
+        }
+      }
+
+      if(owed){
+        // Carry the gear, same as everywhere else: the next ball of the
+        // tenth is the same bowler on the same lane with the same ball.
+        setForm({
+          ...emptyShot(),
+          bowler:shotData.bowler,
+          league:shotData.league,
+          date:shotData.date,
+          lane:shotData.lane,
+          game:String(shotData.game),
+          frame:"10",
+          ballNum:owed.ballNum,
+          ball:shotData.ball,
+          surface:shotData.surface,
+          startingBoard:shotData.startingBoard,
+          targetArrows:shotData.targetArrows,
+          heelNumber:shotData.heelNumber,
+          soleNumber:shotData.soleNumber,
+        });
+      }else{
+        // Return to wherever the user was actively logging before they jumped
+        // into edit mode, instead of resetting all the way back to Frame 1.
+        setForm(preEditForm||emptyShot());
+      }
       setPreEditForm(null);
     } else {
       // A "slot" is uniquely identified by bowler+league+date+game+frame+ballNum.
