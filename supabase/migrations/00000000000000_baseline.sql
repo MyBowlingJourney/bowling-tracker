@@ -851,7 +851,8 @@ CREATE TABLE IF NOT EXISTS public.pending_invites (
 CREATE TABLE IF NOT EXISTS public.profiles (
   id uuid NOT NULL,
   display_name text NOT NULL,
-  created_at timestamp with time zone DEFAULT now() NOT NULL
+  created_at timestamp with time zone DEFAULT now() NOT NULL,
+  backup_ball boolean DEFAULT false NOT NULL
 );
 CREATE TABLE IF NOT EXISTS public.sessions (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
