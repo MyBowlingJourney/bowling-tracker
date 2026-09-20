@@ -70,6 +70,10 @@ export default function Scoresheet({
   onSelectFrame,         // (frame, shot) => void
   bowlerName = "",       // whose card this is
   maxScore = null,       // ceiling if they strike out from here
+  // Which corner pin "Weak 10" / "Ringing 10" actually means. Those
+  // results store no pin number -- the pin is in the name, canonical for
+  // both hands -- so the rack cannot draw them without knowing the hand.
+  leftHanded = false,
 }) {
   const rows = frameScoresheet(shots);
   const scrollerRef = useRef(null);
@@ -160,7 +164,7 @@ export default function Scoresheet({
           const isCurrent = String(r.frame) === String(currentFrame);
           const tenth = r.frame === 10;
           const bowled = r.marks.length > 0;
-          const decks = rowPinDecks(r);
+          const decks = rowPinDecks(r, leftHanded);
 
           // The tenth takes the room its decks need and no more: an open
           // tenth never reset, so it is exactly as wide as any other

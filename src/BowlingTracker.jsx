@@ -571,7 +571,7 @@ export default function BowlingTracker(){
   const[friendSessions,setFriendSessions]=useState({});
   const[friendShots,setFriendShots]=useState({});
 
-  // Create a team from the Leagues card in Vault, so a league and its
+  // Create a team from the Leagues card in Team, so a league and its
   // teams are set up in one place.
   //
   // Mirrors TeamManagement's createTeam deliberately, including the stale
@@ -5896,7 +5896,7 @@ export default function BowlingTracker(){
   // the rows as well.
   //
   // Containers are deliberately kept OUT of the leagues list so that
-  // "Practice" doesn't sit in the Vault beside real leagues
+  // "Practice" doesn't sit in the Team tab beside real leagues
   // (isContainerLeague says so in as many words). visibleLeagueNames is
   // built from that list, so `ok` can never contain one -- and this
   // filter admitted a shot only if its league was in `ok`.
@@ -6481,7 +6481,7 @@ export default function BowlingTracker(){
   // inside Improve rather than being destinations of their own.
   // Just Bowling gets two tabs, not five.
   //
-  // History, Stats, Improve and Vault are all built on shot data,
+  // History, Stats, Improve, Gear and Team are all built on shot data,
   // leagues or equipment -- none of which a casual bowler has. Showing
   // four tabs that lead to empty screens makes the app look like it
   // isn't working, and makes a simple night look like homework.
@@ -7544,7 +7544,7 @@ export default function BowlingTracker(){
         {/* ══════════════════════════════════════════════════════════════════ */}
         {/* SOCIAL VIEW — Teams + Friends share one nav slot                  */}
         {/* ══════════════════════════════════════════════════════════════════ */}
-        {/* Friends only. Teams moved to Vault, beside the Leagues editor,
+        {/* Friends only. Teams moved to the Team tab, beside the Leagues editor,
             because roster setup is part of setting up a league -- not a
             social activity. With one thing left here the tab switcher is
             just a row that does nothing. */}
@@ -7664,13 +7664,13 @@ export default function BowlingTracker(){
             bookAverageDue={bookAverageCheck.needed} bookAverageTriggerLeague={bookAverageCheck.league} bookAverageSuggestion={bookAverageSuggestion} acknowledgeBookAverageUpdate={acknowledgeBookAverageUpdate}/>
         )}
 
-        {/* Vault also renders the Leagues editor -- where you bowl belongs
+        {/* The Team tab also renders the Leagues editor -- where you bowl belongs
             with your equipment, not buried in app settings. Same Settings
             component in a card-filtered mode, so there is still exactly
             one Leagues editor rather than two that can drift. */}
         {/* Friends moved to Stats, beside Compare To.
       
-            It was in the Vault, alongside leagues and equipment -- but a
+            It was in the Team tab, alongside leagues and equipment -- but a
             person isn't equipment, and for a league bowler "Friends"
             isn't really a destination: teammates are auto-friended,
             requests arrive in the inbox, and the list exists almost

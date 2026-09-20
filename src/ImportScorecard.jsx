@@ -910,7 +910,7 @@ export default function ImportScorecard({
                 <div style={S.label}>Which team?</div>
                 {teamsForImport.length===0?(
                   <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"10px"}}>
-                    No teams yet — add one under a league in Vault, then import.
+                    No teams yet — add one under a league in Team, then import.
                   </div>
                 ):(
                   <div style={S.chips}>

@@ -105,7 +105,7 @@ export default function Settings({
   const [section, setSection] = useState(mode === "history" ? "history" : "settings");
 
   // Which settings cards this instance shows. "leagues" is rendered by the
-  // Vault tab -- where you bowl belongs with your equipment, not buried in
+  // Gear tab -- where you bowl belongs with your equipment, not buried in
   // app settings -- and the settings icon renders everything else. One
   // component, so there is still exactly one Leagues editor.
   // Just Bowling gets a much shorter Settings.

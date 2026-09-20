@@ -103,7 +103,7 @@ export default function HomeView({
             {/* The app's own logo.
                 
                 Points at journey-icon.png, NOT icon.svg -- that one is
-                still the old Vault mark, so using it would put the
+                still the old pre-rename mark, so using it would put the
                 previous brand on the card carrying the new name.
                 
                 Hides itself if the file is not there yet rather than

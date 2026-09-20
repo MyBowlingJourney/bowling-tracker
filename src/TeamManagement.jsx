@@ -228,7 +228,7 @@ export default function TeamManagement({
   // the card above therefore did not exist in this list at all -- the
   // scroll had no target, nothing was selected, and the bowler was left
   // on a page that had visibly not reacted to what they just did. The
-  // team only appeared on the next visit to the Vault.
+  // team only appeared on the next visit to the Team tab.
   //
   // Which is the whole "adding players continues straight on from adding
   // the team" intention failing silently.
@@ -300,7 +300,7 @@ export default function TeamManagement({
     const teamsRes = await cloudRead("teams", q => q.select("id,name,league_id,created_by"));
     const membersRes = await cloudRead("team_members", q => q.select("team_id,user_id,lineup_position,left_handed,is_sub,profiles(display_name)"));
     // Selecting signup_code fails outright if migration_signup_codes.sql
-    // hasn't been run -- and a failed select here blanks the whole Vault.
+    // hasn't been run -- and a failed select here blanks the whole Team tab.
     // Try with it, fall back without, so a database one migration behind
     // loses the codes rather than the screen.
     let invitesRes = await cloudRead("pending_invites", q =>
@@ -518,7 +518,7 @@ export default function TeamManagement({
       // Writing signup_code: null unconditionally means every invite --
       // including ordinary email ones -- references a column that
       // doesn't exist until migration_signup_codes.sql has been run,
-      // and Postgres rejects the whole insert. That took the Vault down
+      // and Postgres rejects the whole insert. That took the Team tab down
       // for anyone whose database was a migration behind.
       //
       // A month is long enough to catch someone who signs up next

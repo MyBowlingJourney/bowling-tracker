@@ -339,7 +339,7 @@ bowlers.length>1&&(
                             are added as friends automatically.
                           </div>
                         )}
-                        {/* Friends lives here rather than in the Vault: this
+                        {/* Friends lives here rather than in the Team tab: this
                             dropdown is the only place friend data is used,
                             so the way to add someone belongs beside it. */}
                         {onOpenFriends&&(
