@@ -362,3 +362,55 @@ describe('the real call site still matches this fixture', () => {
     }
   });
 });
+
+// ── A missing prop must cost a card, not the screen ─────────────────
+//
+// StatsView takes 91 props. A caller that forgets one used to take out
+// the entire Stats screen: `frameShots.length` on undefined throws,
+// React unmounts, and the bowler sees nothing at all with no way back.
+//
+// The props whose absence throws now have empty defaults. This renders
+// with almost nothing passed -- far less than any real caller does --
+// and asserts the screen survives. It is the safety net, tested; the
+// block above is the real call site, also tested. Both matter, and for
+// different reasons.
+describe('a missing prop degrades instead of crashing', () => {
+  it('renders every stats group with no props at all', () => {
+    for (const group of ['overview', 'center', 'ball', 'game', 'team', 'trends']) {
+      expect(() => renderToStaticMarkup(<StatsView statsGroup={group} />),
+        `group "${group}" must not throw when given nothing`).not.toThrow();
+    }
+  });
+
+  // The case that actually bites, and the one the first version of this
+  // test missed: the card-building block is behind `shots.length > 0`,
+  // so passing NOTHING never reaches the props that throw. A caller that
+  // has shots but forgot the derived props is the real-world shape of
+  // the mistake -- and the only shape that exercises the defaults.
+  it('renders every stats group with shots but nothing derived', () => {
+    for (const group of ['overview', 'center', 'ball', 'game', 'team', 'trends']) {
+      expect(() => renderToStaticMarkup(
+        <StatsView statsGroup={group} shots={shots} statsBowler={BOWLER} />
+      ), `group "${group}" must not throw when only shots are passed`).not.toThrow();
+    }
+  });
+
+  it('invents no numbers when it has no data', () => {
+    const html = renderToStaticMarkup(
+      <StatsView statsGroup="overview" shots={shots} statsBowler={BOWLER} />);
+    // The three ways a missing value leaks onto the screen as a claim.
+    expect(html).not.toContain('NaN');
+    expect(html).not.toContain('undefined');
+    expect(html).not.toContain('Infinity');
+  });
+
+  // The point of leaving numbers undefined rather than defaulting them
+  // to 0: a bowler with no data loaded must not be told they strike 0%
+  // of the time. An em dash says "not known"; a zero says "never".
+  it('shows a dash rather than a zero for an unknown rate', () => {
+    const html = renderToStaticMarkup(
+      <StatsView statsGroup="overview" shots={shots} statsBowler={BOWLER} />);
+    expect(html).not.toContain('0% strikes');
+    expect(html).not.toContain('0.00');
+  });
+});

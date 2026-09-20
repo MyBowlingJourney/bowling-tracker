@@ -51,6 +51,32 @@ function sortBalls(list, sortId) {
   });
 }
 
+// ── About the defaults below ────────────────────────────────────────
+//
+// This component takes a lot of props, and a missing one used to be a
+// BLACK SCREEN rather than a missing card: `frameShots.length` on
+// undefined throws, React unmounts the tree, and the bowler gets
+// nothing at all -- no Stats screen, no explanation, no way back except
+// force-quitting. One forgotten prop at one call site took out the
+// whole screen.
+//
+// Defaults are given ONLY to the props whose absence throws: arrays
+// that get .length or .map, functions that get called, and preferences,
+// which is read two levels deep. Those defaults are semantically empty,
+// so the worst case becomes a card that renders nothing -- local,
+// visible, and survivable -- instead of a screen that renders nothing.
+//
+// NUMBERS ARE DELIBERATELY LEFT UNDEFINED. Defaulting stkR to 0 would
+// render "0% strikes" at a bowler who has simply not had their data
+// loaded yet, and a confident wrong number is worse than a blank: they
+// cannot tell it apart from the truth. undefined renders as nothing,
+// and the cards that show a rate already guard it -- firstBallAvg and
+// leaveAvg both read `x != null ? x.toFixed(2) : "—"` -- so an em dash
+// is what appears, which is the honest answer.
+//
+// These are a safety net, not a licence to stop passing props. The
+// cards are still only correct when BowlingTracker passes real values;
+// statsCards.test.jsx asserts that it does.
 export default function StatsView({
   // The bowler's subscription. Null is a free bowler, which is also what
   // every caller passes before billing exists.
@@ -60,22 +86,22 @@ export default function StatsView({
   leftHandedForBowler, ballProfile,
   SHOT_SAMPLE_THRESHOLD = 20,
   centerStats, rackTypeStats,
-  preferences,
-  view, shots, sessions, bowlers, teams, leagues: allLeagues, arsenals, saved,
-  statsBowler, setStatsBowler, compareBowler, setCompareBowler,
-  compareFriendId, setCompareFriendId, friends=[], onLoadFriendData, onOpenFriends, compareSessions, displayName="",
-  statsLeague, setStatsLeague,
-  compareLeague, setCompareLeague, matches,
-  FRAME_POSITION_RELIABILITY_THRESHOLD, allFirstBalls, bStats, bowlerLeagueCount,
-  cleanFrameCount, cleanFrameR, compareLabel, firstBallAvg, fivePinAttempts, fivePinMisses,
-  framePosition, framePositionGamesLogged, framePositionReliable, frameShots, hideIndividualOnly,
-  isTeamView, leaveAvg, mCounts, nonSplitLeaveList, nonStrikeFirstBalls, rng, showTeamCompare,
-  singlePinAttempts, singlePinMade, singlePinSpareR, spR, splitBreakdownList, splitConvR,
-  splitCount, splitR, statsShots, stk, stkR, teamCleanFrameR, teamFirstBallAvg, teamLeaveAvg,
+  preferences = { trackedFields: {} },
+  view, shots = [], sessions = [], bowlers = [], teams, leagues: allLeagues = [], arsenals, saved,
+  statsBowler, setStatsBowler = () => {}, compareBowler, setCompareBowler = () => {},
+  compareFriendId, setCompareFriendId = () => {}, friends=[], onLoadFriendData, onOpenFriends, compareSessions, displayName="",
+  statsLeague, setStatsLeague = () => {},
+  compareLeague, setCompareLeague = () => {}, matches,
+  FRAME_POSITION_RELIABILITY_THRESHOLD, allFirstBalls = [], bStats, bowlerLeagueCount,
+  cleanFrameCount = 0, cleanFrameR, compareLabel, firstBallAvg, fivePinAttempts = [], fivePinMisses = 0,
+  framePosition = [], framePositionGamesLogged, framePositionReliable, frameShots = [], hideIndividualOnly,
+  isTeamView, leaveAvg, mCounts = [], nonSplitLeaveList = [], nonStrikeFirstBalls = [], rng, showTeamCompare,
+  singlePinAttempts = [], singlePinMade = 0, singlePinSpareR, spR, splitBreakdownList = [], splitConvR,
+  splitCount = 0, splitR = 0, statsShots = [], stk, stkR, teamCleanFrameR, teamFirstBallAvg, teamLeaveAvg,
   teamSinglePinSpareR, teamSpR, teamSplitConvR, teamSplitR, teamStkR, teamTenPinRate,
-  teamTenPinSpareR, tenPinAttempts, tenPinLeaveCount, tenPinMade, tenPinSpareR, tot, wk,
-  handicapMatches, handicapSplit, longestStrikeStreak,
-  theoreticalScoreForGame,
+  teamTenPinSpareR, tenPinAttempts = [], tenPinLeaveCount, tenPinMade = 0, tenPinSpareR, tot, wk,
+  handicapMatches = () => null, handicapSplit = () => null, longestStrikeStreak = () => 0,
+  theoreticalScoreForGame = () => null,
   viewedLeftHanded=false,
 }) {
   // Practice and Just Bowling are containers, not teams -- nobody plays
