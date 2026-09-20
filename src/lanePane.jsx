@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { C, S, F } from "./ui.jsx";
 import { patternScoreband, patternLengthByName } from "./domain/oilPatterns.js";
 import { lanePath, RACK, MARK_BOARDS, pocketPins } from "./domain/lanePath.js";
@@ -292,13 +292,45 @@ export default function LanePane({
     WebkitTapHighlightColor: "transparent",
   });
 
+  // Whether the ball list is taller than the space it is given.
+  //
+  // Measured from the element rather than inferred from how many balls
+  // there are: the cap is in dvh, so it moves with the phone, with the
+  // address bar showing or hidden, and with whatever the controls above
+  // took. A ball-count threshold would be right on one handset and wrong
+  // on the next.
+  const filterRef = useRef(null);
+  const [filterOverflow, setFilterOverflow] = useState(false);
+  const checkFilterOverflow = () => {
+    const el = filterRef.current;
+    if (!el) return;
+    // Not just "does it overflow" but "is there anything BELOW" -- once
+    // scrolled to the bottom the hint is a lie, and a permanent arrow
+    // pointing at nothing is how a control stops being believed.
+    const more = el.scrollHeight - el.clientHeight - el.scrollTop > 1;
+    setFilterOverflow(prev => (prev === more ? prev : more));
+  };
+  // Keyed on the number of chips, which is the only thing that changes
+  // the content's height -- the text inside a chip changes as you scrub,
+  // its height does not. Re-running every render would re-bind the
+  // listener on every slider step for no new information.
+  useEffect(() => {
+    checkFilterOverflow();
+    // The address bar sliding away changes dvh without a re-render.
+    window.addEventListener("resize", checkFilterOverflow);
+    return () => window.removeEventListener("resize", checkFilterOverflow);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allBalls.length]);
+
   // ── The filter column ─────────────────────────────────────────────
   //
   // Placed by labelSide, the same rule the breakpoint label uses, so the
   // two can never end up on opposite assumptions about which half of the
   // lane is busy.
   const filterColumn = (
-    <div style={{ width: "96px", flexShrink: 0, display: "flex",
+    <div style={{ position: "relative", width: "96px", flexShrink: 0 }}>
+    <div ref={filterRef} onScroll={checkFilterOverflow}
+      style={{ width: "100%", display: "flex",
       flexDirection: "column", gap: "4px", overflowY: "auto",
       maxHeight: LANE_HEIGHT }}>
       {allBalls.map(ball => {
@@ -334,6 +366,29 @@ export default function LanePane({
           </button>
         );
       })}
+    </div>
+    {/* There are more balls below.
+    
+        The column is capped at the lane's height so the diagram and the
+        slider stay on one screen, and it has always scrolled past that
+        -- silently. A chip at 44px (the touch-target floor, not a number
+        worth shaving) plus its gap means a bag of eight fits on a small
+        phone and ten does not, so the balls past the fold were simply
+        invisible, with a filter that looked complete.
+        
+        Measured rather than guessed from a ball count: the cap is in
+        dvh, so how many fit depends on the phone, the address bar and
+        the two dropdowns above. The fade is aria-hidden and lets taps
+        through -- it is a hint, not a control. */}
+    {filterOverflow && (
+      <div aria-hidden="true" style={{
+        position: "absolute", left: 0, right: 0, bottom: 0, height: "26px",
+        pointerEvents: "none", borderRadius: "0 0 8px 8px",
+        backgroundImage: `linear-gradient(to bottom, transparent, ${C.card})`,
+        display: "flex", alignItems: "flex-end", justifyContent: "center",
+        color: C.textMuted, fontSize: "10px", fontFamily: F.num,
+      }}>more ▾</div>
+    )}
     </div>
   );
 
@@ -373,10 +428,13 @@ export default function LanePane({
             <div style={{ flex: "1 1 140px", minWidth: 0 }}>
               <Picker label="Oil pattern" value={pattern}
                 onChange={e => setPattern(e.target.value)}>
+                {/* The name alone. How many nights are behind it is
+                    said once, at the bottom of the card, against the
+                    sample actually drawn -- which is the number that
+                    matters and is not the same as the count here once a
+                    night or a scrub position is chosen. */}
                 {patterns.map(p => (
-                  <option key={p.name} value={p.name}>
-                    {p.name} · {p.nights} {p.nights === 1 ? "night" : "nights"}
-                  </option>
+                  <option key={p.name} value={p.name}>{p.name}</option>
                 ))}
               </Picker>
             </div>
@@ -647,7 +705,7 @@ export default function LanePane({
               {scrubbing
                 ? `${sampleShots} shots around ${positionLabel(at, games).toLowerCase()}`
                 : `${sampleShots} shots`}
-              {night ? " on this night" : sampleNights > 1 ? `, across ${sampleNights} nights` : ""}
+              {activeNight ? " on this night" : sampleNights > 1 ? `, across ${sampleNights} nights` : ""}
               {pattern ? ` on ${pattern}` : ""}
               {". "}
               Solid while it skids, dashed once it turns — where it turns comes from
