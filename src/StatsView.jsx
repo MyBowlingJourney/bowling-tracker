@@ -17,7 +17,6 @@ import { seasonComparison } from "./domain/scoreInsights.js";
 
 import { patternAverages, patternVersusOverall, patternLengthForLeague } from "./domain/oilPatterns.js";
 
-import { rackTypeLabel } from "./domain/centers.js";
 
 import { cardsInGroup } from "./domain/statsGroups.js";
 import { cardHint } from "./domain/cardHints.js";
@@ -1576,32 +1575,20 @@ anyMoneyGameShown(preferences)&&statsBowler&&(()=>{
                           <span style={{fontSize:"13px",fontWeight:700,color:C.accent}}>{cs.average}</span>
                         </div>
                         <div style={{display:"flex",flexWrap:"wrap",gap:"4px"}}>
+                          {/* Games, high game, and the average above.
+                              Nothing else.
+
+                              Sessions, rack type and messenger rate all
+                              used to hang here too. Rack type and
+                              messengers now have a card of their own --
+                              the free fall against string comparison --
+                              which is where a question about how the
+                              pins behave belongs. Repeating them per
+                              house turned a straight house-to-house
+                              scoring list into five tags to read past
+                              before finding the number the card is
+                              named for. */}
                           <span style={S.tag()}>{cs.games} games</span>
-                          <span style={S.tag(C.textMuted)}>{cs.sessions} sessions</span>
-                          {/* Which rack, and how the pins behaved.
-                              
-                              This card listed houses and averages with no
-                              hint of WHY one carries better than another,
-                              and the single biggest reason is right here:
-                              string pins are tethered, so they deflect
-                              differently and messengers are rare.
-                              
-                              A bowler comparing two houses without knowing
-                              which is string is comparing two different
-                              games. */}
-                          {cs.center.rackType&&(
-                            <span style={S.tag(cs.center.rackType==="string"?C.spare:C.accent)}>
-                              {rackTypeLabel(cs.center.rackType)}
-                            </span>
-                          )}
-                          {/* "of strikes", for the same reason as the
-                              rack-type card: this is a share of the
-                              strikes thrown, not of every shot, and the
-                              bare "% messengers" reads as the second
-                              one. */}
-                          {cs.messengerRate!=null&&cs.strikes>0&&(
-                            <span style={S.tag(C.strike)}>Messengers {cs.messengerRate}% of strikes</span>
-                          )}
                           {cs.high!=null&&<span style={S.tag(C.strike)}>High {cs.high}</span>}
                         </div>
                       </div>
