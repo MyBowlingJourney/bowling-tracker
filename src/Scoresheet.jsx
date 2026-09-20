@@ -1,5 +1,7 @@
+import { useRef, useEffect, useState, useCallback } from "react";
 import { C, S } from "./ui.jsx";
 import { frameScoresheet } from "./domain/scoring.js";
+import { PIN_ROWS, rowPinDecks, frameWidthUnits } from "./domain/pinRack.js";
 
 // The ten frames, the way a bowler already pictures a game.
 //
@@ -10,6 +12,57 @@ import { frameScoresheet } from "./domain/scoring.js";
 //
 // Live: it rebuilds from `shots` on every render, so a mark appears the
 // moment a shot is saved rather than after leaving and returning.
+//
+// ── Five frames, not ten ────────────────────────────────────────────────
+//
+// Ten frames across a phone gave each one 32px, which is enough for two
+// marks and a number and nothing else. Five frames get 65px, which is
+// enough to draw the rack -- and the rack is the whole point: "8 1" says
+// the frame was open, the hollow 7 says which pin beat you.
+//
+// The other five are a swipe away, and the row follows the frame being
+// bowled on its own (see the scroll rules below).
+
+const VISIBLE_FRAMES = 5;
+const GAP = 3;
+
+// One share of the row: the visible width split five ways, gaps removed.
+const SHARE = `((100% - ${(VISIBLE_FRAMES - 1) * GAP}px) / ${VISIBLE_FRAMES})`;
+
+function pinStyle(state, split, size) {
+  const base = {
+    width: `${size}px`,
+    height: `${size}px`,
+    borderRadius: "50%",
+    boxSizing: "border-box",
+    display: "block",
+  };
+  if (state === "down1") return { ...base, backgroundColor: C.strike };
+  if (state === "down2") return { ...base, backgroundColor: C.spare };
+  // Standing. A split gets the miss colour AND a heavier stroke -- one
+  // hue at this size is a thin signal, and it is the wrong one to lose.
+  if (state === "standing") {
+    return split
+      ? { ...base, backgroundColor: C.miss + "1F", border: `2px solid ${C.miss}` }
+      : { ...base, backgroundColor: "transparent", border: `1.5px solid ${C.textMuted}` };
+  }
+  return { ...base, backgroundColor: "transparent", border: `1px solid ${C.border}` };
+}
+
+function Rack({ deck, size }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}>
+      {PIN_ROWS.map((row, ri) => (
+        <div key={ri} style={{ display: "flex", gap: size > 8 ? "3px" : "2px" }}>
+          {row.map(p => (
+            <span key={p} style={pinStyle(deck.states[p], deck.split, size)} />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Scoresheet({
   shots = [],
   currentFrame = null,   // string|number — the frame being logged now
@@ -19,25 +72,109 @@ export default function Scoresheet({
   maxScore = null,       // ceiling if they strike out from here
 }) {
   const rows = frameScoresheet(shots);
+  const scrollerRef = useRef(null);
+  const autoLeftRef = useRef(0);
+
+  // Manual scroll wins.
+  //
+  // Swiping back to check frame 2 and being yanked forward by a save is
+  // the kind of thing that makes a live-updating list unusable. So once
+  // the bowler scrolls away from the live frame the row stops following,
+  // and starts again only when they bring that frame back into view --
+  // the same rule a chat window uses for new messages.
+  const [following, setFollowing] = useState(true);
 
   // Nothing bowled and nothing in progress: a row of ten empty boxes is
   // just noise before the first ball.
   const anything = rows.some(r => r.marks.length || r.running != null);
+
+  const scrollToCurrent = useCallback((smooth) => {
+    const scroller = scrollerRef.current;
+    if (!scroller || currentFrame == null) return;
+    const el = scroller.querySelector(`[data-frame="${currentFrame}"]`);
+    if (!el) return;
+
+    // Right-align the live frame, clamped at zero.
+    //
+    // The clamp IS the "always show five" rule: for frames 1-5 the target
+    // is negative, so the row simply stays put. From frame 6 on it slides
+    // one frame at a time, and the frame being bowled is never the
+    // leftmost one -- the two or three before it stay in view, which is
+    // what a bowler actually glances at.
+    const target = Math.max(0, el.offsetLeft + el.offsetWidth - scroller.clientWidth);
+    const reduced = typeof window !== "undefined"
+      && window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    autoLeftRef.current = target;
+
+    // Feature-detected, not assumed. jsdom does not implement scrollTo on
+    // elements, and this runs on mount -- an unguarded call would throw
+    // inside every test that renders a scoresheet, turning a cosmetic
+    // nicety into a suite-wide failure. Setting scrollLeft works
+    // everywhere and is the correct fallback rather than a stub.
+    if (typeof scroller.scrollTo === "function") {
+      scroller.scrollTo({ left: target, behavior: smooth && !reduced ? "smooth" : "auto" });
+    } else {
+      scroller.scrollLeft = target;
+    }
+  }, [currentFrame]);
+
+  // Follow the game. Keyed on the shot count as well as the frame so the
+  // tenth -- three balls inside one frame number -- still advances.
+  useEffect(() => {
+    if (!following) return;
+    scrollToCurrent(true);
+  }, [currentFrame, shots.length, following, scrollToCurrent]);
+
+  const onScroll = useCallback(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller || currentFrame == null) return;
+    const el = scroller.querySelector(`[data-frame="${currentFrame}"]`);
+    if (!el) return;
+
+    // Is the live frame fully in view? If so we are effectively where the
+    // follow would put us, so resume; otherwise the bowler is reading
+    // somewhere else and should be left alone.
+    const left = el.offsetLeft - scroller.scrollLeft;
+    const right = left + el.offsetWidth;
+    const visible = left >= -1 && right <= scroller.clientWidth + 1;
+    setFollowing(prev => (prev === visible ? prev : visible));
+  }, [currentFrame]);
+
   if (!anything && !currentFrame) return null;
 
   return (
-    <div style={{ ...S.card, padding: "10px 8px", marginBottom: "12px" }}>
-      <div style={{ display: "flex", gap: "2px", overflowX: "auto" }}>
+    <div style={{ ...S.card, padding: "12px 10px 10px", marginBottom: "12px" }}>
+      <div
+        ref={scrollerRef}
+        onScroll={onScroll}
+        style={{
+          display: "flex",
+          gap: `${GAP}px`,
+          overflowX: "auto",
+          // Momentum on iOS, and no vertical bounce stealing the gesture.
+          WebkitOverflowScrolling: "touch",
+          scrollbarWidth: "none",
+        }}
+      >
         {rows.map(r => {
           const isCurrent = String(r.frame) === String(currentFrame);
           const tenth = r.frame === 10;
           const bowled = r.marks.length > 0;
+          const decks = rowPinDecks(r);
+
+          // The tenth takes the room its decks need and no more: an open
+          // tenth never reset, so it is exactly as wide as any other
+          // frame. A wide tenth means marks, which is readable from the
+          // shape of the box before a single pin is.
+          const units = tenth ? frameWidthUnits(decks.length) : 1;
+          const pinSize = tenth && decks.length > 1 ? 7 : 9;
 
           return (
             <button
               key={r.frame}
+              data-frame={r.frame}
               /* The tenth's other balls travel with the tap.
-                 
+
                  The row only ever passed r.shot, which is ball 1 -- so
                  tapping the tenth could only ever edit the first ball,
                  with no way to reach a bad second or fill ball. */
@@ -45,31 +182,51 @@ export default function Scoresheet({
 
               aria-label={`Frame ${r.frame}${bowled ? `, ${r.marks.join(" ")}` : ", not bowled"}${r.running != null ? `, running ${r.running}` : ""}`}
               style={{
-                flex: tenth ? "0 0 62px" : "1 1 0",
-                minWidth: tenth ? "62px" : "32px",
+                flex: `0 0 calc(${SHARE} * ${units})`,
                 padding: 0,
                 cursor: "pointer",
-                background: isCurrent ? C.accent + "1a" : "transparent",
+                background: isCurrent ? C.accent + "14" : "transparent",
                 border: `1px solid ${isCurrent ? C.accent : C.border}`,
-                borderRadius: "6px",
+                borderRadius: "8px",
                 color: C.text,
                 display: "flex",
                 flexDirection: "column",
+                alignItems: "center",
               }}
             >
               {/* Frame number, small — it's an index, not the content. */}
-              <div style={{ fontSize: "8px", color: C.textMuted, lineHeight: 1, paddingTop: "3px" }}>
+              <div style={{
+                fontSize: "10px",
+                color: isCurrent ? C.accent : C.textMuted,
+                fontWeight: isCurrent ? 600 : 400,
+                lineHeight: 1,
+                paddingTop: "4px",
+              }}>
                 {r.frame}
               </div>
 
+              {/* One rack per deck. An unbowled frame draws none rather
+                  than an empty deck: ten faint circles in every frame
+                  ahead of the bowler is noise, and it makes the card
+                  look busier the LESS has happened. */}
+              <div style={{
+                display: "flex",
+                gap: "4px",
+                padding: "5px 0 6px",
+                minHeight: "40px",
+                alignItems: "center",
+              }}>
+                {decks.map((d, i) => <Rack key={i} deck={d} size={pinSize} />)}
+              </div>
+
               {/* Marks. The tenth gets three boxes; every other frame two. */}
-              <div style={{ display: "flex", justifyContent: "center", gap: "1px", minHeight: "16px", alignItems: "center" }}>
+              <div style={{ display: "flex", justifyContent: "center", gap: "2px", minHeight: "20px", alignItems: "center" }}>
                 {Array.from({ length: tenth ? 3 : 2 }).map((_, i) => (
                   <span key={i} style={{
-                    width: tenth ? "16px" : "14px",
-                    fontSize: "12px",
-                    fontWeight: 600,
-                    lineHeight: "16px",
+                    width: tenth ? "16px" : "19px",
+                    fontSize: "15px",
+                    fontWeight: 700,
+                    lineHeight: "20px",
                     color: r.marks[i] === "X" || r.marks[i] === "/" ? C.strike : C.text,
                   }}>
                     {r.marks[i] || ""}
@@ -81,10 +238,12 @@ export default function Scoresheet({
                   frame 7 can't be scored until 8 and 9 are bowled, and a
                   provisional number there would be a lie. */}
               <div style={{
-                fontSize: "11px",
+                width: "100%",
+                fontSize: "14px",
                 fontWeight: 700,
-                lineHeight: "18px",
-                minHeight: "18px",
+                lineHeight: "22px",
+                minHeight: "22px",
+                marginTop: "auto",
                 color: r.running != null ? C.text : C.textMuted,
                 borderTop: `1px solid ${C.border}`,
               }}>
@@ -96,7 +255,7 @@ export default function Scoresheet({
       </div>
 
       {/* Whose card this is, and what the game can still reach.
-      
+
           The name matters when logging for a teammate: the frames look
           identical whoever they belong to, and entering someone else's
           shots under your own name is the most common first-session
@@ -104,7 +263,7 @@ export default function Scoresheet({
           rather than above the result buttons. */}
       <div style={{
         display: "flex", justifyContent: "space-between", alignItems: "baseline",
-        marginTop: "6px", fontSize: "10px", color: C.textMuted,
+        marginTop: "8px", fontSize: "10px", color: C.textMuted,
       }}>
         <span style={{ fontWeight: 600, color: bowlerName ? C.text : C.textMuted }}>
           {bowlerName || ""}
