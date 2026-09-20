@@ -789,18 +789,6 @@ export default function LogView({
                             </div>
                           </div>
                         )}
-                        {/* Notes, on any pattern -- house shot included.
-
-                            An average tells a bowler a pattern is hard.
-                            "Played 4th arrow, ball rolled out, should
-                            have moved right" tells them what to do about
-                            it next time, and that is the thing they keep
-                            in a phone notes app today. Here it sits next
-                            to the score it explains. */}
-                        <textarea style={{...S.input,marginTop:"6px",minHeight:"52px",resize:"vertical"}}
-                          placeholder="How it played — line, ball, what you'd do differently"
-                          value={rec.notes||""}
-                          onChange={e=>setLanePattern(form.teamId||sessionLeague,sessionLeague,sessionDate,lane,{notes:e.target.value})}/>
                       </div>
                     );
                   };

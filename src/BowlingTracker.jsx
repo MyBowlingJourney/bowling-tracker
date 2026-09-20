@@ -7501,7 +7501,12 @@ export default function BowlingTracker(){
             leagueDates={leagueDates} setLeagueDates={saveLeagueDates}
             leagueFormats={leagueFormats} setLeagueFormat={saveLeagueFormat} updateCenter={updateCenter} renameLeague={renameLeague}
             leaguePatterns={leaguePatterns} setLeaguePattern={saveLeaguePattern}
-            oilPatterns={oilPatterns}
+            // pickerPatterns, not oilPatterns: the DB table holds only what
+            // the community has actually entered, which on a young install
+            // is nothing -- so the league picker searched an empty list and
+            // matched no pattern that exists. This is the same list the Log
+            // screen offers: community rows PLUS the verified PBA seeds.
+            oilPatterns={pickerPatterns}
             hiddenLeagues={hiddenLeagues} leagueIds={leagueIdsRef.current} toggleLeagueHidden={toggleLeagueHidden}
             shots={shots}
             teams={teams} activeBowler={activeBowler} leaveTeam={leaveTeam} leftHandedForBowler={leftHandedForBowler}/>
