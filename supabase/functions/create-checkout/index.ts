@@ -28,6 +28,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import {
   stripeConfigured, stripeRequest, priceIdForLookupKey,
+  customerHasAnySubscription,
   LOOKUP_MONTHLY, LOOKUP_YEARLY,
 } from "../_shared/stripeApi.ts";
 
@@ -177,12 +178,24 @@ Deno.serve(async (req: Request) => {
 
   // Already paying. Sending them to checkout again would charge them
   // twice for the same thing.
+  // "canceled" IS in this list, and leaving it out was a real bug.
+  //
+  // Our "canceled" means cancelled but paid through the period -- they
+  // still have everything until the date they bought. isSubscriber() on
+  // the client counts them as a subscriber and delete-account cancels
+  // for them, so a list here that stopped at "grace" let exactly one
+  // person through: the bowler who cancelled, changed their mind, and
+  // came back before the period ended. They would get a SECOND live
+  // subscription on the same Stripe customer, and since entitlements
+  // holds one row per bowler the older one goes invisible and bills on
+  // forever. They want to RESUME, which is what the portal is for.
   if (existing && existing.plan === "plus"
-      && ["active", "trialing", "grace"].includes(String(existing.status))) {
+      && ["active", "trialing", "grace", "canceled"].includes(String(existing.status))) {
     return json({ error: "You already have a subscription.", alreadySubscribed: true }, cors, 409);
   }
 
   let customerId = typeof existing?.stripe_customer_id === "string" ? existing.stripe_customer_id : "";
+  let isNewCustomer = false;
   if (!customerId) {
     const customer = await stripeRequest("/customers", {
       email: user!.email || undefined,
@@ -192,6 +205,37 @@ Deno.serve(async (req: Request) => {
     });
     if (!customer?.id) return json({ error: "Could not start checkout." }, cors, 500);
     customerId = String(customer.id);
+    // Brand new customer, created a line ago. There is nothing to ask
+    // Stripe about, and skipping the call keeps the common first-time
+    // path at one round trip.
+    isNewCustomer = true;
+  }
+
+  // ── One trial per bowler ────────────────────────────────────────────
+  //
+  // The 30 days run from checkout, not from sign-up. Without this check
+  // that also means: subscribe, cancel, subscribe again, another 30 free
+  // days, for as long as anybody cares to keep doing it.
+  //
+  // Asked of Stripe rather than of our own table, because our table is
+  // one row that gets overwritten and holds no history -- it cannot
+  // answer "have they ever". Stripe can.
+  //
+  // FAILS CLOSED on an unreadable answer: no trial rather than a free
+  // month we could not verify. That can only bite a bowler who has a
+  // Stripe customer but no subscription -- someone who opened checkout
+  // once and closed the tab -- AND who hits a Stripe outage on their
+  // second attempt. Rare, recoverable (they can be comped), and the
+  // other direction is unlimited free months for anyone who notices.
+  let grantTrial = true;
+  if (!isNewCustomer) {
+    const hadOne = await customerHasAnySubscription(customerId);
+    if (hadOne === null) {
+      console.error("could not determine prior subscriptions for", customerId, "-- withholding the trial");
+      grantTrial = false;
+    } else {
+      grantTrial = !hadOne;
+    }
   }
 
   const session = await stripeRequest("/checkout/sessions", {
@@ -206,7 +250,7 @@ Deno.serve(async (req: Request) => {
     client_reference_id: user!.id,
     subscription_data: {
       metadata: { user_id: user!.id },
-      trial_period_days: TRIAL_DAYS,
+      ...(grantTrial ? { trial_period_days: TRIAL_DAYS } : {}),
     },
     // ⚠️ THE LINE THAT MOVES THE TAX LIABILITY. ⚠️
     //
@@ -250,5 +294,5 @@ Deno.serve(async (req: Request) => {
     .upsert({ user_id: user!.id, stripe_customer_id: customerId }, { onConflict: "user_id" });
   if (upsertErr) console.error("storing stripe_customer_id failed:", upsertErr.message);
 
-  return json({ url: session.url, trialing: true }, cors);
+  return json({ url: session.url, trialing: grantTrial }, cors);
 });
