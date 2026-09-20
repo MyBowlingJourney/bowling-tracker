@@ -20,9 +20,15 @@ import { frameScoresheet, tenthBall3Earned, tenthBall3Available, nextState } fro
 //   score doesn't recalculate 9 and 10" and was really "9 and 10 were
 //   never scoreable".
 
+// One bowler, one night, one game -- named once. nextState filters by
+// bowler+league+date, so a helper hardcoding these while a caller passes
+// its own copies means the lookup silently matches nothing and every
+// answer collapses to the "no ball 1 yet" default.
+const BOWLER = 'Ryan', LEAGUE = 'L', DATE = '2026-09-20', GAME = '1';
+
 const shot = (frame, o = {}) => ({
   id: `f${frame}b${o.ballNum || 0}`, frame: String(frame), ballNum: o.ballNum ?? null,
-  game: '1', bowler: 'Ryan', league: 'L', date: '2026-09-20',
+  game: GAME, bowler: BOWLER, league: LEAGUE, date: DATE,
   result: 'Strike', otherLeave: [], spareMade: '', pinCount: '', ...o,
 });
 
@@ -128,11 +134,10 @@ describe('the fill ball is earned, not assumed', () => {
 // These mirror what submitShot now computes: ask nextState where the
 // tenth goes next, and land there when that ball is genuinely missing.
 describe('finishing a tenth that an edit re-opened', () => {
-  const B = 'Ryan', L = 'Monday', D = '2026-09-20';
   const owed = (tenth, editedBallNum) => {
     const all = [...nineStrikes(), ...tenth];
-    const ns = nextState(all, B, L, D, '1', '10', editedBallNum);
-    if (!(ns && String(ns.frame) === '10' && String(ns.game) === '1')) return null;
+    const ns = nextState(all, BOWLER, LEAGUE, DATE, GAME, '10', editedBallNum);
+    if (!(ns && String(ns.frame) === '10' && String(ns.game) === GAME)) return null;
     const filled = all.some(s => parseInt(s.frame) === 10
       && Number(s.ballNum) === Number(ns.ballNum));
     return filled ? null : ns;
@@ -171,7 +176,7 @@ describe('finishing a tenth that an edit re-opened', () => {
 
   it('never redirects an edit to frames 1-9 into the tenth', () => {
     const ns = nextState([...nineStrikes(), shot(10, { ballNum: 1, ...open8 })],
-      B, L, D, '1', '4', null);
+      BOWLER, LEAGUE, DATE, GAME, '4', null);
     expect(String(ns.frame)).not.toBe('10');
   });
 
