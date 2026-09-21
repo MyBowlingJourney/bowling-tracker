@@ -67,8 +67,14 @@ Do not transcribe any scores or frames. Do not explain. Answer with JSON only.`;
 // Model IDs are checked at the call, not here -- a wrong one returns a
 // 404 the client already explains as "pointed at a model that's no longer
 // available", which is the right message for a typo in a secret.
-const GEMINI_MODEL = Deno.env.get("IMPORT_GEMINI_MODEL")?.trim()
-  || "gemini-3.6-flash";
+//
+// FRAME IMPORT RETIRED (Sep 2026): scores are read by gemini-3.5-flash-lite
+// ONLY. It has been reliable for game totals. The secret override is
+// commented out so a stale IMPORT_GEMINI_MODEL secret can't silently put
+// a different model back in front of bowlers.
+// const GEMINI_MODEL = Deno.env.get("IMPORT_GEMINI_MODEL")?.trim()
+//   || "gemini-3.6-flash";
+const GEMINI_MODEL = "gemini-3.5-flash-lite";
 
 // The model used when the FAST one saw frame detail it could not read.
 //
@@ -571,7 +577,40 @@ Deno.serve(async (req) => {
     // point -- it is a handle into logs they cannot read.
     const requestId = crypto.randomUUID().slice(0, 8);
 
-    const { images, mode, onlyGame, detailed, totalsOnly } = await req.json();
+    // const { images, mode, onlyGame, detailed, totalsOnly } = await req.json();
+    const { images, mode, onlyGame, totalsOnly } = await req.json();
+
+    // ------------------------------------------------------------------
+    // FRAME IMPORT RETIRED (Sep 2026) -- the detailed (frame-by-frame,
+    // pin-deck) read is switched off HERE, server-side, so an old client
+    // still sending detailed:true gets a scores read instead of the
+    // unreliable one.
+    //
+    // WHY: it got the general shape of a game right but kept getting the
+    // PINS wrong -- and wrong pins saved into history quietly skew spare
+    // conversion and leave stats, which a "beta" label doesn't prevent.
+    // It was also only ever tuned against LaneTalk screenshots, which
+    // real users mostly won't have (why pay for two tracking apps?). The
+    // realistic source of frame data is the printout a bowling centre
+    // hands out, and that was never tested.
+    //
+    // TO TURN IT BACK ON:
+    //   1. Collect real centre printouts -- a dozen or so across Brunswick
+    //      (Sync/Vector) and QubicaAMF (BES X/Conqueror). Many printouts
+    //      show only marks, not pin diagrams; only ones WITH pin diagrams
+    //      are worth supporting.
+    //   2. Rewrite EXTRACTION_PROMPT (it still says LaneTalk) and, if
+    //      needed, give each scoring-system family its own prompt.
+    //   3. Restore the destructure above (put `detailed` back) and delete
+    //      the `const detailed = false` line below. The detailed model
+    //      chain, DETAILED_SCHEMA and fallbacks are all still intact.
+    //   4. Re-enable the "Frames" chip in src/ImportScorecard.jsx (see the
+    //      matching note there) and the teammate frame proposal.
+    //   5. Verify pins end to end against the collected printouts, not
+    //      just totals, before exposing it -- totals can match while the
+    //      leaves are wrong.
+    // ------------------------------------------------------------------
+    const detailed = false;
     // images: array of { base64: string, mimeType: string } -- one entry per uploaded screenshot
     if (!Array.isArray(images) || !images.length) {
       return new Response(JSON.stringify({ error: "No images provided" }), {

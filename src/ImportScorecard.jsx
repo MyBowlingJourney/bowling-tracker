@@ -227,7 +227,21 @@ export default function ImportScorecard({
   // deck is slow and still gets leaves wrong, so it goes straight to the
   // stronger model rather than asking the fast one first and escalating --
   // the fast one cannot read pin decks, so asking it only added a minute.
-  const[cardType,setCardType]=useState("totals");
+  //
+  // FRAME IMPORT RETIRED (Sep 2026). Scores only, read by
+  // gemini-3.5-flash-lite. The frame read got the shape of a game right
+  // but kept getting pins wrong, and wrong pins saved to history skew
+  // spare/leave stats no matter what label the button has. It was also
+  // only ever tuned on LaneTalk screenshots, which real users mostly won't
+  // have -- centre printouts are the realistic source and were never tested.
+  //
+  // To turn it back on: restore the useState line below, uncomment the
+  // "Frames" chip and its hint in the setup step, restore importedShots in
+  // handleSave, and follow the steps in the matching note in
+  // supabase/functions/import-scorecard/index.ts (the server forces
+  // detailed off too, so both have to change).
+  // const[cardType,setCardType]=useState("totals");
+  const cardType="totals";
   const[contextTeamId,setContextTeamId]=useState(initialTeam?.id||"");
   const contextTeam=teamsForImport.find(t=>t.id===contextTeamId)||initialTeam||null;
   const selectedTournament=(tournaments||[]).find(t=>t.id===contextTournamentId)||null;
@@ -931,9 +945,11 @@ export default function ImportScorecard({
         // an approved shot is marked as imported rather than self-logged.
         // A card showing only totals sends no frames, which is a normal
         // case rather than a failure.
-        importedShots:convertColumn(column,bowler)
-          .filter(g=>!g.scoreOnly&&g.shots.length)
-          .map(g=>({gameNumber:g.gameNumber,ballUsed:g.ballUsed,shots:g.shots})),
+        // FRAME IMPORT RETIRED (Sep 2026) -- teammates get scores only.
+        // importedShots:convertColumn(column,bowler)
+        //   .filter(g=>!g.scoreOnly&&g.shots.length)
+        //   .map(g=>({gameNumber:g.gameNumber,ballUsed:g.ballUsed,shots:g.shots})),
+        importedShots:[],
       })));
     }
 
@@ -1030,6 +1046,8 @@ export default function ImportScorecard({
               </div>
             )}
 
+            {/* FRAME IMPORT RETIRED (Sep 2026) -- see the note at cardType.
+                The card-type picker is gone; only game totals are read.
             <div style={S.label}>What's on the card?</div>
             <div style={{...S.chips,marginBottom:"6px"}}>
               <Chip label="Game totals" selected={cardType==="totals"} onToggle={()=>setCardType("totals")}/>
@@ -1040,6 +1058,10 @@ export default function ImportScorecard({
                 ?"Reads each game's score only. Check the numbers before saving."
                 :<><span style={{display:"inline-block",fontSize:"10px",fontWeight:700,color:C.spare,border:`1px solid ${C.spare}`,borderRadius:"6px",padding:"0 5px",marginRight:"6px"}}>BETA</span>
                   Also tries to read every frame ball by ball. Slower, and leaves and counts can come back wrong — check each frame before saving.</>}
+            </div>
+            */}
+            <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"10px",lineHeight:1.5}}>
+              Reads each game's score. Check the numbers before saving.
             </div>
 
             {/* Always visible, whatever the kind. */}
