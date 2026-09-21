@@ -66,6 +66,10 @@ function convertRegularFrame(frame, base) {
   return {
     ...base, frame: String(frame.frameNumber), ballNum: null, result: "Other Leave",
     otherLeave: standingAfterBall1, spareMade: madeSpare ? "Yes" : "No", pinCount,
+    // Which pins the second ball left, as the scoring form records it --
+    // so the review can show the rack to tap rather than a number, and an
+    // open frame's leave is not lost.
+    secondLeave: madeSpare ? [] : pinsOf(second).map(Number),
   };
 }
 
@@ -110,7 +114,7 @@ function convertTenthFrame(frame, base, warnings) {
     }
     const made = pinsOf(b2).length === 0;
     const pinCount = made ? String(10 - standing.length) : String(10 - pinsOf(b2).length);
-    b1Shot = { ...base, frame: "10", ballNum: 1, result: "Other Leave", otherLeave: standing, spareMade: made ? "Yes" : "No", pinCount };
+    b1Shot = { ...base, frame: "10", ballNum: 1, result: "Other Leave", otherLeave: standing, spareMade: made ? "Yes" : "No", pinCount, secondLeave: made ? [] : pinsOf(b2).map(Number) };
     i += 2;
   }
   shots.push(b1Shot);
@@ -147,7 +151,7 @@ function convertTenthFrame(frame, base, warnings) {
       // balls" -- see nextState in domain/scoring.js).
       const made = pinsOf(b3).length === 0;
       const pinCount = made ? String(10 - standing.length) : String(10 - pinsOf(b3).length);
-      b2Shot = { ...base, frame: "10", ballNum: 2, result: "Other Leave", otherLeave: standing, spareMade: made ? "Yes" : "No", pinCount };
+      b2Shot = { ...base, frame: "10", ballNum: 2, result: "Other Leave", otherLeave: standing, spareMade: made ? "Yes" : "No", pinCount, secondLeave: made ? [] : pinsOf(b3).map(Number) };
       i += 2;
     }
     shots.push(b2Shot);
@@ -641,4 +645,49 @@ export function framesReconcile(games, scoreGame) {
     else mismatches.push({ game: g?.gameNumber ?? null, printed, computed });
   }
   return { checked, matched, mismatches };
+}
+
+// The 10th frame's deliveries, kept in step with its marks.
+//
+// Editing an imported 10th changes how many balls it is owed: open ->
+// spare earns a fill ball, open -> strike earns two more, and taking a
+// mark away takes them back. Without this the review could turn an open
+// 10th into a spare with no way to record the fill ball, and the frame
+// would score as if it had never been thrown.
+//
+// Shape, as convertTenthFrame writes it:
+//   ballNum 1  -- strike, or a leave that carries its own second ball
+//   ballNum 2  -- only after a ball-1 strike: a fresh rack (strike, or a
+//                 leave carrying its own follow-up)
+//   ballNum 3  -- the fill: after a ball-1 spare, or two strikes
+// A missing ball is added BLANK (result ""), to be filled in; a ball no
+// longer owed is dropped. Every other frame is returned untouched.
+export function tenthBallsOwed(shots) {
+  const tenth = (Array.isArray(shots) ? shots : []).filter(s => s && String(s.frame) === "10");
+  const b = n => tenth.find(s => Number(s.ballNum || 1) === n);
+  const b1 = b(1);
+  if (!b1 || !b1.result) return [1];
+  if (b1.result === "Strike") {
+    const b2 = b(2);
+    if (!b2 || !b2.result) return [1, 2];
+    return b2.result === "Strike" ? [1, 2, 3] : [1, 2];
+  }
+  return b1.spareMade === "Yes" ? [1, 3] : [1];
+}
+
+export function reconcileTenth(shots) {
+  const list = Array.isArray(shots) ? shots : [];
+  const tenth = list.filter(s => s && String(s.frame) === "10");
+  if (!tenth.length) return list;
+  const owed = tenthBallsOwed(list);
+  const template = tenth[0];
+  const kept = [];
+  for (const n of owed) {
+    const have = tenth.find(s => Number(s.ballNum || 1) === n);
+    kept.push(have ? { ...have, ballNum: n } : {
+      ...template, frame: "10", ballNum: n, result: "", otherLeave: [],
+      spareMade: "", pinCount: "", secondLeave: undefined, fill: true,
+    });
+  }
+  return [...list.filter(s => !(s && String(s.frame) === "10")), ...kept];
 }

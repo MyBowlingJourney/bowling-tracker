@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { C, S, Chip, PinDeck, CollapsibleCard, resultSym, AiNote } from "./ui.jsx";
 import { formatDate, RESULTS, localDateString, PRACTICE_SESSION_KEY, tournamentLeagueCloudName } from "./constants.js";
+import { reconcileTenth } from "./domain/scorecardImport.js";
+import { knockedFromSecondLeave, toggleKnocked, secondLeaveFrom, pinCountFrom } from "./domain/spareAttempt.js";
 import { convertExtractedGameToShots, normalizeExtraction, detailLevel, mergeColumnsByBowler, scoreDisagreement, scoreDisagreementNote, extractionQuality, extractionQualityNote, framesReconcile } from "./domain/scorecardImport.js";
 import { matchScorecard, rosterOrderCheck } from "./domain/nameMatching.js";
 import { strictPartial, frameScoresheet } from "./domain/scoring.js";
@@ -17,6 +19,7 @@ const IMPORT_FALLBACK = "Couldn't read that scorecard right now. Try again in a 
 // -- e.g. "Strike", "9-spare", "7-2 open". Mirrors how a bowler would say
 // it out loud, not the raw field names.
 function shotSummary(s){
+  if(!s.result)return"";
   if(s.result==="Strike")return"Strike";
   if(s.result==="Weak 10")return"Weak 10";
   if(s.result==="Ringing 10")return"Ringing 10";
@@ -49,13 +52,23 @@ function ShotEditor({shot,onChange}){
     onChange({...shot,otherLeave:next,spareMade:"",pinCount:String(nextFirstBall)});
   }
   function setSpareMade(val){
-    if(val==="Yes")onChange({...shot,spareMade:"Yes",pinCount:String(firstBallCount)});
-    else onChange({...shot,spareMade:"No",pinCount:String(firstBallCount)});
+    if(val==="Yes")onChange({...shot,spareMade:"Yes",pinCount:String(firstBallCount),secondLeave:[]});
+    // No: every standing pin starts still standing; tap the ones that fell.
+    else onChange({...shot,spareMade:"No",pinCount:String(firstBallCount),secondLeave:standing.map(Number)});
   }
-  function setPinCount(delta){
-    const cur=shot.pinCount!==""?parseInt(shot.pinCount):firstBallCount;
-    const max=firstBallCount+Math.max(0,standing.length-1);
-    setField("pinCount",String(Math.max(firstBallCount,Math.min(max,cur+delta))));
+  // The second ball, as the scoring form asks it: tap which of the
+  // standing pins went down. It replaces a "Total this frame" counter,
+  // which could not say WHICH pins and was the easiest place to get a
+  // count wrong.
+  const knocked=knockedFromSecondLeave(standing,shot.secondLeave)||[];
+  function toggleKnockedPin(pin){
+    const next=toggleKnocked(knocked,pin);
+    // Tapping every standing pin is a spare, not an open.
+    if(secondLeaveFrom(standing,next).length===0){
+      onChange({...shot,spareMade:"Yes",pinCount:String(firstBallCount),secondLeave:[]});
+      return;
+    }
+    onChange({...shot,secondLeave:secondLeaveFrom(standing,next),pinCount:String(pinCountFrom(standing,next))});
   }
 
   return(
@@ -78,13 +91,12 @@ function ShotEditor({shot,onChange}){
             </div>
           )}
           {shot.spareMade==="No"&&standing.length>1&&(
-            <div style={{display:"flex",alignItems:"center",gap:"8px",marginTop:"8px"}}>
-              <button style={{...S.btn("sm")}} onClick={()=>setPinCount(-1)}>−</button>
-              <div style={{flex:1,textAlign:"center",fontSize:"14px",color:C.textMuted}}>
-                Total this frame: <strong style={{color:C.text}}>{shot.pinCount||firstBallCount}</strong>
+            <>
+              <div style={{fontSize:"12px",color:C.textMuted,marginTop:"8px"}}>
+                Which pins did the second ball knock down? <strong style={{color:C.text}}>{pinCountFrom(standing,knocked)}</strong> this frame
               </div>
-              <button style={{...S.btn("sm")}} onClick={()=>setPinCount(1)}>+</button>
-            </div>
+              <PinDeck selected={knocked.map(String)} available={standing.map(String)} onToggle={toggleKnockedPin}/>
+            </>
           )}
         </>
       )}
@@ -159,9 +171,12 @@ function GameReview({game,onUpdateShot,onUpdateScore,expandedFrames,onToggleExpa
       )}
       {game.shots.map((s,idx)=>{
         const key=frameKey(s);
-        const warned=game.warnings.some(w=>w.frame===s.frame&&(w.ballNum??1)===(s.ballNum??1));
-        const expanded=expandedFrames.has(key);
-        const label=`Frame ${s.frame}${s.ballNum?` · Ball ${s.ballNum}`:""}`;
+        const blank=!s.result;
+        const warned=blank||game.warnings.some(w=>w.frame===s.frame&&(w.ballNum??1)===(s.ballNum??1));
+        // A ball added because the 10th became a mark opens itself: it is
+        // empty and the game cannot score until it is filled in.
+        const expanded=blank||expandedFrames.has(key);
+        const label=`Frame ${s.frame}${s.ballNum?` · Ball ${s.ballNum}`:""}${blank?" · fill ball — pick a result":""}`;
         return(
           <div key={key} style={warned?{border:`1px solid ${C.spare}`,borderRadius:"10px",padding:"2px",marginBottom:"8px"}:{marginBottom:"8px"}}>
             <CollapsibleCard
@@ -394,6 +409,9 @@ export default function ImportScorecard({
   // Any teammate score that a game of bowling can't produce. Sending one
   // means the receiving end nulls it and the teammate gets a blank, so
   // this blocks the save rather than only colouring the box.
+  // A 10th made into a mark during review gets a blank fill ball; saving
+  // before it has a result would file a game that cannot be scored.
+  const hasBlankShots=(games||[]).some(g=>!g?.scoreOnly&&(g?.shots||[]).some(x=>x&&!x.result));
   const hasInvalidTeammateScores=teammateEntries
     .some(({index})=>invalidScoreIndexes(teammateScores[index]||[]).length>0);
 
@@ -810,7 +828,9 @@ export default function ImportScorecard({
   }
 
   function updateShot(gameIdx,shotIdx,updatedShot){
-    setGames(prev=>prev.map((g,i)=>i!==gameIdx?g:{...g,shots:g.shots.map((s,j)=>j!==shotIdx?s:updatedShot)}));
+    // reconcileTenth: a 10th frame changed from open to a mark is owed a
+    // fill ball (or two), and one changed back loses them.
+    setGames(prev=>prev.map((g,i)=>i!==gameIdx?g:{...g,shots:reconcileTenth(g.shots.map((s,j)=>j!==shotIdx?s:updatedShot))}));
   }
 
   function toggleExpanded(gameIdx,key){
@@ -1017,9 +1037,9 @@ export default function ImportScorecard({
             </div>
             <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"10px",lineHeight:1.5}}>
               {cardType==="totals"
-                ?"Just each game's score. Fast, and works on any scorecard or results screen."
+                ?"Reads each game's score only. Check the numbers before saving."
                 :<><span style={{display:"inline-block",fontSize:"10px",fontWeight:700,color:C.spare,border:`1px solid ${C.spare}`,borderRadius:"6px",padding:"0 5px",marginRight:"6px"}}>BETA</span>
-                  Reads every frame ball by ball. Takes a minute or two, and some leaves and counts may come back wrong — check each frame before saving.</>}
+                  Also tries to read every frame ball by ball. Slower, and leaves and counts can come back wrong — check each frame before saving.</>}
             </div>
 
             {/* Always visible, whatever the kind. */}
@@ -1316,9 +1336,9 @@ export default function ImportScorecard({
               review, then cleanScores nulls it on arrival and the
               teammate gets a blank with no explanation. */}
           <button style={S.btn("primary")}
-            disabled={step==="saving"||hasInvalidTeammateScores}
+            disabled={step==="saving"||hasInvalidTeammateScores||hasBlankShots}
             onClick={handleSave}>
-            {step==="saving"?"Saving…":hasInvalidTeammateScores?"Fix the flagged scores first":teammateEntries.length?`Save & Send To ${teammateEntries.length} Teammate${teammateEntries.length>1?"s":""}`:"Looks Good — Save"}
+            {step==="saving"?"Saving…":hasBlankShots?"Pick a result for the fill ball first":hasInvalidTeammateScores?"Fix the flagged scores first":teammateEntries.length?`Save & Send To ${teammateEntries.length} Teammate${teammateEntries.length>1?"s":""}`:"Looks Good — Save"}
           </button>
           <button style={{...S.btn(),marginTop:"8px"}} onClick={()=>setStep("setup")}>Start Over</button>
         </>
