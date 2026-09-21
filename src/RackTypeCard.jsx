@@ -14,7 +14,9 @@ const FF = () => C.accent;
 const ST = () => C.compare;
 const fmt = v => (v == null ? "—" : Number.isInteger(v) ? String(v) : v.toFixed(1));
 const MIRROR = { "Trip 4": "Trip 6", "Kick 10": "Kick 7" };
-const SHAPE_COLORS = () => ({ Flush: C.strike, Messenger: C.accent, Light: "#7A8CA3", High: "#B9C3D0",
+// Messenger is a fixed violet, not the theme accent: on Glow the accent
+// is a teal a shade off the strike green, and the two bars read as one.
+const SHAPE_COLORS = () => ({ Flush: C.strike, Messenger: "#8B5CF6", Light: "#7A8CA3", High: "#B9C3D0",
   "Half Pocket": C.spare, "Trip 4": "#5B6B85", "Kick 10": "#9AA7B8", Brooklyn: C.miss });
 
 function Key({ ff, st }) {
@@ -132,7 +134,7 @@ function Strikes({ ff, st, detail, leftHanded }) {
         <span style={{ color: C.textMuted }}>{strikeRate != null ? `${fmt(strikeRate)}% strikes · ` : ""}{d.described} described</span>
       </div>
       <div style={{ display: "flex", height: "18px", borderRadius: "6px", overflow: "hidden", background: C.border }}>
-        {d.shapes.map(x => <div key={x.shape} title={`${name(x.shape)} ${fmt(x.pct)}%`} style={{ width: `${x.pct}%`, background: colors[x.shape] }} />)}
+        {d.shapes.map((x, i) => <div key={x.shape} title={`${name(x.shape)} ${fmt(x.pct)}%`} style={{ width: `${x.pct}%`, background: colors[x.shape], borderLeft: i ? `2px solid ${C.card}` : "none" }} />)}
       </div>
     </div>
   );
