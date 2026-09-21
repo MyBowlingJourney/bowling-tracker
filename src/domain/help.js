@@ -124,7 +124,7 @@ export const HELP = [
     view: "locker",
     title: "Add a league",
     keywords: ["league", "season", "add league", "center", "house"],
-    body: "On the Teams tab, add a league with its name, center and season dates. Season dates let the app prompt you to update your book average when the season ends.",
+    body: "On the Setup tab, under League, add a league with its name, center and season dates. Season dates let the app prompt you to update your book average when the season ends.",
   },
   {
     id: "teams",
@@ -132,14 +132,14 @@ export const HELP = [
     title: "Add a team and its roster",
     keywords: ["team", "roster", "lineup", "teammate", "invite", "placeholder",
                "not signed up", "hasn't joined", "email required", "bowling order", "add a teammate"],
-    body: "Teams live under their league on the Teams tab — add a league, then add your team right underneath. Open the team to set the bowling order and add each teammate by name and email. The email is required: it's what connects them to their spot when they sign up. Teammates who haven't joined yet still work — you can log their scores straight away, and everything you've recorded is waiting for them when they accept the invite.",
+    body: "Teams live under their league on the Setup tab — add a league under League, then add your team under Team. Open the team to set the bowling order and add each teammate by name and email. The email is required: it's what connects them to their spot when they sign up. Teammates who haven't joined yet still work — you can log their scores straight away, and everything you've recorded is waiting for them when they accept the invite.",
   },
   {
     id: "arsenal",
     view: "locker",
     title: "Your ball arsenal",
     keywords: ["ball", "arsenal", "equipment", "layout", "surface", "bag"],
-    body: "Add your balls on the Gear tab, with layout and surface. Balls you log shots with feed the per-ball stats and the trend filters. Bags let you group what you actually carry.",
+    body: "Add your balls on the Setup tab, under Balls, with layout and surface. Balls you log shots with feed the per-ball stats and the trend filters. Bags, the next tab over, let you group what you actually carry.",
   },
   {
     id: "friends",

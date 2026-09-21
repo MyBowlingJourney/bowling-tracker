@@ -49,14 +49,14 @@ const ALL_STEPS = [
     track: "look",
     tab: "gear",
     title: "Your gear",
-    body: "Gear holds your arsenal. Add a ball, record its layout, surface and specs, and sort balls into bags so tonight's four are one tap away.",
+    body: "Setup starts with your arsenal. On Balls, add a ball, record its layout, surface and specs, and on Bags sort them so tonight's four are one tap away.",
   },
   {
     id: "look-team",
     track: "look",
     tab: "team",
     title: "Leagues and teams",
-    body: "Team is where a league gets set up and a roster filled in. Scores file against a league, so that's the one thing worth doing first — a team can wait until you want to compare.",
+    body: "Setup is also where a league gets set up, under League, and a roster filled in, under Team. Scores file against a league, so that's the one thing worth doing first — a team can wait until you want to compare.",
   },
   {
     id: "look-stats",
