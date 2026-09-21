@@ -50,12 +50,37 @@ import { APP_URL, GOOGLE_WEB_CLIENT_ID } from "./constants.js";
 // native plugin into the bundle every PWA visitor downloads, to serve a
 // path that can never run in a browser -- and it would break the web
 // build outright on any machine where the package isn't installed.
+//
+// ── NEVER return a Capacitor plugin bare from an async function ─────────
+//
+// Returns { SocialLogin }, a plain object WRAPPING the plugin, and that
+// wrapper is load-bearing. This function used to `return SocialLogin`
+// directly, and native Google sign-in hung forever on "Opening Google..."
+// with no error anywhere.
+//
+// Why: resolving a promise with a value makes JavaScript check whether the
+// value has a `.then` method, and call it if so. A Capacitor plugin is a
+// Proxy that answers EVERY property name with a plugin-method wrapper --
+// its get-handler special-cases only $$typeof, toJSON, addListener and
+// removeListener, so `then` falls through to "call a native method named
+// then". That wrapper passes its arguments to the plugin and never calls
+// the resolve/reject the promise machinery handed it, so the promise this
+// function returns never settles. Nothing throws, nothing logs in a
+// release build, and Google is never contacted.
+//
+// It only ever bit on Android: on the web this returns null, which has no
+// `.then`. nativeAuth.js was always safe for the same reason this now is
+// -- it returns { Capacitor, App }, never the plugin itself.
+//
+// The same trap applies to `await plugin`, Promise.resolve(plugin), and
+// any other async function that returns one. Destructuring out of an
+// awaited import, as below, is fine: the awaited value is the MODULE.
 async function nativePlugin() {
   try {
     const core = await import("@capacitor/core");
     if (!core?.Capacitor?.isNativePlatform?.()) return null;
     const { SocialLogin } = await import("@capgo/capacitor-social-login");
-    return SocialLogin || null;
+    return SocialLogin ? { SocialLogin } : null;
   } catch {
     // Not installed, or running on the web. Both mean "use the web path".
     return null;
@@ -120,10 +145,10 @@ async function ensureInitialized(SocialLogin) {
  */
 export async function signInWithGoogle() {
   try {
-    const SocialLogin = await nativePlugin();
+    const native = await nativePlugin();
 
     // ── Web ─────────────────────────────────────────────────────────────
-    if (!SocialLogin) {
+    if (!native) {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
@@ -138,6 +163,10 @@ export async function signInWithGoogle() {
     }
 
     // ── Android ─────────────────────────────────────────────────────────
+    // Unwrapped here, in a SYNCHRONOUS assignment. Passing the plugin as an
+    // argument and calling its methods is safe; only resolving a promise
+    // WITH it is not (see nativePlugin).
+    const { SocialLogin } = native;
     await ensureInitialized(SocialLogin);
 
     const raw = rawNonce();
