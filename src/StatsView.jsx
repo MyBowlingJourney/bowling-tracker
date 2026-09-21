@@ -16,6 +16,7 @@ import { anyMoneyGameShown, visibleStatsCardOrder, MOVABLE_STATS_CARDS, defaultS
 import { seasonComparison } from "./domain/scoreInsights.js";
 
 import BallPhases from "./BallPhases.jsx";
+import LeaveBreakdown from "./LeaveBreakdown.jsx";
 import { patternAverages, patternVersusOverall } from "./domain/oilPatterns.js";
 import { HOUSE_PATTERN } from "./domain/laneTransition.js";
 
@@ -941,86 +942,28 @@ fivePinAttempts.length>0&&(
                 )
                 );
                 byId["loneFivePin"] = (
-<div style={S.card}>
-                  <div style={S.label}>Splits</div>
-                  {/* Conversion leads here too -- leaving a split is mostly
-                      carry; making one is skill. */}
+<LeaveBreakdown title="Splits" color={C.miss}
+                  rows={isTeamView?[]:splitBreakdownList}
+                  lead={
+                  /* Conversion leads here too -- leaving a split is mostly
+                      carry; making one is skill. */
                   <StatLead
                     value={splitCount?splitConvR:"—"} unit={splitCount?"%":""}
                     caption="of splits converted" color={C.strike}
                     badge={showTeamCompare&&splitCount?<CompareBadge value={splitConvR} teamValue={teamSplitConvR} label={compareLabel}/>:null}
-                    detail={`${splitCount} split${splitCount===1?"":"s"} left, ${splitR}% of your first balls.`}/>
+                    detail={`${splitCount} split${splitCount===1?"":"s"} left, ${splitR}% of your first balls.`}/>}>
                   {showTeamCompare&&(
                     <StatRows>
                       <StatRow label="Split rate" value={`${splitR}%`} color={C.textMuted} last
                         badge={<CompareBadge value={splitR} teamValue={teamSplitR} lowerIsBetter label={compareLabel}/>}/>
                     </StatRows>
                   )}
-                  {!isTeamView&&splitBreakdownList.length>0&&(
-                    <>
-                      <div style={S.divider}/>
-                      <div style={{...S.label,marginBottom:"8px"}}>Conversion by split</div>
-                      <div style={{height:`${Math.min(splitBreakdownList.length,8)*28+16}px`,marginBottom:"10px"}}>
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={[...splitBreakdownList.slice(0,8)].reverse()} layout="vertical" margin={{top:0,right:16,left:0,bottom:0}}>
-                            <CartesianGrid stroke={C.border} strokeDasharray="3 3" horizontal={false}/>
-                            <XAxis type="number" allowDecimals={false} tick={{fill:C.textMuted,fontSize:10}}/>
-                            <YAxis type="category" dataKey="key" tick={{fill:C.textMuted,fontSize:11}} width={60}/>
-                            <Tooltip contentStyle={{backgroundColor:C.surface,border:`1px solid ${C.border}`,borderRadius:"8px",fontSize:"12px"}} labelStyle={{color:C.text}} formatter={(v,n,p)=>[`${v}× (${p.payload.rate}% conv.)`,"Left"]}/>
-                            <Bar dataKey="count" fill={C.miss} radius={[0,4,4,0]} barSize={14}/>
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
-                      {splitBreakdownList.map(g=>(
-                        <div key={g.key} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"}}>
-                          <div>
-                            <span style={{fontSize:"13px",fontWeight:600}}>{g.key}</span>
-                            {/* A named split shows its pins underneath, so
-                                "Baby split" isn't ambiguous -- the 3-10 and
-                                the 2-7 are both baby splits and a bowler
-                                may only struggle with one of them. */}
-                            {g.pins&&g.pins!==g.key&&(
-                              <span style={{fontSize:"11px",color:C.textMuted,marginLeft:"6px"}}>{g.pins}</span>
-                            )}
-                          </div>
-                          <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
-                            <span style={S.tag(g.converted>0?C.strike:C.miss)}>{g.converted}/{g.count} · {g.rate}%</span>
-                          </div>
-                        </div>
-                      ))}
-                    </>
-                  )}
-                </div>
+                </LeaveBreakdown>
                 );
                 byId["nonSplitLeaves"] = (
 !isTeamView&&nonSplitLeaveList.length>0&&(
-                  <div style={S.card}>
-                    <div style={S.label}>Non-Split Leaves</div>
-                    <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"10px"}}>Every recurring leave that isn't a split — how often it happens and how often it gets converted.</div>
-                    <div style={{height:`${Math.min(nonSplitLeaveList.length,8)*28+16}px`,marginBottom:"10px"}}>
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={[...nonSplitLeaveList.slice(0,8)].reverse()} layout="vertical" margin={{top:0,right:16,left:0,bottom:0}}>
-                          <CartesianGrid stroke={C.border} strokeDasharray="3 3" horizontal={false}/>
-                          <XAxis type="number" allowDecimals={false} tick={{fill:C.textMuted,fontSize:10}}/>
-                          <YAxis type="category" dataKey="key" tick={{fill:C.textMuted,fontSize:11}} width={60}/>
-                          <Tooltip contentStyle={{backgroundColor:C.surface,border:`1px solid ${C.border}`,borderRadius:"8px",fontSize:"12px"}} labelStyle={{color:C.text}} formatter={(v,n,p)=>[`${v}× (${p.payload.rate}% conv.)`,"Left"]}/>
-                          <Bar dataKey="count" fill={C.spare} radius={[0,4,4,0]} barSize={14}/>
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                    {nonSplitLeaveList.slice(0,10).map(g=>(
-                      <div key={g.key} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"}}>
-                        <span style={{fontSize:"13px",fontWeight:600}}>{g.key}</span>
-                        <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
-                          <span style={{fontSize:"11px",color:C.textMuted}}>{g.count}×</span>
-                          <span style={S.tag(g.converted>0?C.strike:C.miss)}>{g.rate}% conv.</span>
-                        </div>
-                      </div>
-                    ))}
-                    {nonSplitLeaveList.length>10&&(
-                      <div style={{fontSize:"11px",color:C.textMuted,marginTop:"4px"}}>+{nonSplitLeaveList.length-10} more leave{nonSplitLeaveList.length-10===1?"":"s"} not shown</div>
-                    )}
-                  </div>
+                  <LeaveBreakdown title="Non-Split Leaves" color={C.spare} rows={nonSplitLeaveList}
+                    lead={<div style={{fontSize:"11px",color:C.textMuted}}>Every recurring leave that isn't a split — how often it happens and how often it gets converted.</div>}/>
                 )
                 );
                 byId["strikeStreak"] = (
