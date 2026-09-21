@@ -225,11 +225,14 @@ describe('the Center cards render real numbers', () => {
     expect(html).toContain('String');
   });
 
+  // The card is bars now (see RackTypeCard): a "Strike %" row with one
+  // figure per rack type, so the numbers are checked as rendered values.
   it('shows a strike percentage on the rack type card', () => {
+    expect(html).toContain('Strike %');
     // 40 of 60 first balls at the free-fall house.
-    expect(html).toContain('66.7% strikes');
+    expect(html).toContain('>66.7%<');
     // 30 of 60 at the strung house.
-    expect(html).toContain('50% strikes');
+    expect(html).toContain('>50%<');
   });
 
   // The label matters as much as the number. "25% messengers" next to a
@@ -237,9 +240,11 @@ describe('the Center cards render real numbers', () => {
   // strikes, and the two stacked together otherwise look like they add
   // up to something.
   it('states that the messenger rate is a share of strikes', () => {
-    expect(html).toContain('of strikes were messengers');
-    expect(html).toContain('25% of strikes were messengers'); // 10 of 40
-    expect(html).toContain('10% of strikes were messengers'); // 3 of 30
+    const row = html.slice(html.indexOf('Messengers'));
+    expect(html).toContain('Messengers');
+    expect(row).toContain('share of strikes');
+    expect(row).toContain('>25%<'); // 10 of 40
+    expect(row).toContain('>10%<'); // 3 of 30
   });
 
   // By Bowling Center was trimmed to average, games and high game.
@@ -292,12 +297,12 @@ describe('the paywall on comparison cards', () => {
 
   it('shows the numbers to a subscriber', () => {
     expect(paid).toContain('Riverside Lanes');
-    expect(paid).toContain('66.7% strikes');
+    expect(paid).toContain('>66.7%<');
   });
 
   it('withholds them from a free bowler, with the same data', () => {
     expect(free).not.toContain('Riverside Lanes');
-    expect(free).not.toContain('66.7% strikes');
+    expect(free).not.toContain('>66.7%<');
     expect(free).not.toContain('of strikes were messengers');
   });
 
