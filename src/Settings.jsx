@@ -1,4 +1,6 @@
 import { useState, useEffect, Suspense } from "react";
+import { nextTap, tapsLeft, readTesterMode, writeTesterMode } from "./domain/testerMode.js";
+import { errorLogSummary, errorLogText, clearErrorLog } from "./errorLogStore.js";
 import { C, S, Chip, CollapsibleCard, LockedNote } from "./ui.jsx";
 import { THEMES, DARK_THEME_IDS, LIGHT_THEME_IDS } from "./domain/themes.js";
 import { EXAMPLE_PATTERN } from "./domain/oilPatterns.js";
@@ -142,6 +144,30 @@ export default function Settings({
   };
   const allowed = mode === "leagues" ? cardsFor.leagues : (mode === "settings" ? cardsFor.settings : null);
   const showCard = id => !allowed || allowed.includes(id);
+  // Tester mode -- see domain/testerMode.js. Seven quick taps on the
+  // "published by" line in About & Legal turn it on or off.
+  const [tester, setTester] = useState(() => readTesterMode());
+  const [taps, setTaps] = useState(null);
+  const [testerNote, setTesterNote] = useState("");
+  const [diag, setDiag] = useState(null);
+  const [diagMsg, setDiagMsg] = useState("");
+  function tapPublisher() {
+    const next = nextTap(taps, Date.now());
+    setTaps(next);
+    if (next.toggled) {
+      const on = !tester;
+      writeTesterMode(on); setTester(on);
+      setTesterNote(on ? "Tester mode on — Diagnostics is now in Settings." : "Tester mode off.");
+    } else if (next.count >= 4) {
+      setTesterNote(`${tapsLeft(next)} more to ${tester ? "turn off" : "turn on"} tester mode`);
+    } else setTesterNote("");
+  }
+  useEffect(() => {
+    if (!tester) return;
+    let live = true;
+    errorLogSummary().then(s => { if (live) setDiag(s); }).catch(() => {});
+    return () => { live = false; };
+  }, [tester]);
   const [historyTab, setHistoryTab] = useState("sessions");
   // Reset wipes theme and card order as well as toggles, so it confirms
   // rather than firing on a single tap.
@@ -1283,10 +1309,48 @@ export default function Settings({
             support@mybowlingjourney.com
           </a>
         </div>
-        <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "8px" }}>
+        <div onClick={tapPublisher}
+          style={{ fontSize: "11px", color: C.textMuted, marginTop: "8px", userSelect: "none",
+                   WebkitTapHighlightColor: "transparent" }}>
           {APP_NAME} is published by My Bowling Journey LLC.
         </div>
+        {testerNote && (
+          <div style={{ fontSize: "11px", color: C.accent, marginTop: "4px" }}>{testerNote}</div>
+        )}
       </CollapsibleCard>
+      )}
+
+      {/* Diagnostics, for testers only. This phone's own error log --
+          already redacted when it was recorded -- to copy and send. */}
+      {tester && mode !== "leagues" && (
+        <CollapsibleCard title="Diagnostics"
+          summary={diag ? (diag.distinct ? `${diag.distinct} issue${diag.distinct === 1 ? "" : "s"}` : "Nothing logged") : ""}
+          expanded={!!expanded.diagnostics} onToggle={() => { toggle("diagnostics"); errorLogSummary().then(setDiag).catch(() => {}); }}>
+          <div style={{ fontSize: "12px", color: C.textMuted, lineHeight: 1.5, marginBottom: "10px" }}>
+            What went wrong on this phone, and why — failed saves, sync errors, imports that fell back.
+            Copy it and paste it to whoever asked.
+          </div>
+          <div style={{ display: "flex", gap: "8px" }}>
+            <button style={{ ...S.btn("primary"), flex: 1, padding: "10px", fontSize: "13px" }}
+              onClick={async () => {
+                try {
+                  const text = await errorLogText();
+                  await navigator.clipboard.writeText(text);
+                  setDiagMsg("Copied");
+                } catch { setDiagMsg("Couldn't copy on this device"); }
+                setTimeout(() => setDiagMsg(""), 2000);
+              }}>
+              {diagMsg || "Copy log"}
+            </button>
+            <button style={{ ...S.btn(), flex: 1, padding: "10px", fontSize: "13px" }}
+              onClick={async () => { await clearErrorLog(); setDiag(await errorLogSummary()); }}>
+              Clear
+            </button>
+          </div>
+          <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "10px", lineHeight: 1.5 }}>
+            Tester mode. Tap the "published by" line in About &amp; Legal seven times to turn it off.
+          </div>
+        </CollapsibleCard>
       )}
 
       {/* The hasData gate moved OFF the card and onto Clear All Data.
