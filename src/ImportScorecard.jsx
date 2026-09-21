@@ -1060,9 +1060,6 @@ export default function ImportScorecard({
                   Also tries to read every frame ball by ball. Slower, and leaves and counts can come back wrong — check each frame before saving.</>}
             </div>
             */}
-            <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"10px",lineHeight:1.5}}>
-              Reads each game's score. Check the numbers before saving.
-            </div>
 
             {/* Always visible, whatever the kind. */}
             <div style={S.label}>Date</div>
