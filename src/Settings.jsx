@@ -18,7 +18,7 @@ import CenterPicker from "./CenterPicker.jsx";
 import OilPatternPicker from "./OilPatternPicker.jsx";
 import { isContainerLeague, isLeagueHidden, teamsInLeague } from "./domain/leagueMembership.js";
 import { sessionsToCsv, shotsToCsv, seasonSummary, summaryToText } from "./domain/seasonExport.js";
-import { inferLeagueDay, dayName, reminderSpec, reminderToIcs } from "./domain/reminders.js";
+import { inferLeagueDay, dayName, reminderSpec, reminderToIcs, reminderToGoogleCalendarUrl } from "./domain/reminders.js";
 import { localDateString, APP_URL, APP_NAME } from "./constants.js";
 import { leagueLimit, teamLimit, isSubscriber, isTestAccount, hasPaidSubscription, isTrialing, trialDaysLeft } from "./domain/entitlements.js";
 import {
@@ -819,6 +819,16 @@ export default function Settings({
                   const centerId = leagueCenters?.[league];
                   const center = (centers || []).find(c => c.id === centerId);
                   function addToCalendar() {
+                    // In the Android app a blob download goes nowhere --
+                    // the WebView has no download handler, so this button
+                    // did nothing at all. An https link is handed to
+                    // Android, which opens Google Calendar with the event
+                    // filled in and repeating weekly.
+                    if (window.Capacitor?.isNativePlatform?.()) {
+                      const link = reminderToGoogleCalendarUrl(reminderSpec(league, day, 60, "19:00"), center?.name);
+                      if (link) window.location.assign(link);
+                      return;
+                    }
                     const ics = reminderToIcs(reminderSpec(league, day, 60, "19:00"), center?.name);
                     const blob = new Blob([ics], { type: "text/calendar" });
                     const url = URL.createObjectURL(blob);

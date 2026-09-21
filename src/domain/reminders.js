@@ -118,3 +118,38 @@ export function reminderToIcs(reminder, centerName) {
     "END:VCALENDAR",
   ].filter(Boolean).join("\r\n");
 }
+
+
+// The same weekly reminder as a Google Calendar "add event" link.
+//
+// Why this exists: in the Android app, "Add weekly reminder" did nothing.
+// It downloads an .ics through a blob link, and the Android WebView has
+// no download handler -- the tap went nowhere, with no error. Opening an
+// https link, on the other hand, Capacitor hands to Android, which opens
+// the Google Calendar app (or the browser) with the event filled in and
+// repeating weekly. Google applies the bowler's default notification;
+// the link has no way to set the alarm the .ics carries.
+export function reminderToGoogleCalendarUrl(reminder, centerName, now = new Date()) {
+  if (!reminder || typeof reminder !== "object" || typeof reminder.league !== "string" || !reminder.league) return null;
+  const day = Number(reminder.day);
+  if (!Number.isInteger(day) || day < 0 || day > 6) return null;
+  const [hh, mm] = (reminder.time || "19:00").split(":").map(Number);
+  const dayCode = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"][day];
+  const start = new Date(now);
+  start.setDate(now.getDate() + ((day - now.getDay() + 7) % 7));
+  start.setHours(hh, mm, 0, 0);
+  const end = new Date(start.getTime() + 3 * 60 * 60 * 1000);
+  const pad = n => String(n).padStart(2, "0");
+  // No trailing Z: floating local time, so 7pm means 7pm wherever the
+  // bowler's calendar is set.
+  const fmt = d => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+  const title = `${reminder.league.replace(" House Shot", "")} bowling`;
+  const q = new URLSearchParams({
+    action: "TEMPLATE",
+    text: title,
+    dates: `${fmt(start)}/${fmt(end)}`,
+    recur: `RRULE:FREQ=WEEKLY;BYDAY=${dayCode}`,
+  });
+  if (centerName) q.set("location", centerName);
+  return `https://calendar.google.com/calendar/render?${q.toString()}`;
+}

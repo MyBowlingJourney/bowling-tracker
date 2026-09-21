@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { inferLeagueDay, normalizeReminder, isLeagueDay, reminderToIcs, reminderSpec } from './reminders.js';
+import { inferLeagueDay, normalizeReminder, isLeagueDay, reminderToIcs, reminderSpec, reminderToGoogleCalendarUrl } from './reminders.js';
 
 describe('inferLeagueDay', () => {
   it('finds the weekday a league bowls on from its sessions', () => {
@@ -45,5 +45,37 @@ describe('reminderToIcs', () => {
 
   it('escapes commas in the location so the file stays valid', () => {
     expect(reminderToIcs(r, 'Bowl, Inc')).toContain('Bowl\\, Inc');
+  });
+});
+
+describe('reminderToGoogleCalendarUrl', () => {
+  // Monday 21 Sep 2026, 01:00 local
+  const now = new Date(2026, 8, 21, 1, 0, 0);
+  const parse = u => new URL(u).searchParams;
+  it('points at Google Calendar add-event with a weekly rule on the league night', () => {
+    const u = reminderToGoogleCalendarUrl(reminderSpec('Thursday Mixed', 4), 'Plaza Lanes', now);
+    expect(u.startsWith('https://calendar.google.com/calendar/render?')).toBe(true);
+    const q = parse(u);
+    expect(q.get('action')).toBe('TEMPLATE');
+    expect(q.get('text')).toBe('Thursday Mixed bowling');
+    expect(q.get('recur')).toBe('RRULE:FREQ=WEEKLY;BYDAY=TH');
+    expect(q.get('location')).toBe('Plaza Lanes');
+  });
+  it('starts on the next occurrence at 7pm, three hours long, floating time', () => {
+    const q = parse(reminderToGoogleCalendarUrl(reminderSpec('Thursday Mixed', 4), '', now));
+    expect(q.get('dates')).toBe('20260924T190000/20260924T220000');
+    expect(q.get('location')).toBeNull();
+  });
+  it('today counts as the next occurrence', () => {
+    const q = parse(reminderToGoogleCalendarUrl(reminderSpec('Monday Men', 1), '', now));
+    expect(q.get('dates').slice(0, 8)).toBe('20260921');
+  });
+  it('drops House Shot from the title', () => {
+    expect(parse(reminderToGoogleCalendarUrl(reminderSpec('Tues House Shot', 2), '', now)).get('text')).toBe('Tues bowling');
+  });
+  it('refuses a reminder with no league or a bad day', () => {
+    expect(reminderToGoogleCalendarUrl(reminderSpec('', 2), '', now)).toBeNull();
+    expect(reminderToGoogleCalendarUrl({ league: 'X', day: 9 }, '', now)).toBeNull();
+    expect(reminderToGoogleCalendarUrl(null)).toBeNull();
   });
 });
