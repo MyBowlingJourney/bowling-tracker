@@ -442,7 +442,7 @@ export default function Profile({
       {show("arsenal") && (
       <CollapsibleCard title="Arsenal"
         summary={`${balls.length} ball${balls.length === 1 ? "" : "s"}`}
-        expanded={expanded.arsenal} onToggle={() => toggle("arsenal")}>
+        fixed>
         <div style={{ fontSize: "11px", color: C.textMuted, marginBottom: "8px" }}>
           Balls and their drilling layouts.
         </div>
@@ -505,7 +505,7 @@ export default function Profile({
       {show("bags") && (
       <CollapsibleCard title="Bags"
         summary={`${bowlerBagCount} bag${bowlerBagCount === 1 ? "" : "s"}`}
-        expanded={expanded.bags} onToggle={() => toggle("bags")}>
+        fixed>
         <BagManager
           activeBowler={profileBowler}
           retired={(retiredBalls || {})[profileBowler] || {}}

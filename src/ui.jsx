@@ -282,7 +282,19 @@ export function PinDeck({selected,onToggle,available}){
   );
 }
 
-export function CollapsibleCard({title,summary,expanded,onToggle,children,cardStyle}){
+// `fixed`: always open, no chevron and nothing to tap. For a card that
+// is the whole of its screen -- Setup's Balls, Bags and League tabs --
+// where collapsing it would only leave an empty tab.
+export function CollapsibleCard({title,summary,expanded,onToggle,children,cardStyle,fixed=false}){
+  if(fixed)return (
+    <div style={cardStyle||S.card}>
+      <div style={{...S.label,marginBottom:0}}>
+        {title}
+        {summary&&<span style={{color:C.textMuted,fontWeight:400,textTransform:"none",letterSpacing:"normal"}}> · {summary}</span>}
+      </div>
+      <div style={{marginTop:"12px"}}>{children}</div>
+    </div>
+  );
   return (
     <div style={cardStyle||S.card}>
       {/* The chevron sits on the LEFT, before the title.

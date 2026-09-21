@@ -582,6 +582,7 @@ export default function Settings({
             const n = (leagues || []).filter(l => !isContainerLeague(l)).length;
             return `${n} league${n === 1 ? "" : "s"}`;
           })()}
+          fixed={mode === "leagues"}
           expanded={expanded.whereYouBowl} onToggle={() => toggle("whereYouBowl")}>
           <div style={{ fontSize: "12px", color: C.textMuted, marginBottom: "10px" }}>
             {(leagues || []).filter(l => !isContainerLeague(l)).length
