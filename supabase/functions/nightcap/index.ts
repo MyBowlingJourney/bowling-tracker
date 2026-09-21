@@ -52,6 +52,11 @@ const MODEL = Deno.env.get("NIGHTCAP_GEMINI_MODEL")?.trim() || "gemini-3.5-flash
 // with numbered balls instead. Nothing the bowler typed then reaches the
 // model, at the cost of the nightcap being unable to say which ball.
 const NAME_BALLS = (Deno.env.get("NIGHTCAP_BALL_NAMES") || "on").toLowerCase() !== "off";
+
+// Same switch for teammates' names in the team facts (hung, hand up).
+// "off" says "a teammate" instead; the bowler's own entry is always
+// "this bowler", so their own name never travels at all.
+const NAME_TEAMMATES = (Deno.env.get("NIGHTCAP_TEAM_NAMES") || "on").toLowerCase() !== "off";
 const GEMINI_URL =
   `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 
@@ -103,6 +108,7 @@ HARD RULES
 5. The opener states how the night went. Facts about side, splits, carry and spares belong in the notes -- a bowler already knows what they shot.
 6. A percentage in a supplied fact is already a percentage. Quote it exactly; the bowler is looking at the same number on the same screen.
 7. A season line saying tonight was ORDINARY is worth as much as one saying it was unusual, and often more -- it saves a bowler chasing an adjustment they do not need. Say so plainly when that is what the numbers show.
+8. TEAM BANTER. Facts starting "Team banter" are about the whole team's night, not this bowler's game. If one is there it is usually worth a note: mention it lightly, the way teammates would rib each other on the way out -- name the teammate, and say "you" for "this bowler". Being hung is bad luck, not a failing. A missed lone 5 means a round owed; say who owes it, never how many drinks or anything about drinking beyond that. Never turn either into advice.
 
 THE NUDGE
 At most one, and only when a fact actually supports it. Phrase it as a condition the bowler can check against what they felt, never as a verdict: "if you were coming up heavy, that is the adjustment to make earlier next week" -- not "you were coming up heavy". If nothing supports a nudge, omit the field. A clean night is allowed to just be a clean night.
@@ -301,7 +307,7 @@ Deno.serve(async (req) => {
       return json({ error: "Payload too large." }, CORS, 413);
     }
 
-    const facts = renderFacts(rawFacts, { ballNames: NAME_BALLS });
+    const facts = renderFacts(rawFacts, { ballNames: NAME_BALLS, teamNames: NAME_TEAMMATES });
 
     // Defence in depth. The client already refuses to call with a thin
     // night, but an empty fact list must never reach the model: there

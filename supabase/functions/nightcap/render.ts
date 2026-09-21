@@ -110,6 +110,42 @@ export function safeBallName(v: unknown): string | null {
   return s || null;
 }
 
+// Teammates' names, for the team facts. The second free-text field, held
+// tighter than a ball name: letters, spaces and . ' - only, twenty-four
+// characters, three words. No digits, no slashes, nothing that ends a
+// sentence. The client applies the identical rule.
+export const MAX_PERSON_NAME = 24;
+export const MAX_PERSON_WORDS = 3;
+
+export function safePersonName(v: unknown): string | null {
+  const s = String(v ?? "")
+    .replace(/[^A-Za-z .'-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, MAX_PERSON_NAME)
+    .split(" ")
+    .slice(0, MAX_PERSON_WORDS)
+    .join(" ")
+    .trim();
+  return s || null;
+}
+
+// "Sam 3, you 1" -- or with names off, "you 1, a teammate 3".
+function teamList(items: unknown[], opts: RenderOptions | undefined, cap: number): string | null {
+  const parts: string[] = [];
+  for (const raw of items.slice(0, cap)) {
+    const b = raw as Record<string, unknown>;
+    const n = int(b?.count, 1, 300);
+    if (n === null) continue;
+    const who = b?.you === true ? "this bowler"
+      : opts?.teamNames === false ? "a teammate"
+      : safePersonName(b?.name);
+    if (!who) continue;
+    parts.push(`${who} ${n}`);
+  }
+  return parts.length ? parts.join(", ") : null;
+}
+
 const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
 
 // A list of counted things: "Right 5, Left 2".
@@ -131,7 +167,7 @@ function countedList(items: unknown[], valueOf: (v: unknown) => string | null, c
 // numbers it needs are missing or out of range -- a fact that cannot be
 // rendered correctly is not rendered at all, because a sentence with a
 // hole in it is worse than one fewer fact.
-export type RenderOptions = { ballNames?: boolean };
+export type RenderOptions = { ballNames?: boolean; teamNames?: boolean };
 type Renderer = (f: Record<string, unknown>, opts?: RenderOptions) => string | null;
 
 export const RENDERERS: Record<string, Renderer> = {
@@ -190,6 +226,20 @@ export const RENDERERS: Record<string, Renderer> = {
     }
     const named = types.length ? ` — ${types.join(", ")}` : "";
     return `${n} ${plural(n, "split", "splits")} tonight, ${converted} converted${named}.`;
+  },
+
+  // ── The team's night ──────────────────────────────────────────────────
+
+  teamHung(f, opts) {
+    const list = teamList(arr(f.bowlers), opts, 3);
+    if (!list) return null;
+    return `Team banter — hung tonight (the only one on the team without a strike in a frame everyone else struck): ${list}.`;
+  },
+
+  handUp(f, opts) {
+    const list = teamList(arr(f.bowlers), opts, 6);
+    if (!list) return null;
+    return `Team banter — lone 5-pins missed tonight, which by team custom owes a drink to everyone with a hand up: ${list}.`;
   },
 
   pinsLeft(f) {
