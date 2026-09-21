@@ -117,13 +117,31 @@ function strikeDeck() {
   return makeDeck([], [], false);
 }
 
+// A 9-pin no-tap strike: scored as an X, but a pin really stood.
+//
+// isStk() is true for these, which is right for SCORING -- and the rack
+// used it for DRAWING too, so a no-tap Weak 10 rendered as a full clean
+// strike. Every Weak and Ringing 10 in a no-tap event vanished from the
+// card: the one thing that tells a bowler which way they are missing.
+//
+// The pin that stood gets its own state, "notap", so the rack shows it
+// standing but counted. A true strike in a no-tap game is still clean.
+function strikeDeckFor(shot, leftHanded) {
+  if (!(shot && shot.noTap === true && shot.result && shot.result !== "Strike")) return strikeDeck();
+  const stood = leaveOf(shot, leftHanded);
+  if (!stood.length) return strikeDeck();
+  const deck = makeDeck([], [], false);
+  for (const p of stood) deck.states[p] = "notap";
+  return deck;
+}
+
 /**
  * Racks for frames 1 through 9. Always exactly one deck: the pins only
  * reset at the end of the frame, never inside it.
  */
 export function framePinDecks(shot, leftHanded) {
   if (!shot) return [];
-  if (isStk(shot)) return [strikeDeck()];
+  if (isStk(shot)) return [strikeDeckFor(shot, leftHanded)];
 
   const first = leaveOf(shot, leftHanded);
   const split = isSplit(shot);
@@ -170,7 +188,7 @@ export function tenthPinDecks(tenth, leftHanded) {
       continue;
     }
 
-    if (isStk(b)) { decks.push(strikeDeck()); continue; }
+    if (isStk(b)) { decks.push(strikeDeckFor(b, leftHanded)); continue; }
 
     // The tenth's first ball can carry its spare in the same record, in
     // which case the deck is complete on arrival.

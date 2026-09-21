@@ -40,6 +40,8 @@ import DrillSession from "./DrillSession.jsx";
 import { useAuth } from "./AuthProvider.jsx";
 import { supabase } from "./supabaseClient.js";
 import { classifySyncError, cloudRead, cloudReadDelta, cloudWrite, cloudInsert, cloudUpdate, cloudDelete, getQueuedRecordsForTable, getPendingCount, onPendingCountChange, inspectPendingQueue, clearPendingQueue, discardQueuedTable, flushPendingQueue } from "./syncQueue.js";
+import { friendlyFunctionError, readFunctionFailure, failureDetail } from "./domain/functionErrors.js";
+import { recordError } from "./errorLogStore.js";
 import { mergeDelta, nextCursor, seedCursor } from "./domain/deltaSync.js";
 import { normalizeSignupCode, isValidSignupCode } from "./domain/signupCodes.js";
 import { shouldOfferShotByShot } from "./domain/trackingPrompt.js";
@@ -58,13 +60,13 @@ import { emptyTournament, normalizeTournament, tournamentToRow, tournamentFromRo
 import { todaysRoutine, shouldShowLaunchPrompt } from "./domain/launchPrompt.js";
 import { normalizeGoals, goalsToRow, goalsFromRow, measurementsFor } from "./domain/goals.js";
 import { scoreStats, gamePositionAverages } from "./domain/scoreInsights.js";
-import { buildAnalysisPayload, unlockSignature, statLabel } from "./domain/insightGating.js";
+import { buildAnalysisPayload, unlockSignature, statLabel, isAnnouncedStat } from "./domain/insightGating.js";
 import { drillLines } from "./domain/sessionRecap.js";
 import { categorizeCoaching, taskFromRow, taskToRow, noteFromRow, noteToRow, completeTask, recordAttempt, reopenTask, normalizeTask, bowlerSnapshot, shotBreakdown, respondedSince, latestResponseAt } from "./domain/coaching.js";
 import { normalizeImportRecord, effectiveScores, approve as approveImport, reject as rejectImport,
   correctAsTeammate, canCorrect as canCorrectImportRecord, isConfirmed,
   pendingFor as pendingForImport, needingReentry as needingImportReentry, shouldSupersede, supersede } from "./domain/importVerification.js";
-import { coachViewActive, setCoachView, applyEnvironment, setTrackingMode } from "./domain/preferences.js";
+import { coachViewActive, setCoachView, applyEnvironment, setTrackingMode, toggleStatsCardHidden, unhideStatsCards } from "./domain/preferences.js";
 import { emptyBag, normalizeBag, bagToRow, bagFromRow, availableBalls, bagsForEnvironment, plasticLast, bagHasRoom, toggleBallInBag, removeBagMemberships, ballsByBagFor, membershipKey } from "./domain/bags.js";
 import { DEFAULT_BALL_GROUPS, emptyBallSpecs, normalizeBallSpecs, specsToRow, specsFromRow, groupToRow, groupFromRow } from "./domain/ballSpecs.js";
 import { ballKey, catalogState, bestEntry, rejectedBallsFor, clearedSpecsAfterRejection, canVote } from "./domain/ballCatalog.js";
@@ -430,7 +432,10 @@ export default function BowlingTracker(){
   // two top-level tabs. They already share statsBowler/statsLeague, so the
   // "Viewing" selection carries across the sub-tab switch instead of being
   // re-picked -- which is the main reason merging them works.
-  const[dataTab,setDataTab]=useState("stats");
+  // "overview" is the Mine chip. This started as "stats", which is not a
+  // chip id: Stats opened with no chip highlighted, and anything keyed on
+  // the chip had to guess what "stats" meant.
+  const[dataTab,setDataTab]=useState("overview");
   // Teams and Friends share one nav slot. Which of the two is showing is
   // its own bit of state so switching between them doesn't disturb `view`.
   const[shots,setShots]=useState([]);
@@ -998,6 +1003,9 @@ export default function BowlingTracker(){
   const[preEditForm,setPreEditForm]=useState(null);
   const[saved,setSaved]=useState(false);
   const[sessionSaved,setSessionSaved]=useState(false);
+  // True from picking Open bowling on Home until that round is saved. The
+  // simplified open-bowling nav keys on this -- see casualMode.
+  const[casualRound,setCasualRound]=useState(false);
 
   // Which tab the Log screen is showing, owned HERE rather than in
   // LogView, because ending a session has to move it -- and a child
@@ -1026,7 +1034,10 @@ export default function BowlingTracker(){
   // the Stats tab is overwhelmingly opened to check your own game. The
   // team is one tap away and still fully available; it just isn't the
   // thing you have to navigate away from.
-  const[statsBowler,setStatsBowler]=useState(displayName||"");
+  //
+  // This is the PICK. What the stats read is statsBowler, derived below
+  // per chip -- see statsScope.
+  const[statsBowlerPick,setStatsBowler]=useState(displayName||"");
   // displayName arrives asynchronously, so the initial value above is ""
   // on first paint -- which shows the unfiltered view: every shot in the
   // local array, including teammates proxy-logged and every column off an
@@ -1037,18 +1048,46 @@ export default function BowlingTracker(){
   const chooseStatsLeague=v=>{statsBowlerTouched.current=true;setStatsLeague(v);};
   useEffect(()=>{
     if(statsBowlerTouched.current)return;
-    if(displayName&&!statsBowler&&!statsLeague)setStatsBowler(displayName);
+    if(displayName&&!statsBowlerPick&&!statsLeaguePick)setStatsBowler(displayName);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   },[displayName]);
-  const[compareBowler,setCompareBowler]=useState("");
+  const[compareBowlerPick,setCompareBowler]=useState("");
   // Set alongside compareBowler when the comparison target is a FRIEND
   // rather than someone in the local roster -- lets the merged-shots
   // effect below know which friend's cloud data to fold in, without
   // requiring every existing s.bowler===compareBowler filter throughout
   // this file to be rewritten to understand two different kinds of id.
-  const[compareFriendId,setCompareFriendId]=useState("");
-  const[statsLeague,setStatsLeague]=useState("");
-  const[compareLeague,setCompareLeague]=useState("");
+  const[compareFriendIdPick,setCompareFriendId]=useState("");
+  const[statsLeaguePick,setStatsLeague]=useState("");
+  const[compareLeaguePick,setCompareLeague]=useState("");
+  // The Team chip's own team, chosen from the picker at the top of it.
+  const[teamStatsLeague,setTeamStatsLeague]=useState("");
+
+  // ── Which filters apply, per Stats chip ──────────────────────────────
+  //
+  // Viewing and Compare To live on Mine; Trends has Viewing and a league
+  // filter. They used to be ONE selection shared by every chip, so
+  // pointing Mine at a teammate, or Trends at one league, silently
+  // narrowed Team, Ball, Game and Center too -- with no filter showing on
+  // those chips to explain why their numbers had changed.
+  //
+  // Each chip now reads its own scope:
+  //   Mine, Trends       -- what was picked there
+  //   Team               -- the team picked on the Team chip
+  //   Ball, Game, Center -- you, across everything
+  // Picks are remembered, so going back to Mine finds them unchanged.
+  //
+  // Everything downstream reads statsBowler / statsLeague / compare*
+  // under their old names, so the scoping lives here and nowhere else.
+  // Outside the Stats screen the picks apply exactly as before.
+  const teamStatsLeagueEffective=teamStatsLeague||(leagues||[]).find(l=>!isContainerLeague(l))||"";
+  const statsScope=(view!=="data"||dataTab==="overview"||dataTab==="trends")?"picked"
+    :dataTab==="team"?"team":"you";
+  const statsBowler=statsScope==="picked"?statsBowlerPick:statsScope==="team"?"":(displayName||statsBowlerPick);
+  const statsLeague=statsScope==="picked"?statsLeaguePick:statsScope==="team"?teamStatsLeagueEffective:"";
+  const compareBowler=statsScope==="picked"?compareBowlerPick:"";
+  const compareLeague=statsScope==="picked"?compareLeaguePick:"";
+  const compareFriendId=statsScope==="picked"?compareFriendIdPick:"";
   // A container league in the saved context is corruption from the bug
   // above, not a league the bowler picked. Dropping it here repairs a
   // context already written that way -- otherwise every existing
@@ -2698,11 +2737,17 @@ export default function BowlingTracker(){
       const{data,error}=await supabase.functions.invoke("find-centers",{
         body:{query,lat:at.lat,lng:at.lng},
       });
-      if(error)return{error:error.message||"Center search failed."};
-      if(data?.error)return{error:data.error};
+      const CENTERS_FALLBACK="Couldn't search for centers right now. You can add the center by name instead.";
+      if(error){
+        const failure=await readFunctionFailure(error);
+        recordError({kind:"function",where:"find-centers",message:failure.body?.error||failure.message,detail:failureDetail(failure)});
+        return{error:friendlyFunctionError(failure,CENTERS_FALLBACK).text};
+      }
+      if(data?.error)return{error:friendlyFunctionError({status:500,body:data},CENTERS_FALLBACK).text};
       return{centers:data?.centers||[]};
     }catch(e){
-      return{error:e.message||"Couldn't search for centers right now."};
+      recordError({kind:"function",where:"find-centers",message:String(e?.message||e)});
+      return{error:"Couldn't search for centers right now. You can add the center by name instead."};
     }
   }
 
@@ -3628,6 +3673,52 @@ export default function BowlingTracker(){
   }
 
   // Clear the card for a new event. The saved one stays in history.
+  // Abandon this tournament: everything entered for it goes, then Home.
+  //
+  // The tournament Set up tab had no way out. A wrong event, a test entry,
+  // a block logged against the wrong tournament -- the only exits were to
+  // save something that never happened, or to delete it piece by piece.
+  //
+  // Mirrors cancelSession for a league night, scoped to THIS event: its
+  // shots (including any logged before it was named, which file under the
+  // bare "Tournament" key on its dates), typed scores, any session rows,
+  // and the tournament itself if it was ever saved. Asks twice in the UI.
+  async function cancelTournament(){
+    const t=activeTournament||{};
+    const bowler=t.bowler||activeBowler;
+    const league=t.name?tournamentLeagueCloudName(t.name,user?.id||""):TOURNAMENT_SESSION_KEY;
+    const dates=new Set((t.days||[]).map(d=>String(d?.date||"")).filter(Boolean));
+    const ofThisEvent=(lg,date)=>lg===league||(lg===TOURNAMENT_SESSION_KEY&&dates.has(String(date)));
+
+    const keep=(shots||[]).filter(sh=>!(sh&&sh.bowler===bowler&&ofThisEvent(sh.league,sh.date)));
+    if(keep.length!==(shots||[]).length)await saveShots(keep);
+
+    for(const date of dates){
+      for(const lg of new Set([league,TOURNAMENT_SESSION_KEY])){
+        for(let g=1;g<=12;g++){
+          if(getManualScore(manualScoresRef.current,bowler,lg,date,g)!=null){
+            await updateManualScore(bowler,lg,date,g,"");
+          }
+        }
+      }
+    }
+
+    const sessionsKept=(sessions||[]).filter(x=>!(x&&x.bowler===bowler&&ofThisEvent(x.league,x.date)));
+    if(sessionsKept.length!==(sessions||[]).length)await saveSessions(sessionsKept);
+
+    if(t.id&&(tournaments||[]).some(x=>x&&x.id===t.id)){
+      const remaining=tournaments.filter(x=>x.id!==t.id);
+      setTournaments(remaining);
+      try{window.storage.set(TOURNAMENTS_KEY,JSON.stringify(remaining));}catch{}
+      cloudDelete("tournaments",t.id);
+    }
+
+    closeTournament();
+    setTournamentTab("setup");
+    setView("home");
+    try{window.scrollTo({top:0,behavior:"smooth"});}catch{}
+  }
+
   function closeTournament(){
     const fresh=normalizeTournament({...emptyTournament(),bowler:activeBowler});
     setActiveTournament(fresh);
@@ -3677,8 +3768,16 @@ export default function BowlingTracker(){
     setTournaments(merged);
     try{window.storage.set(TOURNAMENTS_KEY,JSON.stringify(merged));}catch{}
     cloudWrite("tournaments",tournamentToRow(withIds,user?.id||null));
+    // Today's block is filed as well, so the night reads as ended -- Home
+    // goes back to the dashboard and the Nightcap knows it is over.
+    await fileNight({quiet:true});
     setTournamentSaved(true);
     setTimeout(()=>setTournamentSaved(false),1500);
+    // "Save Tournament & Return Home" -- so, home. The event stays loaded:
+    // picking Tournament again reopens it on Set up for the next block.
+    setTournamentTab("setup");
+    setView("home");
+    try{window.scrollTo({top:0,behavior:"smooth"});}catch{}
   }
 
   function setProfile(bowlerName,profile){
@@ -5064,10 +5163,10 @@ export default function BowlingTracker(){
   // session that never was (filing a junk night into the averages) or
   // to hunt for the entries and delete them one by one.
   //
-  // DESTRUCTIVE, and deliberately narrow. It removes only what tonight
-  // produced for THIS bowler at THIS league on THIS date: the shots and
-  // the typed game scores. Lane patterns and match points are setup, not
-  // scoring, and a teammate's scores are not this bowler's to discard.
+  // DESTRUCTIVE, and scoped to THIS bowler at THIS league on THIS date:
+  // the shots, the typed game scores, tonight's lane patterns, the match
+  // record, the session row if one was written, and the setup choices
+  // (league, lane, date, note). A teammate's own scores are left alone.
   //
   // Nothing here is recoverable, so the button asks twice.
   async function cancelSession(){
@@ -5112,7 +5211,34 @@ export default function BowlingTracker(){
       await saveLanePatterns(patternsKept);
     }
 
-    // Back to a clean slate, then home.
+    // The night's match record goes too: games won and lost, opponent,
+    // handicap. These were kept as "setup, not scoring", so cancelling a
+    // night picked against the wrong league left its points behind --
+    // start again and last attempt's wins and losses were already filled
+    // in. A cancelled night is one that did not happen.
+    const matchesKept=(matches||[]).filter(m=>!(m
+      &&m.league===league&&String(m.date)===String(date)));
+    if(matchesKept.length!==(matches||[]).length){
+      await saveMatches(matchesKept);
+    }
+
+    // And the session row, if the night was ever ended and resumed.
+    // Otherwise its scores stay in every average after the shots are gone.
+    const sessionsKept=(sessions||[]).filter(x=>!(x
+      &&x.bowler===bowler&&x.league===league&&String(x.date)===String(date)));
+    if(sessionsKept.length!==(sessions||[]).length){
+      await saveSessions(sessionsKept);
+    }
+
+    // Back to a clean slate: no league chosen, no lane, today's date, an
+    // empty note and frame one -- then home. The league used to stay
+    // selected, so the next visit resumed the night that was cancelled.
+    setSessionLeague("");
+    setStartingLane("");
+    setSessionDate(localDateString());
+    setSessionNotes("");
+    setForm({...emptyShot(),bowler:activeBowler});
+    setEditingId(null);
     setSessionSaved(false);
     setSessionSaveMessage("");
     setLeagueTabChoice("setup");
@@ -5121,11 +5247,25 @@ export default function BowlingTracker(){
   }
 
   async function submitSession(){
+    if(await fileNight())finishNight();
+  }
+
+  // File tonight as a session row. Returns whether it did.
+  //
+  // Split out of submitSession so a TOURNAMENT save files its block too.
+  // Only End Block ever filed one, and End Block has been unreachable in
+  // a tournament, so a tournament night never counted as ended: Home
+  // stayed the scoring screen all day once a tournament shot was logged,
+  // and the Nightcap never saw the night as finished.
+  //
+  // quiet: say nothing when there is nothing to file (a tournament saved
+  // with only its setup filled in is not a mistake).
+  async function fileNight({quiet=false}={}){
     // effectiveSessionLeague, not sessionLeague. Practice and casual have
     // no league to pick, so sessionLeague is "" there and this returned
     // immediately -- meaning neither environment could ever end a
     // session or produce a summary, however the button was wired.
-    if(!effectiveSessionLeague||!activeBowler)return;
+    if(!effectiveSessionLeague||!activeBowler)return false;
     // Every game bowled, not the first three.
     //
     // [1,2,3] is a league assumption, and it was silently dropping games
@@ -5140,9 +5280,11 @@ export default function BowlingTracker(){
       // though this is a common, valid state (e.g. only the match points
       // have been entered so far, no shots logged yet for this night).
       // Says so plainly instead of leaving the tap looking like it failed.
-      setSessionSaveMessage("No shots logged yet for this night");
-      setTimeout(()=>setSessionSaveMessage(null),2000);
-      return;
+      if(!quiet){
+        setSessionSaveMessage("No shots logged yet for this night");
+        setTimeout(()=>setSessionSaveMessage(null),2000);
+      }
+      return false;
     }
     const ss=shots.filter(s=>s.bowler===activeBowler&&s.league===effectiveSessionLeague&&s.date===sessionDate);
     // A session is uniquely identified by bowler+league+date. If one already
@@ -5168,62 +5310,27 @@ export default function BowlingTracker(){
     };
     const updated=existing?sessions.map(s=>s.id===existing.id?session:s):[...sessions,session];
     await saveSessions(updated);
+    return true;
+  }
 
-    // Take the bowler TO the results.
+  function finishNight(){
+    // Saved -- now HOME. The button reads "Save League & Return Home".
     //
-    // The button says "End Session & View Summary" and did not view
-    // anything: setShowSummary set a flag nothing reads, so the night was
-    // saved and the screen did not move. The bowler is left looking at
-    // the shot form they have just finished with.
+    // It used to jump to Results and stay there. Results is now where the
+    // bowler reviews the night BEFORE saving: the scores, the running
+    // averages and "Pour the nightcap" are all there while the night is
+    // still open, so saving is the last thing done, and it finishes.
     //
-    // Each mode keeps its results in a different place, so the jump has
-    // to know which one:
-    //
-    //   league / practice / open bowling -> the Results tab, where the
-    //     recap, the running averages and the share button live.
-    //   tournament -> the tournament card's own Results tab, which has
-    //     the block totals, the cut line and the money.
-    //
-    // PRACTICE KEEPS ITS TABS SOMEWHERE ELSE. Three modes, three pieces
-    // of state: league reads leagueTabChoice, tournament reads
-    // tournamentTab, and practice reads practiceMode (Games / Drill /
-    // Results). This branch set the league one for practice, which
-    // practice never reads -- so ending a practice session saved the
-    // night and left the screen exactly where it was. Casual has no tabs
-    // at all and shows everything, so there is nothing to set.
-    if(preferences.environment==="tournament"){
-      setTournamentTab("results");
-    } else if(preferences.environment==="practice"){
-      setPracticeMode("results");
-    } else {
-      setLeagueTab("results");
-    }
-    // Scroll to the top, or the results open below the fold and it still
-    // looks as though nothing happened.
+    // Every mode's tab goes back to its start, so the next night opens on
+    // Set up rather than on the Results of this one.
+    setLeagueTabChoice("setup");
+    setTournamentTab("setup");
+    setPracticeMode("games");
+    setCasualRound(false);
     setSessionSaved(true);
-    // STAY on Results. This used to jump to Home 1.5s later.
-    //
-    // The tab switch above and that jump contradicted each other: the
-    // code carefully moved the bowler to their results and then took
-    // them off it before they could read a word, so the recap, the
-    // running averages and the share button were all somewhere you had
-    // to navigate back to. The comment here used to justify it as
-    // "returning to Bowl later lands on Results", which is a strange
-    // thing to arrange for a screen you were already on.
-    //
-    // The worry it was answering -- do not leave someone on the scoring
-    // form, inviting them to log into a session they just ended -- is
-    // already handled by the tab change itself. Results is not the
-    // scoring screen.
-    //
-    // After the confirmation, not instead of it: the button says
-    // "Session Saved" for a moment first, so the screen changing is the
-    // consequence of something they saw work rather than a jump.
-    setTimeout(()=>{
-      setSessionSaved(false);
-      // The results open at the top of the tab, not below the fold.
-      try{window.scrollTo({top:0,behavior:"smooth"});}catch{}
-    },1500);
+    setView("home");
+    try{window.scrollTo({top:0,behavior:"smooth"});}catch{}
+    setTimeout(()=>setSessionSaved(false),1500);
   }
 
   // Updates one game's poker winnings on an already-saved session. Local
@@ -5577,17 +5684,14 @@ export default function BowlingTracker(){
     // error.context. The function already returns a useful { error }
     // message; without this it is discarded, and a Gemini rejection, a
     // rate limit and a bad model name all read identically.
+    // Brooklyn's own voice for "it didn't work". The server's real reason
+    // goes to the error log; a bowler never sees plumbing.
+    const GENIE_FALLBACK="The lamp flickered and went quiet. Try again in a few minutes.";
     if(error){
-      let detail="";
-      let limited=false;
-      try{
-        const res=error?.context;
-        if(res&&typeof res.json==="function"){
-          const body=await res.json();
-          detail=body?.error||body?.detail||"";
-          limited=body?.limited===true;
-        }
-      }catch{ /* body was not JSON; the status is all we have */ }
+      const failure=await readFunctionFailure(error);
+      const limited=failure.body?.limited===true;
+      recordError({kind:"function",where:"bowling-genie",message:failure.body?.error||failure.message,detail:failureDetail(failure)});
+      const detail=friendlyFunctionError(failure,GENIE_FALLBACK).text;
       // The SERVER's limit is the real one; make the display agree.
       //
       // Two counters exist: the client counts answers it received, the
@@ -5606,7 +5710,7 @@ export default function BowlingTracker(){
           return [...prev,...Array(3-mine.length).fill({date:today})];
         });
       }
-      return{error:detail||error.message||"Brooklyn had no answer for that."};
+      return{error:detail};
     }
 
     if(!data?.text){
@@ -5619,7 +5723,8 @@ export default function BowlingTracker(){
       // model and a server fault all read as a blip worth retrying --
       // and the one message the code had already worked out was thrown
       // away one line before it could be shown.
-      return{error:data?.error||error?.message||"Brooklyn had no answer for that."};
+      if(data?.error)recordError({kind:"function",where:"bowling-genie",message:String(data.error)});
+      return{error:data?.error?friendlyFunctionError({status:500,body:data},GENIE_FALLBACK).text:"Brooklyn had no answer for that."};
     }
     const today=localDateString();
     setGenieAsked(prev=>[...prev,{date:today}]);
@@ -6575,7 +6680,7 @@ export default function BowlingTracker(){
         setInsightUnlockSeen(seen);
       }
       const before=new Set(String(seen||"").split(",").filter(Boolean));
-      const fresh=insightSignature.split(",").filter(k=>k&&!before.has(k)).map(statLabel);
+      const fresh=insightSignature.split(",").filter(k=>k&&!before.has(k)&&isAnnouncedStat(k)).map(statLabel);
       if(fresh.length&&!cancelled){
         setNewInsights(fresh);
         setInsightUnlockSeen(insightSignature);
@@ -6587,22 +6692,28 @@ export default function BowlingTracker(){
   },[insightSignature]);
 
     async function analyzePerformance(payload){
+    // What the bowler reads is decided in domain/functionErrors.js; what
+    // actually went wrong goes to the local error log (Settings >
+    // Diagnostics). This used to print supabase-js's "Edge Function
+    // returned a non-2xx status code" straight onto the Improve tab.
+    const FALLBACK="Couldn't get your insights right now. Try again in a few minutes.";
     try{
       const{data,error}=await supabase.functions.invoke("analyze-performance",{body:{payload}});
       if(error){
-        // "Failed to send a request to the Edge Function" means the
-        // request never reached Supabase at all -- the function isn't
-        // deployed, failed to boot, or the phone is offline. That string
-        // tells a bowler nothing they can act on, so translate it.
-        const raw=error.message||"";
-        if(/failed to send a request|failed to fetch|networkerror/i.test(raw)){
-          return{error:"Couldn't reach the analysis service. If you're online and this keeps happening, it needs redeploying."};
-        }
-        return{error:raw||"Analysis failed."};
+        const failure=await readFunctionFailure(error);
+        recordError({kind:"function",where:"analyze-performance",message:failure.body?.error||failure.message,detail:failureDetail(failure)});
+        const{text,kind}=friendlyFunctionError(failure,FALLBACK);
+        return{error:text,upgrade:kind==="upgrade"};
       }
-      if(data?.error)return{error:data.error};
+      if(data?.error){
+        recordError({kind:"function",where:"analyze-performance",message:String(data.error)});
+        return{error:friendlyFunctionError({status:500,body:data},FALLBACK).text};
+      }
       return data;
-    }catch(e){return{error:e.message||"Couldn't generate insights right now."};}
+    }catch(e){
+      recordError({kind:"function",where:"analyze-performance",message:String(e?.message||e)});
+      return{error:FALLBACK};
+    }
   }
 
   // Whose game can be recorded here. Tournaments are always the owner
@@ -6769,7 +6880,14 @@ export default function BowlingTracker(){
     }catch{ return 0; }
   })();
 
-  const casualMode=preferences.environment==="casual"&&!nightEnded;
+  // Keyed on having ENDED the night in this visit, not on a session
+  // existing for today. "A session exists" stayed true for the rest of the
+  // day, so a second round of open bowling after the first was filed got
+  // the full six-tab nav from its first frame -- the simplified view
+  // appeared not to work at all. Picking Open bowling on Home sets
+  // casualRound, so each new round starts simplified; saving the round
+  // clears it, so ending still unlocks the full nav as intended above.
+  const casualMode=preferences.environment==="casual"&&(casualRound||!nightEnded);
   const navTabs=casualMode?[
     // Home first, so open bowling is never a dead end.
     //
@@ -8173,6 +8291,19 @@ export default function BowlingTracker(){
                 // The same mistake once started the Open bowling tour
                 // when a bowler picked Practice.
                 updatePreferences(prev=>applyEnvironment(prev,env));
+                // A night started from Home starts at the beginning.
+                //
+                // Each mode remembers its tab, and ending a night leaves it
+                // on Results -- so the next league night opened straight
+                // onto last week's Results the moment a league was chosen.
+                // Home is only offered when no night is live, so there is
+                // never a night in progress to lose by resetting here.
+                setLeagueTabChoice("setup");
+                setTournamentTab("setup");
+                setPracticeMode("games");
+                setSessionSaved(false);
+                setSessionSaveMessage(null);
+                setCasualRound(env==="casual");
                 // The launch prompt asks which mode you are in. You have
                 // just answered that on Home, so showing it again on
                 // arrival asks the same question twice -- and it is the
@@ -8229,7 +8360,7 @@ export default function BowlingTracker(){
             tournamentTab={tournamentTab} setTournamentTab={setTournamentTab}
 
             deleteNight={deleteNight}
-            activeTournament={activeTournament} updateTournament={updateTournament} saveTournament={saveTournament} closeTournament={closeTournament} tournamentSaved={tournamentSaved}
+            activeTournament={activeTournament} updateTournament={updateTournament} saveTournament={saveTournament} cancelTournament={cancelTournament} closeTournament={closeTournament} tournamentSaved={tournamentSaved}
             manualScores={manualScores} updateManualScore={updateManualScore}
             ownerName={ownerName} scoringForOthers={scoringForOthers} setScoringForOthers={setScoringForOthers}
             oilPatterns={pickerPatterns} submitOilPattern={submitOilPattern} leaguePatterns={leaguePatterns} tournaments={tournaments} practicePriorAverage={practicePriorAverage}
@@ -8373,6 +8504,9 @@ export default function BowlingTracker(){
             theoreticalScoreForGame={theoreticalScoreForGame}
             preferences={preferences}
             viewedLeftHanded={viewedLeftHanded}
+            teamStatsLeague={teamStatsLeagueEffective} setTeamStatsLeague={setTeamStatsLeague}
+            onHideStatsCard={id=>updatePreferences(prev=>toggleStatsCardHidden(prev,id))}
+            onUnhideStatsCards={ids=>updatePreferences(prev=>unhideStatsCards(prev,ids))}
           />
         )}
       </Suspense>

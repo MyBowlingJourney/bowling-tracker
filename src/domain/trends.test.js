@@ -3,7 +3,7 @@ import {
   scoreSeries, shotRateSeries, seriesFor, linearSlope, trendMetricFor, trendMetricsFor,
   trendDirection, describeTrend, seriesReliability, MIN_POINTS_FOR_DIRECTION,
   allGamesSeries,
-  allGamesSummary,
+  allGamesSummary, gameBallMatcher,
 } from './trends.js';
 
 const sessions = [
@@ -263,5 +263,54 @@ describe('trend direction on known series', () => {
     for (const v of [null, undefined, 'x', 0, {}, []]) {
       expect(() => trendDirection(v)).not.toThrow();
     }
+  });
+});
+
+describe("score trends by ball, on shot-tracked nights", () => {
+  // Two nights, three games each, every frame logged shot-by-shot.
+  // Night 1: games 1-2 Phaze, game 3 Hy-Road. Night 2: all Phaze.
+  // No gameEquipment at all -- the case that drew an empty chart.
+  const frames = (date, game, ball, n = 10) => Array.from({ length: n }, (_, f) =>
+    ({ bowler: "Ryan", league: "L", date, game: String(game), frame: f + 1, ball, result: "Strike" }));
+  const shots = [
+    ...frames("2026-01-01", 1, "Phaze"), ...frames("2026-01-01", 2, "Phaze"), ...frames("2026-01-01", 3, "Hy-Road"),
+    ...frames("2026-01-08", 1, "Phaze"), ...frames("2026-01-08", 2, "Phaze"), ...frames("2026-01-08", 3, "Phaze"),
+  ];
+  const sessions = [
+    { bowler: "Ryan", league: "L", date: "2026-01-01", scores: [200, 210, 150] },
+    { bowler: "Ryan", league: "L", date: "2026-01-08", scores: [190, 180, 170] },
+  ];
+  it("Average by ball has a point per night, from the frames' ball", () => {
+    const pts = seriesFor("average", { sessions, shots, bowler: "Ryan", league: "", ball: "Phaze" });
+    expect(pts).toHaveLength(2);
+    expect(pts[0].value).toBe(205); // 200 and 210 -- game 3 was Hy-Road
+    expect(pts[1].value).toBe(180);
+  });
+  it("the other ball gets only its own game", () => {
+    const pts = seriesFor("average", { sessions, shots, bowler: "Ryan", league: "", ball: "Hy-Road" });
+    expect(pts).toHaveLength(1);
+    expect(pts[0].value).toBe(150);
+  });
+  it("Game 3 by ball skips a night whose game 3 used another ball", () => {
+    const g3 = seriesFor("game3", { sessions, shots, bowler: "Ryan", league: "", ball: "Phaze" });
+    expect(g3.map(p => p.value)).toEqual([170]);
+  });
+  it("a recorded equipment ball beats the frames", () => {
+    const eq = { "Ryan|L|2026-01-01|3": { ball: "Phaze" } };
+    expect(gameBallMatcher("Phaze", eq, shots)(sessions[0], 2)).toBe(true);
+  });
+  it("a mid-game change files under the ball that bowled at least half", () => {
+    const mixed = [...frames("2026-02-01", 1, "Phaze", 6), ...frames("2026-02-01", 1, "Hy-Road", 4).map((s, i) => ({ ...s, frame: 7 + i }))];
+    const sess = { bowler: "Ryan", league: "L", date: "2026-02-01" };
+    expect(gameBallMatcher("Phaze", null, mixed)(sess, 0)).toBe(true);
+    expect(gameBallMatcher("Hy-Road", null, mixed)(sess, 0)).toBe(false);
+  });
+  it("no ball filter still includes everything", () => {
+    expect(seriesFor("average", { sessions, shots, bowler: "Ryan", league: "" })).toHaveLength(2);
+  });
+  it("every-game view honours the ball and keeps real game numbers", () => {
+    const pts = allGamesSeries(sessions, "Ryan", "", "Hy-Road", null, shots);
+    expect(pts).toHaveLength(1);
+    expect(pts[0].game).toBe(3);
   });
 });

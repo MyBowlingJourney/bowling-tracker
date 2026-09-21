@@ -520,16 +520,9 @@ export default function Profile({
       </CollapsibleCard>
       )}
 
-      {show("notes") && (
-      <CollapsibleCard title="Notes"
-        summary={profile.notes ? (profile.notes.length > 28 ? profile.notes.slice(0, 28) + "…" : profile.notes) : ""}
-        expanded={expanded.notes} onToggle={() => toggle("notes")}>
-        <textarea style={{ ...S.input, minHeight: "60px", resize: "vertical" }}
-          placeholder="Anything worth remembering — grip changes, thumb tape, injuries…"
-          value={profile.notes}
-          onChange={e => update(setProfileField(profile, "notes", e.target.value))} />
-      </CollapsibleCard>
-      )}
+      {/* The Notes card is gone from the profile. Existing notes are
+          left in the data untouched -- removing the field from the screen
+          is not a reason to delete what a bowler already wrote. */}
 
       <div style={{ height: "32px" }} />
     </div>

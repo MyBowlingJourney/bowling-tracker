@@ -39,6 +39,9 @@ function pinStyle(state, split, size) {
   };
   if (state === "down1") return { ...base, backgroundColor: C.strike };
   if (state === "down2") return { ...base, backgroundColor: C.spare };
+  // Stood on a 9-pin no-tap strike: counted, but it did not fall. A ring
+  // in the strike colour -- part of the X, visibly not knocked down.
+  if (state === "notap") return { ...base, backgroundColor: "transparent", border: `2px solid ${C.strike}` };
   // Standing. A split gets the miss colour AND a heavier stroke -- one
   // hue at this size is a thin signal, and it is the wrong one to lose.
   if (state === "standing") {

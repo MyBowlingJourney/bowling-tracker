@@ -267,7 +267,10 @@ function dateOfFirstSeries(sessions, target) {
   return hit ? dateOf(hit.s) : "";
 }
 
-export function journeyMilestones(sessions, tournaments, shots) {
+// Every step on the road, earned or not, with its date if earned and the
+// bowler's best so far. journeyMilestones keeps the earned ones;
+// upcomingMilestones looks at the rest.
+function journeySteps(sessions, tournaments, shots) {
   const ss = rows(sessions);
   const events = rows(tournaments).filter(t => clean(t.name));
   const cashed = events.filter(t => (num(t.winnings) || 0) > 0);
@@ -306,6 +309,11 @@ export function journeyMilestones(sessions, tournaments, shots) {
     },
   ];
 
+  return all;
+}
+
+export function journeyMilestones(sessions, tournaments, shots) {
+  const all = journeySteps(sessions, tournaments, shots);
   const earned = all.filter(m => m.date).map(m => ({ ...m, state: "earned" }));
 
   // Date order -- what actually happened, when. Ties break by the
@@ -442,4 +450,72 @@ export function bandedJourney(milestones, average) {
     .filter(b => b.milestones.length);
 
   return { open, bands, highest };
+}
+
+// ── What the redesigned Journey screen adds ───────────────────────────
+
+// The next step in each measurable line -- the lowest unearned night
+// count, game and series -- closest first.
+//
+// Only ONE per line, and only the nearest one or two overall. The road
+// used to show nothing ahead at all ("Keep bowling to see what's next"),
+// deliberately, because a ladder of everything not yet done reads as a
+// list of failures. One or two near goals read as the next stop.
+//
+// Frame milestones (first turkey, big four) have no "best so far" to
+// measure, and a line with no progress yet is not near, so neither is
+// offered.
+export function upcomingMilestones(sessions, tournaments, shots, limit = 2) {
+  const next = new Map();
+  for (const m of journeySteps(sessions, tournaments, shots)) {
+    if (m.date || m.kind === "frame") continue;
+    const target = Number(m.target) || 0;
+    const best = m.best === null || m.best === undefined ? null : Number(m.best);
+    if (!target || best === null || !Number.isFinite(best) || best <= 0) continue;
+    const line = String(m.id).split("-")[0];
+    const have = next.get(line);
+    if (!have || target < have.target) {
+      next.set(line, { ...m, state: "next", best, progress: Math.min(1, best / target), remaining: Math.max(0, target - best) });
+    }
+  }
+  return [...next.values()].sort((a, b) => b.progress - a.progress).slice(0, Math.max(0, limit));
+}
+
+// A plain sentence for an upcoming step. Numbers only from the step.
+export function describeUpcoming(m) {
+  if (!m || typeof m !== "object") return "";
+  const r = Number(m.remaining) || 0;
+  if (m.kind === "game") return `${r} pin${r === 1 ? "" : "s"} short · best ${m.best}`;
+  if (m.kind === "series") return `${r} pin${r === 1 ? "" : "s"} short · best ${m.best}`;
+  return `${m.best} of ${m.target}`;
+}
+
+// Lifetime numbers for the top of the screen: nights, games, every pin,
+// and the date it started.
+export function journeyTotals(sessions) {
+  const ss = rows(sessions).filter(s => scoresOf(s).length);
+  const scores = ss.flatMap(scoresOf);
+  const dates = ss.map(dateOf).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
+  return {
+    nights: ss.length,
+    games: scores.length,
+    pins: scores.reduce((a, b) => a + b, 0),
+    since: dates[0] || "",
+  };
+}
+
+// What sits inside a milestone's medallion. A number where there is one;
+// a symbol a bowler reads at a glance otherwise. It used to print the
+// milestone's target, so every "first" read "1" -- "Five in a row" in a
+// circle marked 1.
+const GLYPHS = {
+  "first-strike": "X", "first-spare": "/", "first-double": "XX",
+  "first-turkey": "\u{1F983}", "first-four-bagger": "4X", "first-five-bagger": "5X",
+  "split-convert": "S/", "big-four": "B4",
+  "tourney-first": "\u{1F3C6}", "tourney-cash": "$",
+};
+export function milestoneGlyph(m) {
+  if (!m || typeof m !== "object") return "";
+  if (GLYPHS[m.id]) return GLYPHS[m.id];
+  return String(m.target ?? "");
 }

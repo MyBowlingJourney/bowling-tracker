@@ -55,7 +55,7 @@ export default function LogView({
   activeBowler, arsenals, form, setForm, editingId, saved, sessionSaved, sessionSaveMessage, tournamentSaveMessage,
   leagueTabChoice = "scoring", setLeagueTabChoice, tournamentTab = "setup", setTournamentTab,
   sessionLeague, setSessionLeague, effectiveSessionLeague, sessionDate, setSessionDate,
-  startingLane, setStartingLane, setShowSummary, expandedSections,
+  startingLane, setStartingLane, expandedSections,
   ballNumLabel, curSession, currentLane, firstBallPins, gameScores = [], frameScores = [],
   hasLeave, leaveDescribed, inTenth, isNoTap, isStrike, needsSpareMade, needsPins, sessionTotal,
   standingPins, tenthOptions,
@@ -65,7 +65,7 @@ export default function LogView({
   leagueBuyIns, onSaveLeagueBuyIns, onReplayTour, casualExtraGames = 2, setCasualExtraGames,
   showSparePins, sparePinsStanding, spareKnocked, toggleSparePin, spareWillConvert, strictPartial, submitSession, cancelSession, deleteGame, submitShot, theoreticalScoreForGame, maxScoreThisGame, toggle, toggleMulti, toggleSection,
   preferences, setSessionMoneyArray, setSessionMoneyValue, activeBowlerLeftHanded,
-  ballLayouts, activeTournament, updateTournament, saveTournament, closeTournament, tournamentSaved,
+  ballLayouts, activeTournament, updateTournament, saveTournament, closeTournament, cancelTournament, tournamentSaved,
   manualScores, updateManualScore,
   // Handed straight to the Nightcap, which is the only paid thing
   // on this screen.
@@ -585,6 +585,17 @@ export default function LogView({
   const showShotContext=leagueReady&&env!=="casual"&&!isDrill
     &&(env!=="tournament"||tournamentTab==="scoring");
 
+  // Whether the fixed bar at the bottom shows.
+  //
+  // In a tournament it used to be excluded outright, to keep "End Block"
+  // off the screen -- the tournament card has its own Save Tournament.
+  // But Save Shot lives in the same bar, so every tournament, in every
+  // style and format, could pick a result and had no way to save it.
+  // The bar now shows in tournament Scoring whenever there is a shot to
+  // save, carrying Save Shot alone (the session button stays hidden).
+  const footerShown=!!(editingId||(activeBowler&&effectiveSessionLeague
+    &&(env!=="tournament"||(onTab("scoring")&&showShotContext))));
+
   // In BAKER, the name follows the FRAME, not the session.
   //
   // Baker alternates every frame and the alternation carries across
@@ -612,6 +623,501 @@ export default function LogView({
     return who==="me"?me:partner;
   })();
 
+
+  // The night summary: achievements, the Nightcap, the scores and the
+  // running averages, and "Share tonight".
+  //
+  // A function rather than inline JSX so it can be placed in two spots:
+  // after the scoring cards in league, and INSIDE the tournament card on
+  // a tournament's Results -- between the finish and winnings and the
+  // Tournament Notes, with Save at the very bottom. Rendered inline, it
+  // always landed after the whole tournament card, below Save.
+  const renderNightSummary=()=>{
+              const cs=curSession;
+              const sr=cs.shotCount?Math.round((cs.strikes/cs.shotCount)*100):0;
+              const spr=cs.spareAttempts?Math.round((cs.sparesMade/cs.spareAttempts)*100):0;
+              const leagueAs=leagues.map(league=>({league,avg:rAvg(sessions,activeBowler,league)})).filter(x=>x.avg!=null),cA=cAvg(sessions,activeBowler);
+              // Defaulted, not assumed. A session saved by an older version
+              // of the app -- or a draft created mid-night -- may not carry
+              // these arrays, and calling .filter() on undefined throws
+              // during render, which blanks the entire screen. A missing
+              // array should cost a chart, not the app.
+              const csMisses=Array.isArray(cs.misses)?cs.misses:[];
+              const csReleases=Array.isArray(cs.releases)?cs.releases:[];
+              const mDist=MISSES.map(m=>({m,c:csMisses.filter(x=>x===m).length})).filter(x=>x.c>0);
+              const gR=csReleases.filter(r=>r==="Good").length,bR=csReleases.filter(r=>r==="Bad").length,rT=csReleases.length;
+              // Honor scores, personal bests and tournament placement.
+              // Above the numbers, because a 300 or a new personal best
+              // is the thing a bowler looks for first and the thing
+              // they'll actually share.
+              const nightAchievements=achievementsFor({
+                games:(cs.scores||[]).filter(v=>v!=null),
+                seriesTotal:cs.total??null,
+                previous:{
+                  highGame:profiles?.[cs.bowler]?.allTimeHighGame,
+                  highSeries:profiles?.[cs.bowler]?.allTimeHighSeries,
+                },
+                placementId:cs.placement,
+                tournamentName:cs.tournamentName||"",
+              });
+              // Theoretical scores, computed ONCE for the whole block.
+              //
+              // They used to live inside the card that displays them, which
+              // was fine until the Nightcap needed the same number. Two
+              // derivations of one figure on one screen disagree eventually,
+              // and the bowler has no way to know which is the real one --
+              // so there is one derivation and both readers use it.
+              //
+              // The games actually bowled, not a fixed three: [1,2,3] is a
+              // league assumption, and a practice night can be one game or
+              // five. gameScores is already sized to the night.
+              const theoreticalScores=gameScores
+                .map((_,idx)=>idx+1)
+                .map(g=>theoreticalScoreForGame(cs.bowler,cs.league,cs.date,g));
+              const anyTheoretical=theoreticalScores.some(v=>v!=null);
+              // Theory Total covers the WHOLE series so it lines up directly
+              // against the real series. A game with no theoretical value
+              // (nothing makeable was missed, or it isn't computable)
+              // contributes its real score, since that game genuinely
+              // couldn't have gone any better.
+              const played=cs.scores
+                .map((real,i)=>({real,theory:theoreticalScores[i]}))
+                .filter(x=>typeof x.real==="number");
+              const theoryTotal=played.reduce((a,x)=>a+(x.theory??x.real),0);
+              const realTotal=played.reduce((a,x)=>a+x.real,0);
+              const leftOnLane=theoryTotal-realTotal;
+              return(
+                <>
+                {nightAchievements.length>0&&(
+                  <div style={{...S.card,border:`1px solid ${C.spare}66`,backgroundColor:C.spare+"0F"}}>
+                    {nightAchievements.map(a=>(
+                      <div key={a.id} style={{display:"flex",gap:"10px",alignItems:"flex-start",marginBottom:"6px"}}>
+                        <span style={{fontSize:"22px",lineHeight:1}}>{a.emoji}</span>
+                        <div>
+                          <div style={{fontSize:"14px",fontWeight:700,color:C.text}}>{a.title}</div>
+                          {a.detail&&<div style={{fontSize:"12px",color:C.textMuted,marginTop:"1px"}}>{a.detail}</div>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* The Nightcap. Top of the results, above the scores.
+                    
+                    League only. A tournament block is a different shape of
+                    night -- blocks, a cut line, a standing -- and the facts
+                    below are league facts. A Baker night belongs to the
+                    pair rather than to one bowler, the same reason the
+                    heading below refuses to call it anybody's night, so it
+                    gets no personal read-back either.
+                    
+                    Results tab only: this block also renders on Side
+                    games, where a card about leaves and carry is not what
+                    anyone came for.
+                    
+                    sessionEnded asks whether the night is FILED, not
+                    whether the save was confirmed. The confirmation flag
+                    is true for a second and a half and then sends the
+                    bowler to Home, so a pour triggered by it would arrive
+                    on a screen nobody is looking at. A saved session for
+                    this bowler, league and date is durable and means the
+                    same thing. */}
+                {/* League AND tournament now. A tournament block was left
+                    out as "a different shape of night", but its frames
+                    are read back the same way -- the client tells the
+                    server which kind it is, so the wording fits.
+                    
+                    Baker still gets none: the frames belong to the pair.
+                    It says so, rather than the card simply not being
+                    there, which read as the feature being missing. */}
+                {(env==="league"||env==="tournament")&&onTab("results")&&bakerTeamName&&(
+                  <div style={{...S.card,fontSize:"12px",color:C.textMuted,lineHeight:1.5}}>
+                    <span style={{fontWeight:600,color:C.text}}>Nightcap</span> isn't poured on a Baker night — the frames belong to the pair, not to one bowler.
+                  </div>
+                )}
+                {(env==="league"||env==="tournament")&&onTab("results")&&!bakerTeamName&&(
+                  <Nightcap
+                    event={env}
+                    shots={shots}
+                    bowler={cs.bowler}
+                    league={cs.league}
+                    date={cs.date}
+                    leftHanded={leftHandedForBowler?leftHandedForBowler(cs.bowler):false}
+                    scores={cs.scores}
+                    priorAverage={cumulativeAvgBeforeDate(sessions,cs.bowler,cs.league,cs.date)}
+                    pinsLeftOnLane={anyTheoretical&&played.length?leftOnLane:null}
+                    sessionEnded={(sessions||[]).some(s=>s&&s.bowler===cs.bowler&&s.league===cs.league&&s.date===cs.date)}
+                    entitlement={entitlement}/>
+                )}
+
+                <div style={{...S.card,border:`1px solid ${C.accent}44`}}>
+                  {/* Results only, like the scores below it. On Side
+                      games the bowler already knows whose night it is and
+                      which league they are standing in -- the heading is a
+                      recap title on a tab that is not the recap. */}
+                  {onTab("results")&&(
+                    <div style={{...S.label}}>
+                      {/* A BAKER night belongs to the pair, not to one of
+                          them. One score for five frames each, so "Ryan's
+                          night" over a shared total credits one bowler with
+                          both halves -- the same mistake as counting a Baker
+                          game as a personal high game, in the heading. */}
+                      {bakerTeamName
+                        ? `${bakerTeamName} — tonight`
+                        : (cs.bowler?`${cs.bowler}'s night`:"Tonight")}
+                      {/* The DISPLAY name. A container league's stored name
+                          carries the user id -- "Tournament·Tourny 5·c3e40233-
+                          c180-4d76-be28-36abd33f9c07" -- and the recap header
+                          was printing the whole thing. */}
+                      <span style={{fontWeight:400,color:C.textMuted}}> — {practiceLeagueDisplayName(cs.league).replace(" House Shot","")}, {formatDate(cs.date)}</span>
+                    </div>
+                  )}
+                  {/* Results only. This card is shared with Side games,
+                      where the game scores are not what you came for: that
+                      tab is about what was won and owed, and the bowler
+                      just entered these numbers a tab ago. Repeating them
+                      above the money pushes the thing being looked for
+                      further down the screen. */}
+                  {onTab("results")&&(
+                    <div style={{display:"flex",gap:"6px",marginBottom:"12px"}}>
+                      {cs.scores.map((s,i)=>(<div key={i} style={S.statBox}><div style={{...S.statNum,fontSize:"20px"}}>{s}</div><div style={S.statLbl}>G{i+1}</div></div>))}
+                      <div style={{...S.statBox,border:`1px solid ${C.accent}44`}}>
+                        <div style={{...S.statNum,fontSize:"20px",color:C.accent}}>{cs.total}</div>
+                        <div style={S.statLbl}>Series</div>
+                      </div>
+                    </div>
+                  )}
+                  {(()=>{
+                    // Results only. "If every makeable spare had been
+                    // made" is post-match analysis; Side games is about
+                    // what was won and owed.
+                    if(!onTab("results"))return null;
+                    if(!anyTheoretical)return null;
+                    return(
+                      <div style={{marginBottom:"12px"}}>
+                        <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"6px"}}>If every makeable spare had been made</div>
+                        <div style={{display:"flex",gap:"6px"}}>
+                          {theoreticalScores.map((v,i)=>(
+                            <div key={i} style={{...S.statBox,border:`1px solid ${C.spare}44`}}>
+                              <div style={{...S.statNum,fontSize:"18px",color:v!=null?C.spare:C.textMuted}}>{v??"—"}</div>
+                              <div style={S.statLbl}>G{i+1} Theory</div>
+                            </div>
+                          ))}
+                          {played.length>0&&(
+                            <div style={{...S.statBox,border:`1px solid ${C.spare}`}}>
+                              <div style={{...S.statNum,fontSize:"18px",color:C.spare}}>{theoryTotal}</div>
+                              <div style={S.statLbl}>Theory Series</div>
+                            </div>
+                          )}
+                        </div>
+                        {played.length>0&&(
+                          <div style={{textAlign:"center",marginTop:"8px",fontSize:"12px"}}>
+                            {leftOnLane>0?(
+                              <span style={{color:C.miss,fontWeight:600}}>
+                                ▼ {leftOnLane} pins left on the lane
+                              </span>
+                            ):(
+                              <span style={{color:C.strike,fontWeight:600}}>
+                                ✓ Converted every makeable spare
+                              </span>
+                            )}
+                            <span style={{color:C.textMuted,fontWeight:400,marginLeft:"6px"}}>
+                              ({realTotal} actual vs {theoryTotal} possible)
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {onTab("side")&&anyMoneyGameShown(preferences)&&(
+                    <>
+
+                      {/* Buy-ins are per LEAGUE, not per game and not per
+                          week: the quarter game costs a quarter every game
+                          all season. This used to be nine boxes re-typed
+                          every week, which is repetition whose most likely
+                          outcome is getting one of them wrong.
+                          
+                          Editing here updates the rate for this league and
+                          applies it to tonight. Past nights keep whatever
+                          they actually cost. */}
+                      {(()=>{
+                        const rates=buyInsForLeague(leagueBuyIns,cs.league);
+                        // Games to charge for. Defaults to a FULL night.
+                        //
+                        // This was the count of scores entered, which is
+                        // zero before the first ball -- so every cost came
+                        // out [0,0,0], "in this pot" is derived from a
+                        // non-zero cost, and the toggle did nothing at all
+                        // however many times it was tapped.
+                        //
+                        // Pots are entered before bowling starts. A bowler
+                        // who ticks the quarter game owes it for the night,
+                        // and the cost corrects itself as the real games
+                        // land.
+                        const games=Math.max(
+                          (cs.scores||[]).filter(v=>v!=null).length, 3);
+                        const pots=visibleMoneyGames(preferences);
+
+                        // Whether the bowler is IN each pot tonight,
+                        // derived from what the session already records
+                        // rather than stored twice: a non-zero cost means
+                        // they entered it.
+                        //
+                        // Saving a buy-in rate used to mean paying it
+                        // every week forever -- the app assumed you were
+                        // in every pot every night, so a week you sat one
+                        // out silently charged you for it and net
+                        // winnings drifted from reality with nothing on
+                        // screen to explain why.
+                        const costField={pokerQuarter:"pokerQuarterCost",pokerDollar:"pokerDollarCost",
+                                         highGame:"highGameCost",threeSixNine:"threeSixNineCost"};
+                        const isIn=key=>key==="threeSixNine"
+                          ?Number(cs.threeSixNineCost||0)>0
+                          :((cs[costField[key]]||[]).some(v=>Number(v)>0));
+
+                        const applyCosts=(nextRates,playing)=>{
+                          const arrays=costArraysFor(nextRates,games,playing);
+                          Object.entries(arrays).forEach(([field,value])=>{
+                            if(Array.isArray(value)){
+                              value.forEach((v,i)=>setSessionMoneyArray(cs.id,field,i,v));
+                            } else {
+                              setSessionMoneyValue(cs.id,field,value);
+                            }
+                          });
+                        };
+                        const playingNow=()=>Object.fromEntries(pots.map(k=>[k,isIn(k)]));
+
+                        const setRate=(key,val)=>{
+                          const next={...rates,[key]:val===""?0:parseFloat(val)||0};
+                          onSaveLeagueBuyIns?.(cs.league,next);
+                          // Entering a rate means you're in that pot --
+                          // otherwise typing a number would do nothing
+                          // visible, which reads as broken.
+                          applyCosts(next,{...playingNow(),[key]:true});
+                        };
+                        const togglePot=key=>applyCosts(rates,{...playingNow(),[key]:!isIn(key)});
+
+                        const label={pokerQuarter:"Quarter game",pokerDollar:"Dollar game",
+                                     highGame:"High game",threeSixNine:"3-6-9 (whole night)"};
+                        const step={pokerQuarter:"0.25",pokerDollar:"1",highGame:"1",threeSixNine:"1"};
+
+                        const owed=pots.reduce((sum,k)=>{
+                          if(!isIn(k))return sum;
+                          return sum+(k==="threeSixNine"?rates[k]:rates[k]*games);
+                        },0);
+
+                        if(!pots.length)return null;
+                        return(
+                          <div style={{marginBottom:"12px"}}>
+                            <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"6px"}}>Money games tonight</div>
+                            <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"8px"}}>
+                              Tap the ones you're in. Buy-ins are saved for {String(cs.league||"this league").replace(" House Shot","")} — you won't need to enter them again.
+                            </div>
+                            {pots.map(key=>{
+                              const inIt=isIn(key);
+                              return(
+                                <div key={key} style={{display:"flex",gap:"8px",alignItems:"center",marginBottom:"6px"}}>
+                                  <button onClick={()=>togglePot(key)}
+                                    aria-label={`${label[key]}: ${inIt?"playing":"not playing"}`}
+                                    style={{flex:1,textAlign:"left",cursor:"pointer",padding:"6px 8px",borderRadius:"8px",
+                                      border:`1px solid ${inIt?C.strike+"66":C.border}`,
+                                      background:inIt?C.strike+"11":"transparent",
+                                      color:inIt?C.text:C.textMuted,fontSize:"12px"}}>
+                                    {inIt?"✓ ":""}{label[key]}
+                                  </button>
+                                  <input style={{...S.input,width:"90px",fontSize:"13px",padding:"6px 10px",textAlign:"right",
+                                    opacity:inIt?1:0.45}}
+                                    type="number" step={step[key]} placeholder="$"
+                                    value={rates[key]===0?"":rates[key]}
+                                    onChange={e=>setRate(key,e.target.value)}/>
+                                </div>
+                              );
+                            })}
+                            <div style={{fontSize:"11px",color:C.textMuted,marginTop:"6px"}}>
+                              {games} game{games===1?"":"s"} tonight · ${owed.toFixed(2)} paid in
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+
+                      <div style={{marginBottom:"12px"}}>
+                        <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"6px"}}>Poker Winnings ($)</div>
+                        {[0,1,2].map(gameIdx=>{
+                          if(cs.scores[gameIdx]==null)return null;
+                          const quarterVal=(cs.pokerQuarter||[0,0,0])[gameIdx]??0;
+                          const dollarVal=(cs.pokerDollar||[0,0,0])[gameIdx]??0;
+                          return(
+                            <div key={gameIdx} style={{display:"flex",gap:"8px",alignItems:"center",marginBottom:"6px"}}>
+                              <div style={{fontSize:"12px",color:C.textMuted,width:"28px"}}>G{gameIdx+1}</div>
+                              <input style={{...S.input,flex:1,fontSize:"13px",padding:"6px 10px"}} type="number" step="0.25" placeholder="Quarter $"
+                                value={quarterVal||""} onChange={e=>setPokerWinnings(cs.id,gameIdx,"quarter",e.target.value===""?0:parseFloat(e.target.value))}/>
+                              <input style={{...S.input,flex:1,fontSize:"13px",padding:"6px 10px"}} type="number" step="1" placeholder="Dollar $"
+                                value={dollarVal||""} onChange={e=>setPokerWinnings(cs.id,gameIdx,"dollar",e.target.value===""?0:parseFloat(e.target.value))}/>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div style={{marginBottom:"12px"}}>
+                        <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"6px"}}>High Game Pot ($)</div>
+                        <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"6px"}}>
+                          Highest game in the league takes it — enter what you won, if anything.
+                        </div>
+                        {[0,1,2].map(gameIdx=>{
+                          if(cs.scores[gameIdx]==null)return null;
+                          const val=(cs.highGameWinnings||[0,0,0])[gameIdx]??0;
+                          return(
+                            <div key={gameIdx} style={{display:"flex",gap:"8px",alignItems:"center",marginBottom:"6px"}}>
+                              <div style={{fontSize:"12px",color:C.textMuted,width:"64px"}}>G{gameIdx+1} · {cs.scores[gameIdx]}</div>
+                              <input style={{...S.input,flex:1,fontSize:"13px",padding:"6px 10px"}} type="number" step="1" placeholder="Won $"
+                                value={val||""} onChange={e=>setSessionMoneyArray(cs.id,"highGameWinnings",gameIdx,e.target.value===""?0:parseFloat(e.target.value))}/>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {(()=>{
+                        // 3-6-9: a single, whole-session win (all 9 specific
+                        // strikes across games 1, 2, AND 3) -- not per-game
+                        // like poker, so this only shows once per session, and
+                        // only when actually qualified. The jackpot input is
+                        // additionally gated on game 3's 10th being a full
+                        // turkey, on top of the win itself.
+                        const r369=threeSixNineResults(shots,cs.bowler,cs.league,cs.date);
+                        if(!r369.qualifies)return null;
+                        return(
+                          <div style={{marginBottom:"12px"}}>
+                            <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"6px"}}>3-6-9 Winnings ($)</div>
+                            <div style={{display:"flex",gap:"8px",alignItems:"center",marginBottom:"6px"}}>
+                              <div style={{fontSize:"12px",color:C.strike,width:"56px"}}>Pot</div>
+                              <input style={{...S.input,flex:1,fontSize:"13px",padding:"6px 10px"}} type="number" step="1" placeholder="$"
+                                value={cs.threeSixNineWinnings||""} onChange={e=>setThreeSixNineWinnings(cs.id,"pot",e.target.value===""?0:parseFloat(e.target.value))}/>
+                            </div>
+                            {r369.jackpotEligible&&(
+                              <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
+                                <div style={{fontSize:"12px",color:C.spare,width:"56px"}}>Jackpot</div>
+                                <input style={{...S.input,flex:1,fontSize:"13px",padding:"6px 10px"}} type="number" step="1" placeholder="$"
+                                  value={cs.jackpotWinnings||""} onChange={e=>setThreeSixNineWinnings(cs.id,"jackpot",e.target.value===""?0:parseFloat(e.target.value))}/>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+                      {(()=>{
+                        const m=sessionMoney(cs);
+                        if(!m)return null;
+                        // Net leads, matching the Money Games card in
+                        // Stats. Won and paid-in are its components, not
+                        // three peer figures -- and net is the only one
+                        // anyone quotes on the drive home.
+                        return(
+                          <div style={{marginBottom:"12px"}}>
+                            <StatLead
+                              value={`$${m.gross.toFixed(2)}`}
+                              caption="won tonight" color={C.strike}
+                              detail={`$${m.cost.toFixed(2)} paid in — ${m.net>=0?"up":"down"} $${Math.abs(m.net).toFixed(2)} on the night.`}/>
+                          </div>
+                        );
+                      })()}
+
+                      <button style={{...S.btn("primary"),marginBottom:"12px"}} onClick={confirmWinningsSaved}>
+                        {winningsSaved?"✓ Winnings Saved":"Save Winnings"}
+                      </button>
+                    </>
+                  )}
+
+                  {/* Results only, with everything else in this card.
+                      Side games ends at Save Winnings: what was won and
+                      owed, and nothing about how the night was bowled. */}
+                  {onTab("results")&&(
+                  <div style={{display:"flex",gap:"6px",marginBottom:"12px"}}>
+                    <div style={S.statBox}><div style={{...S.statNum,fontSize:"18px",color:C.strike}}>{sr}%</div><div style={S.statLbl}>Strike %</div></div>
+                    <div style={S.statBox}><div style={{...S.statNum,fontSize:"18px",color:C.spare}}>{spr}%</div><div style={S.statLbl}>Spare %</div></div>
+                    <div style={S.statBox}><div style={{...S.statNum,fontSize:"18px",color:C.miss}}>{cs.tenPinLeaves??(cs.weakTens+cs.ringingTens)}</div><div style={S.statLbl}>10 Pins</div></div>
+                  </div>
+                  )}
+                  {onTab("results")&&(cs.weakTens>0||cs.ringingTens>0||cs.tenPinLeaves>0)&&(
+                    <div style={{display:"flex",gap:"6px",marginBottom:"12px"}}>
+                      <div style={S.statBox}><div style={{...S.statNum,fontSize:"16px",color:C.miss}}>{cs.weakTens}</div><div style={S.statLbl}>Weak 10s</div></div>
+                      <div style={S.statBox}><div style={{...S.statNum,fontSize:"16px",color:C.spare}}>{cs.ringingTens}</div><div style={S.statLbl}>Ringing 10s</div></div>
+                      {cs.tenPinLeaves>(cs.weakTens+cs.ringingTens)&&(
+                        <div style={S.statBox}><div style={{...S.statNum,fontSize:"16px",color:C.textMuted}}>{cs.tenPinLeaves-cs.weakTens-cs.ringingTens}</div><div style={S.statLbl}>Other 10s</div></div>
+                      )}
+                    </div>
+                  )}
+                  {onTab("results")&&cs.splits>0&&(
+                    <div style={{display:"flex",gap:"6px",marginBottom:"12px"}}>
+                      <div style={S.statBox}><div style={{...S.statNum,fontSize:"16px",color:C.miss}}>{cs.splits}</div><div style={S.statLbl}>Splits</div></div>
+                      <div style={S.statBox}><div style={{...S.statNum,fontSize:"16px",color:C.strike}}>{Math.round((cs.splitsConverted/cs.splits)*100)}%</div><div style={S.statLbl}>Converted</div></div>
+                    </div>
+                  )}
+                  {onTab("results")&&(cs.ballsUsed||[]).length>0&&(<div style={{marginBottom:"10px"}}><div style={S.label}>Balls used</div><div style={{display:"flex",flexWrap:"wrap",gap:"6px"}}>{(cs.ballsUsed||[]).map(b=><span key={b} style={S.tag()}>{b}</span>)}</div></div>)}
+                  {onTab("results")&&rT>0&&(
+                    <div style={{marginBottom:"10px"}}>
+                      <div style={S.label}>Release Quality</div>
+                      <div style={{display:"flex",gap:"6px"}}>
+                        <div style={S.statBox}><div style={{...S.statNum,fontSize:"16px",color:C.strike}}>{rT?Math.round((gR/rT)*100):0}%</div><div style={S.statLbl}>Good</div></div>
+                        <div style={S.statBox}><div style={{...S.statNum,fontSize:"16px",color:C.miss}}>{rT?Math.round((bR/rT)*100):0}%</div><div style={S.statLbl}>Bad</div></div>
+                      </div>
+                    </div>
+                  )}
+                  {onTab("results")&&mDist.length>0&&(<div style={{marginBottom:"12px"}}><div style={S.label}>Misses</div><div style={{display:"flex",flexWrap:"wrap",gap:"6px"}}>{mDist.map(x=><span key={x.m} style={S.tag(C.miss)}>{x.m}: {x.c}</span>)}</div></div>)}
+                  {/* Results only. Running averages and "Share tonight"
+                      are the recap; Side games ends at Save Winnings. */}
+                  {onTab("results")&&(
+                  <>
+                  <div style={S.divider}/>
+                  <div style={S.label}>Running Averages</div>
+                  <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
+                    {leagueAs.map(({league,avg})=><div key={league} style={S.statBox}><div style={{...S.statNum,fontSize:"18px"}}>{avg}</div><div style={S.statLbl}>{league.replace(" House Shot","")}</div></div>)}
+                    {cA&&<div style={{...S.statBox,border:`1px solid ${C.accent}44`}}><div style={{...S.statNum,fontSize:"18px",color:C.accent}}>{cA}</div><div style={S.statLbl}>Composite</div></div>}
+                  </div>
+                  {/* Share sits with the summary because that's the moment
+                      someone wants to send it -- not buried in a menu. */}
+                  <div style={{marginTop:"14px"}}>
+                    <ShareButton label="Share tonight" summary={{
+                      bowler:cs.bowler||activeBowler,
+                      scores:cs.scores,
+                      league:cs.league,
+                      date:formatDate(cs.date),
+                      environment:"league",
+                      // Real achievements, not raw rates -- see
+                      // sessionHighlights. A goal you hit or money you won
+                      // is what someone actually wants to post; "48%
+                      // strikes" helps nobody.
+                      // These are DERIVED at share time from data that
+                      // exists, not read from fields on the session -- an
+                      // earlier version read cs.moneyWon, cs.goalsHit and
+                      // cs.priorBest, none of which were ever written, so
+                      // the card silently never showed money or goals.
+                      highlights:sessionHighlights({
+                        scores:cs.scores,
+                        strikes:cs.strikes,shotCount:cs.shotCount,
+                        sparesMade:cs.sparesMade,spareAttempts:cs.spareAttempts,
+                        // Money: net winnings on the night, from the same
+                        // calculation the Money Games card uses.
+                        moneyWon:Math.max(0,sessionMoney(cs)?.net||0),
+                        // Personal best: the best series BEFORE tonight, so
+                        // tonight can be compared against it.
+                        priorBest:(()=>{
+                          const others=sessions.filter(s=>s.bowler===cs.bowler&&s.id!==cs.id&&Array.isArray(s.scores)&&s.scores.length>1);
+                          return others.length?Math.max(...others.map(s=>s.total||s.scores.reduce((a,b)=>a+b,0))):null;
+                        })(),
+                        // Average before tonight, competitive only.
+                        priorAverage:cAvg(sessions.filter(s=>s.id!==cs.id),cs.bowler,null),
+                        environment:"league",
+                      }),
+                    }}/>
+                  </div>
+                  </>
+                  )}
+                </div>
+                </>
+              );
+            };
 
   return (
     <>
@@ -740,12 +1246,12 @@ export default function LogView({
                 <div style={S.chips}>
                   {leagues.map(l=>(
                     <Chip key={l} label={l.replace(" House Shot","")} selected={sessionLeague===l}
-                      onToggle={()=>{const team=teams.find(t=>t.league===l&&(t.members||[]).includes(activeBowler));setSessionLeague(l);setForm(f=>({...f,league:l,teamId:team?.id||"",date:sessionDate}));setShowSummary(false);}}/>
+                      onToggle={()=>{const team=teams.find(t=>t.league===l&&(t.members||[]).includes(activeBowler));setSessionLeague(l);setForm(f=>({...f,league:l,teamId:team?.id||"",date:sessionDate}));}}/>
                   ))}
                 </div>
                 <div style={{marginBottom:"10px"}}>
                   <input style={S.input} type="date" value={sessionDate}
-                    onChange={e=>{setSessionDate(e.target.value);set("date",e.target.value);setShowSummary(false);}}/>
+                    onChange={e=>{setSessionDate(e.target.value);set("date",e.target.value);}}/>
                 </div>
 
                 {/* Prebowling: games thrown early that count for a future
@@ -777,7 +1283,7 @@ export default function LogView({
                               ||nextLeagueDate(bowledOn,new Date(`${bowledOn}T00:00:00`).getDay());
                             setSessionDate(next);set("date",next);
                           }
-                          setShowSummary(false);
+                          
                         }}
                         style={{width:"100%",textAlign:"left",cursor:"pointer",
                           padding:"8px 10px",borderRadius:"8px",fontSize:"12px",
@@ -1024,10 +1530,10 @@ export default function LogView({
                         ):(
                           <div ref={cancelRef} style={{...S.card,padding:"12px",marginBottom:0}}>
                             <div style={{fontSize:"13px",color:C.text,lineHeight:1.5,marginBottom:"10px"}}>
-                              This deletes every shot and game score logged tonight for{" "}
+                              This deletes tonight's shots, game scores and match points for{" "}
                               <strong>{form.bowler||activeBowler}</strong> in{" "}
-                              <strong>{(sessionLeague||"").replace(" House Shot","")}</strong>, and
-                              takes you back to Home. Nothing is saved and this cannot be undone.
+                              <strong>{(sessionLeague||"").replace(" House Shot","")}</strong>, clears
+                              the setup, and takes you back to Home. This cannot be undone.
                             </div>
                             <div style={{display:"flex",gap:"8px"}}>
                               <button style={{...S.btn(),flex:1}} onClick={()=>setCancelArmed(false)}>
@@ -1517,6 +2023,7 @@ export default function LogView({
                 it entirely rather than trying to bend one into the other. */}
             {!editingId&&activeBowler&&preferences.environment==="tournament"&&(
               <TournamentSession
+                resultsSummary={!editingId&&curSession?renderNightSummary():null}
                 entitlement={entitlement}
                 tab={tournamentTab} onTabChange={setTournamentTab}
 
@@ -1531,6 +2038,7 @@ export default function LogView({
                 tournament={activeTournament}
                 onChange={updateTournament}
                 onSave={saveTournament}
+                onCancelTournament={cancelTournament}
                 saved={tournamentSaved}
                 oilPatterns={oilPatterns} submitOilPattern={submitOilPattern} tournaments={tournaments}/>
             )}
@@ -2658,13 +3166,9 @@ export default function LogView({
                 when they have some -- an empty goals card while logging
                 is noise. Deliberately collapsed by default so it doesn't
                 push the shot form down the screen. */}
-            {onTab("results")&&!editingId&&showGoals&&goalsPanel&&(
-              <CollapsibleCard title="Goals"
-                expanded={expandedSections.logGoals}
-                onToggle={()=>toggleSection("logGoals")}>
-                {goalsPanel}
-              </CollapsibleCard>
-            )}
+            {/* Goals used to sit here, at the top of Results. Removed:
+                they live on Improve, and at the end of a night the
+                scores are what a bowler came to see. */}
 
             {/* Summary */}
             {/* Renders for Results AND Side games: the money card lives
@@ -2677,480 +3181,9 @@ export default function LogView({
                 night has no league average to move and nothing to share
                 as a result, and the practice summary below already says
                 what the night was. */}
-            {(onTab("results")||onTab("side"))&&!editingId
+            {env!=="tournament"&&(onTab("results")||onTab("side"))&&!editingId
               &&preferences.environment!=="casual"&&preferences.environment!=="practice"
-              &&curSession&&(()=>{
-              const cs=curSession;
-              const sr=cs.shotCount?Math.round((cs.strikes/cs.shotCount)*100):0;
-              const spr=cs.spareAttempts?Math.round((cs.sparesMade/cs.spareAttempts)*100):0;
-              const leagueAs=leagues.map(league=>({league,avg:rAvg(sessions,activeBowler,league)})).filter(x=>x.avg!=null),cA=cAvg(sessions,activeBowler);
-              // Defaulted, not assumed. A session saved by an older version
-              // of the app -- or a draft created mid-night -- may not carry
-              // these arrays, and calling .filter() on undefined throws
-              // during render, which blanks the entire screen. A missing
-              // array should cost a chart, not the app.
-              const csMisses=Array.isArray(cs.misses)?cs.misses:[];
-              const csReleases=Array.isArray(cs.releases)?cs.releases:[];
-              const mDist=MISSES.map(m=>({m,c:csMisses.filter(x=>x===m).length})).filter(x=>x.c>0);
-              const gR=csReleases.filter(r=>r==="Good").length,bR=csReleases.filter(r=>r==="Bad").length,rT=csReleases.length;
-              // Honor scores, personal bests and tournament placement.
-              // Above the numbers, because a 300 or a new personal best
-              // is the thing a bowler looks for first and the thing
-              // they'll actually share.
-              const nightAchievements=achievementsFor({
-                games:(cs.scores||[]).filter(v=>v!=null),
-                seriesTotal:cs.total??null,
-                previous:{
-                  highGame:profiles?.[cs.bowler]?.allTimeHighGame,
-                  highSeries:profiles?.[cs.bowler]?.allTimeHighSeries,
-                },
-                placementId:cs.placement,
-                tournamentName:cs.tournamentName||"",
-              });
-              // Theoretical scores, computed ONCE for the whole block.
-              //
-              // They used to live inside the card that displays them, which
-              // was fine until the Nightcap needed the same number. Two
-              // derivations of one figure on one screen disagree eventually,
-              // and the bowler has no way to know which is the real one --
-              // so there is one derivation and both readers use it.
-              //
-              // The games actually bowled, not a fixed three: [1,2,3] is a
-              // league assumption, and a practice night can be one game or
-              // five. gameScores is already sized to the night.
-              const theoreticalScores=gameScores
-                .map((_,idx)=>idx+1)
-                .map(g=>theoreticalScoreForGame(cs.bowler,cs.league,cs.date,g));
-              const anyTheoretical=theoreticalScores.some(v=>v!=null);
-              // Theory Total covers the WHOLE series so it lines up directly
-              // against the real series. A game with no theoretical value
-              // (nothing makeable was missed, or it isn't computable)
-              // contributes its real score, since that game genuinely
-              // couldn't have gone any better.
-              const played=cs.scores
-                .map((real,i)=>({real,theory:theoreticalScores[i]}))
-                .filter(x=>typeof x.real==="number");
-              const theoryTotal=played.reduce((a,x)=>a+(x.theory??x.real),0);
-              const realTotal=played.reduce((a,x)=>a+x.real,0);
-              const leftOnLane=theoryTotal-realTotal;
-              return(
-                <>
-                {nightAchievements.length>0&&(
-                  <div style={{...S.card,border:`1px solid ${C.spare}66`,backgroundColor:C.spare+"0F"}}>
-                    {nightAchievements.map(a=>(
-                      <div key={a.id} style={{display:"flex",gap:"10px",alignItems:"flex-start",marginBottom:"6px"}}>
-                        <span style={{fontSize:"22px",lineHeight:1}}>{a.emoji}</span>
-                        <div>
-                          <div style={{fontSize:"14px",fontWeight:700,color:C.text}}>{a.title}</div>
-                          {a.detail&&<div style={{fontSize:"12px",color:C.textMuted,marginTop:"1px"}}>{a.detail}</div>}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* The Nightcap. Top of the results, above the scores.
-                    
-                    League only. A tournament block is a different shape of
-                    night -- blocks, a cut line, a standing -- and the facts
-                    below are league facts. A Baker night belongs to the
-                    pair rather than to one bowler, the same reason the
-                    heading below refuses to call it anybody's night, so it
-                    gets no personal read-back either.
-                    
-                    Results tab only: this block also renders on Side
-                    games, where a card about leaves and carry is not what
-                    anyone came for.
-                    
-                    sessionEnded asks whether the night is FILED, not
-                    whether the save was confirmed. The confirmation flag
-                    is true for a second and a half and then sends the
-                    bowler to Home, so a pour triggered by it would arrive
-                    on a screen nobody is looking at. A saved session for
-                    this bowler, league and date is durable and means the
-                    same thing. */}
-                {env==="league"&&onTab("results")&&!bakerTeamName&&(
-                  <Nightcap
-                    shots={shots}
-                    bowler={cs.bowler}
-                    league={cs.league}
-                    date={cs.date}
-                    leftHanded={leftHandedForBowler?leftHandedForBowler(cs.bowler):false}
-                    scores={cs.scores}
-                    priorAverage={cumulativeAvgBeforeDate(sessions,cs.bowler,cs.league,cs.date)}
-                    pinsLeftOnLane={anyTheoretical&&played.length?leftOnLane:null}
-                    sessionEnded={(sessions||[]).some(s=>s&&s.bowler===cs.bowler&&s.league===cs.league&&s.date===cs.date)}
-                    entitlement={entitlement}/>
-                )}
-
-                <div style={{...S.card,border:`1px solid ${C.accent}44`}}>
-                  {/* Results only, like the scores below it. On Side
-                      games the bowler already knows whose night it is and
-                      which league they are standing in -- the heading is a
-                      recap title on a tab that is not the recap. */}
-                  {onTab("results")&&(
-                    <div style={{...S.label}}>
-                      {/* A BAKER night belongs to the pair, not to one of
-                          them. One score for five frames each, so "Ryan's
-                          night" over a shared total credits one bowler with
-                          both halves -- the same mistake as counting a Baker
-                          game as a personal high game, in the heading. */}
-                      {bakerTeamName
-                        ? `${bakerTeamName} — tonight`
-                        : (cs.bowler?`${cs.bowler}'s night`:"Tonight")}
-                      {/* The DISPLAY name. A container league's stored name
-                          carries the user id -- "Tournament·Tourny 5·c3e40233-
-                          c180-4d76-be28-36abd33f9c07" -- and the recap header
-                          was printing the whole thing. */}
-                      <span style={{fontWeight:400,color:C.textMuted}}> — {practiceLeagueDisplayName(cs.league).replace(" House Shot","")}, {formatDate(cs.date)}</span>
-                    </div>
-                  )}
-                  {/* Results only. This card is shared with Side games,
-                      where the game scores are not what you came for: that
-                      tab is about what was won and owed, and the bowler
-                      just entered these numbers a tab ago. Repeating them
-                      above the money pushes the thing being looked for
-                      further down the screen. */}
-                  {onTab("results")&&(
-                    <div style={{display:"flex",gap:"6px",marginBottom:"12px"}}>
-                      {cs.scores.map((s,i)=>(<div key={i} style={S.statBox}><div style={{...S.statNum,fontSize:"20px"}}>{s}</div><div style={S.statLbl}>G{i+1}</div></div>))}
-                      <div style={{...S.statBox,border:`1px solid ${C.accent}44`}}>
-                        <div style={{...S.statNum,fontSize:"20px",color:C.accent}}>{cs.total}</div>
-                        <div style={S.statLbl}>Series</div>
-                      </div>
-                    </div>
-                  )}
-                  {(()=>{
-                    // Results only. "If every makeable spare had been
-                    // made" is post-match analysis; Side games is about
-                    // what was won and owed.
-                    if(!onTab("results"))return null;
-                    if(!anyTheoretical)return null;
-                    return(
-                      <div style={{marginBottom:"12px"}}>
-                        <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"6px"}}>If every makeable spare had been made</div>
-                        <div style={{display:"flex",gap:"6px"}}>
-                          {theoreticalScores.map((v,i)=>(
-                            <div key={i} style={{...S.statBox,border:`1px solid ${C.spare}44`}}>
-                              <div style={{...S.statNum,fontSize:"18px",color:v!=null?C.spare:C.textMuted}}>{v??"—"}</div>
-                              <div style={S.statLbl}>G{i+1} Theory</div>
-                            </div>
-                          ))}
-                          {played.length>0&&(
-                            <div style={{...S.statBox,border:`1px solid ${C.spare}`}}>
-                              <div style={{...S.statNum,fontSize:"18px",color:C.spare}}>{theoryTotal}</div>
-                              <div style={S.statLbl}>Theory Series</div>
-                            </div>
-                          )}
-                        </div>
-                        {played.length>0&&(
-                          <div style={{textAlign:"center",marginTop:"8px",fontSize:"12px"}}>
-                            {leftOnLane>0?(
-                              <span style={{color:C.miss,fontWeight:600}}>
-                                ▼ {leftOnLane} pins left on the lane
-                              </span>
-                            ):(
-                              <span style={{color:C.strike,fontWeight:600}}>
-                                ✓ Converted every makeable spare
-                              </span>
-                            )}
-                            <span style={{color:C.textMuted,fontWeight:400,marginLeft:"6px"}}>
-                              ({realTotal} actual vs {theoryTotal} possible)
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-
-                  {onTab("side")&&anyMoneyGameShown(preferences)&&(
-                    <>
-
-                      {/* Buy-ins are per LEAGUE, not per game and not per
-                          week: the quarter game costs a quarter every game
-                          all season. This used to be nine boxes re-typed
-                          every week, which is repetition whose most likely
-                          outcome is getting one of them wrong.
-                          
-                          Editing here updates the rate for this league and
-                          applies it to tonight. Past nights keep whatever
-                          they actually cost. */}
-                      {(()=>{
-                        const rates=buyInsForLeague(leagueBuyIns,cs.league);
-                        // Games to charge for. Defaults to a FULL night.
-                        //
-                        // This was the count of scores entered, which is
-                        // zero before the first ball -- so every cost came
-                        // out [0,0,0], "in this pot" is derived from a
-                        // non-zero cost, and the toggle did nothing at all
-                        // however many times it was tapped.
-                        //
-                        // Pots are entered before bowling starts. A bowler
-                        // who ticks the quarter game owes it for the night,
-                        // and the cost corrects itself as the real games
-                        // land.
-                        const games=Math.max(
-                          (cs.scores||[]).filter(v=>v!=null).length, 3);
-                        const pots=visibleMoneyGames(preferences);
-
-                        // Whether the bowler is IN each pot tonight,
-                        // derived from what the session already records
-                        // rather than stored twice: a non-zero cost means
-                        // they entered it.
-                        //
-                        // Saving a buy-in rate used to mean paying it
-                        // every week forever -- the app assumed you were
-                        // in every pot every night, so a week you sat one
-                        // out silently charged you for it and net
-                        // winnings drifted from reality with nothing on
-                        // screen to explain why.
-                        const costField={pokerQuarter:"pokerQuarterCost",pokerDollar:"pokerDollarCost",
-                                         highGame:"highGameCost",threeSixNine:"threeSixNineCost"};
-                        const isIn=key=>key==="threeSixNine"
-                          ?Number(cs.threeSixNineCost||0)>0
-                          :((cs[costField[key]]||[]).some(v=>Number(v)>0));
-
-                        const applyCosts=(nextRates,playing)=>{
-                          const arrays=costArraysFor(nextRates,games,playing);
-                          Object.entries(arrays).forEach(([field,value])=>{
-                            if(Array.isArray(value)){
-                              value.forEach((v,i)=>setSessionMoneyArray(cs.id,field,i,v));
-                            } else {
-                              setSessionMoneyValue(cs.id,field,value);
-                            }
-                          });
-                        };
-                        const playingNow=()=>Object.fromEntries(pots.map(k=>[k,isIn(k)]));
-
-                        const setRate=(key,val)=>{
-                          const next={...rates,[key]:val===""?0:parseFloat(val)||0};
-                          onSaveLeagueBuyIns?.(cs.league,next);
-                          // Entering a rate means you're in that pot --
-                          // otherwise typing a number would do nothing
-                          // visible, which reads as broken.
-                          applyCosts(next,{...playingNow(),[key]:true});
-                        };
-                        const togglePot=key=>applyCosts(rates,{...playingNow(),[key]:!isIn(key)});
-
-                        const label={pokerQuarter:"Quarter game",pokerDollar:"Dollar game",
-                                     highGame:"High game",threeSixNine:"3-6-9 (whole night)"};
-                        const step={pokerQuarter:"0.25",pokerDollar:"1",highGame:"1",threeSixNine:"1"};
-
-                        const owed=pots.reduce((sum,k)=>{
-                          if(!isIn(k))return sum;
-                          return sum+(k==="threeSixNine"?rates[k]:rates[k]*games);
-                        },0);
-
-                        if(!pots.length)return null;
-                        return(
-                          <div style={{marginBottom:"12px"}}>
-                            <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"6px"}}>Money games tonight</div>
-                            <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"8px"}}>
-                              Tap the ones you're in. Buy-ins are saved for {String(cs.league||"this league").replace(" House Shot","")} — you won't need to enter them again.
-                            </div>
-                            {pots.map(key=>{
-                              const inIt=isIn(key);
-                              return(
-                                <div key={key} style={{display:"flex",gap:"8px",alignItems:"center",marginBottom:"6px"}}>
-                                  <button onClick={()=>togglePot(key)}
-                                    aria-label={`${label[key]}: ${inIt?"playing":"not playing"}`}
-                                    style={{flex:1,textAlign:"left",cursor:"pointer",padding:"6px 8px",borderRadius:"8px",
-                                      border:`1px solid ${inIt?C.strike+"66":C.border}`,
-                                      background:inIt?C.strike+"11":"transparent",
-                                      color:inIt?C.text:C.textMuted,fontSize:"12px"}}>
-                                    {inIt?"✓ ":""}{label[key]}
-                                  </button>
-                                  <input style={{...S.input,width:"90px",fontSize:"13px",padding:"6px 10px",textAlign:"right",
-                                    opacity:inIt?1:0.45}}
-                                    type="number" step={step[key]} placeholder="$"
-                                    value={rates[key]===0?"":rates[key]}
-                                    onChange={e=>setRate(key,e.target.value)}/>
-                                </div>
-                              );
-                            })}
-                            <div style={{fontSize:"11px",color:C.textMuted,marginTop:"6px"}}>
-                              {games} game{games===1?"":"s"} tonight · ${owed.toFixed(2)} paid in
-                            </div>
-                          </div>
-                        );
-                      })()}
-
-
-                      <div style={{marginBottom:"12px"}}>
-                        <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"6px"}}>Poker Winnings ($)</div>
-                        {[0,1,2].map(gameIdx=>{
-                          if(cs.scores[gameIdx]==null)return null;
-                          const quarterVal=(cs.pokerQuarter||[0,0,0])[gameIdx]??0;
-                          const dollarVal=(cs.pokerDollar||[0,0,0])[gameIdx]??0;
-                          return(
-                            <div key={gameIdx} style={{display:"flex",gap:"8px",alignItems:"center",marginBottom:"6px"}}>
-                              <div style={{fontSize:"12px",color:C.textMuted,width:"28px"}}>G{gameIdx+1}</div>
-                              <input style={{...S.input,flex:1,fontSize:"13px",padding:"6px 10px"}} type="number" step="0.25" placeholder="Quarter $"
-                                value={quarterVal||""} onChange={e=>setPokerWinnings(cs.id,gameIdx,"quarter",e.target.value===""?0:parseFloat(e.target.value))}/>
-                              <input style={{...S.input,flex:1,fontSize:"13px",padding:"6px 10px"}} type="number" step="1" placeholder="Dollar $"
-                                value={dollarVal||""} onChange={e=>setPokerWinnings(cs.id,gameIdx,"dollar",e.target.value===""?0:parseFloat(e.target.value))}/>
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      <div style={{marginBottom:"12px"}}>
-                        <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"6px"}}>High Game Pot ($)</div>
-                        <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"6px"}}>
-                          Highest game in the league takes it — enter what you won, if anything.
-                        </div>
-                        {[0,1,2].map(gameIdx=>{
-                          if(cs.scores[gameIdx]==null)return null;
-                          const val=(cs.highGameWinnings||[0,0,0])[gameIdx]??0;
-                          return(
-                            <div key={gameIdx} style={{display:"flex",gap:"8px",alignItems:"center",marginBottom:"6px"}}>
-                              <div style={{fontSize:"12px",color:C.textMuted,width:"64px"}}>G{gameIdx+1} · {cs.scores[gameIdx]}</div>
-                              <input style={{...S.input,flex:1,fontSize:"13px",padding:"6px 10px"}} type="number" step="1" placeholder="Won $"
-                                value={val||""} onChange={e=>setSessionMoneyArray(cs.id,"highGameWinnings",gameIdx,e.target.value===""?0:parseFloat(e.target.value))}/>
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {(()=>{
-                        // 3-6-9: a single, whole-session win (all 9 specific
-                        // strikes across games 1, 2, AND 3) -- not per-game
-                        // like poker, so this only shows once per session, and
-                        // only when actually qualified. The jackpot input is
-                        // additionally gated on game 3's 10th being a full
-                        // turkey, on top of the win itself.
-                        const r369=threeSixNineResults(shots,cs.bowler,cs.league,cs.date);
-                        if(!r369.qualifies)return null;
-                        return(
-                          <div style={{marginBottom:"12px"}}>
-                            <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"6px"}}>3-6-9 Winnings ($)</div>
-                            <div style={{display:"flex",gap:"8px",alignItems:"center",marginBottom:"6px"}}>
-                              <div style={{fontSize:"12px",color:C.strike,width:"56px"}}>Pot</div>
-                              <input style={{...S.input,flex:1,fontSize:"13px",padding:"6px 10px"}} type="number" step="1" placeholder="$"
-                                value={cs.threeSixNineWinnings||""} onChange={e=>setThreeSixNineWinnings(cs.id,"pot",e.target.value===""?0:parseFloat(e.target.value))}/>
-                            </div>
-                            {r369.jackpotEligible&&(
-                              <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
-                                <div style={{fontSize:"12px",color:C.spare,width:"56px"}}>Jackpot</div>
-                                <input style={{...S.input,flex:1,fontSize:"13px",padding:"6px 10px"}} type="number" step="1" placeholder="$"
-                                  value={cs.jackpotWinnings||""} onChange={e=>setThreeSixNineWinnings(cs.id,"jackpot",e.target.value===""?0:parseFloat(e.target.value))}/>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })()}
-                      {(()=>{
-                        const m=sessionMoney(cs);
-                        if(!m)return null;
-                        // Net leads, matching the Money Games card in
-                        // Stats. Won and paid-in are its components, not
-                        // three peer figures -- and net is the only one
-                        // anyone quotes on the drive home.
-                        return(
-                          <div style={{marginBottom:"12px"}}>
-                            <StatLead
-                              value={`$${m.gross.toFixed(2)}`}
-                              caption="won tonight" color={C.strike}
-                              detail={`$${m.cost.toFixed(2)} paid in — ${m.net>=0?"up":"down"} $${Math.abs(m.net).toFixed(2)} on the night.`}/>
-                          </div>
-                        );
-                      })()}
-
-                      <button style={{...S.btn("primary"),marginBottom:"12px"}} onClick={confirmWinningsSaved}>
-                        {winningsSaved?"✓ Winnings Saved":"Save Winnings"}
-                      </button>
-                    </>
-                  )}
-
-                  {/* Results only, with everything else in this card.
-                      Side games ends at Save Winnings: what was won and
-                      owed, and nothing about how the night was bowled. */}
-                  {onTab("results")&&(
-                  <div style={{display:"flex",gap:"6px",marginBottom:"12px"}}>
-                    <div style={S.statBox}><div style={{...S.statNum,fontSize:"18px",color:C.strike}}>{sr}%</div><div style={S.statLbl}>Strike %</div></div>
-                    <div style={S.statBox}><div style={{...S.statNum,fontSize:"18px",color:C.spare}}>{spr}%</div><div style={S.statLbl}>Spare %</div></div>
-                    <div style={S.statBox}><div style={{...S.statNum,fontSize:"18px",color:C.miss}}>{cs.tenPinLeaves??(cs.weakTens+cs.ringingTens)}</div><div style={S.statLbl}>10 Pins</div></div>
-                  </div>
-                  )}
-                  {onTab("results")&&(cs.weakTens>0||cs.ringingTens>0||cs.tenPinLeaves>0)&&(
-                    <div style={{display:"flex",gap:"6px",marginBottom:"12px"}}>
-                      <div style={S.statBox}><div style={{...S.statNum,fontSize:"16px",color:C.miss}}>{cs.weakTens}</div><div style={S.statLbl}>Weak 10s</div></div>
-                      <div style={S.statBox}><div style={{...S.statNum,fontSize:"16px",color:C.spare}}>{cs.ringingTens}</div><div style={S.statLbl}>Ringing 10s</div></div>
-                      {cs.tenPinLeaves>(cs.weakTens+cs.ringingTens)&&(
-                        <div style={S.statBox}><div style={{...S.statNum,fontSize:"16px",color:C.textMuted}}>{cs.tenPinLeaves-cs.weakTens-cs.ringingTens}</div><div style={S.statLbl}>Other 10s</div></div>
-                      )}
-                    </div>
-                  )}
-                  {onTab("results")&&cs.splits>0&&(
-                    <div style={{display:"flex",gap:"6px",marginBottom:"12px"}}>
-                      <div style={S.statBox}><div style={{...S.statNum,fontSize:"16px",color:C.miss}}>{cs.splits}</div><div style={S.statLbl}>Splits</div></div>
-                      <div style={S.statBox}><div style={{...S.statNum,fontSize:"16px",color:C.strike}}>{Math.round((cs.splitsConverted/cs.splits)*100)}%</div><div style={S.statLbl}>Converted</div></div>
-                    </div>
-                  )}
-                  {onTab("results")&&(cs.ballsUsed||[]).length>0&&(<div style={{marginBottom:"10px"}}><div style={S.label}>Balls used</div><div style={{display:"flex",flexWrap:"wrap",gap:"6px"}}>{(cs.ballsUsed||[]).map(b=><span key={b} style={S.tag()}>{b}</span>)}</div></div>)}
-                  {onTab("results")&&rT>0&&(
-                    <div style={{marginBottom:"10px"}}>
-                      <div style={S.label}>Release Quality</div>
-                      <div style={{display:"flex",gap:"6px"}}>
-                        <div style={S.statBox}><div style={{...S.statNum,fontSize:"16px",color:C.strike}}>{rT?Math.round((gR/rT)*100):0}%</div><div style={S.statLbl}>Good</div></div>
-                        <div style={S.statBox}><div style={{...S.statNum,fontSize:"16px",color:C.miss}}>{rT?Math.round((bR/rT)*100):0}%</div><div style={S.statLbl}>Bad</div></div>
-                      </div>
-                    </div>
-                  )}
-                  {onTab("results")&&mDist.length>0&&(<div style={{marginBottom:"12px"}}><div style={S.label}>Misses</div><div style={{display:"flex",flexWrap:"wrap",gap:"6px"}}>{mDist.map(x=><span key={x.m} style={S.tag(C.miss)}>{x.m}: {x.c}</span>)}</div></div>)}
-                  {/* Results only. Running averages and "Share tonight"
-                      are the recap; Side games ends at Save Winnings. */}
-                  {onTab("results")&&(
-                  <>
-                  <div style={S.divider}/>
-                  <div style={S.label}>Running Averages</div>
-                  <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
-                    {leagueAs.map(({league,avg})=><div key={league} style={S.statBox}><div style={{...S.statNum,fontSize:"18px"}}>{avg}</div><div style={S.statLbl}>{league.replace(" House Shot","")}</div></div>)}
-                    {cA&&<div style={{...S.statBox,border:`1px solid ${C.accent}44`}}><div style={{...S.statNum,fontSize:"18px",color:C.accent}}>{cA}</div><div style={S.statLbl}>Composite</div></div>}
-                  </div>
-                  {/* Share sits with the summary because that's the moment
-                      someone wants to send it -- not buried in a menu. */}
-                  <div style={{marginTop:"14px"}}>
-                    <ShareButton label="Share tonight" summary={{
-                      bowler:cs.bowler||activeBowler,
-                      scores:cs.scores,
-                      league:cs.league,
-                      date:formatDate(cs.date),
-                      environment:"league",
-                      // Real achievements, not raw rates -- see
-                      // sessionHighlights. A goal you hit or money you won
-                      // is what someone actually wants to post; "48%
-                      // strikes" helps nobody.
-                      // These are DERIVED at share time from data that
-                      // exists, not read from fields on the session -- an
-                      // earlier version read cs.moneyWon, cs.goalsHit and
-                      // cs.priorBest, none of which were ever written, so
-                      // the card silently never showed money or goals.
-                      highlights:sessionHighlights({
-                        scores:cs.scores,
-                        strikes:cs.strikes,shotCount:cs.shotCount,
-                        sparesMade:cs.sparesMade,spareAttempts:cs.spareAttempts,
-                        // Money: net winnings on the night, from the same
-                        // calculation the Money Games card uses.
-                        moneyWon:Math.max(0,sessionMoney(cs)?.net||0),
-                        // Personal best: the best series BEFORE tonight, so
-                        // tonight can be compared against it.
-                        priorBest:(()=>{
-                          const others=sessions.filter(s=>s.bowler===cs.bowler&&s.id!==cs.id&&Array.isArray(s.scores)&&s.scores.length>1);
-                          return others.length?Math.max(...others.map(s=>s.total||s.scores.reduce((a,b)=>a+b,0))):null;
-                        })(),
-                        // Average before tonight, competitive only.
-                        priorAverage:cAvg(sessions.filter(s=>s.id!==cs.id),cs.bowler,null),
-                        environment:"league",
-                      }),
-                    }}/>
-                  </div>
-                  </>
-                  )}
-                </div>
-                </>
-              );
-            })()}
+              &&curSession&&renderNightSummary()}
 
             {/* No divider between Result and the fields below it.
                 
@@ -3661,7 +3694,10 @@ export default function LogView({
                 
                 Results is where you look back, and last is where a note
                 belongs -- after the numbers it is about.*/}
-            {onTab("results")&&(
+            {/* League and open bowling only. A tournament has its own
+                Tournament Notes on the card above, and practice had a
+                note nobody asked for at the end of a practice night. */}
+            {onTab("results")&&env!=="tournament"&&env!=="practice"&&(
             <CollapsibleCard
               title="Session Notes"
               summary={form.notes?"✓":""}
@@ -3678,7 +3714,7 @@ export default function LogView({
                 -- had nothing between it and the sticky bar and got cut
                 off at the bottom. A spacer only clears what precedes it. */}
           {(editingId||(activeBowler&&effectiveSessionLeague))&&(
-            <div style={{height:env==="tournament"?"76px":`${footerHeight}px`}}/>
+            <div style={{height:footerShown?`${footerHeight}px`:"76px"}}/>
           )}
 
           {/* The bar shows while EDITING too.
@@ -3690,7 +3726,7 @@ export default function LogView({
               Editing needs the bar for Update; it does not need the
               session button, because there is no night in progress to
               end. Each button decides for itself below. */}
-          {(editingId||(activeBowler&&effectiveSessionLeague&&env!=="tournament"))&&(
+          {footerShown&&(
           <div ref={footerRef} style={{position:"fixed",bottom:"calc(64px + env(safe-area-inset-bottom, 0px))",left:0,right:0,zIndex:50,padding:"10px 14px",display:"flex",gap:"8px",backgroundColor:C.bg,borderTop:`1px solid ${C.border}`}}>
             {/* Save Shot, sticky, left of the session button.
                 
@@ -3735,17 +3771,18 @@ export default function LogView({
             {/* Not while editing: there is no session in progress to
                 end, and "End Practice" beside "Update" invites a bowler to
                 finish a night they are not in. */}
-            {!editingId&&(
+            {/* Not in a tournament either: the tournament card has its own
+                Save Tournament on Results, and "End Block" beside it asks
+                which one finishes the event. */}
+            {!editingId&&env!=="tournament"&&(
             <button style={{...S.btn("primary"),flex:1}} onClick={submitSession}>
               {sessionSaveMessage?sessionSaveMessage:sessionSaved
                 ?"✓ Session Saved"
                 :preferences.environment==="practice"
-                  ?"End Practice"
-                  :preferences.environment==="tournament"
-                    ?"End Block"
-                    :preferences.environment==="league"
-                      ?"End Session"
-                      :"Finish"}
+                  ?"Save Practice & Return Home"
+                  :preferences.environment==="league"
+                    ?"Save League & Return Home"
+                    :"Save Open Bowling & Return Home"}
             </button>
             )}
           </div>

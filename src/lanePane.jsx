@@ -495,6 +495,9 @@ export default function LanePane({
             }}>
             <span style={{ display: "flex", alignItems: "baseline", gap: "7px",
               flexWrap: "wrap", minWidth: 0 }}>
+              {/* "Avg" says what the big number is. Without it, 198 beside
+                  a pattern name could be a score, a count or a board. */}
+              <span style={{ fontSize: "12px", fontWeight: 600, color: C.textMuted }}>Avg</span>
               <span style={{ fontFamily: F.num, fontSize: "20px", fontWeight: 600,
                 color: C.text }}>{band.here.average}</span>
               <span style={{ fontFamily: F.num, fontSize: "13px", fontWeight: 600,
@@ -524,7 +527,7 @@ export default function LanePane({
                     textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.name}</span>
                   <span style={{ fontSize: "12px", color: C.textMuted,
                     fontFamily: F.num, whiteSpace: "nowrap", flexShrink: 0 }}>
-                    {o.average}{" "}
+                    Avg {o.average}{" "}
                     <strong style={{ color: deltaColour(o.versusOverall) }}>
                       {o.versusOverall > 0 ? "+" : ""}{o.versusOverall}
                     </strong>

@@ -309,7 +309,36 @@ const STAT_LABELS = {
   gamePosition: "Game-by-game fade",
   consistency: "Consistency",
   formVsBook: "Form vs book average",
+  // These were missing, so the fallback below printed the raw key --
+  // "averageByPosition, mostCommonLeave" on the Improve tab.
+  singlePinRate: "Single-pin spares",
+  cornerPinRate: "Single corner pin spares",
+  openFramesPerGame: "Open frames per game",
+  averageByPosition: "Average by game (1st, 2nd, 3rd)",
+  scoreSpread: "Score spread",
+  mostCommonLeave: "Most common leave",
+  balls: "Ball comparison",
+  centers: "Center-by-center averages",
+  drills: "Drill results",
+  patterns: "Oil pattern averages",
 };
+
+// Always in the payload once a bowler has any scores at all. They are
+// context for the analysis, not insights that unlock, so announcing them
+// as "New since last time" -- which is what happened -- is noise.
+const CONTEXT_KEYS = new Set(["handedness", "average", "bookAverage", "highGame", "highSeries", "gamesLogged", "nightsLogged"]);
+
+// Last resort for a key added to the payload without a label here:
+// "someNewStat" -> "Some new stat". Never the raw key.
+function humanizeKey(key) {
+  const words = key.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/[_-]+/g, " ").toLowerCase().trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+// Whether a payload key is a statistic worth telling the bowler about.
+export function isAnnouncedStat(key) {
+  return typeof key === "string" && key !== "" && !CONTEXT_KEYS.has(key);
+}
 
 // The unit each threshold counts, so "90 more" is never ambiguous.
 const UNIT_LABELS = {
@@ -330,7 +359,7 @@ export function statLabel(key) {
   if (typeof key !== "string") return null;
   if (key.startsWith("ball:")) return `${key.slice(5)} (ball)`;
   if (key.startsWith("drill:")) return `${key.slice(6)} drill`;
-  return STAT_LABELS[key] || key;
+  return STAT_LABELS[key] || humanizeKey(key);
 }
 
 // Which threshold each statistic is measured against. Needed because a
@@ -391,5 +420,5 @@ export function newlyUnlocked(payload, previousSignature) {
   const now = Object.keys(payload?.included || {});
   if (previousSignature === null || previousSignature === undefined) return [];
   const before = new Set(String(previousSignature).split(",").filter(Boolean));
-  return now.filter(k => !before.has(k)).map(statLabel);
+  return now.filter(k => !before.has(k) && isAnnouncedStat(k)).map(statLabel);
 }

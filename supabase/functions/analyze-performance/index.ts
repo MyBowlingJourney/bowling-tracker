@@ -20,8 +20,9 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { recordAiTokens } from "../_shared/aiUsage.ts";
+import { geminiKey } from "../_shared/geminiKey.ts";
 
-const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+const GEMINI_API_KEY = geminiKey();
 // Overridable by secret, like the genie and the importer.
 //
 // This was the only one of the four models hardcoded, which made Insights

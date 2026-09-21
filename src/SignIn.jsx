@@ -52,6 +52,43 @@ export default function SignIn() {
   const [status, setStatus] = useState("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const codeRef = useRef(null);
+
+  // Keep the button above the keyboard.
+  //
+  // On Android the app is edge-to-edge, and the WebView is no longer
+  // resized when the keyboard opens -- the keyboard is drawn OVER the
+  // page. On a phone that put it squarely over "Email Me a Code", with
+  // nowhere to scroll: this screen is exactly one screen tall.
+  //
+  // So while a field has focus the page gets room at the bottom, and the
+  // button is scrolled into the top part of the screen, which the
+  // keyboard never reaches. This works whether or not the WebView
+  // resizes, so it needs no native plugin and changes nothing on the web.
+  //
+  // The room comes off a beat AFTER focus leaves, not on blur: tapping
+  // the button blurs the field first, and removing the room at that
+  // instant would move the button out from under the finger mid-tap.
+  const [typing, setTyping] = useState(false);
+  const releaseTimer = useRef(null);
+  const emailButtonRef = useRef(null);
+  const codeButtonRef = useRef(null);
+  const keepAboveKeyboard = (targetRef) => ({
+    onFocus: () => {
+      clearTimeout(releaseTimer.current);
+      setTyping(true);
+      setTimeout(() => {
+        const el = targetRef.current;
+        if (!el) return;
+        const top = el.getBoundingClientRect().top + window.scrollY;
+        try { window.scrollTo({ top: Math.max(0, top - window.innerHeight * 0.3), behavior: "smooth" }); } catch { /* old WebView */ }
+      }, 250);
+    },
+    onBlur: () => {
+      clearTimeout(releaseTimer.current);
+      releaseTimer.current = setTimeout(() => setTyping(false), 400);
+    },
+  });
+  useEffect(() => () => clearTimeout(releaseTimer.current), []);
   // Guards the auto-submit below against firing twice for one entry --
   // a re-render while the request is in flight would otherwise resubmit
   // the same code and get the second attempt rejected as already used.
@@ -152,6 +189,8 @@ export default function SignIn() {
       minHeight: "100vh", backgroundColor: C.bg, color: C.text,
       fontFamily: "'Inter',system-ui,sans-serif", fontSize: "14px",
       display: "flex", alignItems: "center", justifyContent: "center", padding: "24px",
+      // Room to scroll the button above the keyboard -- see keepAboveKeyboard.
+      paddingBottom: typing ? "60vh" : "24px",
     }}>
       <div style={{
         width: "100%", maxWidth: "360px", backgroundColor: C.card,
@@ -181,6 +220,7 @@ export default function SignIn() {
 
             <input
               ref={codeRef}
+              {...keepAboveKeyboard(codeButtonRef)}
               type="text"
               inputMode="numeric"
               // Lets Android and iOS offer the code from the notification
@@ -201,6 +241,7 @@ export default function SignIn() {
             />
 
             <button
+              ref={codeButtonRef}
               type="button"
               onClick={() => submitCode(code)}
               disabled={status === "verifying" || code.length !== OTP_LENGTH}
@@ -294,6 +335,7 @@ export default function SignIn() {
             <input
               type="email"
               required
+              {...keepAboveKeyboard(emailButtonRef)}
               placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -304,6 +346,7 @@ export default function SignIn() {
               }}
             />
             <button
+              ref={emailButtonRef}
               type="submit"
               disabled={status === "sending"}
               style={{

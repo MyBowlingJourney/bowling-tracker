@@ -33,9 +33,8 @@ import {
   MOVABLE_STATS_CARDS,
   TRACKING_MODE_LABELS,
   resetToEnvironmentDefaults,
-  moveStatsCard,
   toggleStatsCardHidden,
-  reconcileCardOrder,
+  defaultStatsCardOrder,
   } from "./domain/preferences.js";
 
 const CARD_LABEL_BY_ID = Object.fromEntries(MOVABLE_STATS_CARDS.map(c => [c.id, c.label]));
@@ -230,7 +229,8 @@ export default function Settings({
     setTimeout(() => setSavedFlash(false), 1200);
   }
 
-  const cardOrder = reconcileCardOrder(preferences.statsCardOrder);
+  // The order the Stats tab actually uses -- see visibleStatsCardOrder.
+  const cardOrder = defaultStatsCardOrder(preferences.environment);
   const hidden = new Set(preferences.hiddenStatsCards || []);
 
   return (
@@ -459,6 +459,41 @@ export default function Settings({
           
           Mode and tracking style moved to Home, leaving a card whose
           only job was to announce which mode you were in. */}
+
+      {/* Replay the walkthrough. Separate from Reset settings: someone
+          who wants a reminder of what a tab does shouldn't have to
+          consider wiping their theme and layout to get it. */}
+      {/* Walkthroughs first, above App appearance: it is the card a
+          bowler opens Settings looking for, far more often than a theme.
+          Every walkthrough, replayable. One per way of bowling, because
+          the league tour explains rosters and money games that a casual
+          bowler never sees, and the casual tour would bore a league
+          bowler. Coaching is gated to coaches -- offering it to everyone
+          would advertise a mode most people will never use. */}
+      {showCard("walkthroughs") && replayTour && (
+        <CollapsibleCard title="Walkthroughs"
+          summary={`${availableTours().length} available`}
+          expanded={expanded.walkthroughs} onToggle={() => toggle("walkthroughs")}>
+          <div style={{ fontSize: "11px", color: C.textMuted, marginBottom: "10px" }}>
+            Watch any of these again, any time.
+          </div>
+          {availableTours().map(t => (
+            <div key={t.key} style={{
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+              gap: "10px", padding: "8px 0", borderTop: `1px solid ${C.border}`,
+            }}>
+              <div>
+                <div style={{ fontSize: "13px", fontWeight: 600, color: C.text }}>{t.label}</div>
+                <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "1px" }}>{t.blurb}</div>
+              </div>
+              <button style={{ ...S.btn(), padding: "7px 12px", fontSize: "12px", flexShrink: 0 }}
+                onClick={() => replayTour(t.key)}>
+                Watch
+              </button>
+            </div>
+          ))}
+        </CollapsibleCard>
+      )}
 
       {showCard("look") && (
       <CollapsibleCard title="App appearance" summary={THEMES[preferences.theme]?.label || THEMES.lane.label}
@@ -956,7 +991,7 @@ export default function Settings({
       <CollapsibleCard title="Stats Card Layout" summary={`${cardOrder.length - hidden.size} of ${cardOrder.length} visible`}
         expanded={expanded.statsLayout} onToggle={() => toggle("statsLayout")}>
         <div style={{ fontSize: "12px", color: C.textMuted, marginBottom: "10px" }}>
-          Reorder or hide whole cards on the Data tab. Each card moves as one unit — the stats grouped inside it stay together.
+          Hide cards you don't want on the Stats tab. You can also hide one from the eye on the card itself, and bring them all back from the bottom of each Stats tab.
         </div>
         {cardOrder.map((id, idx) => {
           const isHidden = hidden.has(id);
@@ -965,12 +1000,8 @@ export default function Settings({
               <div style={{ flex: 1, fontSize: "13px", color: isHidden ? C.textMuted : C.text, textDecoration: isHidden ? "line-through" : "none" }}>
                 {CARD_LABEL_BY_ID[id] || id}
               </div>
-              <button style={{ ...S.btn(), padding: "4px 10px", fontSize: "13px", opacity: idx === 0 ? 0.3 : 1 }}
-                disabled={idx === 0}
-                onClick={() => apply(prev => moveStatsCard(prev, id, "up"))} aria-label="Move up">↑</button>
-              <button style={{ ...S.btn(), padding: "4px 10px", fontSize: "13px", opacity: idx === cardOrder.length - 1 ? 0.3 : 1 }}
-                disabled={idx === cardOrder.length - 1}
-                onClick={() => apply(prev => moveStatsCard(prev, id, "down"))} aria-label="Move down">↓</button>
+              {/* The up/down arrows are gone: cards keep the app's order
+                  for your mode. Hiding is the whole control now. */}
               <button style={{ ...S.btn(), padding: "4px 10px", fontSize: "11px", minWidth: "54px" }}
                 onClick={() => apply(prev => toggleStatsCardHidden(prev, id))}>
                 {isHidden ? "Show" : "Hide"}
@@ -1148,38 +1179,6 @@ export default function Settings({
           preferences object: theme, every tracked field, money games, and
           the Stats card order. Someone reaching for it to fix one toggle
           lost their theme and card layout with no warning. */}
-      {/* Replay the walkthrough. Separate from Reset settings: someone
-          who wants a reminder of what a tab does shouldn't have to
-          consider wiping their theme and layout to get it. */}
-      {/* Every walkthrough, replayable. One per way of bowling, because
-          the league tour explains rosters and money games that a casual
-          bowler never sees, and the casual tour would bore a league
-          bowler. Coaching is gated to coaches -- offering it to everyone
-          would advertise a mode most people will never use. */}
-      {showCard("walkthroughs") && replayTour && (
-        <CollapsibleCard title="Walkthroughs"
-          summary={`${availableTours().length} available`}
-          expanded={expanded.walkthroughs} onToggle={() => toggle("walkthroughs")}>
-          <div style={{ fontSize: "11px", color: C.textMuted, marginBottom: "10px" }}>
-            Watch any of these again, any time.
-          </div>
-          {availableTours().map(t => (
-            <div key={t.key} style={{
-              display: "flex", justifyContent: "space-between", alignItems: "center",
-              gap: "10px", padding: "8px 0", borderTop: `1px solid ${C.border}`,
-            }}>
-              <div>
-                <div style={{ fontSize: "13px", fontWeight: 600, color: C.text }}>{t.label}</div>
-                <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "1px" }}>{t.blurb}</div>
-              </div>
-              <button style={{ ...S.btn(), padding: "7px 12px", fontSize: "12px", flexShrink: 0 }}
-                onClick={() => replayTour(t.key)}>
-                Watch
-              </button>
-            </div>
-          ))}
-        </CollapsibleCard>
-      )}
 
       {/* The Diagnostics card used to sit here.
           

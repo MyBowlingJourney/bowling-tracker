@@ -54,7 +54,6 @@ function baseProps(overrides = {}) {
   setSessionDate: vi.fn(),
   startingLane: '',
   setStartingLane: vi.fn(),
-  setShowSummary: vi.fn(),
   expandedSections: {"tonightSession": true, "manualScores": true},
   ballNumLabel: '',
   curSession: null,

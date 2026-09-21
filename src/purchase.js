@@ -12,6 +12,7 @@
 import { supabase } from "./supabaseClient.js";
 import { isNative } from "./nativeAuth.js";
 import { paymentRail } from "./domain/billing.js";
+import { isBowlerFacing } from "./domain/functionErrors.js";
 
 // ⚠️ DISPLAY ONLY, AND PLACEHOLDERS. ⚠️
 //
@@ -66,7 +67,9 @@ async function invokeFailure(error) {
     if (res && typeof res.json === "function") body = await res.json();
   } catch { /* not JSON; the status is all there is */ }
   return {
-    message: typeof body?.error === "string" ? body.error : "",
+    // Only a message written for bowlers passes; "not configured" and the
+    // like leave this empty so the caller's own friendly text is shown.
+    message: isBowlerFacing(body?.error) ? body.error : "",
     alreadySubscribed: body?.alreadySubscribed === true,
   };
 }

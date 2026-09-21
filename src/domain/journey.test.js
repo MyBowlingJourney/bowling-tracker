@@ -4,6 +4,7 @@ import {
   describeMilestone,
   journeyProgress,
   nextMilestone,
+  upcomingMilestones, describeUpcoming, journeyTotals, milestoneGlyph,
   bandedJourney,
 } from './journey.js';
 
@@ -183,5 +184,43 @@ describe('folding away milestones a bowler is past', () => {
     for (const j of [null, undefined, 'x', 42, [null]]) {
       expect(() => bandedJourney(j, j)).not.toThrow();
     }
+  });
+});
+
+describe("the redesigned Journey screen", () => {
+  const night = (date, scores) => ({ bowler: "R", league: "L", date, scores });
+  // 11 nights, best game 244, best series 660.
+  const sessions = [
+    ...Array.from({ length: 10 }, (_, i) => night(`2026-07-${String(i + 1).padStart(2, "0")}`, [180, 190, 200])),
+    night("2026-07-20", [244, 216, 200]),
+  ];
+  it("offers the NEXT step in each line, closest first", () => {
+    const up = upcomingMilestones(sessions, [], [], 3);
+    const ids = up.map(m => m.id);
+    expect(ids).toContain("game-250");      // 244 -> 250 is the next game step
+    expect(ids).toContain("series-700");    // 660 -> 700
+    expect(ids).toContain("nights-25");     // 11 -> 25
+    expect(ids).not.toContain("game-275");  // only the nearest in a line
+    expect(up[0].id).toBe("game-250");      // 244/250 is the closest
+  });
+  it("never offers what was already earned", () => {
+    expect(upcomingMilestones(sessions, [], [], 5).some(m => m.id === "game-200")).toBe(false);
+  });
+  it("limits to the number asked for", () => {
+    expect(upcomingMilestones(sessions, [], [], 2)).toHaveLength(2);
+  });
+  it("describes the gap in pins", () => {
+    const g = upcomingMilestones(sessions, [], [], 3).find(m => m.id === "game-250");
+    expect(describeUpcoming(g)).toBe("6 pins short · best 244");
+  });
+  it("totals nights, games and pins, and when it started", () => {
+    const t = journeyTotals(sessions);
+    expect(t.nights).toBe(11); expect(t.games).toBe(33); expect(t.since).toBe("2026-07-01");
+    expect(t.pins).toBe(10 * 570 + 660);
+  });
+  it("glyphs: a number where there is one, a symbol for firsts", () => {
+    expect(milestoneGlyph({ id: "game-250", target: 250 })).toBe("250");
+    expect(milestoneGlyph({ id: "first-five-bagger", target: 1 })).toBe("5X");
+    expect(milestoneGlyph({ id: "first-spare", target: 1 })).toBe("/");
   });
 });

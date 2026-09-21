@@ -3,6 +3,7 @@ import { shareText, shareTitle, drawShareCard, APP_URL,
   drawTrendCard,
   trendShareText,
   drawShareQr,
+  badgeShareText,
 } from './shareCard.js';
 import { APP_NAME } from '../constants.js';
 
@@ -213,5 +214,17 @@ describe('share QR code', () => {
   it('fails quietly when generation itself throws', async () => {
     const QRCode = { toDataURL: async () => { throw new Error('offline'); } };
     expect(await drawShareQr({ fillRect(){}, set fillStyle(v){} }, 0, 0, 100, QRCode)).toBe(false);
+  });
+});
+
+describe("badgeShareText for the whole collection", () => {
+  const b = [{ emoji: "🎳", name: "Clean game" }, { emoji: "🔥", name: "Turkey" }];
+  it("says how many of how many, not 'tonight'", () => {
+    const t = badgeShareText("Ryan", b, "https://x.test", { collection: true, total: 30 });
+    expect(t).toMatch(/^Ryan has earned 2 of 30 badges/);
+    expect(t).not.toMatch(/tonight/);
+  });
+  it("the night version is unchanged", () => {
+    expect(badgeShareText("Ryan", b, "")).toMatch(/earned 2 badges tonight/);
   });
 });

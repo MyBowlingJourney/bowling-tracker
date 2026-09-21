@@ -8,6 +8,10 @@ import { findExistingShotSlot } from "./domain/sessions.js";
 import { isValidGameScore, invalidScoreIndexes } from "./domain/importVerification.js";
 import { supabase } from "./supabaseClient.js";
 import { recordError } from "./errorLogStore.js";
+import { friendlyFunctionError, readFunctionFailure, failureDetail, isBowlerFacing } from "./domain/functionErrors.js";
+
+// The importer's own words for "it didn't work". The real reason is logged.
+const IMPORT_FALLBACK = "Couldn't read that scorecard right now. Try again in a few minutes, or enter the scores by hand.";
 
 // A short, human-readable summary of a single shot, for the collapsed row
 // -- e.g. "Strike", "9-spare", "7-2 open". Mirrors how a bowler would say
@@ -522,64 +526,59 @@ export default function ImportScorecard({
       }
 
       if(fnError){
-        // supabase-js reports any non-2xx or network failure as the same
-        // opaque "Failed to send a request to the Edge Function", which
-        // tells the bowler nothing about what to do. The function itself
-        // returns a JSON { error } body for its own failures, so read
-        // that first and only fall back to guessing at causes.
-        let detail=fnError.message||"";
+        // The function classifies its own failures into a `reason`, and
+        // the known ones get a message written for exactly that case.
+        // Everything else goes through domain/functionErrors.js, which
+        // decides what a bowler may see. This fallthrough used to print
+        // the server's raw text -- including a paragraph telling the
+        // bowler to set a secret in Project Settings -- plus request ids
+        // and upstream detail. Those now go to the local error log
+        // (Settings > Diagnostics), where the requestId still ties an
+        // entry to the function logs.
+        const failure=await readFunctionFailure(fnError);
+        const body=failure.body||{};
+        recordError({kind:"function",where:"import-scorecard",message:body.error||failure.message,detail:failureDetail(failure)});
+        let detail="";
         let retryable=false;
-        try{
-          const body=await fnError.context?.json?.();
-          if(body?.error){
-            // The function classifies failures into a `reason` so this
-            // doesn't have to parse raw API JSON. Showing a bowler
-            // `{"error":{"code":503,...}}` reads as "this app is broken"
-            // when the honest answer is "the reader is busy, try again in
-            // a minute" -- and people give up over the difference.
-            switch(body.reason){
-              case "busy": {
-                retryable=true;
-                // Only mention retries if any actually happened, and get
-                // the plural right -- "retried 1 times" undermines the
-                // reassurance the rest of the message is doing.
-                const n=Number(body.retries)||0;
-                const tried=n>0?` (Already retried ${n} time${n===1?"":"s"}.)`:"";
-                detail=`The scorecard reader is busy right now — this happens at peak times and usually clears within a few minutes. `+
-                       `Your images are still selected, so just tap Extract again in a minute.${tried}`;
-                break;
-              }
-              case "rate_limited":
-                retryable=true;
-                detail=body.reason==="quota"
-                  // An exhausted allowance is not a busy minute. Telling
-                  // someone to wait a few minutes when the daily quota is
-                  // gone sends them back to fail again, twice.
-                  ? "The scorecard reader's daily allowance is used up. It resets on Google's clock, so this usually means tomorrow — scores typed in by hand save normally in the meantime."
-                  : "The scorecard reader is briefly over its rate limit. Wait about a minute and try again — nothing is lost."
-                break;
-              case "model_unavailable":
-                detail="The scorecard reader is pointed at a model that's no longer available. This needs a fix in the app, not something you can work around.";
-                break;
-              default: {
-                detail=body.error;
-                // requestId first: the function no longer returns its
-                // internals (raw Gemini output, the whole response object,
-                // String(err)) on a public endpoint, so this short id is
-                // the handle that ties what the bowler saw to the entry in
-                // the function logs. Without showing it, removing the leak
-                // would have left nothing diagnosable in its place.
-                if(body.requestId) detail+=` (reference ${body.requestId})`;
-                // Still shown when EXPOSE_UPSTREAM_ERRORS is on, which is
-                // a deliberate development setting rather than the default.
-                if(body.detail){
-                  const extra=typeof body.detail==="string"?body.detail:JSON.stringify(body.detail);
-                  detail+=` — ${extra.slice(0,400)}`;
-                }
-              }
-            }
+        switch(body.reason){
+          case "busy": {
+            retryable=true;
+            // Only mention retries if any actually happened, and get the
+            // plural right -- "retried 1 times" undermines the reassurance
+            // the rest of the message is doing.
+            const n=Number(body.retries)||0;
+            const tried=n>0?` (Already retried ${n} time${n===1?"":"s"}.)`:"";
+            detail=`The scorecard reader is busy right now — this happens at peak times and usually clears within a few minutes. `+
+                   `Your images are still selected, so just tap Extract again in a minute.${tried}`;
+            break;
           }
-        }catch{}
+          // "quota" needs its own case. It used to be tested for INSIDE
+          // case "rate_limited", where body.reason could never equal
+          // "quota" -- so an exhausted daily allowance fell through to
+          // the raw server text instead of this message.
+          case "quota":
+            retryable=true;
+            detail="The scorecard reader's daily allowance is used up. It resets on Google's clock, so this usually means tomorrow — scores typed in by hand save normally in the meantime.";
+            break;
+          case "rate_limited":
+            retryable=true;
+            detail="The scorecard reader is briefly over its rate limit. Wait about a minute and try again — nothing is lost.";
+            break;
+          case "model_unavailable":
+            detail="The scorecard reader isn't available right now. Scores typed in by hand save normally in the meantime.";
+            break;
+          default: {
+            const{text,kind}=friendlyFunctionError(failure,IMPORT_FALLBACK);
+            if(kind==="network"){
+              // Most often the upload is too big or the read ran long.
+              detail="Couldn't reach the scorecard reader. Check your signal, or try one image at a time — "+
+                     "a large photo can take too long to send.";
+            }else{
+              detail=text;
+            }
+            retryable=kind==="network"||kind==="limit";
+          }
+        }
         if(retryable){
           // Keep the images and stay on setup so "try again" is one tap,
           // not a re-upload.
@@ -589,17 +588,12 @@ export default function ImportScorecard({
           return;
         }
         setErrorIsTemporary(false);
-        if(/failed to send a request/i.test(detail)){
-          // Keep the underlying text -- without it there's no way to tell
-          // a size problem from a timeout from a function that failed to
-          // start, and every one of those needs a different fix.
-          detail="Couldn't reach the scorecard reader. Most often the upload is too large or the read took too long — "+
-                 "try one image at a time. If it keeps failing on a single image, the reader itself may be down. "+
-                 `(${fnError.message||"no detail"})`;
-        }
-        throw new Error(detail||"Extraction failed.");
+        throw new Error(detail);
       }
-      if(data?.error)throw new Error(data.error);
+      if(data?.error){
+        recordError({kind:"function",where:"import-scorecard",message:String(data.error)});
+        throw new Error(friendlyFunctionError({status:500,body:data},IMPORT_FALLBACK).text);
+      }
 
       // Column mapping. Runs for every card, not just team ones -- a
       // single-bowler card is just a one-column team card, and going
@@ -746,7 +740,9 @@ export default function ImportScorecard({
         message:String(e?.message||e||"unknown"),
         detail:{images:images.length},
       });
-      setError(e.message||"Something went wrong during extraction.");
+      // Our own thrown messages are written for bowlers; anything else
+      // (a TypeError, a library's wording) is not, and gets the fallback.
+      setError(isBowlerFacing(e?.message)?e.message:IMPORT_FALLBACK);
       setStep("setup");
     }
   }

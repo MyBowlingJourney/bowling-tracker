@@ -53,7 +53,7 @@ export default function ShareButton({ summary, label = "Share", compact = false 
     setState("working");
     const text = summary?.trend ? trendShareText(summary)
       : summary?.standings ? standingsShareText(summary)
-      : summary?.badges ? badgeShareText(summary.bowler, summary.badges, summary.link)
+      : summary?.badges ? badgeShareText(summary.bowler, summary.badges, summary.link, { collection: !!summary.collection, total: summary.total })
       : shareText(summary);
     const title = summary?.trend ? (summary.label || "Trend")
       : summary?.standings ? "Standings"

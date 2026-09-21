@@ -2,6 +2,8 @@ import { C, S } from "./ui.jsx";
 import { useState, useEffect } from "react";
 import { CASUAL_BADGES, badgesFor, casualStatsFor, badgeHistory } from "./domain/casualBadges.js";
 import { decodeShare, nightsFromPayload, mergeSharedNights, describeImport } from "./domain/badgeShare.js";
+import ShareButton from "./ShareButton.jsx";
+import { APP_URL } from "./constants.js";
 
 // The badge collection.
 //
@@ -114,6 +116,22 @@ export default function BadgeCollection({
                   ? "Some come from one good night, some take a season."
                   : "Not all of them are about bowling well — some are about showing up, and one or two you'd rather not have.")}
         </div>
+
+        {/* Share what you've earned: a card image plus a line of text.
+            Most recent first, so the card's twelve slots show the badges
+            someone is most likely sharing because of. */}
+        {got > 0 && (() => {
+          const earned = allBadges
+            .filter(b => earnedIds.has(b.id))
+            .map(b => ({ id: b.id, emoji: b.emoji, name: b.name, count: history?.[b.id]?.count || 1, last: history?.[b.id]?.lastDate || "" }))
+            .sort((a, b2) => String(b2.last).localeCompare(String(a.last)));
+          return (
+            <div style={{ marginTop: "12px" }}>
+              <ShareButton label="Share my badges"
+                summary={{ badges: earned, bowler: me, total, collection: true, link: APP_URL }} />
+            </div>
+          );
+        })()}
       </div>
 
       <div style={S.card}>

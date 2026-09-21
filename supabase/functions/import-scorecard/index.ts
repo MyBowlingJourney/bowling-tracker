@@ -19,14 +19,13 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { recordAiTokens } from "../_shared/aiUsage.ts";
+import { geminiKey } from "../_shared/geminiKey.ts";
 
-// Reads BOTH spellings. analyze-performance has always used the
-// lowercase "GEMINI_API_KEY", and this function used the uppercase one --
-// so the secret that made Insights work left the scorecard reader dead,
-// reporting "not configured" on a project where the key was configured
-// all along. Accepting either means one secret serves both, whichever
-// name it happens to be stored under.
-const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GEMINI_API_KEY");
+// Read through _shared/geminiKey.ts, which accepts both spellings the
+// secret has been stored under. This line used to do that itself, until a
+// case-insensitive find-and-replace made both halves identical and left
+// every AI feature reporting "no key" at once. See that file.
+const GEMINI_API_KEY = geminiKey();
 // Kept in step with analyze-performance, which was migrated to this model
 // already. gemini-2.5-flash was retired for new callers and returns a 404
 // -- which surfaced here as a bare "Gemini API error" for a while because
@@ -433,8 +432,11 @@ Deno.serve(async (req) => {
 
   try {
     if (!GEMINI_API_KEY) {
+      // The setup instructions go to the function log, where the person who
+      // can act on them looks. A bowler was shown this paragraph verbatim.
+      console.error("import-scorecard: no Gemini key. Set GEMINI_API_KEY in Project Settings > Edge Functions > Secrets.");
       return new Response(JSON.stringify({
-        error: "No Gemini API key configured for this function. Set a secret named GEMINI_API_KEY (the same one analyze-performance uses) in Project Settings > Edge Functions > Secrets, then redeploy.",
+        error: "The scorecard reader isn't available right now.",
       }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

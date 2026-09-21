@@ -1,7 +1,8 @@
 import journeyIcon from "../journey-icon.png";
 import { C, S, ActionRow } from "./ui.jsx";
 import { seasonFigures, journeyRecap, recentTournament } from "./domain/home.js";
-import { journeyMilestones } from "./domain/journey.js";
+import { journeyMilestones, upcomingMilestones, describeUpcoming } from "./domain/journey.js";
+import { formatDate } from "./constants.js";
 
 
 import { ENVIRONMENTS, ENVIRONMENT_ICONS, ENVIRONMENT_COLORS, ENVIRONMENT_LABELS } from "./domain/preferences.js";
@@ -25,6 +26,14 @@ export default function HomeView({
     tournaments,
     (shots || []).filter(s => s && s.bowler === bowler),
   ));
+  // The nearest next step, as a teaser on the card that opens Journey:
+  // "4 pins short of a 700 series" is the reason to tap it.
+  const nextUp = upcomingMilestones(
+    (sessions || []).filter(s => s && s.bowler === bowler),
+    tournaments,
+    (shots || []).filter(s => s && s.bowler === bowler),
+    1,
+  )[0] || null;
 
   const stat = (label, value, suffix) => (
     <div style={{
@@ -168,8 +177,20 @@ export default function HomeView({
             </div>
 
             <div style={{ fontSize: "12px", color: C.textMuted, marginTop: "6px" }}>
-              {recap.date} {"·"} {recap.total} milestone{recap.total === 1 ? "" : "s"} so far
+              {formatDate(recap.date, { weekday: false })} {"·"} {recap.total} milestone{recap.total === 1 ? "" : "s"} so far
             </div>
+            {nextUp && (
+              <div style={{ marginTop: "10px", paddingTop: "10px", borderTop: `1px solid ${C.accent}22` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: "8px", fontSize: "12px" }}>
+                  <span style={{ color: C.text, fontWeight: 600 }}>Up next: {nextUp.label}</span>
+                  <span style={{ color: C.accent, whiteSpace: "nowrap" }}>{describeUpcoming(nextUp).split(" · ")[0]}</span>
+                </div>
+                <div style={{ height: "5px", borderRadius: "3px", backgroundColor: C.surface, overflow: "hidden", marginTop: "6px" }}>
+                  <div style={{ width: `${Math.max(4, Math.round(nextUp.progress * 100))}%`, height: "100%",
+                    borderRadius: "3px", background: `linear-gradient(90deg, ${C.accent}, ${C.strike})` }} />
+                </div>
+              </div>
+            )}
           </>
         ) : (
           <>

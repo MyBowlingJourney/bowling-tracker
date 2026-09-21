@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   defaultPreferences, normalizePreferences, applyEnvironment,
   resetToEnvironmentDefaults, setTrackedField, setShowMoneyGames,
-  STATS_CARD_IDS, MOVABLE_STATS_CARD_IDS, reconcileCardOrder, setTrackingMode, moveStatsCard, toggleStatsCardHidden, visibleStatsCardOrder,
+  STATS_CARD_IDS, MOVABLE_STATS_CARD_IDS, reconcileCardOrder, setTrackingMode, moveStatsCard, toggleStatsCardHidden, visibleStatsCardOrder, unhideStatsCards,
   setCoachView,
   coachViewActive,
   defaultStatsCardOrder,
@@ -392,5 +392,26 @@ describe('accessory fields are always on', () => {
   it('will not let the setter turn one off', () => {
     const p = setTrackedField(defaultPreferences('league'), 'miss', false);
     expect(p.trackedFields.miss).toBe(true);
+  });
+});
+
+describe("hiding stats cards", () => {
+  it("unhideStatsCards brings back only the cards given", () => {
+    const p = { hiddenStatsCards: ["byBall", "splits", "teamRecords"] };
+    expect(unhideStatsCards(p, ["byBall", "splits"]).hiddenStatsCards).toEqual(["teamRecords"]);
+  });
+  it("visible order follows the mode's default, whatever was saved", () => {
+    const custom = { environment: "league", statsCardOrder: ["money", ...MOVABLE_STATS_CARD_IDS.filter(i => i !== "money")], hiddenStatsCards: [] };
+    expect(visibleStatsCardOrder(custom)).toEqual(defaultStatsCardOrder("league"));
+  });
+  it("hidden cards are left out", () => {
+    const p = { environment: "league", hiddenStatsCards: ["cleanFrames"] };
+    expect(visibleStatsCardOrder(p)).not.toContain("cleanFrames");
+  });
+  it("Single Pin Spares sits right after Clean Frames in every mode", () => {
+    for (const env of ENVIRONMENTS) {
+      const o = defaultStatsCardOrder(env);
+      expect(o.indexOf("singlePinSpares")).toBe(o.indexOf("cleanFrames") + 1);
+    }
   });
 });

@@ -63,14 +63,14 @@ const ALL_STEPS = [
     track: "look",
     tab: "stats",
     title: "Stats and trends",
-    body: "Stats breaks your bowling down by ball, by game, by center and by team. The Trends chip charts any of it over time.",
+    body: "Stats breaks your bowling down by ball, by game, by center and by team. The Trends chip charts any of it over time, and the eye on any card hides it.",
   },
   {
     id: "look-journey",
     track: "look",
     tab: "home",
     title: "Your journey",
-    body: "Every first lands here with the date you did it — first strike, first spare, first 200. Badges collect beside them.",
+    body: "Your road so far: every first, dated, and how close you are to the next one — a few pins from a 700 series, say. Badges collect beside them.",
   },
   {
     id: "look-calendar",

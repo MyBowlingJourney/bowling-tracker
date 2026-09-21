@@ -93,8 +93,45 @@ function groupByDate(rows) {
   return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
 }
 
+// Which ball a game was bowled with, for filtering SCORE metrics by ball.
+//
+// Two sources, in this order:
+//   1. gameEquipment -- the ball the bowler recorded for that game on a
+//      scores-only night. Their own statement, so it wins.
+//   2. the game's frames -- on a shot-by-shot night each frame carries the
+//      ball it was thrown with, and there is no equipment record at all.
+//
+// This used to consult only (1). Every shot-tracked game therefore had
+// "no ball recorded", was excluded, and Trends by ball drew an empty
+// chart for Average, Best Game, Series and Game 1-3 -- the metrics a
+// bowler most wants per ball.
+//
+// A game counts for a ball bowled on at least half its frames, so a
+// mid-game change files the game under the ball that bowled most of it
+// (and an even split under both, which is what it genuinely was).
+export function gameBallMatcher(ball, gameEquipment = null, shots = null) {
+  if (!ball) return () => true;
+  const tally = new Map(); // "bowler|league|date|game" -> { total, hits }
+  for (const s of (Array.isArray(shots) ? shots : [])) {
+    if (!s || !s.ball) continue;
+    if (s.ballNum && Number(s.ballNum) !== 1) continue; // one record per frame
+    const key = `${s.bowler}|${s.league}|${s.date}|${parseInt(s.game) || 1}`;
+    const t = tally.get(key) || { total: 0, hits: 0 };
+    t.total++;
+    if (s.ball === ball) t.hits++;
+    tally.set(key, t);
+  }
+  return (session, gameIdx) => {
+    const key = `${session.bowler}|${session.league}|${session.date}|${gameIdx + 1}`;
+    const e = gameEquipment ? gameEquipment[key] : null;
+    if (e && e.ball) return e.ball === ball;
+    const t = tally.get(key);
+    return !!t && t.total > 0 && t.hits * 2 >= t.total;
+  };
+}
+
 // Score-based series, one point per night.
-export function scoreSeries(sessions, bowler, league, metricId, ball = "", gameEquipment = null) {
+export function scoreSeries(sessions, bowler, league, metricId, ball = "", gameEquipment = null, shots = null) {
   const rows = bySession(sessions, bowler, league);
   const out = [];
 
@@ -107,12 +144,7 @@ export function scoreSeries(sessions, bowler, league, metricId, ball = "", gameE
   //
   // A game with no ball recorded is excluded when a filter is on --
   // it's unknown, not "not that ball".
-  const gameUsedBall = (session, gameIdx) => {
-    if (!ball) return true;
-    if (!gameEquipment) return false;
-    const e = gameEquipment[`${session.bowler}|${session.league}|${session.date}|${gameIdx + 1}`];
-    return !!e && e.ball === ball;
-  };
+  const gameUsedBall = gameBallMatcher(ball, gameEquipment, shots);
 
   for (const [date, group] of groupByDate(rows)) {
     const scores = group.flatMap(s => (Array.isArray(s.scores) ? s.scores : [])
@@ -128,8 +160,10 @@ export function scoreSeries(sessions, bowler, league, metricId, ball = "", gameE
       // flattening would make session two's game 1 look like game 4.
       // Where a date genuinely has more than one session, they're averaged
       // -- both really were that bowler's first game of a block.
+      // The ball filter applies here too. It used to be skipped, so
+      // "Game 2, Phaze II" plotted every game 2 whatever it was bowled with.
       const atPosition = group
-        .map(s => Array.isArray(s.scores) ? s.scores[metric.gameIndex] : null)
+        .map(s => Array.isArray(s.scores) && gameUsedBall(s, metric.gameIndex) ? s.scores[metric.gameIndex] : null)
         .filter(v => Number.isFinite(v));
       sample = atPosition.length;
       // A night that didn't reach this game (a short block, a tournament
@@ -200,11 +234,10 @@ export function seriesFor(metricId, opts) {
           ball = "", gameEquipment = null } = (opts && typeof opts === "object") ? opts : {};
   const metric = trendMetric(metricId);
   if (!metric) return [];
-  // Score metrics are per-NIGHT totals, so a ball filter is meaningless
-  // there -- you don't bowl a game with one ball and score it separately.
-  // Selecting a ball therefore only narrows shot-sourced metrics.
+  // Both kinds honour the ball filter: shot metrics by each shot's ball,
+  // score metrics by the ball each GAME was bowled with (gameBallMatcher).
   return metric.source === "scores"
-    ? scoreSeries(sessions, bowler, league, metricId, ball, gameEquipment)
+    ? scoreSeries(sessions, bowler, league, metricId, ball, gameEquipment, shots)
     : shotRateSeries(shots, bowler, league, metricId, isSplit, isCornerPinLeave, ball);
 }
 
@@ -337,7 +370,8 @@ export function describeTrend(metricId, points) {
 //
 // x is a running index rather than a date: several games share one date,
 // and a date axis would stack them on top of each other.
-export function allGamesSeries(sessions, bowler, league) {
+export function allGamesSeries(sessions, bowler, league, ball = "", gameEquipment = null, shots = null) {
+  const usedBall = gameBallMatcher(ball, gameEquipment, shots);
   const rows = (Array.isArray(sessions) ? sessions : [])
     .filter(s => s && (bowler ? s.bowler === bowler : true) && (league ? s.league === league : true))
     .slice()
@@ -346,8 +380,12 @@ export function allGamesSeries(sessions, bowler, league) {
   const out = [];
   let i = 0;
   for (const s of (Array.isArray(rows) ? rows : [])) {
-    const scores = (Array.isArray(s.scores) ? s.scores : []).filter(v => Number.isFinite(v));
-    scores.forEach((score, gi) => {
+    // Keep each score's REAL game index: filtering first would renumber
+    // "game 3" as game 2 whenever game 2 was bowled with another ball.
+    const scores = (Array.isArray(s.scores) ? s.scores : [])
+      .map((v, gi) => ({ v, gi }))
+      .filter(({ v, gi }) => Number.isFinite(v) && usedBall(s, gi));
+    scores.forEach(({ v: score, gi }) => {
       out.push({
         x: i++,
         date: s.date,

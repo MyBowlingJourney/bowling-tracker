@@ -1,4 +1,5 @@
 import { C, S, F } from "./ui.jsx";
+import journeyIcon from "../journey-icon.png";
 
 // Mock-ups built from the app's OWN style tokens.
 //
@@ -381,21 +382,103 @@ function Sparkline({ values = [], width = 250, height = 66 }) {
   );
 }
 
+// Tiny pin racks over the first four frames, as the scoresheet draws
+// them: a strike is every pin down, a spare shows the pin the second ball
+// took, an open frame shows what was left standing.
+function MiniRacks() {
+  const racks = [[], [], [["10", "d2"]], [["7", "s"], ["10", "s"]]];
+  const rows = [["7", "8", "9", "10"], ["4", "5", "6"], ["2", "3"], ["1"]];
+  return (
+    <div style={{ display: "flex", gap: "1px", marginBottom: "2px" }}>
+      {Array.from({ length: 10 }, (_, i) => {
+        const r = racks[i];
+        return (
+          <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "1px", minHeight: "16px" }}>
+            {r && rows.map((row, ri) => (
+              <div key={ri} style={{ display: "flex", gap: "1px" }}>
+                {row.map(p => {
+                  const st = (r.find(([n]) => n === p) || [p, "d1"])[1];
+                  const fill = st === "d1" ? C.strike : st === "d2" ? C.spare : "transparent";
+                  return <span key={p} style={{ width: "3px", height: "3px", borderRadius: "50%", background: fill,
+                    border: st === "s" ? `0.5px solid ${C.textMuted}` : "none" }} />;
+                })}
+              </div>
+            ))}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// One ball as the Gear tab lists it.
+function BallRow({ initials, colour, name, line, spec, last }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "5px 0",
+      borderBottom: last ? "none" : `1px solid ${C.border}` }}>
+      <div style={{ width: "24px", height: "24px", borderRadius: "50%", background: colour, color: "#FFF",
+        fontSize: "8px", fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center",
+        fontFamily: F.body, flexShrink: 0 }}>{initials}</div>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: "10.5px", fontWeight: 700, color: C.text, fontFamily: F.body }}>{name}</div>
+        <div style={{ ...muted, fontSize: "8.5px" }}>{line}</div>
+        <div style={{ ...muted, fontSize: "8px" }}>{spec}</div>
+      </div>
+    </div>
+  );
+}
+
+function StatBox({ value, label: lab, colour }) {
+  return (
+    <div style={{ flex: 1, border: `1px solid ${C.border}`, borderRadius: "7px", padding: "5px 0", textAlign: "center" }}>
+      <div style={{ fontSize: "13px", fontWeight: 700, fontFamily: F.num, color: colour || C.text }}>{value}</div>
+      <div style={{ ...muted, fontSize: "8px" }}>{lab}</div>
+    </div>
+  );
+}
+
+function EyeIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={C.textMuted}
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ display: "block" }}>
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
 const SCREENS = {
   // ── Look around ───────────────────────────────────────────────────────
   //
   // Each of these stands on the tab it is describing, so the lit nav
   // entry and the content agree. That is the whole teaching job: this
   // row, that screen.
+  // The six "look" screens are drawn to match the app as it is now:
+  // pin racks over the frames, the arsenal as the Gear tab shows it, the
+  // team picker and bowling order, Viewing beside Compare To with an eye
+  // on each card, the Journey hero with Up next, and History's chips.
+  // They had drifted -- a "League bag" list, a strike-rate card Mine does
+  // not open on, a plain milestone list -- and a tour is a promise about
+  // what the bowler will find.
   "look-score": () => (
     <Phone title="Bowl">
       <Spot>
         <div style={card}>
           <div style={label}>Game 1</div>
+          <MiniRacks />
           <Frames highlight={3} />
         </div>
       </Spot>
       <Note>Scores, or every ball</Note>
+      <div style={{ ...card, marginTop: "8px" }}>
+        <div style={label}>Result</div>
+        <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
+          <span style={chip(false)}>Strike</span>
+          <span style={chip(false)}>Weak 10</span>
+          <span style={chip(false)}>Ringing 10</span>
+          <span style={chip(false)}>Other Leave</span>
+        </div>
+      </div>
       <Nav active={0} />
     </Phone>
   ),
@@ -404,11 +487,10 @@ const SCREENS = {
     <Phone title="Gear">
       <Spot>
         <div style={card}>
-          <div style={label}>League bag · 4 balls</div>
-          <Row left="Bionic" right="15 lb" />
-          <Row left="Phaze II" right="15 lb" />
-          <Row left="Zen Master" right="15 lb" />
-          <Row left="Spare ball" right="15 lb" dim />
+          <div style={label}>Arsenal · 3 balls</div>
+          <BallRow initials="PI" colour="#7B2A8C" name="Phaze II" line="47% strikes · 54% spares" spec="15lb · RG 2.5 / Diff 0.05" />
+          <BallRow initials="HY" colour="#4B2A8C" name="Hy-Road" line="45% strikes · 61% spares" spec="15lb · RG 2.57 / Diff 0.046" />
+          <BallRow initials="ST" colour="#2F7A4F" name="Storm Tour" line="45% strikes · 67% spares" spec="15lb · RG 2.49 / Diff 0.05" last />
         </div>
       </Spot>
       <Note>Layouts, surface, specs</Note>
@@ -420,14 +502,17 @@ const SCREENS = {
     <Phone title="Team">
       <Spot>
         <div style={card}>
-          <div style={label}>Tuesday House Shot</div>
-          <Row left="Split Happens" right="4 bowlers" />
+          <div style={label}>Team</div>
+          <Select value="Split Happens — Tuesday House Shot" />
         </div>
         <div style={card}>
-          <div style={label}>Roster</div>
-          <Row left="You" right="215" />
-          <Row left="Rob" right="198" />
-          <Row left="Kim" right="186" />
+          <div style={{ fontSize: "12px", fontWeight: 700, color: C.text, fontFamily: F.body }}>Split Happens</div>
+          <div style={{ ...muted, marginBottom: "6px" }}>Tuesday House Shot · 4 bowlers</div>
+          <div style={label}>Roster / Bowling Order</div>
+          <Row left="1.  You" right="215" />
+          <Row left="2.  Rob" right="198" />
+          <Row left="3.  Kim" right="186" />
+          <Row left="4.  Dee" right="171" />
         </div>
       </Spot>
       <Note>A league first, a team later</Note>
@@ -440,10 +525,26 @@ const SCREENS = {
       <Spot>
         <Chips items={["Mine", "Trends", "Team", "Ball", "Game", "Center"]} sel={0} />
       </Spot>
-      <div style={{ ...card, marginTop: "8px" }}>
-        <div style={label}>Strike rate</div>
-        <Row left="This season" right="61%" colour={C.strike} />
-        <Row left="Last season" right="54%" dim />
+      <div style={{ ...card, marginTop: "8px", display: "flex", gap: "6px" }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={label}>Viewing</div>
+          <Select value="You" />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={label}>Compare To</div>
+          <Select value="None" />
+        </div>
+      </div>
+      <div style={{ ...card, position: "relative" }}>
+        <div style={label}>This season</div>
+        <Spot style={{ position: "absolute", top: "6px", right: "6px", padding: "1px 3px" }}>
+          <EyeIcon />
+        </Spot>
+        <div style={{ display: "flex", gap: "4px" }}>
+          <StatBox value="191" label="Average" />
+          <StatBox value="47%" label="Strike" colour={C.strike} />
+          <StatBox value="62%" label="Spare" colour={C.spare} />
+        </div>
       </div>
       <Nav active={3} />
     </Phone>
@@ -452,17 +553,31 @@ const SCREENS = {
   "look-journey": () => (
     <Phone title="My Bowling Journey">
       <Spot>
-        <div style={card}>
-          <div style={{ fontSize: "12px", fontWeight: 700, color: C.text, fontFamily: F.body }}>My journey</div>
-          <Row left="First 200 game" right="4 Mar" colour={C.strike} />
-          <Row left="First 600 series" right="18 Mar" colour={C.strike} />
-          <Row left="First turkey" right="2 Apr" colour={C.strike} />
+        <div style={{
+          borderRadius: "10px", padding: "10px", marginBottom: "8px", color: "#FFFFFF",
+          background: "linear-gradient(155deg, #0B4DB3 0%, #00398B 42%, #061A45 100%)",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <img src={journeyIcon} alt="" width="26" height="26" style={{ borderRadius: "7px" }} />
+            <div>
+              <div style={{ fontSize: "12px", fontWeight: 700, fontFamily: F.body }}>My Bowling Journey</div>
+              <div style={{ fontSize: "8.5px", opacity: 0.75, fontFamily: F.body }}>On the road since Jul 9</div>
+            </div>
+          </div>
+          <div style={{ display: "flex", marginTop: "8px", paddingTop: "6px", borderTop: "1px solid rgba(255,255,255,0.16)" }}>
+            {[["15", "nights"], ["45", "games"], ["8,569", "pins down"], ["23", "milestones"]].map(([v, l]) => (
+              <div key={l} style={{ flex: 1, textAlign: "center" }}>
+                <div style={{ fontSize: "12px", fontWeight: 700, fontFamily: F.num }}>{v}</div>
+                <div style={{ fontSize: "7px", opacity: 0.75, fontFamily: F.body }}>{l}</div>
+              </div>
+            ))}
+          </div>
         </div>
         <div style={card}>
-          <div style={label}>Badges</div>
-          <div style={{ display: "flex", gap: "6px", fontSize: "16px" }}>
-            <span>🏆</span><span>🎯</span><span>🔥</span><span style={{ opacity: 0.3 }}>🎳</span>
-          </div>
+          <div style={label}>Up next</div>
+          <Row left="First 700 series" right="99%" colour={C.accent} />
+          <Bar pct={99} colour={C.accent} />
+          <div style={{ ...muted, marginTop: "3px" }}>4 pins short · best 696</div>
         </div>
       </Spot>
       <Nav active={0} />
@@ -471,15 +586,16 @@ const SCREENS = {
 
   "look-calendar": () => (
     <Phone title="History">
-      <Spot>
+      <Chips items={["Sessions", "Season", "Calendar", "Journey", "Journal"]} sel={2} />
+      <Spot style={{ marginTop: "8px" }}>
         <div style={card}>
-          <div style={label}>March</div>
+          <div style={label}>September</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "3px" }}>
             {Array.from({ length: 21 }, (_, i) => (
               <div key={i} style={{
                 width: "11px", height: "11px", borderRadius: "3px",
-                background: [1, 8, 15].includes(i) ? C.strike : C.border,
-                opacity: [1, 8, 15].includes(i) ? 1 : 0.45,
+                background: [3, 10, 17].includes(i) ? C.strike : C.border,
+                opacity: [3, 10, 17].includes(i) ? 1 : 0.45,
               }} />
             ))}
           </div>
@@ -493,7 +609,7 @@ const SCREENS = {
             border: `1px solid ${C.border}`, borderRadius: "6px", padding: "4px 8px",
             fontSize: "10px", color: C.textMuted, fontFamily: F.body, marginBottom: "6px",
           }}>Search your notes…</div>
-          <div style={{ fontSize: "9px", color: C.textMuted, fontFamily: F.body }}>18 Mar</div>
+          <div style={{ fontSize: "9px", color: C.textMuted, fontFamily: F.body }}>10 Sep</div>
           <div style={muted}>Lanes broke down early. Moved left 3 and it came back.</div>
         </div>
       </Spot>
@@ -501,8 +617,6 @@ const SCREENS = {
     </Phone>
   ),
 
-  // The closing card. No phone frame: the tour is over, and drawing one
-  // more screen would suggest there is one more thing to find.
   "look-more": () => (
     <div style={{ textAlign: "center", padding: "18px 10px" }}>
       <div style={{ fontSize: "28px", marginBottom: "10px" }}>🎳</div>

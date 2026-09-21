@@ -83,6 +83,10 @@ export const STATS_CARDS = [
   { id: "hung", label: "Hung" },
   { id: "teamSeries", label: "Team Series" },
   { id: "headlineStats", label: "Shots / Strike % / Spare %" },
+  // Your own high game and high series. Split out of "teamRecords",
+  // which showed "<name>'s Records" on the TEAM chip whenever a bowler
+  // was being viewed -- an individual record filed under Team.
+  { id: "personalRecords", label: "My Records" },
   { id: "cleanFrames", label: "Clean Frames" },
   { id: "framePosition", label: "Frame Position" },
   { id: "firstBallAverage", label: "First-Ball Average" },
@@ -142,61 +146,62 @@ const ORDER_BY_ENVIRONMENT = {
   // the technical detail behind it. Side pots last -- they matter, but
   // not before you know how you bowled.
   league: [
-    "headlineStats", "runningAverages", "gameByGame", "theoreticalAverage",
-    "cleanFrames", "seasonRecord", "weeklyPoints", "teamSeries",
-    "teamLeaderboard", "headToHead", "teamRecords", "giantKiller",
-    "hung", "handicapImpact", "tenPinLeaves", "singlePinSpares",
-    "splits", "nonSplitLeaves", "loneFivePin", "firstBallAverage",
-    "framePosition", "strikeStreak", "strikeQuality", "byBall",
-    "releaseQuality", "missDistribution", "ballChangeTriggers", "byCenter",
+    "headlineStats", "personalRecords", "runningAverages", "gameByGame",
+    "theoreticalAverage", "cleanFrames", "singlePinSpares", "seasonRecord",
+    "weeklyPoints", "teamSeries", "teamLeaderboard", "headToHead",
+    "teamRecords", "giantKiller", "hung", "handicapImpact",
+    "tenPinLeaves", "splits", "nonSplitLeaves", "loneFivePin",
+    "firstBallAverage", "framePosition", "strikeStreak", "strikeQuality",
+    "byBall", "releaseQuality", "missDistribution", "ballChangeTriggers",
     // seasonCompare sits with the other "am I improving" cards.
     //
     // It was defined and ungated but absent from EVERY mode's default
     // set, so the only way to see it was to know it existed and turn it
     // on -- which is the same discovery problem the redesign is for.
-    "progress", "consistency", "seasonCompare", "scoreDistribution", "money",
-    "threeSixNine",
+    "byCenter", "progress", "consistency", "seasonCompare",
+    "scoreDistribution", "money", "threeSixNine",
   ],
   // Practice: execution quality and what to change, since that's the
   // entire point of being there. Team cards sink to the bottom -- there
   // is no team in a practice session, so they're almost always empty.
   practice: [
-    "headlineStats", "cleanFrames", "firstBallAverage", "framePosition",
-    "tenPinLeaves", "singlePinSpares", "splits", "nonSplitLeaves",
-    "loneFivePin", "byBall", "releaseQuality", "missDistribution",
-    "ballChangeTriggers", "strikeQuality", "strikeStreak", "progress",
-    "consistency", "scoreDistribution", "gameByGame", "theoreticalAverage",
-    "byCenter", "seasonRecord", "weeklyPoints", "teamSeries",
-    "teamLeaderboard", "headToHead", "teamRecords", "giantKiller",
-    "hung", "handicapImpact", "money", "threeSixNine",
+    "headlineStats", "personalRecords", "cleanFrames", "singlePinSpares",
+    "firstBallAverage", "framePosition", "tenPinLeaves", "splits",
+    "nonSplitLeaves", "loneFivePin", "byBall", "releaseQuality",
+    "missDistribution", "ballChangeTriggers", "strikeQuality", "strikeStreak",
+    "progress", "consistency", "scoreDistribution", "gameByGame",
+    "theoreticalAverage", "byCenter", "seasonRecord", "weeklyPoints",
+    "teamSeries", "teamLeaderboard", "headToHead", "teamRecords",
+    "giantKiller", "hung", "handicapImpact", "money",
+    "threeSixNine",
   ],
   // Tournament: you're on an unfamiliar pattern in an unfamiliar house,
   // so center and equipment come early, and the score-shape cards that
   // tell you whether you're cashing come before technical detail.
   tournament: [
-    "headlineStats", "byCenter", "byBall", "scoreDistribution",
-    "consistency", "runningAverages", "gameByGame", "theoreticalAverage",
-    "money", "cleanFrames", "tenPinLeaves", "singlePinSpares",
-    "splits", "nonSplitLeaves", "loneFivePin", "firstBallAverage",
-    "framePosition", "strikeStreak", "strikeQuality", "releaseQuality",
-    "missDistribution", "ballChangeTriggers", "progress", "seasonRecord",
-    "weeklyPoints", "teamSeries", "teamLeaderboard", "headToHead",
-    "teamRecords", "giantKiller", "hung", "handicapImpact",
-    "threeSixNine",
+    "headlineStats", "personalRecords", "byCenter", "byBall",
+    "scoreDistribution", "consistency", "runningAverages", "gameByGame",
+    "theoreticalAverage", "money", "cleanFrames", "singlePinSpares",
+    "tenPinLeaves", "splits", "nonSplitLeaves", "loneFivePin",
+    "firstBallAverage", "framePosition", "strikeStreak", "strikeQuality",
+    "releaseQuality", "missDistribution", "ballChangeTriggers", "progress",
+    "seasonRecord", "weeklyPoints", "teamSeries", "teamLeaderboard",
+    "headToHead", "teamRecords", "giantKiller", "hung",
+    "handicapImpact", "threeSixNine",
   ],
   // Casual is scores-only, so almost every shot-derived card is empty.
   // The few that work off game scores come first; the rest stay in a
   // sensible order for the rare casual bowler who turns tracking up.
   casual: [
-    "headlineStats", "runningAverages", "gameByGame", "theoreticalAverage",
-    "scoreDistribution", "consistency", "progress", "cleanFrames",
-    "tenPinLeaves", "singlePinSpares", "splits", "nonSplitLeaves",
-    "loneFivePin", "firstBallAverage", "framePosition", "strikeStreak",
-    "strikeQuality", "byBall", "byCenter", "releaseQuality",
-    "missDistribution", "ballChangeTriggers", "seasonRecord", "weeklyPoints",
-    "teamSeries", "teamLeaderboard", "headToHead", "teamRecords",
-    "giantKiller", "hung", "handicapImpact", "money",
-    "threeSixNine",
+    "headlineStats", "personalRecords", "runningAverages", "gameByGame",
+    "theoreticalAverage", "scoreDistribution", "consistency", "progress",
+    "cleanFrames", "singlePinSpares", "tenPinLeaves", "splits",
+    "nonSplitLeaves", "loneFivePin", "firstBallAverage", "framePosition",
+    "strikeStreak", "strikeQuality", "byBall", "byCenter",
+    "releaseQuality", "missDistribution", "ballChangeTriggers", "seasonRecord",
+    "weeklyPoints", "teamSeries", "teamLeaderboard", "headToHead",
+    "teamRecords", "giantKiller", "hung", "handicapImpact",
+    "money", "threeSixNine",
   ],
 };
 
@@ -539,10 +544,26 @@ export function toggleStatsCardHidden(prefs, cardId) {
   return { ...prefs, hiddenStatsCards: next };
 }
 
+// Bring back a set of hidden cards -- "Unhide Stat Cards" at the bottom of
+// a Stats chip passes that chip's hidden cards, so the others stay hidden.
+export function unhideStatsCards(prefs, cardIds) {
+  if (!prefs || typeof prefs !== "object" || Array.isArray(prefs)) return prefs;
+  const drop = new Set(Array.isArray(cardIds) ? cardIds : []);
+  const hidden = Array.isArray(prefs.hiddenStatsCards) ? prefs.hiddenStatsCards : [];
+  return { ...prefs, hiddenStatsCards: hidden.filter(id => !drop.has(id)) };
+}
+
 // The order to actually render, with hidden cards removed.
+//
+// ALWAYS the mode's default order now. Cards can be hidden (the eye on
+// each card, or Settings) but no longer reordered: the up/down arrows
+// came out of Settings. A custom order saved before that would have been
+// frozen in place with nothing left to change it, and would also have
+// kept the new placements -- Single Pin Spares beside Clean Frames, My
+// Records near the top -- from ever reaching that bowler.
 export function visibleStatsCardOrder(prefs) {
   const hidden = new Set(Array.isArray(prefs?.hiddenStatsCards) ? prefs.hiddenStatsCards : []);
-  return reconcileCardOrder(prefs?.statsCardOrder).filter(id => !hidden.has(id));
+  return defaultStatsCardOrder(prefs?.environment).filter(id => !hidden.has(id));
 }
 
 // Switching environments is a full preset swap for trackedFields/

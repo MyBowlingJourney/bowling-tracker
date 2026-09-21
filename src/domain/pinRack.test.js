@@ -290,3 +290,33 @@ describe('the rack layout itself', () => {
     expect(flat).toEqual(ALL_PINS);
   });
 });
+
+describe("9-pin no-tap strikes keep the pin that stood", () => {
+  const nt = (result, extra = {}) => ({ frame: 1, result, noTap: true, ...extra });
+  it("a no-tap Weak 10 draws the 10 as notap, the rest down", () => {
+    const [deck] = framePinDecks(nt("Weak 10"), false);
+    expect(deck.states[10]).toBe("notap");
+    expect(deck.states[1]).toBe("down1");
+  });
+  it("a lefty's no-tap Ringing 10 marks the 7", () => {
+    const [deck] = framePinDecks(nt("Ringing 10"), true);
+    expect(deck.states[7]).toBe("notap");
+    expect(deck.states[10]).toBe("down1");
+  });
+  it("a one-pin Other Leave no-tap marks that pin", () => {
+    const [deck] = framePinDecks(nt("Other Leave", { otherLeave: ["4"] }), false);
+    expect(deck.states[4]).toBe("notap");
+  });
+  it("a real strike in a no-tap game is still a clean rack", () => {
+    const [deck] = framePinDecks(nt("Strike"), false);
+    expect(Object.values(deck.states).every(s => s === "down1")).toBe(true);
+  });
+  it("a 10-pin Weak 10 is unchanged: the 10 stands", () => {
+    const [deck] = framePinDecks({ frame: 1, result: "Weak 10", spareMade: "Yes" }, false);
+    expect(deck.states[10]).toBe("down2");
+  });
+  it("the tenth frame does the same", () => {
+    const decks = tenthPinDecks({ ball1: { frame: 10, ballNum: 1, result: "Weak 10", noTap: true } }, false);
+    expect(decks[0].states[10]).toBe("notap");
+  });
+});

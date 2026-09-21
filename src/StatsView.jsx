@@ -10,7 +10,7 @@ import {
 import { lineupSort } from "./domain/leagues.js";
 import { totalMoney } from "./domain/money.js";
 import { isContainerLeague } from "./domain/leagueMembership.js";
-import { anyMoneyGameShown, visibleStatsCardOrder, MOVABLE_STATS_CARDS } from "./domain/preferences.js";
+import { anyMoneyGameShown, visibleStatsCardOrder, MOVABLE_STATS_CARDS, defaultStatsCardOrder } from "./domain/preferences.js";
 
 
 import { seasonComparison } from "./domain/scoreInsights.js";
@@ -105,6 +105,8 @@ export default function StatsView({
   handicapMatches = () => null, handicapSplit = () => null, longestStrikeStreak = () => 0,
   theoreticalScoreForGame = () => null,
   viewedLeftHanded=false,
+  teamStatsLeague = "", setTeamStatsLeague = () => {},
+  onHideStatsCard = () => {}, onUnhideStatsCards = () => {},
 }) {
   // Practice and Just Bowling are containers, not teams -- nobody plays
   // FOR them, so "compare me to Practice" is a comparison against a
@@ -191,8 +193,11 @@ export default function StatsView({
                 const byId = {};
                 byId["viewing"] = (
 bowlers.length>1&&(
-                  <div style={S.card}>
-                    <div style={S.label}>Viewing</div>
+                  // Viewing and Compare To side by side: two halves of one
+                  // question -- whose numbers, against whose. Stacked, they
+                  // read as two separate settings.
+                  <div style={{...S.card,display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)",columnGap:"10px",alignItems:"end"}}>
+                    <div style={{...S.label,gridColumn:1,gridRow:1}}>Viewing</div>
                     {/* A grouped dropdown, not a chip row of every name.
                     
                         `bowlers` is the local roster -- it holds guests and
@@ -200,7 +205,7 @@ bowlers.length>1&&(
                         who aren't yours to look at and grew with every
                         guest. This offers you, your friends, and your
                         teams, which is the set that means something. */}
-                    <select style={S.sel} value={
+                    <select style={{...S.sel,gridColumn:1,gridRow:2,width:"100%",minWidth:0}} value={
                         statsBowler?`bowler:${statsBowler}`
                         :statsLeague?`team:${statsLeague}`
                         :""
@@ -259,15 +264,14 @@ bowlers.length>1&&(
                         to the active bowler when no filter is set. */}
                     {(
                       <>
-                        <div style={S.divider}/>
-                        <div style={S.label}>Compare To</div>
+                        <div style={{...S.label,gridColumn:2,gridRow:1}}>Compare To</div>
                         {/* A dropdown rather than a chip row: a chip row grows
                             by one every time a friend is added, and mixed
                             individual/team chips in one row didn't make the
                             two kinds of comparison read as different things.
                             Grouped options do both -- fixed height, and the
                             grouping itself explains what each option means. */}
-                        <select style={S.sel} value={
+                        <select style={{...S.sel,gridColumn:2,gridRow:2,width:"100%",minWidth:0}} value={
                             compareFriendId?`friend:${compareFriendId}`
                             :compareBowler?`bowler:${compareBowler}`
                             :compareLeague?`team:${compareLeague}`
@@ -336,7 +340,7 @@ bowlers.length>1&&(
                             Teammates become friends automatically, so the
                             fix is usually to finish setting up the team. */}
                         {friends.length===0&&leagues.filter(l=>l!==statsLeague).length===0&&(
-                          <div style={{fontSize:"11px",color:C.textMuted,marginTop:"6px",lineHeight:1.4}}>
+                          <div style={{gridColumn:"1 / -1",fontSize:"11px",color:C.textMuted,marginTop:"6px",lineHeight:1.4}}>
                             Nobody to compare against yet. Add a friend, or set up your team — teammates
                             are added as friends automatically.
                           </div>
@@ -345,7 +349,7 @@ bowlers.length>1&&(
                             dropdown is the only place friend data is used,
                             so the way to add someone belongs beside it. */}
                         {onOpenFriends&&(
-                          <button style={{...S.btn(),width:"100%",marginTop:"8px",fontSize:"12px",
+                          <button style={{...S.btn(),gridColumn:"1 / -1",width:"100%",marginTop:"8px",fontSize:"12px",
                             display:"flex",alignItems:"center",justifyContent:"center",gap:"6px"}}
                             onClick={onOpenFriends}>
                             👥 {friends.length?"Manage friends":"Add a friend"}
@@ -411,10 +415,45 @@ showTeamCompare&&(()=>{
                   );
                 })()
                 );
+                byId["personalRecords"] = (
+(()=>{
+                  // Whoever Viewing is on -- you by default. Nothing when a team
+                  // is being viewed: that is the Team chip's Team Records.
+                  const recordsBowler=statsBowler||(!statsLeague&&bowlers.length<=1?(bowlers[0]||""):"");
+                  if(!recordsBowler)return null;
+                  if(!recordsBowler&&!statsLeague&&bowlers.length>1){
+                    return(
+                      <div style={S.card}>
+                        <div style={S.label}>Team Records</div>
+                        <div style={{fontSize:"12px",color:C.textMuted}}>{pickATeam} to see this — high game/series need one specific roster, since combining different-sized teams would unfairly favor whichever has more bowlers.</div>
+                      </div>
+                    );
+                  }
+                  const hg=recordsBowler?bowlerHighGame(sessions,recordsBowler):teamHighGame(sessions,statsLeague);
+                  const hs=recordsBowler?bowlerHighSeries(sessions,recordsBowler):teamHighSeries(sessions,statsLeague);
+                  if(!hg&&!hs)return null;
+                  return(
+                    <div style={S.card}>
+                      <div style={S.label}>{recordsBowler?`${recordsBowler}'s Records`:"Team Records"}</div>
+                      {/* Rows, which also lets the date read as a sentence
+                          instead of "2026-09-01 · G2". */}
+                      <StatRows>
+                        <StatRow label="High game" value={hg?hg.value:"—"} color={C.strike}
+                          sub={hg?`${formatDate(hg.date)}${hg.game?`, game ${hg.game}`:""}`:null}/>
+                        <StatRow label="High series" value={hs?hs.value:"—"} color={C.accent} last
+                          sub={hs?formatDate(hs.date):null}/>
+                      </StatRows>
+                    </div>
+                  );
+                })()
+                );
                 byId["teamRecords"] = (
 (()=>{
-                  const recordsBowler=statsBowler||(!statsLeague&&bowlers.length<=1?(bowlers[0]||""):"");
-                  if(!recordsBowler&&!statsLeague&&bowlers.length>1){
+                  // Team only. It used to become "<name>'s Records" whenever a
+                  // bowler was being viewed -- an individual card on the Team
+                  // chip. Your own records are "personalRecords", on Mine.
+                  const recordsBowler="";
+                  if(!statsLeague){
                     return(
                       <div style={S.card}>
                         <div style={S.label}>Team Records</div>
@@ -1729,9 +1768,40 @@ anyMoneyGameShown(preferences)&&statsBowler&&(()=>{
                   .filter(id => !byId[id])
                   .map(id => ({ id, hint: cardHint(id), label: CARD_LABELS[id] }))
                   .filter(x => x.hint && x.label);
+                // The Team chip picks its own team. It used to inherit
+                // whatever Viewing was set to on Mine, so it showed a
+                // teammate's individual numbers, or nothing, until the
+                // bowler went back to Mine and changed it there.
+                const teamPicker = statsGroup === "team" && leagues.length > 0 && (
+                  <div style={S.card}>
+                    <div style={S.label}>Team</div>
+                    <select style={S.sel} value={teamStatsLeague || ""}
+                      aria-label="Team"
+                      onChange={e => setTeamStatsLeague(e.target.value)}>
+                      {leagues.filter(l => l !== PRACTICE_SESSION_KEY).map(l => (
+                        <option key={l} value={l}>{teamNameForLeague(l)}</option>
+                      ))}
+                    </select>
+                  </div>
+                );
+                // Cards hidden on THIS chip, for "Unhide Stat Cards" below.
+                // Only this chip's: bringing back Ball cards from the Team
+                // chip would be a surprise two taps away.
+                const hiddenSet = new Set(Array.isArray(preferences?.hiddenStatsCards) ? preferences.hiddenStatsCards : []);
+                const hiddenHere = cardsInGroup(defaultStatsCardOrder(preferences?.environment), statsGroup)
+                  .filter(id => hiddenSet.has(id));
                 return (
                   <>
-                    {shown.map(id => <Fragment key={id}>{byId[id]}</Fragment>)}
+                    {teamPicker}
+                    {shown.map(id => (
+                      <Fragment key={id}>
+                        {id === "viewing" ? byId[id] : (
+                          <HideableCard label={CARD_LABELS[id] || "this card"} onHide={() => onHideStatsCard(id)}>
+                            {byId[id]}
+                          </HideableCard>
+                        )}
+                      </Fragment>
+                    ))}
                     {empty.length > 0 && (
                       <div style={{ ...S.card, opacity: 0.75 }}>
                         <div style={S.label}>Not yet</div>
@@ -1747,11 +1817,45 @@ anyMoneyGameShown(preferences)&&statsBowler&&(()=>{
                         ))}
                       </div>
                     )}
+                    {hiddenHere.length > 0 && (
+                      <button style={{ ...S.btn(), width: "100%", marginBottom: "10px", fontSize: "13px" }}
+                        onClick={() => onUnhideStatsCards(hiddenHere)}>
+                        Unhide Stat Cards ({hiddenHere.length})
+                      </button>
+                    )}
                   </>
                 );
               })()
             )}
             <div style={{height:"32px"}}/>
           </>
+  );
+}
+
+// A small eye in the card's top-right corner that hides it.
+//
+// The card is the thing a bowler decides they don't want, so the control
+// sits on the card -- not three screens away in Settings, where it was
+// the only way until now. Brought back with "Unhide Stat Cards" at the
+// bottom of the same chip, or from Settings.
+function HideableCard({ label, onHide, children }) {
+  return (
+    <div style={{ position: "relative" }}>
+      {children}
+      <button
+        onClick={onHide}
+        aria-label={`Hide ${label}`}
+        title={`Hide ${label}`}
+        style={{ position: "absolute", top: "8px", right: "8px", width: "30px", height: "30px",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          background: "none", border: "none", padding: 0, cursor: "pointer",
+          color: C.textMuted, opacity: 0.7, WebkitTapHighlightColor: "transparent" }}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      </button>
+    </div>
   );
 }

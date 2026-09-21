@@ -747,7 +747,7 @@ function MatchPlay({ tournament, onChange }) {
   );
 }
 
-export default function TournamentSession({ entitlement = null, tournament, onChange, onSave, saved, oilPatterns, submitOilPattern, tournaments, shotScoresByDate = null, tab: controlledTab, onTabChange, saveMessage = "", onUseDate, onCloseTournament, sessionDate = "" }) {
+export default function TournamentSession({ onCancelTournament = null, resultsSummary = null, entitlement = null, tournament, onChange, onSave, saved, oilPatterns, submitOilPattern, tournaments, shotScoresByDate = null, tab: controlledTab, onTabChange, saveMessage = "", onUseDate, onCloseTournament, sessionDate = "" }) {
   // The tab is owned by the caller.
   //
   // LogView renders Shot Context alongside this card, and it only makes
@@ -784,6 +784,7 @@ export default function TournamentSession({ entitlement = null, tournament, onCh
   // assigned transition of the first save is not that.
   const [showReview, setShowReview] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [cancelArmed, setCancelArmed] = useState(false);
   useEffect(() => { if (saved) setShowReview(true); }, [saved]);
   const seenId = useRef(tournament?.id || "");
   useEffect(() => {
@@ -1033,6 +1034,36 @@ export default function TournamentSession({ entitlement = null, tournament, onCh
         + Add Another Day
       </button>
 
+      {/* A way out of an event that is not happening -- a test entry, the
+          wrong tournament, a block logged in the wrong place. Quiet, under
+          everything, and it asks twice: nothing it removes comes back. */}
+      {onCancelTournament && (
+        !cancelArmed ? (
+          <button
+            style={{ background: "none", border: "none", color: C.textMuted, cursor: "pointer",
+              fontSize: "13px", padding: "8px", width: "100%", WebkitTapHighlightColor: "transparent" }}
+            onClick={() => setCancelArmed(true)}>
+            Cancel this tournament
+          </button>
+        ) : (
+          <div style={{ ...S.card, padding: "12px" }}>
+            <div style={{ fontSize: "13px", color: C.text, lineHeight: 1.5, marginBottom: "10px" }}>
+              This deletes <strong>{tournament.name || "this tournament"}</strong> — every block, shot, score
+              and bracket entered for it — and takes you back to Home. This cannot be undone.
+            </div>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button style={{ ...S.btn(), flex: 1 }} onClick={() => setCancelArmed(false)}>
+                Keep it
+              </button>
+              <button style={{ ...S.btn("warn"), flex: 1 }}
+                onClick={() => { setCancelArmed(false); onCancelTournament(); }}>
+                Delete and exit
+              </button>
+            </div>
+          </div>
+        )
+      )}
+
       </>)}
 
       {/* Brackets and side pots: money staked against other bowlers,
@@ -1146,6 +1177,12 @@ export default function TournamentSession({ entitlement = null, tournament, onCh
         )}
       </CollapsibleCard>
 
+      {/* Tonight's scores, the Nightcap and the running averages, handed
+          in by LogView. Here, rather than after this card, so Results
+          reads top to bottom: how it finished, the money, the night,
+          the notes -- and Save last, once everything above is right. */}
+      {resultsSummary}
+
       <CollapsibleCard title="Tournament Notes" expanded={isOpen("notes")} onToggle={() => toggle("notes")}>
         <textarea style={{ ...S.input, minHeight: "60px", resize: "vertical" }}
           placeholder="Overall takeaways…"
@@ -1159,7 +1196,7 @@ export default function TournamentSession({ entitlement = null, tournament, onCh
         </div>
       )}
       <button style={S.btn("primary")} onClick={onSave}>
-        {saved ? "✓ Tournament Saved" : "Save Tournament"}
+        {saved ? "✓ Tournament Saved" : "Save Tournament & Return Home"}
       </button>
 
       {/* The whole event, once it is saved.

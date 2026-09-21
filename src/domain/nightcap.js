@@ -482,6 +482,9 @@ export function nightcapPayload(shots, opts = {}) {
   const room = Math.max(0, MAX_FACTS - season.length);
 
   const payload = {
+    // League night or tournament block, so the server can word it right.
+    // Two values only; anything else is a league night.
+    event: opts?.event === "tournament" ? "tournament" : "league",
     firstBalls: computed.firstBalls,
     games: computed.games,
     // Whether any fact below carries a season figure. The prompt reads

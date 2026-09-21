@@ -13,6 +13,11 @@ import { C, S } from "./ui.jsx";
 import { supabase } from "./supabaseClient.js";
 import { nightcapPayload } from "./domain/nightcap.js";
 import { canPourNightcap, BILLING_LIVE } from "./domain/entitlements.js";
+import { friendlyFunctionError, readFunctionFailure, failureDetail } from "./domain/functionErrors.js";
+import { recordError } from "./errorLogStore.js";
+
+// Nightcap's own voice for "it didn't work". The real reason is logged.
+const NIGHTCAP_FALLBACK = "Couldn't pour the nightcap just then. Tap to try again.";
 
 // Cached per night AND per set of facts.
 //
@@ -70,6 +75,8 @@ export default function Nightcap({
   // bowler to Home.
   sessionEnded = false,
   entitlement = null,
+  // "league" or "tournament": which kind of night this reads back.
+  event = "league",
 }) {
   const [state, setState] = useState({ status: "idle", result: null, error: null });
 
@@ -87,9 +94,9 @@ export default function Nightcap({
   // depended on by value rather than by reference.
   const scoreKey = (Array.isArray(scores) ? scores : []).join(",");
   const payload = useMemo(
-    () => nightcapPayload(shots, { bowler, league, date, leftHanded, scores, priorAverage, pinsLeftOnLane }),
+    () => nightcapPayload(shots, { bowler, league, date, leftHanded, scores, priorAverage, pinsLeftOnLane, event }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [shots, bowler, league, date, leftHanded, scoreKey, priorAverage, pinsLeftOnLane],
+    [shots, bowler, league, date, leftHanded, scoreKey, priorAverage, pinsLeftOnLane, event],
   );
 
   const allowed = canPourNightcap(entitlement);
@@ -119,30 +126,19 @@ export default function Nightcap({
       const { data, error } = await supabase.functions.invoke("nightcap", { body: { payload } });
       if (error) {
         // supabase-js v2 collapses every non-2xx into an opaque error and
-        // hangs the real body off error.context. Without reading it, a
-        // transient hiccup and a permanently broken deploy read
-        // identically to the bowler -- which is how "try again" stopped
-        // being offered for a problem a second tap would have fixed.
-        let message = "";
-        try {
-          const res = error?.context;
-          if (res && typeof res.json === "function") {
-            const body = await res.json();
-            if (body?.error) message = body.error;
-          }
-        } catch { /* body wasn't JSON; the status is all we have */ }
-        const raw = message || error.message || "";
-        if (/failed to send a request|failed to fetch|networkerror/i.test(raw)) {
-          setState({ status: "error", result: null,
-            error: "No signal for this one. It'll still be here when you're back online." });
-          return;
-        }
+        // hangs the real body off error.context. readFunctionFailure reads
+        // it; friendlyFunctionError decides what a bowler may see, and the
+        // real cause goes to the local error log for Diagnostics.
+        const failure = await readFunctionFailure(error);
+        recordError({ kind: "function", where: "nightcap", message: failure.body?.error || failure.message, detail: failureDetail(failure) });
+        const { text, kind } = friendlyFunctionError(failure, NIGHTCAP_FALLBACK);
         setState({ status: "error", result: null,
-          error: raw || "Couldn't pour the nightcap just then. Tap to try again." });
+          error: kind === "network" ? "No signal for this one. It'll still be here when you're back online." : text });
         return;
       }
       if (data?.error) {
-        setState({ status: "error", result: null, error: data.error });
+        recordError({ kind: "function", where: "nightcap", message: String(data.error) });
+        setState({ status: "error", result: null, error: friendlyFunctionError({ status: 500, body: data }, NIGHTCAP_FALLBACK).text });
         return;
       }
       const ok = sane(data);
@@ -154,8 +150,8 @@ export default function Nightcap({
       setState({ status: "done", result: ok, error: null });
       writeCache(ck, ok);
     } catch (e) {
-      setState({ status: "error", result: null,
-        error: e?.message || "Couldn't pour the nightcap just then. Tap to try again." });
+      recordError({ kind: "function", where: "nightcap", message: String(e?.message || e) });
+      setState({ status: "error", result: null, error: NIGHTCAP_FALLBACK });
     } finally {
       inFlight.current = false;
     }
@@ -194,10 +190,19 @@ export default function Nightcap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ck, allowed, sessionEnded]);
 
-  // Nothing logged, or not enough of it. No card at all rather than an
-  // empty one: a bowler who only kept score has not opted into any of
-  // this and should not be shown a box explaining what they are missing.
-  if (!payload) return null;
+  // Only game scores, or too few shots to read. Not hidden: a card that
+  // simply isn't there reads as the feature being missing, so it says
+  // what would bring it -- in the Nightcap's own voice.
+  if (!payload) {
+    return (
+      <div style={{ ...S.card, border: `1px solid ${C.accent}66`, backgroundColor: C.accent + "0D" }}>
+        <div style={{ ...S.label, color: C.accent }}>Nightcap 🥃</div>
+        <div style={{ fontSize: "13px", color: C.text }}>
+          Try tracking frame data next week and we'll have a Nightcap together.
+        </div>
+      </div>
+    );
+  }
 
   const card = {
     ...S.card,

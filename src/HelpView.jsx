@@ -2,11 +2,8 @@ import { useState } from "react";
 import { C, S } from "./ui.jsx";
 import { searchHelp, helpByArea, helpFor, HELP } from "./domain/help.js";
 
-// Help that navigates, not just explains.
-//
-// A bowler searching "buy-in" doesn't want an article, they want the
-// money card on the Bowl tab. Every entry that lives somewhere carries
-// the view it belongs to, so a result can take you there.
+// Searchable help, scoped to the mode being bowled. Entries used to carry
+// a "Take me there" button; see Entry below for why it came out.
 export default function HelpView({ onNavigate, onClose, onReplayTour, environment }) {
   const [query, setQuery] = useState("");
   // Scoped to the mode: a Just Bowling user's docs should describe their
@@ -24,13 +21,11 @@ export default function HelpView({ onNavigate, onClose, onReplayTour, environmen
         <div style={{ fontSize: "12.5px", color: C.textMuted, lineHeight: 1.5 }}>
           {entry.body}
         </div>
-        {entry.view && onNavigate && (
-          <button
-            style={{ ...S.btn(), marginTop: "8px", padding: "5px 10px", fontSize: "11.5px" }}
-            onClick={() => { onNavigate(entry.view); onClose?.(); }}>
-            Take me there →
-          </button>
-        )}
+        {/* "Take me there" removed. Every entry's view is a top-level
+            screen, but most of what the entries describe lives inside a
+            mode or a tab -- so the button landed on Scoring for nearly
+            everything, which is worse than no button: it sends a bowler
+            somewhere confidently wrong. The words say where to go. */}
       </div>
     );
   }

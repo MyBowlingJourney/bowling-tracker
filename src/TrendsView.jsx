@@ -64,7 +64,7 @@ export default function TrendsView({
         || `${String(l).replace(" House Shot", "")} Team`,
     }));
 
-  const gamePoints = allGamesSeries(sessions, statsBowler, statsLeague);
+  const gamePoints = allGamesSeries(sessions, statsBowler, statsLeague, ballFilter, gameEquipment, shots);
   const gameSummary = allGamesSummary(gamePoints);
   const showEveryGame = everyGame && metricId === "average";
 
@@ -184,9 +184,10 @@ export default function TrendsView({
             )}
           </>
         )}
-        {metric && !showEveryGame && (
-          <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "6px" }}>{metric.help}</div>
-        )}
+        {/* The metric's one-line description used to sit here, wedged
+            between the Ball and League fields ("Average score per
+            night."). It mostly restated the metric's name, and read as a
+            label for the League field below it. Removed. */}
 
         {/* "Every game" now sits in the chart header, not here.
             It changes what the chart draws, so it belongs on the chart

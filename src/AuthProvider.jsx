@@ -10,6 +10,7 @@ import { listenForAuthLinks } from './nativeAuth.js';
 // and gets back the same { error } shape.
 import { signInWithGoogle } from './googleAuth.js';
 import { APP_URL } from './constants.js';
+import { isBowlerFacing } from './domain/functionErrors.js';
 import { cloudRead, cloudWrite, adoptLegacyQueueItems, flushPendingQueue } from './syncQueue.js';
 import { setStorageUser, adoptLegacyData } from './scopedStorage.js';
 import { normalizePreferences, defaultPreferences } from './domain/preferences.js';
@@ -278,7 +279,9 @@ export function AuthProvider({ children }) {
           const res = error?.context;
           if (res && typeof res.json === "function") {
             const body = await res.json();
-            detail = body?.error || "";
+            // Only a message written for bowlers is shown; see
+            // domain/functionErrors.js.
+            detail = isBowlerFacing(body?.error) ? body.error : "";
           }
         } catch { /* body was not JSON; the status is all we have */ }
         return { error: new Error(detail || "Couldn't delete the account. Try again, or email support@mybowlingjourney.com.") };

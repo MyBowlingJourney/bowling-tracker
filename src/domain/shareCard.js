@@ -542,12 +542,17 @@ export function drawBadgeCard(ctx, options) {
 }
 
 // The words that go with the picture, for a text message.
-export function badgeShareText(bowler, badges, link) {
+// `collection` is for sharing the whole Badges screen rather than one
+// night's haul: "earned 7 of 30 badges", not "7 badges tonight".
+export function badgeShareText(bowler, badges, link, { collection = false, total = 0 } = {}) {
   const name = typeof bowler === "string" && bowler.trim() ? bowler.trim() : "You";
   const list = Array.isArray(badges) ? badges.filter(b => b && typeof b === "object") : [];
-  const head = list.length === 1
-    ? `${name} earned a badge tonight`
-    : `${name} earned ${list.length} badges tonight`;
+  const outOf = Number(total) > 0 ? ` of ${Number(total)}` : "";
+  const head = collection
+    ? `${name} has earned ${list.length}${outOf} badge${list.length === 1 && !outOf ? "" : "s"}`
+    : list.length === 1
+      ? `${name} earned a badge tonight`
+      : `${name} earned ${list.length} badges tonight`;
   const top = list.slice(0, 3).map(b => `${b.emoji || ""} ${b.name || ""}`.trim()).join(", ");
   const tail = typeof link === "string" && link ? `\n\nKeep them: ${link}` : "";
   return `${head}${top ? ` — ${top}` : ""}.${tail}`;

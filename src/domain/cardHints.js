@@ -13,6 +13,7 @@ export const CARD_HINTS = {
   // ── The match ──
   headToHead: "Compare yourself with a teammate. Log a night with more than one bowler.",
   teamRecords: "Your team's best games and series. Needs team-mates with logged scores.",
+  personalRecords: "Your high game and high series. Fills in once you have a game logged.",
   seasonRecord: "Win-loss record. Record match results on a league night.",
   weeklyPoints: "Points won each week. Record match results on a league night.",
   handicapImpact: "How handicap changes results. Set a book average for the roster.",

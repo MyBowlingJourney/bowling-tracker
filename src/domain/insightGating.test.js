@@ -3,7 +3,7 @@ import {
   MIN_GAMES_FOR_ANALYSIS, SAMPLE_THRESHOLDS, meetsThreshold, shortfall,
   canAnalyze, gamesUntilAnalysis, buildAnalysisPayload, payloadIsEmpty,
   upcomingUnlocks,
-  newlyUnlocked,
+  newlyUnlocked, statLabel, isAnnouncedStat,
 } from './insightGating.js';
 import { scoreStats } from './scoreInsights.js';
 
@@ -289,5 +289,28 @@ describe('baselines and drills', () => {
     for (const junk of [null, undefined, 'x', 42, [null]]) {
       expect(() => buildAnalysisPayload({ drills: junk })).not.toThrow();
     }
+  });
+});
+
+describe("labels shown to bowlers are never payload keys", () => {
+  it("every key the payload can hold has a real label", () => {
+    for (const k of ["strikeRate", "spareConversion", "tenPinRate", "splitRate", "singlePinRate", "cornerPinRate",
+      "openFramesPerGame", "averageByPosition", "scoreSpread", "mostCommonLeave", "balls", "centers", "drills",
+      "patterns", "recentAverages", "gamePosition", "consistency", "formVsBook"]) {
+      const label = statLabel(k);
+      expect(label).not.toMatch(/[a-z][A-Z]/);
+      expect(label).not.toBe(k);
+    }
+  });
+  it("an unlabelled key is humanised, not shown raw", () => {
+    expect(statLabel("someBrandNewStat")).toBe("Some brand new stat");
+  });
+  it("context values are not announced as new insights", () => {
+    const payload = { included: { average: {}, highGame: {}, highSeries: {}, nightsLogged: {}, handedness: {}, strikeRate: {} } };
+    expect(newlyUnlocked(payload, "")).toEqual(["Strike rate"]);
+  });
+  it("isAnnouncedStat", () => {
+    expect(isAnnouncedStat("average")).toBe(false);
+    expect(isAnnouncedStat("mostCommonLeave")).toBe(true);
   });
 });

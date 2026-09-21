@@ -1,7 +1,11 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">My Bowling Journey</string>
-    <string name="title_activity_main">My Bowling Journey</string>
+    <!-- "MBJ" under the launcher icon: "My Bowling Journey" was cut off to
+         "My Bowlin..." there. The launcher shows the activity label, so both
+         change. The Play Store listing name is set in Play Console and stays
+         the full name. -->
+    <string name="app_name">MBJ</string>
+    <string name="title_activity_main">MBJ</string>
     <string name="package_name">com.mybowlingjourney.app</string>
     <string name="custom_url_scheme">com.mybowlingjourney.app</string>
 </resources>

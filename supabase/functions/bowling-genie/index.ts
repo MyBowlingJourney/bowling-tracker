@@ -22,8 +22,9 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { recordAiTokens } from "../_shared/aiUsage.ts";
+import { geminiKey } from "../_shared/geminiKey.ts";
 
-const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+const GEMINI_API_KEY = geminiKey();
 // Overridable without a code deploy, via a GENIE_GEMINI_MODEL secret.
 //
 // Brooklyn's job is PHRASING, not reading. The statistics are precomputed
