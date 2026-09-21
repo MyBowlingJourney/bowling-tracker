@@ -247,6 +247,34 @@ const RESPONSE_SCHEMA = {
   required: ["games", "hasFrameDetail"],
 };
 
+// The schema for the DETAILED retry: frames REQUIRED on every game.
+//
+// In RESPONSE_SCHEMA only gameNumber is required, because a results screen
+// has no frames and must still validate. But structured output treats an
+// optional field as optional -- and on 21 Sep gemini-3.6-flash and
+// 3.7-flash answered hasFrameDetail:true with no frames at all, three
+// times, even when the prompt said an empty array was wrong for this card.
+// The retry only runs for a card already known to show frames, so there
+// the schema can insist: every game carries at least one frame.
+const DETAILED_SCHEMA = {
+  ...RESPONSE_SCHEMA,
+  properties: {
+    ...RESPONSE_SCHEMA.properties,
+    games: {
+      ...RESPONSE_SCHEMA.properties.games,
+      items: {
+        ...RESPONSE_SCHEMA.properties.games.items,
+        properties: {
+          ...RESPONSE_SCHEMA.properties.games.items.properties,
+          frames: { type: "array", items: FRAME_SCHEMA, minItems: 1,
+            description: "Every frame of this game, 1 through 10, read from the pin-deck graphics and marks. This card shows frame detail, so this must not be empty." },
+        },
+        required: ["gameNumber", "frames"],
+      },
+    },
+  },
+};
+
 const EXTRACTION_PROMPT = `You are reading a bowling scorecard screenshot (from an app called LaneTalk). Extract every game and frame shown into the exact JSON shape requested.
 
 THE PIN NUMBERING. Read this before naming any pin.
@@ -642,7 +670,7 @@ Deno.serve(async (req) => {
       contents: [{ parts }],
       generationConfig: {
         responseMimeType: "application/json",
-        responseSchema: counting ? COUNT_SCHEMA : RESPONSE_SCHEMA,
+        responseSchema: counting ? COUNT_SCHEMA : (detailed ? DETAILED_SCHEMA : RESPONSE_SCHEMA),
 
         // NO thinking cap. It was tried at 512 and broke frame-level cards.
         //
