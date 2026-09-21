@@ -7,7 +7,17 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.7.2'
+        // AGP 8.10, not 8.7.2, because androidx.browser:browser:1.9.0 --
+        // pulled in transitively by @capgo/capacitor-social-login -- refuses
+        // to be consumed by anything older. Its AAR metadata demands
+        // compileSdk 36 AND AGP 8.9.1+, and AGP 8.9 tops out at API 35, so
+        // 8.9.1 satisfies only half the requirement. 8.10 is the first
+        // major that supports API 36.
+        //
+        // The Gradle wrapper does NOT need to move: AGP 8.10 requires
+        // Gradle 8.11.1, which is exactly what gradle-wrapper.properties
+        // already pins. JDK minimum is 17; this machine runs 21.
+        classpath 'com.android.tools.build:gradle:8.10.0'
         classpath 'com.google.gms:google-services:4.4.2'
 
         // NOTE: Do not place your application dependencies here; they belong

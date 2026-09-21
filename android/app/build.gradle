@@ -1,5 +1,48 @@
 apply plugin: 'com.android.application'
 
+// ── Release signing ────────────────────────────────────────────────────
+//
+// The upload key is what Google uses to prove a new bundle came from us.
+// It must NEVER be in this repository: anyone with the keystore and its
+// password can publish an update to this app.
+//
+// So the real values live in `android/keystore.properties`, which is
+// gitignored (along with *.jks and *.keystore), and this file reads them
+// at build time. A fresh clone has no such file and that is fine -- debug
+// builds do not need it.
+//
+// Template for android/keystore.properties -- FORWARD slashes, even on
+// Windows, because a .properties file treats a backslash as an escape
+// character and `C:\Users\...` silently becomes nonsense:
+//
+//   storeFile=C:/Users/you/mbj-upload.jks
+//   storePassword=...
+//   keyAlias=mbj-upload
+//   keyPassword=...
+//
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+def keystoreProperties = new Properties()
+def hasKeystore = keystorePropertiesFile.exists()
+if (hasKeystore) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+}
+
+// A release build with no keystore does not fail -- Gradle happily
+// produces an UNSIGNED bundle, Play rejects it, and the error you get
+// back names neither this file nor the missing one.
+//
+// That is the same shape as a QA checker that cannot run reporting
+// "skipped": the absence of the thing is read as the absence of a
+// problem. So it fails here instead, at configuration time, naming
+// exactly what is missing.
+if (!hasKeystore && gradle.startParameter.taskNames.any { it.toLowerCase().contains('release') }) {
+    throw new GradleException(
+        "No android/keystore.properties -- a release build would be unsigned.\n" +
+        "Create it with storeFile / storePassword / keyAlias / keyPassword.\n" +
+        "Use forward slashes in storeFile. The file is gitignored; do not commit it."
+    )
+}
+
 android {
     namespace "com.mybowlingjourney.app"
     compileSdk rootProject.ext.compileSdkVersion
@@ -16,8 +59,24 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        // Declared only when the properties file is present. Declaring it
+        // with null values instead would let a debug build configure fine
+        // and then fail deep inside the signing task with a NullPointer.
+        if (hasKeystore) {
+            release {
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
+        }
+    }
     buildTypes {
         release {
+            if (hasKeystore) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

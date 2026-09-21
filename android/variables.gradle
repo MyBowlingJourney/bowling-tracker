@@ -1,7 +1,22 @@
 ext {
     minSdkVersion = 23
-    compileSdkVersion = 35
-    targetSdkVersion = 35
+    // API 36, moved together and for two separate reasons.
+    //
+    // compileSdk 36 is forced by androidx.browser:browser:1.9.0, which
+    // @capgo/capacitor-social-login depends on. Raising compileSdk only
+    // lets newer APIs be referenced; it changes no runtime behaviour.
+    //
+    // targetSdk 36 is a Play Store requirement, not a preference. Since
+    // 31 August 2026 every NEW app and every update must target API 36.
+    // A bundle built against targetSdk 35 is rejected at upload -- this
+    // is a launch blocker, not a warning.
+    //
+    // targetSdk 36 DOES opt into Android 16 behaviour. The one to watch
+    // in a Capacitor shell is edge-to-edge: it can no longer be opted
+    // out of, so content can draw under the status and navigation bars.
+    // Check the top and bottom of every screen on a real device.
+    compileSdkVersion = 36
+    targetSdkVersion = 36
     androidxActivityVersion = '1.9.2'
     androidxAppCompatVersion = '1.7.0'
     androidxCoordinatorLayoutVersion = '1.2.0'
