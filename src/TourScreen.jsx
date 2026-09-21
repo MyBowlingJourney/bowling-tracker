@@ -86,11 +86,12 @@ const muted = { fontSize: "10px", color: C.textMuted, fontFamily: F.body };
 //
 // Indices, so a screen can say which tab it is standing on:
 //   0 Home  1 Gear  2 Team  3 Stats  4 Improve  5 History
+// Gear and Team are one Setup tab now, so both of their slides stand on it.
 const NAV_TABS = [
-  ["🏠", "Home"], ["🎒", "Gear"], ["👥", "Team"],
+  ["🏠", "Home"], ["🧰", "Setup"],
   ["📈", "Stats"], ["🎯", "Improve"], ["📖", "History"],
 ];
-export const TAB_INDEX = { home: 0, gear: 1, team: 2, stats: 3, improve: 4, history: 5, log: 0 };
+export const TAB_INDEX = { home: 0, gear: 1, team: 1, setup: 1, stats: 2, improve: 3, history: 4, log: 0 };
 
 function Nav({ active }) {
   const tabs = NAV_TABS;
@@ -484,7 +485,7 @@ const SCREENS = {
   ),
 
   "look-gear": () => (
-    <Phone title="Gear">
+    <Phone title="Setup · Balls">
       <Spot>
         <div style={card}>
           <div style={label}>Arsenal · 3 balls</div>
@@ -499,7 +500,7 @@ const SCREENS = {
   ),
 
   "look-team": () => (
-    <Phone title="Team">
+    <Phone title="Setup · Team">
       <Spot>
         <div style={card}>
           <div style={label}>Team</div>
@@ -516,7 +517,7 @@ const SCREENS = {
         </div>
       </Spot>
       <Note>A league first, a team later</Note>
-      <Nav active={2} />
+      <Nav active={1} />
     </Phone>
   ),
 
@@ -546,7 +547,7 @@ const SCREENS = {
           <StatBox value="62%" label="Spare" colour={C.spare} />
         </div>
       </div>
-      <Nav active={3} />
+      <Nav active={2} />
     </Phone>
   ),
 
@@ -613,7 +614,7 @@ const SCREENS = {
           <div style={muted}>Lanes broke down early. Moved left 3 and it came back.</div>
         </div>
       </Spot>
-      <Nav active={5} />
+      <Nav active={4} />
     </Phone>
   ),
 
@@ -794,7 +795,7 @@ const SCREENS = {
         <div style={label}>Not yet</div>
         <Row left="10 pin conversion" right="18 more" dim />
       </div>
-      <Nav active={4} />
+      <Nav active={3} />
     </Phone>
   ),
 
@@ -837,7 +838,7 @@ const SCREENS = {
           On a 37-foot pattern you've struck more with the Bionic every time out. Start there.
         </div>
       </div>
-      <Nav active={4} />
+      <Nav active={3} />
     </Phone>
   ),
 
@@ -853,7 +854,7 @@ const SCREENS = {
         <Row left="Phaze II" right="53%" />
         <Row left="Zen Master" right="47%" />
       </div>
-      <Nav active={3} />
+      <Nav active={2} />
     </Phone>
   ),
 
@@ -875,7 +876,7 @@ const SCREENS = {
         </div>
       </div>
       <Note up={false}>Same measure, same scale</Note>
-      <Nav active={3} />
+      <Nav active={2} />
     </Phone>
   ),
 
@@ -896,7 +897,7 @@ const SCREENS = {
           Which ball carries best?<br />Where is a spare leaking?<br />Do I fall off in game three?
         </div>
       </div>
-      <Nav active={3} />
+      <Nav active={2} />
     </Phone>
   ),
 
@@ -922,7 +923,7 @@ const SCREENS = {
         </div>
       </div>
       <div style={{ ...muted, textAlign: "center" }}>Showing 13 of 40 games</div>
-      <Nav active={3} />
+      <Nav active={2} />
     </Phone>
   ),
 };

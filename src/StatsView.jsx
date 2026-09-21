@@ -17,6 +17,9 @@ import { seasonComparison } from "./domain/scoreInsights.js";
 
 import BallPhases from "./BallPhases.jsx";
 import LeaveBreakdown from "./LeaveBreakdown.jsx";
+import RackTypeCard from "./RackTypeCard.jsx";
+import { TabbedGroupCard } from "./Tabs.jsx";
+import { groupShownCards } from "./domain/statsTabGroups.js";
 import { patternAverages, patternVersusOverall } from "./domain/oilPatterns.js";
 import { HOUSE_PATTERN } from "./domain/laneTransition.js";
 
@@ -88,7 +91,7 @@ export default function StatsView({
   lanePatterns = [], leaguePatterns = {}, oilPatterns = [], tournaments = [], centers = [], statsGroup = "overview",
   leftHandedForBowler, ballProfile,
   SHOT_SAMPLE_THRESHOLD = 20,
-  centerStats, rackTypeStats,
+  centerStats, rackTypeStats, rackTypeDetail = null,
   preferences = { trackedFields: {} },
   view, shots = [], sessions = [], bowlers = [], teams, leagues: allLeagues = [], arsenals, saved,
   statsBowler, setStatsBowler = () => {}, compareBowler, setCompareBowler = () => {},
@@ -1319,56 +1322,16 @@ sessions.length>0&&(()=>{
                 //
                 // Needs BOTH types to say anything -- one type is not a
                 // comparison, it is just your average again.
+                // Three tabs: the numbers side by side, what each rack
+                // leaves standing, and how the strikes carried. Same gate
+                // as before -- both rack types need games -- and a tab
+                // with too little behind it is left out. See RackTypeCard.
                 byId["rackType"] = (()=>{
-                  // Precomputed upstream: this needs leagues as OBJECTS
-                  // carrying centerId, and allLeagues here is a list of
-                  // names. See rackTypeStats in BowlingTracker.
-                  const rows=rackTypeStats||[];
-                  const withGames=(rows||[]).filter(r=>r&&r.games>0);
+                  const withGames=(rackTypeStats||[]).filter(r=>r&&r.games>0);
                   if(withGames.length<2)return null;
-                  return (
-                    <div style={S.card}>
-                      <div style={S.label}>Free Fall vs String</div>
-                      <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"10px"}}>
-                        Strung pins are tethered, so they deflect differently.
-                      </div>
-                      <div style={{display:"flex",gap:"10px"}}>
-                        {withGames.map(r=>(
-                          <div key={r.rackType} style={{flex:1,minWidth:0,textAlign:"center"}}>
-                            <div style={{fontSize:"18px",fontWeight:500}}>{r.average}</div>
-                            <div style={{fontSize:"11px",color:C.textMuted}}>{r.rackType}</div>
-                            <div style={{fontSize:"11px",color:C.textMuted,marginTop:"4px"}}>
-                              {r.games} game{r.games===1?"":"s"}
-                            </div>
-                            {/* Strike rate first: it is the headline
-                                number, and the messenger rate below is a
-                                share OF it. Reading them the other way
-                                round invites treating both as shares of
-                                the same thing. */}
-                            {r.strikeRate!==null&&(
-                              <div style={{fontSize:"11px",color:C.strike,marginTop:"2px"}}>
-                                {r.strikeRate}% strikes
-                              </div>
-                            )}
-                            {/* Only when there are strikes to take a rate of:
-                                0% off no strikes is not a fact about pins.
-                              
-                                Labelled "of strikes" because it is not a
-                                share of shots -- without that word it
-                                reads as one, and the two numbers stacked
-                                together would look like they add up. */}
-                            {r.strikes>0&&r.messengerRate!==null&&(
-                              <div style={{fontSize:"11px",color:C.textMuted}}>
-                                {r.messengerRate}% of strikes were messengers
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
+                  return <RackTypeCard rows={rackTypeStats} detail={rackTypeDetail}
+                    leftHanded={leftHandedForBowler?.(statsBowler)||false}/>;
                 })();
-
 
                 // "By Oil Pattern" was here, as its own card, and is now
                 // folded into the lane card -- see patternScores above and
@@ -1773,11 +1736,24 @@ anyMoneyGameShown(preferences)&&statsBowler&&(()=>{
                 return (
                   <>
                     {teamPicker}
-                    {shown.map(id => (
-                      <Fragment key={id}>
-                        {id === "viewing" ? byId[id] : (
-                          <HideableCard label={CARD_LABELS[id] || "this card"} onHide={() => onHideStatsCard(id)}>
-                            {byId[id]}
+                    {/* Related cards on Mine share one card with tabs --
+                        see domain/statsTabGroups.js. The eye on a tabbed
+                        card hides every card in it; they come back
+                        together from Unhide below, or one by one in
+                        Settings. */}
+                    {groupShownCards(shown).map(entry => entry.kind === "group" ? (
+                      <Fragment key={`group:${entry.group.id}`}>
+                        <HideableCard label={entry.group.title}
+                          onHide={() => entry.tabs.forEach(t => onHideStatsCard(t.card))}>
+                          <TabbedGroupCard group={entry.group} tabs={entry.tabs}
+                            render={card => byId[card]} />
+                        </HideableCard>
+                      </Fragment>
+                    ) : (
+                      <Fragment key={entry.id}>
+                        {entry.id === "viewing" ? byId[entry.id] : (
+                          <HideableCard label={CARD_LABELS[entry.id] || "this card"} onHide={() => onHideStatsCard(entry.id)}>
+                            {byId[entry.id]}
                           </HideableCard>
                         )}
                       </Fragment>

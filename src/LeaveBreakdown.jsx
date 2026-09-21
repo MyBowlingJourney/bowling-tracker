@@ -14,13 +14,20 @@ import { rankLeaves, pageState, nextShown, leavePins, leaveLabel, FIRST_PAGE } f
 // what was standing, not a hand-adjusted reading of it.
 const PIN_XY = {7:[0,0],8:[1,0],9:[2,0],10:[3,0],4:[.5,1],5:[1.5,1],6:[2.5,1],2:[1,2],3:[2,2],1:[1.5,3]};
 
-export function MiniRack({ pins, size = 48, color }){
+// `heat` (pin -> 0..1) shades every pin by how often it stood, for the
+// rack-type card; without it, `pins` are the ones standing.
+export function MiniRack({ pins = [], size = 48, color, heat = null, label }){
   const standing = new Set(pins);
   const step = size / 4, r = step * 0.34, h = Math.round(step * 3 + 2 * r + 2);
   return (
     <svg width={size} height={h} viewBox={`0 0 ${size} ${h}`} role="img"
-      aria-label={pins.length ? `${pins.join("-")} standing` : "no pins"} style={{ flexShrink: 0, display: "block" }}>
+      aria-label={label || (pins.length ? `${pins.join("-")} standing` : "no pins")} style={{ flexShrink: 0, display: "block" }}>
       {Object.entries(PIN_XY).map(([p, [x, y]]) => {
+        if (heat) {
+          const h = Math.max(0, Math.min(1, Number(heat[p]) || 0));
+          return <circle key={p} cx={step / 2 + x * step} cy={r + 1 + y * step} r={r}
+            fill={color} fillOpacity={0.08 + 0.92 * h} />;
+        }
         const up = standing.has(Number(p));
         return <circle key={p} cx={step / 2 + x * step} cy={r + 1 + y * step}
           r={up ? r : r * 0.55} fill={up ? color : C.border} />;

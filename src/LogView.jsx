@@ -2111,9 +2111,8 @@ export default function LogView({
                   away. A team isn't needed yet — you can add one whenever you like, and
                   tonight's scores will join it.
                 </div>
-                {/* The Team tab, which is where the Leagues card lives -- it
-                    is <Settings mode="leagues"> rendered under view
-                    "locker", not the Settings screen. */}
+                {/* Setup's League tab, which is where the Leagues card
+                    lives -- "teams" lands there. */}
                 <button style={S.btn("primary")} onClick={()=>setView("teams")}>
                   Add my league
                 </button>
@@ -2160,7 +2159,7 @@ export default function LogView({
                 </div>
                 <div style={{display:"flex",gap:"8px"}}>
                   <button style={{...S.btn("primary"),flex:1,padding:"8px",fontSize:"12px"}}
-                    onClick={()=>setView("teams")}>Add or join my team</button>
+                    onClick={()=>setView("setup-team")}>Add or join my team</button>
                   <button style={{...S.btn(),flex:1,padding:"8px",fontSize:"12px"}}
                     onClick={onDismissTeamPrompt}>Not now</button>
                 </div>

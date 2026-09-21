@@ -71,6 +71,8 @@ import { emptyBag, normalizeBag, bagToRow, bagFromRow, availableBalls, bagsForEn
 import { DEFAULT_BALL_GROUPS, emptyBallSpecs, normalizeBallSpecs, specsToRow, specsFromRow, groupToRow, groupFromRow } from "./domain/ballSpecs.js";
 import { ballKey, catalogState, bestEntry, rejectedBallsFor, clearedSpecsAfterRejection, canVote } from "./domain/ballCatalog.js";
 import { normalizeCenter, centerToRow, centerFromRow, findExistingCenter, statsByCenter, statsByRackType } from "./domain/centers.js";
+import { rackTypeDetail } from "./domain/rackTypeDetail.js";
+import { TabBar } from "./Tabs.jsx";
 import { normalizePattern, patternFromRow, patternToRow, patternAverages, allVerifiedPbaPatterns } from "./domain/oilPatterns.js";
 import { normalizeLeagueDates, needsBookAverageUpdate , isNoTapLeague, leagueFormat} from "./domain/leagueSeasons.js";
 import { archiveOnNewStart, compareSeasons, describeSeasonChange } from "./domain/seasons.js";
@@ -429,6 +431,14 @@ export default function BowlingTracker(){
   // that league, since teams.league_id references leagues.id).
   const leagueIdsRef=useRef({});
   const[view,setView]=useState("home");
+  // Setup: Gear and Team as one screen with four tabs. The view id stays
+  // "locker"; the old "teams" view and "setup-team" are entry points that
+  // land on the right tab (see the effect below).
+  const[setupTab,setSetupTab]=useState("balls");
+  useEffect(()=>{
+    if(view==="teams"){ setSetupTab("league"); setView("locker"); }
+    else if(view==="setup-team"){ setSetupTab("team"); setView("locker"); }
+  },[view]);
 
   // Stats and Trends are one nav tab ("Data") with a sub-tab, rather than
   // two top-level tabs. They already share statsBowler/statsLeague, so the
@@ -605,6 +615,9 @@ export default function BowlingTracker(){
     }
     persistTeams([...(teams||[]),{id,name:clean,league:leagueName,members:[],pendingInvites:[]}]);
     setFocusTeamId(id);
+    // The new team is on Setup's Team tab, not the League tab it was
+    // created from.
+    setSetupTab("team");
     if(!leagueId){
       window.alert(`Couldn't find "${leagueName}" in the cloud — this team was created on this device only and won't be visible to teammates. Try again once you're back online.`);
       return;
@@ -6327,6 +6340,10 @@ export default function BowlingTracker(){
   // exists at this level, which is why centerStats was already computed
   // here rather than in the view.
   const rackTypeStats=statsByRackType(sessions,shots,leaguesWithCenters,centers,statsBowler||activeBowler);
+  // The rest of the Free Fall vs String card -- spares, splits, leaves and
+  // strike shapes -- off the same league -> centre -> rack type lookup.
+  const rackTypeDetailStats=rackTypeDetail(shots,leaguesWithCenters,centers,statsBowler||activeBowler,
+    leftHandedForBowler(statsBowler||activeBowler));
 
   // Whether the active bowler should be prompted to update their book
   // average, and what the app would suggest if so. Computed here rather
@@ -6991,8 +7008,10 @@ export default function BowlingTracker(){
     // prominent there, not less -- it is the first thing under the
     // headline numbers instead of one of five icons.
     {id:"home",    label:"Home",    icon:"🏠"},
-    {id:"locker",  label:"Gear",    icon:"🎒"}, // internal id stays "locker" -- plumbing, not shown
-    {id:"teams",   label:"Team",    icon:"👥"},
+    // Setup: balls, bags, leagues and team in one tab. Gear and Team
+    // were two tabs for one job -- getting ready to bowl -- and merging
+    // them takes the bar from six tabs to five.
+    {id:"locker",  label:"Setup",   icon:"🧰"}, // internal id stays "locker" -- plumbing, not shown
     // Stats gets the bar back.
     //
     // It was reached from a card on Home, which is fine for a glance and
@@ -8102,11 +8121,16 @@ export default function BowlingTracker(){
           </>
         )}
 
-        {(view==="profile"||view==="locker")&&(
+        {view==="locker"&&(
+          <TabBar label="Setup" value={setupTab} onChange={setSetupTab}
+            tabs={[{id:"balls",label:"Balls"},{id:"bags",label:"Bags"},{id:"league",label:"League"},{id:"team",label:"Team"}]}/>
+        )}
+
+        {(view==="profile"||(view==="locker"&&(setupTab==="balls"||setupTab==="bags")))&&(
           <Profile
             ballStats={bStats}
             only={view==="locker"
-              ?["arsenal","bags"]
+              ?[setupTab==="bags"?"bags":"arsenal"]
               :["identity","aliases","coaching","bookAverage","homeCenters","notes"]}
             bowlers={bowlers} activeBowler={activeBowler} selectBowler={selectBowler}
             profiles={profiles} setProfile={setProfile} teams={teams}
@@ -8141,7 +8165,7 @@ export default function BowlingTracker(){
             keptLeagueName test: once a league is paused, changing which
             one it is has to stay reachable -- a bowler who picks Tuesday
             and then switches nights in January needs a way back. */}
-        {view==="teams"&&lockedLeagueNames.length>0&&(
+        {view==="locker"&&setupTab==="league"&&lockedLeagueNames.length>0&&(
           <KeptLeaguePicker
             leagues={notUserHidden}
             keptLeagueName={keptLeagueName}
@@ -8151,7 +8175,7 @@ export default function BowlingTracker(){
             onSaved={onKeptLeagueSaved} />
         )}
 
-        {view==="teams"&&(
+        {view==="locker"&&setupTab==="league"&&(
           /* RAW shots and sessions below, deliberately.
              
              Backup & Restore lives on this screen. An export that quietly
@@ -8206,7 +8230,7 @@ export default function BowlingTracker(){
           
             Friends stays where it is: adding a friend is a different task
             from managing a roster, and it isn't part of league setup. */}
-        {view==="teams"&&(
+        {view==="locker"&&setupTab==="team"&&(
           <TeamManagement
             // activeLeagues, not the raw list: Practice and Just Bowling
             // are containers, and offering to add a team to one is
@@ -8572,7 +8596,7 @@ export default function BowlingTracker(){
             tournaments={tournaments}
 
             closedSeasons={closedSeasons} leagueDates={leagueDates}
-            rackTypeStats={rackTypeStats}
+            rackTypeStats={rackTypeStats} rackTypeDetail={rackTypeDetailStats}
             view={view} entitlement={entitlement} shots={visibleShots} sessions={visibleSessions} bowlers={bowlers} teams={teams} leagues={leagues} arsenals={arsenals} saved={saved}
             statsBowler={statsBowler} setStatsBowler={chooseStatsBowler} compareBowler={compareBowler} setCompareBowler={setCompareBowler}
             compareFriendId={compareFriendId} setCompareFriendId={setCompareFriendId}
