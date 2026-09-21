@@ -439,6 +439,26 @@ export default function Profile({
       </CollapsibleCard>
       )}
 
+      {/* Adding a ball gets its own card at the top, the same shape as
+          Add a league and Add team on the other Setup tabs. */}
+      {show("arsenal") && (
+        <div style={S.card}>
+          <div style={S.label}>Add a ball</div>
+          {/* Why an add was refused, where the bowler is looking. */}
+          {ballAddMessage && (
+            <div style={{ fontSize: "12px", color: C.miss, marginBottom: "6px" }}>
+              {ballAddMessage}
+            </div>
+          )}
+          <BallNameInput
+            value={newBallName}
+            onChange={setNewBallName}
+            onAdd={addBall}
+            catalogEntries={catalogEntries || {}}
+            existingBalls={balls} />
+        </div>
+      )}
+
       {show("arsenal") && (
       <CollapsibleCard title="Arsenal"
         summary={`${balls.length} ball${balls.length === 1 ? "" : "s"}`}
@@ -487,18 +507,6 @@ export default function Profile({
           publishBallSpecs={publishBallSpecs}
           voteOnEntry={voteOnEntry}
           acknowledgeRejection={acknowledgeRejection} />
-        {/* Why an add was refused, where the bowler is looking. */}
-        {ballAddMessage && (
-          <div style={{ fontSize: "12px", color: C.miss, marginBottom: "6px" }}>
-            {ballAddMessage}
-          </div>
-        )}
-        <BallNameInput
-          value={newBallName}
-          onChange={setNewBallName}
-          onAdd={addBall}
-          catalogEntries={catalogEntries || {}}
-          existingBalls={balls} />
       </CollapsibleCard>
       )}
 
