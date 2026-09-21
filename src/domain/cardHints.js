@@ -39,7 +39,7 @@ export const CARD_HINTS = {
   tenPinLeaves: "How often the corner pin stands. Log your leaves.",
   singlePinSpares: "Single-pin conversion. Log your leaves and whether you made them.",
   splits: "Splits and conversions. Log your leaves.",
-  loneFivePin: "The lone 5. Log your leaves.",
+  loneFivePin: "Who missed the lone 5. Log your leaves.",
   nonSplitLeaves: "Makeable leaves you missed. Log your leaves.",
   strikeStreak: "Longest run of strikes. Log a full night frame by frame.",
   missDistribution: "Where your misses go. Record a miss direction on bad shots.",

@@ -69,6 +69,9 @@ const GROUP_BY_CARD = {
   // were invisible in both places at once.
   seasonRecord: "team",
   hung: "team",
+  // Hand up: who missed the lone 5 and owes the round. A team game, so
+  // it lives with the team cards rather than in a bowler's own numbers.
+  loneFivePin: "team",
   handicapImpact: "team",
 
   // The house and what it was dressed with.

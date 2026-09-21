@@ -50,6 +50,7 @@ import {
   leaveSide, splitKey,
 } from "./splits.js";
 import { SAMPLE_THRESHOLDS, meetsThreshold } from "./insightGating.js";
+import { hungCounts, handUpCounts } from "./stats.js";
 
 // Nights of history in this league before a season figure is offered at
 // all, on top of whatever per-statistic threshold applies.
@@ -105,6 +106,29 @@ export function safeBallName(name) {
     .slice(0, MAX_BALL_NAME)
     .split(" ")
     .slice(0, MAX_BALL_WORDS)
+    .join(" ")
+    .trim();
+}
+
+// Teammates' names -- the second piece of typed text that travels, for
+// the team facts below. "Sam got hung twice" is the whole joke; "a
+// teammate got hung twice" isn't one.
+//
+// Tighter than a ball name, because a name has fewer legitimate shapes:
+// letters, spaces, apostrophes, dots and hyphens ("O'Neil", "J.R.",
+// "Mary-Kate"), twenty-four characters, three words. No digits, no
+// slashes, nothing that ends a sentence. render.ts applies the same rule.
+export const MAX_PERSON_NAME = 24;
+export const MAX_PERSON_WORDS = 3;
+
+export function safePersonName(name) {
+  return String(name ?? "")
+    .replace(/[^A-Za-z .'-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, MAX_PERSON_NAME)
+    .split(" ")
+    .slice(0, MAX_PERSON_WORDS)
     .join(" ")
     .trim();
 }
@@ -257,6 +281,35 @@ export function nightcapFacts(shots, {
       .slice(0, 3)
       .map(t => ({ key: t.value, count: t.count }));
     add("splits", { count: splits.length, converted: made, types });
+  }
+
+  // ── The team's night ──────────────────────────────────────────────────
+  //
+  // Who got hung and who missed a lone 5 (hand up -- that's a round
+  // owed). Team banter, and the part of the night the bowler will
+  // actually repeat on the way out.
+  //
+  // Every bowler in this league on this date, not just this one: being
+  // hung is only defined against teammates' frames. Only emitted when
+  // someone actually did it -- "nobody got hung" is a non-event -- and
+  // only once at least two bowlers have logged tonight, since a
+  // teammate who hasn't logged yet can't have been hung.
+  //
+  // `you` marks this bowler's own entry so the server can say "you"
+  // rather than their name back to them.
+  const tonightAll = rows(shots).filter(s =>
+    clean(s.league) === clean(league) && clean(s.date) === clean(date));
+  const teamSize = new Set(tonightAll.map(s => clean(s.bowler)).filter(Boolean)).size;
+  if (teamSize >= 2) {
+    const ranked = counts => Object.entries(counts)
+      .filter(([, n]) => n > 0)
+      .map(([name, n]) => ({ name: safePersonName(name), count: n, you: clean(name) === clean(bowler) }))
+      .filter(e => e.name)
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+    const hung = ranked(hungCounts(tonightAll, league)).slice(0, 3);
+    if (hung.length) add("teamHung", { bowlers: hung });
+    const handUp = ranked(handUpCounts(tonightAll, league)).slice(0, 6);
+    if (handUp.length) add("handUp", { bowlers: handUp });
   }
 
   // ── What the opens cost, in pins ──────────────────────────────────────

@@ -346,6 +346,27 @@ export function hungCounts(shots,league){
   return counts;
 }
 
+// Hand up: how many times each bowler missed the lone 5-pin.
+//
+// Team custom -- miss a single 5 and you owe a drink to everyone with a
+// hand up. So this is a COUNT per bowler, not a conversion rate: nobody
+// buys a round for a percentage.
+//
+// A lone 5 is the 5 standing with nothing else (a 9-pin no-tap marker
+// doesn't count as a pin). Only a recorded miss counts; a shot with no
+// spare result logged yet is neither a make nor a miss.
+export function handUpCounts(shots,league){
+  const counts={};
+  arr(shots).forEach(s=>{
+    if(league&&s.league!==league)return;
+    if(s.result!=="Other Leave"||s.spareMade!=="No")return;
+    const standing=(Array.isArray(s.otherLeave)?s.otherLeave:[]).filter(p=>p!=="9 Pin No-Tap").map(String);
+    if(standing.length!==1||standing[0]!=="5")return;
+    counts[s.bowler]=(counts[s.bowler]||0)+1;
+  });
+  return counts;
+}
+
 // The other half of hungCounts: who did the hanging.
 //
 // hungCounts credits the bowler left needing a spare. This credits

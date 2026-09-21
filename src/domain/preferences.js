@@ -93,7 +93,7 @@ export const STATS_CARDS = [
   { id: "tenPinLeaves", label: "Ten Pin Leaves" },
   { id: "singlePinSpares", label: "Single Pin Spares" },
   { id: "splits", label: "Splits" },
-  { id: "loneFivePin", label: "Lone 5-Pin" },
+  { id: "loneFivePin", label: "Hand Up" },
   { id: "nonSplitLeaves", label: "Non-Split Leaves" },
   { id: "strikeStreak", label: "Longest Strike Streak" },
   { id: "byBall", label: "By Ball" },
