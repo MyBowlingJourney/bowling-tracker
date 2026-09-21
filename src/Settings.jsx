@@ -234,6 +234,10 @@ export default function Settings({
   }
 
   const [editingLeague, setEditingLeague] = useState(null);
+  // Which league's details are showing. One at a time from a dropdown,
+  // like teams: every league rendering its full stack of center, dates,
+  // pattern and teams meant scrolling past all of it to reach one.
+  const [shownLeague, setShownLeague] = useState("");
   const [leagueDraft, setLeagueDraft] = useState("");
 
   async function commitRename(oldName) {
@@ -619,6 +623,7 @@ export default function Settings({
                   const name = newLeagueName.trim();
                   if (!name) return;
                   await onAddLeague(name);
+                  setShownLeague(name);
                   setNewLeagueName("");
                 }}
                 placeholder="League name, e.g. Tuesday Night Mixed" />
@@ -632,6 +637,7 @@ export default function Settings({
                   // moment are the "admin before first value" problem the
                   // whole change exists to remove.
                   await onAddLeague(name);
+                  setShownLeague(name);
                   setNewLeagueName("");
                 }}>
                 Add
@@ -644,11 +650,28 @@ export default function Settings({
               hang -- nobody joins them, they have no team, and they
               can't be renamed or deleted. Offering to add a team to
               "Practice" is offering something that can't work. */}
-          {(leagues || []).filter(l => !isContainerLeague(l)).map((league, i) => {
+          {(() => {
+            const real = (leagues || []).filter(l => !isContainerLeague(l));
+            return real.length > 1 && (
+              <div style={{ marginBottom: "12px" }}>
+                <div style={{ ...S.label, marginBottom: "6px" }}>League</div>
+                <select style={{ ...S.input, appearance: "auto", marginBottom: 0 }}
+                  aria-label="League"
+                  value={real.includes(shownLeague) ? shownLeague : real[0]}
+                  onChange={e => { setShownLeague(e.target.value); setEditingLeague(null); }}>
+                  {real.map(l => <option key={l} value={l}>{l.replace(" House Shot", "")}</option>)}
+                </select>
+              </div>
+            );
+          })()}
+          {(() => {
+            const real = (leagues || []).filter(l => !isContainerLeague(l));
+            return real.filter(l => l === (real.includes(shownLeague) ? shownLeague : real[0]));
+          })().map((league, i, shownList) => {
             const centerId = leagueCenters?.[league];
             const center = (centers || []).find(c => c.id === centerId) || null;
             return (
-              <div key={league} style={{ paddingBottom: "10px", marginBottom: "10px", borderBottom: i < leagues.length - 1 ? `1px solid ${C.border}` : "none" }}>
+              <div key={league} style={{ paddingBottom: "10px", marginBottom: "10px", borderBottom: i < shownList.length - 1 ? `1px solid ${C.border}` : "none" }}>
                 {/* Rename. renameLeague already existed and rewrites every
                     shot, session and record to the new name -- it just was
                     never exposed, so a league typed wrong at creation was

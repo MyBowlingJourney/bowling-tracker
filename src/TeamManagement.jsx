@@ -196,6 +196,10 @@ const S = new Proxy({}, {
 export default function TeamManagement({
   leagues = [],
   onTeamsChange, focusTeamId,
+  // A second way to make a team, from this tab. Creating one from the
+  // League tab is easy to miss, so "Add team" here asks for the league it
+  // belongs to and hands off to the same function. Absent: no button.
+  onCreateTeam = null,
 }) {
   const{user,displayName,updateDisplayName}=useAuth();
   // Maps league name -> its Supabase row id, built from its own small fetch
@@ -217,6 +221,9 @@ export default function TeamManagement({
   // so three teams meant scrolling past three of everything to reach the
   // one you wanted.
   const [shownTeamId, setShownTeamId] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [newTeamName, setNewTeamName] = useState("");
+  const [newTeamLeague, setNewTeamLeague] = useState("");
   const shownTeam = teams.find(t => t.id === shownTeamId) || teams[0] || null;
 
   const focusedTeamRef = useRef(null);
@@ -625,10 +632,62 @@ export default function TeamManagement({
         </div>
       )}
 
-      {!loading && !loadError && teams.length===0 && (
+      {/* Add team. A team has to belong to a league -- scores, standings
+          and side pots all hang off it -- so the league is picked first
+          and Create stays off until both are there. */}
+      {!loading && onCreateTeam && (
+        <div style={S.card}>
+          {!adding ? (
+            <button style={{ ...S.primary, width: "100%", minHeight: "44px" }}
+              onClick={() => { setAdding(true); setNewTeamLeague(leagues.length === 1 ? leagues[0] : ""); }}>
+              + Add team
+            </button>
+          ) : leagues.length === 0 ? (
+            <div>
+              <div style={{ fontSize: "13px", color: C.textMuted, lineHeight: 1.5, marginBottom: "10px" }}>
+                A team belongs to a league. Add your league on the League tab first, then come back here.
+              </div>
+              <button style={S.button} onClick={() => setAdding(false)}>OK</button>
+            </div>
+          ) : (
+            <div>
+              <div style={S.label}>New team</div>
+              <label style={{ display: "block", fontSize: "12px", color: C.textMuted, marginBottom: "4px" }} htmlFor="new-team-league">League</label>
+              <select id="new-team-league" style={{ ...S.input, appearance: "auto", marginBottom: "10px" }}
+                value={newTeamLeague} onChange={e => setNewTeamLeague(e.target.value)}>
+                <option value="" disabled>Pick the league this team bowls in</option>
+                {leagues.map(l => <option key={l} value={l}>{String(l).replace(" House Shot", "")}</option>)}
+              </select>
+              <label style={{ display: "block", fontSize: "12px", color: C.textMuted, marginBottom: "4px" }} htmlFor="new-team-name">Team name</label>
+              <input id="new-team-name" style={{ ...S.input, marginBottom: "10px" }}
+                value={newTeamName} onChange={e => setNewTeamName(e.target.value)}
+                placeholder="e.g. Split Happens" />
+              <div style={{ display: "flex", gap: "8px" }}>
+                <button style={{ ...S.primary, flex: 1 }}
+                  disabled={!newTeamLeague || !newTeamName.trim()}
+                  onClick={async () => {
+                    const name = newTeamName.trim();
+                    if (!newTeamLeague || !name) return;
+                    if (teams.some(t => t.league === newTeamLeague && t.name.toLowerCase() === name.toLowerCase())) {
+                      alert("A team with that name already exists in this league.");
+                      return;
+                    }
+                    await onCreateTeam(newTeamLeague, name);
+                    setAdding(false); setNewTeamName(""); setNewTeamLeague("");
+                  }}>
+                  Create team
+                </button>
+                <button style={S.button} onClick={() => { setAdding(false); setNewTeamName(""); }}>Cancel</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!loading && !loadError && teams.length===0 && !adding && (
         <div style={S.card}>
           <div style={{color:C.textMuted,textAlign:"center",padding:"12px 0"}}>
-            No teams yet — add one under a league in the Leagues card above.
+            No teams yet. Tap Add team, or add one under a league on the League tab.
           </div>
         </div>
       )}

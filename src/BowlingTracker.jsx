@@ -614,11 +614,13 @@ export default function BowlingTracker(){
       }
     }
     persistTeams([...(teams||[]),{id,name:clean,league:leagueName,members:[],pendingInvites:[]}]);
-    setFocusTeamId(id);
-    // The new team is on Setup's Team tab, not the League tab it was
-    // created from.
-    setSetupTab("team");
+    // Show the new team on Setup's Team tab -- AFTER the writes below.
+    // The Team tab fetches its own list when focused on a team it doesn't
+    // have, and focusing before the insert meant fetching before the team
+    // existed, so it opened on some other team instead.
+    const showNewTeam=()=>{ setFocusTeamId(id); setSetupTab("team"); };
     if(!leagueId){
+      showNewTeam();
       window.alert(`Couldn't find "${leagueName}" in the cloud — this team was created on this device only and won't be visible to teammates. Try again once you're back online.`);
       return;
     }
@@ -658,6 +660,7 @@ export default function BowlingTracker(){
     if(user?.id){
       await cloudInsert("team_members",{team_id:id,user_id:user.id,lineup_position:0},{idempotent:true});
     }
+    showNewTeam();
 
 
     if(!result.synced){
@@ -8238,6 +8241,7 @@ export default function BowlingTracker(){
             leagues={activeLeagues}
             onTeamsChange={persistTeams}
             focusTeamId={focusTeamId}
+            onCreateTeam={createTeamForLeague}
           />
         )}
 
