@@ -269,7 +269,10 @@ const DETAILED_SCHEMA = {
           frames: { type: "array", items: FRAME_SCHEMA, minItems: 1,
             description: "Every frame of this game, 1 through 10, read from the pin-deck graphics and marks. This card shows frame detail, so this must not be empty." },
         },
-        required: ["gameNumber", "frames"],
+        // bowlerName required too (it may still be null). Optional, the
+        // retry dropped it and the card came back as "?" -- the name was
+        // on the card and the fast read had it.
+        required: ["gameNumber", "frames", "bowlerName", "totalScore"],
       },
     },
   },
@@ -568,7 +571,7 @@ Deno.serve(async (req) => {
     // point -- it is a handle into logs they cannot read.
     const requestId = crypto.randomUUID().slice(0, 8);
 
-    const { images, mode, onlyGame, detailed } = await req.json();
+    const { images, mode, onlyGame, detailed, totalsOnly } = await req.json();
     // images: array of { base64: string, mimeType: string } -- one entry per uploaded screenshot
     if (!Array.isArray(images) || !images.length) {
       return new Response(JSON.stringify({ error: "No images provided" }), {
@@ -651,11 +654,18 @@ Deno.serve(async (req) => {
     // while the Lite model on the same photo returned thirty. So the retry
     // withdraws that permission for this card.
     const detailedSuffix = detailed && !counting
-      ? `\n\nTHIS CARD HAS BEEN CHECKED AND DOES SHOW PER-FRAME DETAIL. For this card, an empty frames array is WRONG. Transcribe every frame of every game you can see -- all ten frames per game, each ball's pins, marks for strikes (X) and spares (/). Use each frame's running total printed on the card to check your reading, and make each game's frames add up to its printed totalScore. Where a single pin is genuinely unreadable, give your best reading consistent with the running total rather than dropping the frame.`
+      ? `\n\nTHIS CARD HAS BEEN CHECKED AND DOES SHOW PER-FRAME DETAIL. For this card, an empty frames array is WRONG. Transcribe every frame of every game you can see -- all ten frames per game, each ball's pins, marks for strikes (X) and spares (/). Use each frame's running total printed on the card to check your reading, and make each game's frames add up to its printed totalScore. Where a single pin is genuinely unreadable, give your best reading consistent with the running total rather than dropping the frame. Also give every game its bowlerName exactly as printed on the card, and its printed totalScore.`
+      : "";
+
+    // The bowler said this card is game totals only (the default). Frames
+    // are not wanted, so asking for none also saves the output tokens that
+    // dominate the time on a full card.
+    const totalsSuffix = totalsOnly && !detailed && !counting
+      ? `\n\nFOR THIS REQUEST, DO NOT TRANSCRIBE FRAMES. Return every bowler's games with bowlerName, lineupPosition, gameNumber, totalScore, seriesTotal and handicap, and an empty frames array on every game.`
       : "";
 
     const parts = [
-      { text: counting ? COUNT_PROMPT : EXTRACTION_PROMPT + gameSuffix + detailedSuffix },
+      { text: counting ? COUNT_PROMPT : EXTRACTION_PROMPT + gameSuffix + detailedSuffix + totalsSuffix },
       ...images.map((img) => ({
         inline_data: { mime_type: img.mimeType || "image/jpeg", data: img.base64 },
       })),

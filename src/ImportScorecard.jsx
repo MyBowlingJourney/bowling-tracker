@@ -207,6 +207,12 @@ export default function ImportScorecard({
   const[importKind,setImportKind]=useState(
     presetLeague===PRACTICE_SESSION_KEY?"practice":"league");
   const[contextTournamentId,setContextTournamentId]=useState("");
+  // What the picture shows, asked rather than guessed. Game totals is the
+  // default and the reliable path. Frames is BETA: a read of every pin
+  // deck is slow and still gets leaves wrong, so it goes straight to the
+  // stronger model rather than asking the fast one first and escalating --
+  // the fast one cannot read pin decks, so asking it only added a minute.
+  const[cardType,setCardType]=useState("totals");
   const[contextTeamId,setContextTeamId]=useState(initialTeam?.id||"");
   const contextTeam=teamsForImport.find(t=>t.id===contextTeamId)||initialTeam||null;
   const selectedTournament=(tournaments||[]).find(t=>t.id===contextTournamentId)||null;
@@ -443,7 +449,11 @@ export default function ImportScorecard({
       // timing line below to measure against, rather than guessed at
       // again.
       let{data,error:fnError}=await Promise.race([
-        supabase.functions.invoke("import-scorecard",{body:{images:payload}}),
+        // Frames: straight to the detailed read. Totals: the fast read, told
+        // to skip frames entirely.
+        supabase.functions.invoke("import-scorecard",{body:cardType==="frames"
+          ?{images:payload,detailed:true}
+          :{images:payload,totalsOnly:true}}),
         timeoutGuard,
       ]);
 
@@ -471,7 +481,14 @@ export default function ImportScorecard({
         return last?last.running:null;
       };
 
-      if(!fnError&&data?.hasFrameDetail===true){
+      // Totals: whatever frames a model volunteered are dropped. They were
+      // not asked for, and a fast read's pin decks are not to be trusted.
+      if(!fnError&&cardType==="totals"&&Array.isArray(data?.games)){
+        data={...data,games:data.games.map(g=>g?{...g,frames:[]}:g)};
+      }
+      // Escalation only exists for the old auto path; with the card type
+      // asked up front, frames already went to the detailed read.
+      if(cardType==="auto"&&!fnError&&data?.hasFrameDetail===true){
         const gotFrames=(data?.games||[]).some(g=>(g.frames||[]).length);
 
         // Frames present is NOT frames correct. The fast model returned
@@ -525,7 +542,19 @@ export default function ImportScorecard({
                 +`retried on ${retry.data?.model}`
                 +(Array.isArray(retry.data?.skipped)&&retry.data.skipped.length?` (busy: ${retry.data.skipped.join(", ")})`:""),
             });
-            data=retry.data;
+            // The retry is asked for frames; the NAME was already read by
+            // the fast pass. Where the retry left it blank, keep the first
+            // read's -- matched by position and game number, then by game
+            // number alone on a one-bowler card.
+            const fastGames=data?.games||[];
+            const nameFor=g=>{
+              const hit=fastGames.find(f=>f&&f.bowlerName&&f.gameNumber===g.gameNumber
+                &&(f.lineupPosition??0)===(g.lineupPosition??0))
+                ||(new Set(fastGames.map(f=>f?.bowlerName).filter(Boolean)).size===1?fastGames.find(f=>f?.bowlerName):null);
+              return hit?.bowlerName||null;
+            };
+            data={...retry.data,games:(retry.data.games||[]).map(g=>
+              g&&!(g.bowlerName&&String(g.bowlerName).trim())?{...g,bowlerName:nameFor(g)}:g)};
           }else{
             // The retry is the only way frames come back for most cards,
             // and when it failed the import quietly kept the scores with
@@ -728,13 +757,12 @@ export default function ImportScorecard({
       // it. The column labels already say "scores only", but nothing
       // said why, so the obvious reading is that the app lost the frames.
       const anyFrames=cols.some(c=>(c.games||[]).some(g=>(g.frames||[]).length));
-      if(!anyFrames&&/lite/i.test(String(data?.model||""))){
+      if(cardType==="frames"&&!anyFrames){
         recordError({
           kind:"import-quality",
           where:"ImportScorecard.noFrames",
-          message:`no frame detail from ${data?.model}. `
-            +`Lite models read scores but not pin decks -- switch `
-            +`IMPORT_GEMINI_MODEL back for frame tracking.`,
+          message:`frames were asked for, none came back from ${data?.model}`
+            +(Array.isArray(data?.skipped)&&data.skipped.length?` (busy: ${data.skipped.join(", ")})`:""),
         });
       }
 
@@ -982,6 +1010,18 @@ export default function ImportScorecard({
               </div>
             )}
 
+            <div style={S.label}>What's on the card?</div>
+            <div style={{...S.chips,marginBottom:"6px"}}>
+              <Chip label="Game totals" selected={cardType==="totals"} onToggle={()=>setCardType("totals")}/>
+              <Chip label="Frames · Beta" selected={cardType==="frames"} onToggle={()=>setCardType("frames")}/>
+            </div>
+            <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"10px",lineHeight:1.5}}>
+              {cardType==="totals"
+                ?"Just each game's score. Fast, and works on any scorecard or results screen."
+                :<><span style={{display:"inline-block",fontSize:"10px",fontWeight:700,color:C.spare,border:`1px solid ${C.spare}`,borderRadius:"6px",padding:"0 5px",marginRight:"6px"}}>BETA</span>
+                  Reads every frame ball by ball. Takes a minute or two, and some leaves and counts may come back wrong — check each frame before saving.</>}
+            </div>
+
             {/* Always visible, whatever the kind. */}
             <div style={S.label}>Date</div>
             <input style={S.input} type="date" value={contextDate} onChange={e=>setContextDate(e.target.value)}/>
@@ -1045,7 +1085,7 @@ export default function ImportScorecard({
               );
             })()}
             <button style={S.btn("primary")} disabled={!contextLeague||!images.length} onClick={handleExtract}>
-              Extract Shots
+              {cardType==="frames"?"Read Frames":"Read Scores"}
             </button>
           </div>
         </>
