@@ -530,7 +530,12 @@ export default function ImportScorecard({
             let why="read no frames";
             if(retry?.error){
               const f=await readFunctionFailure(retry.error);
-              why=`failed: ${f.status||"no response"} ${f.body?.error||f.body?.reason||f.message||""}`.trim();
+              const b=f.body||{};
+              why=`failed: ${f.status||"no response"} ${b.error||f.message||""}`
+                +(b.reason?` reason=${b.reason}`:"")
+                +(b.upstreamStatus!=null?` upstream=${b.upstreamStatus}`:"")
+                +(b.retries!=null?` retries=${b.retries}`:"")
+                +(b.detail?` detail=${String(b.detail).slice(0,300)}`:"");
             }else if(!retry){
               why="timed out";
             }
