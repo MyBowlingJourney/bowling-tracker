@@ -327,7 +327,7 @@ function Row({ left, right, colour, dim }) {
       color: dim ? C.textMuted : C.text,
     }}>
       <span>{left}</span>
-      <span style={{ fontWeight: 700, color: colour || C.text }}>{right}</span>
+      <span style={{ fontWeight: 700, color: colour || (dim ? C.textMuted : C.text), opacity: dim ? 0.75 : 1 }}>{right}</span>
     </div>
   );
 }
@@ -714,15 +714,15 @@ const SCREENS = {
             <span style={chip(true, C.miss)}>No</span>
           </div>
         </div>
+        {/* The pin deck, not a counter: answering No opens the rack
+            again and you tap which of the standing pins fell. The
+            stepper this used to draw is not in the app any more. */}
         <Spot style={{ marginTop: "8px" }}>
-          <div style={{ ...label, marginBottom: "4px" }}>Knocked down</div>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <span style={{ ...chip(false), padding: "4px 10px" }}>−</span>
-            <span style={{ fontSize: "14px", fontWeight: 700, color: C.text, fontFamily: F.body }}>2</span>
-            <span style={{ ...chip(false), padding: "4px 10px" }}>+</span>
-          </div>
+          <div style={{ ...label, marginBottom: "4px" }}>Which pins did you knock down?</div>
+          <PinRack standing={["2", "4", "5"]} knocked={["2", "4"]} caption="← tap what fell" />
         </Spot>
       </div>
+      <Note>None fell? Just save</Note>
       <Nav active={0} />
     </Phone>
   ),
@@ -798,6 +798,25 @@ const SCREENS = {
     </Phone>
   ),
 
+  "ai-nightcap": () => (
+    <Phone title="Bowl">
+      <Chips items={["Set up", "Scoring", "Side games", "Results"]} sel={3} />
+      <Spot style={{ marginTop: "8px" }}>
+        <div style={{ ...card, border: `1px solid ${C.accent}66`, background: C.accent + "0D" }}>
+          <div style={{ ...label, color: C.accent }}>Nightcap 🥃</div>
+          <div style={{ fontSize: "10px", color: C.text, fontFamily: F.body, lineHeight: 1.55 }}>
+            Six of your eight opens were single-pin leaves — the 10 alone cost you 27 pins. The Bionic carried everything in game three; it was the one you finished on.
+          </div>
+        </div>
+      </Spot>
+      <div style={card}>
+        <div style={label}>Ryan's night</div>
+        <Row left="Series" right="612" colour={C.strike} />
+      </div>
+      <Nav active={0} />
+    </Phone>
+  ),
+
   "ai-brooklyn": () => (
     <Phone title="Improve">
       <div style={card}>
@@ -864,10 +883,11 @@ const SCREENS = {
     <Phone title="Stats">
       <Spot>
         <div style={card}>
-          <div style={label}>Ball comparison · locked</div>
-          <Row left="Bionic" right="94 of 50 ✓" colour={C.strike} />
-          <Row left="Zen Master" right="31 of 50" dim />
-          <div style={{ ...muted, marginTop: "6px" }}>19 more first balls with the Zen Master.</div>
+          <div style={label}>Ball · strike rate</div>
+          <Row left="Bionic" right="61% · 94 shots" colour={C.strike} />
+          {/* Shown, not locked: faded, with how many more it needs --
+              the same way the Ball card treats a thin sample. */}
+          <Row left="Zen Master" right="47% · 8 more shots needed" dim />
         </div>
       </Spot>
       <div style={card}>

@@ -47,13 +47,13 @@ describe('slide counts', () => {
     expect(look[look.length - 1].id).toBe('look-more');
   });
   it('scorekeeping is 5 slides', () => expect(stepsForTrack('score').length).toBe(5));
-  it('AI is 3 slides', () => expect(stepsForTrack('ai').length).toBe(3));
+  it('AI is 4 slides', () => expect(stepsForTrack('ai').length).toBe(4));
   it('stats is 4 slides', () => expect(stepsForTrack('stats').length).toBe(4));
 
-  it('19 slides in total, with no step in two tracks', () => {
+  it('20 slides in total, with no step in two tracks', () => {
     const all = TRACK_KEYS.flatMap(k => stepsForTrack(k));
-    expect(all.length).toBe(19);
-    expect(new Set(all.map(s => s.id)).size).toBe(19);
+    expect(all.length).toBe(20);
+    expect(new Set(all.map(s => s.id)).size).toBe(20);
   });
 });
 

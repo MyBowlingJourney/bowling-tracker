@@ -521,6 +521,24 @@ export default function ImportScorecard({
                 +`retried on ${retry.data?.model}`,
             });
             data=retry.data;
+          }else{
+            // The retry is the only way frames come back for most cards,
+            // and when it failed the import quietly kept the scores with
+            // nothing anywhere saying why. Recorded now, so Settings >
+            // Diagnostics shows whether it errored, timed out or read no
+            // frames -- and on which model.
+            let why="read no frames";
+            if(retry?.error){
+              const f=await readFunctionFailure(retry.error);
+              why=`failed: ${f.status||"no response"} ${f.body?.error||f.body?.reason||f.message||""}`.trim();
+            }else if(!retry){
+              why="timed out";
+            }
+            recordError({
+              kind:"import-quality",
+              where:"ImportScorecard.escalationFailed",
+              message:`fast read on ${data?.model||"?"} (${gotFrames?"frames":"no frames"}${badFrames?", mismatched":""}); detailed retry on ${retry?.data?.model||"?"} ${why}`,
+            });
           }
         }
       }

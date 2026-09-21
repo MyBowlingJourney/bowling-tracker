@@ -151,6 +151,13 @@ const ALL_STEPS = [
     body: "Improve reads your own history and tells you what it finds — which ball is carrying, where a spare is leaking, what changed this month. It stays quiet until it has enough shots to be sure.",
   },
   {
+    id: "ai-nightcap",
+    track: "ai",
+    tab: "log",
+    title: "The Nightcap",
+    body: "On a league or tournament Results screen, the Nightcap reads your night back to you — where the leaves sat, what the opens cost, which ball was carrying. Log the night ball by ball and it pours itself once the night is saved.",
+  },
+  {
     id: "ai-brooklyn",
     track: "ai",
     tab: "improve",
@@ -177,8 +184,8 @@ const ALL_STEPS = [
     id: "stats-thresholds",
     track: "stats",
     tab: "stats",
-    title: "Why some cards are locked",
-    body: "A ball needs 50 first balls before it's compared with another, and a spare rate needs 30 attempts. Under that, the number moves more with luck than with you — so the app says how many more it needs instead of guessing.",
+    title: "When there isn't much data yet",
+    body: "Nothing is locked — every card shows its numbers. But a number built on a handful of shots moves more with luck than with you, so until there's enough behind it the card is faded and says how many more shots it needs to be reliable.",
   },
   {
     id: "stats-trend",
@@ -197,7 +204,7 @@ const ALL_STEPS = [
 export const TOUR_TRACKS = [
   { key: "look",  label: "Look around",  blurb: "What's behind each tab" },
   { key: "score", label: "Keeping score", blurb: "By game, or ball by ball" },
-  { key: "ai",    label: "What the AI does", blurb: "Scorecards, insights, Brooklyn" },
+  { key: "ai",    label: "What the AI does", blurb: "Scorecards, insights, Nightcap, Brooklyn" },
   { key: "stats", label: "Stats",         blurb: "Breakdowns, comparing, trends" },
 ];
 

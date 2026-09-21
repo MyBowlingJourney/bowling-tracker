@@ -126,6 +126,8 @@ import { hasDuplicateIdentity, mergedBowlers, movedRecords, movedKeyedMap, handl
 import { leaveCauseProfile, missingCauseFields } from "./domain/leaveCauses.js";
 
 import { sessionIsLive } from "./domain/home.js";
+import { backAction } from "./domain/navBack.js";
+import { listenForBack } from "./nativeBack.js";
 
 import { STATS_GROUPS } from "./domain/statsGroups.js";
 const StatsView = lazyScreen("StatsView", () => import("./StatsView.jsx"));
@@ -6882,6 +6884,17 @@ export default function BowlingTracker(){
     subscribe:"settings",
   };
   const parentView=PARENT_VIEW[view]||null;
+
+  // Android's back gesture follows the same tree as the arrow above.
+  // A ref so the one listener always sees the current screen.
+  const backRef=useRef(null);
+  backRef.current=({exit})=>{
+    const act=backAction({activeTour,view,parentView});
+    if(act.type==="closeTour")finishTour();
+    else if(act.type==="view")setView(act.view);
+    else exit();
+  };
+  useEffect(()=>listenForBack(()=>backRef.current),[]);
 
   // The casual nav applies only while a casual night is actually running.
   //
