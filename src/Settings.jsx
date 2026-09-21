@@ -580,13 +580,436 @@ export default function Settings({
             container leagues. Counting them made the card read "1 league"
             for a bowler who had created none -- the tournament's own
             container, which is not a league they joined. */}
-      {showCard("leagues") && (
+      {/* On Setup's League tab this is three cards, the same shape as the
+          Team tab: add a league, pick one, then that league's setup. The
+          picker only appears with two or more; a single league is simply
+          shown. Anywhere else it stays one collapsible card. */}
+      {showCard("leagues") && mode === "leagues" && (
+        <>
+          <div style={S.card}>
+            <div style={S.label}>Add a league</div>
+          <div style={{ fontSize: "12px", color: C.textMuted, marginBottom: "10px" }}>
+            {(leagues || []).filter(l => !isContainerLeague(l)).length
+              ? "Add a league, rename one, set its center and season dates, or hide one you're not bowling any more."
+              : "Add the league you bowl in and you can start putting scores in straight away. A team isn't needed yet."}
+          </div>
+
+          {/* One league on the free plan.
+              
+              Counting only REAL leagues: Practice, Just Bowling and the
+              tournament containers are storage, not leagues anybody
+              joined, and counting them would stop a free bowler
+              practising. */}
+          {onAddLeague && (leagues || []).filter(n => !isContainerLeague(n)).length >= leagueLimit(entitlement) && (
+            <LockedNote title="More leagues">
+              The free plan covers one league. Bowling a second one — a summer league,
+              or Tuesday and Thursday — is part of the paid plan. Nothing you have
+              already logged goes anywhere.
+            </LockedNote>
+          )}
+          {onAddLeague && (leagues || []).filter(n => !isContainerLeague(n)).length < leagueLimit(entitlement) && (
+            <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
+              {/* minWidth 0 on the input and width auto on the button.
+
+                  S.btn("primary") carries width:100%, so in a flex row it
+                  claimed the whole line and squeezed the input down to a
+                  sliver -- a text field too narrow to read what you had
+                  typed, beside a button the width of the screen. */}
+              <input style={{ ...S.input, flex: 1, minWidth: 0, marginBottom: 0 }}
+                value={newLeagueName}
+                onChange={e => setNewLeagueName(e.target.value)}
+                onKeyDown={async e => {
+                  if (e.key !== "Enter") return;
+                  const name = newLeagueName.trim();
+                  if (!name) return;
+                  await onAddLeague(name);
+                  setShownLeague(name);
+                  setNewLeagueName("");
+                }}
+                placeholder="League name, e.g. Tuesday Night Mixed" />
+              <button style={{ ...S.btn("primary"), width: "auto", flexShrink: 0, padding: "9px 16px", fontSize: "13px" }}
+                disabled={!newLeagueName.trim()}
+                onClick={async () => {
+                  const name = newLeagueName.trim();
+                  if (!name) return;
+                  // Dates are set afterwards from the row below, so this
+                  // asks for one thing: the name. Season dates at this
+                  // moment are the "admin before first value" problem the
+                  // whole change exists to remove.
+                  await onAddLeague(name);
+                  setShownLeague(name);
+                  setNewLeagueName("");
+                }}>
+                Add
+              </button>
+            </div>
+          )}
+          </div>
+          {(() => {
+            const real = (leagues || []).filter(l => !isContainerLeague(l));
+            return real.length > 1 && (
+              <div style={S.card}>
+                <div style={S.label}>League</div>
+                <select style={{ ...S.input, appearance: "auto", marginBottom: 0 }}
+                  aria-label="League"
+                  value={real.includes(shownLeague) ? shownLeague : real[0]}
+                  onChange={e => { setShownLeague(e.target.value); setEditingLeague(null); }}>
+                  {real.map(l => <option key={l} value={l}>{l.replace(" House Shot", "")}</option>)}
+                </select>
+              </div>
+            );
+          })()}
+          {/* Practice and Just Bowling are filtered out.
+          
+              They're containers that exist so scores have somewhere to
+              hang -- nobody joins them, they have no team, and they
+              can't be renamed or deleted. Offering to add a team to
+              "Practice" is offering something that can't work. */}
+          {(leagues || []).some(l => !isContainerLeague(l)) && (
+          <div style={S.card}>
+          {(() => {
+            const real = (leagues || []).filter(l => !isContainerLeague(l));
+            return real.filter(l => l === (real.includes(shownLeague) ? shownLeague : real[0]));
+          })().map((league, i, shownList) => {
+            const centerId = leagueCenters?.[league];
+            const center = (centers || []).find(c => c.id === centerId) || null;
+            return (
+              <div key={league} style={{ paddingBottom: "10px", marginBottom: "10px", borderBottom: i < shownList.length - 1 ? `1px solid ${C.border}` : "none" }}>
+                {/* Rename. renameLeague already existed and rewrites every
+                    shot, session and record to the new name -- it just was
+                    never exposed, so a league typed wrong at creation was
+                    permanent. */}
+                {editingLeague === league ? (
+                  <div style={{ display: "flex", gap: "6px", marginBottom: "8px" }}>
+                    <input style={{ ...S.input, flex: 1, fontSize: "13px" }} autoFocus
+                      value={leagueDraft} onChange={e => setLeagueDraft(e.target.value)}
+                      onKeyDown={e => { if (e.key === "Enter") commitRename(league); }} />
+                    <button style={{ ...S.btn(), padding: "8px 12px", fontSize: "12px" }}
+                      disabled={!leagueDraft.trim()} onClick={() => commitRename(league)}>Save</button>
+                    <button style={{ ...S.btn(), padding: "8px 12px", fontSize: "12px" }}
+                      onClick={() => setEditingLeague(null)}>Cancel</button>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "6px", gap: "8px" }}>
+                    {/* The league is the heading of its own section. At
+                        13px semibold it was the same size as the centre
+                        name and the season labels beneath it, so scanning
+                        a list of four leagues gave nothing to anchor on. */}
+                    <div style={{ fontSize: "17px", fontWeight: 700, color: C.text, letterSpacing: "-0.01em" }}>
+                      {league.replace(" House Shot", "")}
+                    </div>
+                    {renameLeague && (
+                      <button style={{ background: "none", border: "none", color: C.accent, cursor: "pointer", fontSize: "12px", padding: 0 }}
+                        onClick={() => { setEditingLeague(league); setLeagueDraft(league); }}>Rename</button>
+                    )}
+                  </div>
+                )}
+                <CenterPicker
+                  leagueName={league.replace(" House Shot", "")}
+                  currentCenter={center}
+                  onSelect={candidate => setLeagueCenter(league, candidate)}
+                  onSetRackType={(c, rackType) => updateCenter(c.id, { rackType })}
+                  onSearch={searchCenters} />
+
+                {/* Season dates, editable here in case they were skipped
+                    or typed wrong at creation -- this is what the
+                    book-average update prompt keys off of. */}
+                <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "8px", marginBottom: "4px" }}>
+                  {league === "Practice" || league === "Casual" ? "Date range (optional)" : "Season dates"}
+                </div>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <input type="date" style={{ ...S.input, flex: 1, fontSize: "12px" }}
+                    value={leagueDates?.[league]?.startDate || ""}
+                    onChange={e => setLeagueDates(league, e.target.value, leagueDates?.[league]?.endDate || "")} />
+                  <input type="date" style={{ ...S.input, flex: 1, fontSize: "12px" }}
+                    value={leagueDates?.[league]?.endDate || ""}
+                    onChange={e => setLeagueDates(league, leagueDates?.[league]?.startDate || "", e.target.value)} />
+                </div>
+
+                {/* Scoring format.
+
+                    Not a display preference -- 9-pin no-tap changes what
+                    a frame SCORES, so it has to be set per league and
+                    known wherever a game is scored.
+
+                    10 pin is the default and stays selected unless the
+                    bowler says otherwise: a league that predates this
+                    setting was a 10-pin league, and quietly rescoring
+                    someone's season would be worse than not offering the
+                    option at all. */}
+                {league !== "Practice" && league !== "Casual" && (
+                  <>
+                    <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "8px", marginBottom: "4px" }}>
+                      Scoring
+                    </div>
+                    <div style={S.chips}>
+                      {LEAGUE_FORMATS.map(f => (
+                        <Chip key={f.id} label={f.label} dense
+                          selected={leagueFormat(leagueFormats?.[league]) === f.id}
+                          onToggle={() => setLeagueFormat(league, f.id)} />
+                      ))}
+                    </div>
+                    {isNoTapLeague(leagueFormats?.[league]) && (
+                      <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "4px", lineHeight: 1.5 }}>
+                        Nine on the first ball counts as a strike. Those are kept separate from your
+                        regular strike percentage, but still count toward how your ball carries.
+                      </div>
+                    )}
+
+                    {/* The pattern this league is normally bowled on.
+                      
+                        A DEFAULT, not a fact about the league: whatever
+                        you record for a specific night on the Log screen
+                        still wins. Sport and PBA Experience leagues
+                        rotate weekly, so a fixed league property would be
+                        wrong for them -- but a house league runs the same
+                        shot every week, and re-entering it every night is
+                        friction for no reason.
+                      
+                        It also fills a real gap. The per-night records
+                        only reach the cloud when you are on a TEAM in the
+                        league; set here, the pattern rides along with the
+                        league itself, so pattern stats work whether or
+                        not you bowl on a team. */}
+                    {setLeaguePattern && (
+                      <>
+                        <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "10px", marginBottom: "4px" }}>
+                          Usual lane condition
+                        </div>
+                        {/* The question first, the picker only if the
+                            answer needs one.
+                          
+                            A bare type-ahead asked every bowler to name
+                            a pattern, when the true answer for most
+                            league nights is "the house shot" -- which is
+                            not something you look up, and which left the
+                            field blank and looking unfinished. Worse, a
+                            blank field and a deliberate house shot are
+                            the same stored value, so there was no way to
+                            say "yes, I have answered this".
+                          
+                            Same two chips as the Log screen's lane
+                            conditions, in the same order, so the answer
+                            reads the same in both places. */}
+                        {(() => {
+                          const saved = leaguePatterns?.[league] || "";
+                          const isOfficial = !!saved || !!patternOfficial[league];
+                          return (
+                            <>
+                              <div style={S.chips}>
+                                <Chip label="House Shot" selected={!isOfficial}
+                                  onToggle={() => {
+                                    setPatternOfficial(o => ({ ...o, [league]: false }));
+                                    // Clears the stored name too, or
+                                    // answering "house shot" would leave
+                                    // last week's pattern behind it.
+                                    if (saved) setLeaguePattern(league, "");
+                                  }} />
+                                <Chip label="Official Pattern" selected={isOfficial} color={C.spare}
+                                  onToggle={() => setPatternOfficial(o => ({ ...o, [league]: true }))} />
+                              </div>
+                              {isOfficial && (
+                                <div style={{ marginTop: "6px" }}>
+                                  {/* Type-ahead over the pattern
+                                      catalogue rather than a free-text
+                                      box -- but free text still saves,
+                                      because house shots have local
+                                      names and a brand new PBA pattern
+                                      is not in the catalogue the week it
+                                      appears. */}
+                                  <OilPatternPicker
+                                    value={saved}
+                                    patterns={oilPatterns}
+                                    placeholder={`e.g. ${EXAMPLE_PATTERN}`}
+                                    onChange={name => setLeaguePattern(league, name)} />
+                                  {/* No length, volume or ratio here, unlike
+                                      the Log screen's per-night entry.
+                                    
+                                      The league stores a NAME and nothing
+                                      else, and the catalogue already knows
+                                      what a named pattern measures -- the
+                                      lane diagram resolves its depth from
+                                      that name. A second copy on the league
+                                      row could only ever disagree with it. */}
+                                  <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "4px", lineHeight: 1.5 }}>
+                                    Used for any night you don't record a pattern for. Leave the
+                                    name blank if this league rotates.
+                                  </div>
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </>
+                    )}
+                  </>
+                )}
+
+                {/* Hiding is personal and reversible: the league leaves
+                    YOUR pickers, but teammates, rosters, and every past
+                    score are untouched. */}
+                <div style={{ ...S.chips, marginTop: "8px" }}>
+                  <Chip
+                    label={isLeagueHidden(league, hiddenLeagues || [], leagueIds || {}) ? "Hidden — show again" : "Hide this league"}
+                    dense
+                    selected={isLeagueHidden(league, hiddenLeagues || [], leagueIds || {})}
+                    onToggle={() => toggleLeagueHidden(league)} />
+                </div>
+                {isLeagueHidden(league, hiddenLeagues || [], leagueIds || {}) && (
+                  <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "4px" }}>
+                    Won't appear when logging. Past scores still count toward your averages.
+                  </div>
+                )}
+
+                {/* Reminder: a recurring calendar event with an alarm. The
+                    league's night is inferred from logged sessions. Push
+                    notifications need the native app wrapper, so this is
+                    the delivery a web app can offer today -- and it keeps
+                    working even if the app is closed. */}
+                {(() => {
+                  const day = inferLeagueDay(sessions || [], league);
+                  if (day === null) return null;
+                  const centerId = leagueCenters?.[league];
+                  const center = (centers || []).find(c => c.id === centerId);
+                  function addToCalendar() {
+                    // In the Android app a blob download goes nowhere --
+                    // the WebView has no download handler, so this button
+                    // did nothing at all. An https link is handed to
+                    // Android, which opens Google Calendar with the event
+                    // filled in and repeating weekly.
+                    if (window.Capacitor?.isNativePlatform?.()) {
+                      const link = reminderToGoogleCalendarUrl(reminderSpec(league, day, 60, "19:00"), center?.name);
+                      if (link) window.location.assign(link);
+                      return;
+                    }
+                    const ics = reminderToIcs(reminderSpec(league, day, 60, "19:00"), center?.name);
+                    const blob = new Blob([ics], { type: "text/calendar" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url; a.download = `${league.replace(/\W+/g, "-").toLowerCase()}-reminder.ics`; a.click();
+                    setTimeout(() => URL.revokeObjectURL(url), 1000);
+                  }
+                  return (
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "8px" }}>
+                      <span style={{ fontSize: "11px", color: C.textMuted }}>
+                        {/* A real league has a fixed night; practice and
+                            casual don't, so "Bowls on Tuesdays" would be
+                            claiming a schedule that doesn't exist. */}
+                        {league === "Practice" || league === "Casual"
+                          ? `Usually ${dayName(day)}s`
+                          : `Bowls on ${dayName(day)}s`}
+                      </span>
+                      <button style={{ ...S.btn(), padding: "3px 8px", fontSize: "10px" }} onClick={addToCalendar}>
+                        Add weekly reminder
+                      </button>
+                    </div>
+                  );
+                })()}
+
+                {/* Every team in this league, not just the ones you're on.
+                    Adding a team used to mean scrolling to a separate Teams
+                    card that had its own duplicate "Add League" form -- so
+                    you'd add a league here, then add it again down there
+                    before a team could attach to it.
+                    
+                    Deliberately shows team NAMES only, no rosters: this is
+                    the league's shape at a glance. Managing who's on a
+                    team stays in the Teams card below, where the roster
+                    editing already lives. */}
+                {(() => {
+                  const all = (teams || []).filter(t => t.league === league);
+                  const mine = new Set(teamsInLeague(league, teams || [], displayName).map(t => t.id));
+                  if (!all.length) return null;
+                  return (
+                    <div style={{ marginTop: "8px" }}>
+                      <div style={{ fontSize: "11px", color: C.textMuted, marginBottom: "4px" }}>
+                        {all.length} team{all.length === 1 ? "" : "s"} in this league
+                      </div>
+                      {all.map(team => (
+                        <div key={team.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "4px" }}>
+                          <span style={{ fontSize: "12px", color: mine.has(team.id) ? C.text : C.textMuted }}>
+                            <span style={{ fontSize: "14px", fontWeight: 600, color: C.text }}>{team.name}</span>
+                            {mine.has(team.id) ? <span style={{ color: C.textMuted, fontWeight: 400 }}> · yours</span> : ""}
+                          </span>
+                          {/* Leaving is scoped to the SIGNED-IN user, not the
+                              active bowler -- the active bowler may be a
+                              proxy-logged teammate whose membership isn't
+                              yours to change. */}
+                          {mine.has(team.id) && (
+                            <button style={{ ...S.btn(), padding: "3px 8px", fontSize: "10px" }}
+                              onClick={() => leaveTeam(team, league)}>
+                              Leave team
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+
+                {/* Set apart from the league's own settings above.
+
+                    Center, season dates, Hide and Rename all configure the
+                    LEAGUE. Adding a team is a different thing entirely,
+                    and sitting flush underneath them it read as one more
+                    league field -- an unlabelled box with an Add button,
+                    indistinguishable from the row above it. A rule, a
+                    tinted panel and a heading say where the league stops
+                    and the team starts. */}
+                {/* One team on the free plan, counted with the same
+                    helper the list above uses so "my teams" means the
+                    same thing in both places. */}
+                {onCreateTeam && league !== "Practice" && league !== "Casual"
+                  && myTeamCount >= teamLimit(entitlement) && (
+                  <div style={{ marginTop: "12px" }}>
+                    <LockedNote title="More teams">
+                      The free plan covers one team. Your scores keep counting for the
+                      team you are already on.
+                    </LockedNote>
+                  </div>
+                )}
+                {onCreateTeam && league !== "Practice" && league !== "Casual"
+                  && myTeamCount < teamLimit(entitlement) && (
+                  <div style={{
+                    marginTop: "12px", paddingTop: "12px",
+                    borderTop: `1px solid ${C.border}`,
+                  }}>
+                    <div style={{
+                      backgroundColor: C.surface, borderRadius: "10px",
+                      padding: "10px 12px",
+                    }}>
+                      <div style={{ ...S.label, marginBottom: "2px" }}>Add a team</div>
+                      <div style={{ fontSize: "11px", color: C.textMuted, marginBottom: "8px", lineHeight: 1.45 }}>
+                        Your scores in this league will join it — including nights you have already logged.
+                      </div>
+                  <div style={{ display: "flex", gap: "6px" }}>
+                    <input style={{ ...S.input, flex: 1, minWidth: 0, marginBottom: 0, fontSize: "12px", padding: "8px 10px" }}
+                      placeholder="Add a team to this league"
+                      value={teamDrafts[league] || ""}
+                      onChange={e => setTeamDrafts(d => ({ ...d, [league]: e.target.value }))}
+                      onKeyDown={e => { if (e.key === "Enter") { onCreateTeam(league, (teamDrafts[league] || "").trim()); setTeamDrafts(d => ({ ...d, [league]: "" })); } }} />
+                    <button style={{ ...S.btn("primary"), width: "auto", flexShrink: 0, padding: "8px 14px", fontSize: "12px" }}
+                      disabled={!(teamDrafts[league] || "").trim()}
+                      onClick={() => { onCreateTeam(league, (teamDrafts[league] || "").trim()); setTeamDrafts(d => ({ ...d, [league]: "" })); }}>
+                      Add
+                    </button>
+                  </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          </div>
+          )}
+        </>
+      )}
+      {showCard("leagues") && mode !== "leagues" && (
         <CollapsibleCard title="Leagues"
           summary={(() => {
             const n = (leagues || []).filter(l => !isContainerLeague(l)).length;
             return `${n} league${n === 1 ? "" : "s"}`;
           })()}
-          fixed={mode === "leagues"}
           expanded={expanded.whereYouBowl} onToggle={() => toggle("whereYouBowl")}>
           <div style={{ fontSize: "12px", color: C.textMuted, marginBottom: "10px" }}>
             {(leagues || []).filter(l => !isContainerLeague(l)).length
