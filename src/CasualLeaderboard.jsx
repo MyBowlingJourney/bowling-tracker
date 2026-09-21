@@ -12,7 +12,7 @@ import ShareButton from "./ShareButton.jsx";
 // Badges do most of the work here. A leaderboard alone rewards one
 // person and tells everyone else they're losing; the badges give the
 // bowler who shot 95 something to have earned too.
-export default function CasualLeaderboard({ nights = [], me = "" }) {
+export default function CasualLeaderboard({ nights = [], me = "", onOpenMyBadges }) {
   // The link that carries a bowler\u2019s own nights to their own phone.
   //
   // One phone keeps score for everyone, so everyone else\u2019s badges
@@ -115,6 +115,20 @@ export default function CasualLeaderboard({ nights = [], me = "" }) {
                       {b.emoji} {b.name}
                     </span>
                   ))}
+                </div>
+              )}
+
+              {/* Yours, all of them. Everyone else gets a Send button
+                  below; the phone's owner gets the way to their own
+                  collection -- every badge, earned or still to get. */}
+              {isMe && onOpenMyBadges && (
+                <div style={{ marginTop: "8px", paddingLeft: "26px" }}>
+                  <button onClick={onOpenMyBadges}
+                    style={{ background: "none", border: "none", padding: 0, cursor: "pointer",
+                             fontSize: "13px", fontWeight: 600, color: C.accent, fontFamily: "inherit",
+                             WebkitTapHighlightColor: "transparent" }}>
+                    See all my badges ›
+                  </button>
                 </div>
               )}
 

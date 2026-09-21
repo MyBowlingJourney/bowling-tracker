@@ -24,6 +24,9 @@
 // DO NOT "tidy" the second spelling away -- it is the load-bearing half.
 // If you rename the secret, rename it in Supabase; this file keeps working
 // either way.
+// GEMINI_APP_KEY too: that is the name the secret actually carries in
+// the Supabase dashboard (APP, not API), which no function read -- every
+// AI feature failed with "no key" while the key sat right there.
 export function geminiKey(): string {
-  return (Deno.env.get("GEMINI_API_KEY") || Deno.env.get("gemini_api_key") || "").trim();
+  return (Deno.env.get("GEMINI_API_KEY") || Deno.env.get("gemini_api_key") || Deno.env.get("GEMINI_APP_KEY") || "").trim();
 }

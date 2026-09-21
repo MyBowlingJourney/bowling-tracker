@@ -1013,6 +1013,10 @@ export default function BowlingTracker(){
   // (a night where only guests bowled files no session for the owner).
   // Cleared when a mode is picked on Home.
   const[casualLeft,setCasualLeft]=useState(false);
+  // Which badge collection the Badges screen shows: "casual" (open
+  // bowling) or "competitive". null = follow the mode you are in. Either
+  // set is reachable from either mode through the switch on that screen.
+  const[badgeSet,setBadgeSet]=useState(null);
 
   // Which tab the Log screen is showing, owned HERE rather than in
   // LogView, because ending a session has to move it -- and a child
@@ -5696,6 +5700,9 @@ export default function BowlingTracker(){
     try{ window.history.replaceState(null,"",window.location.pathname+window.location.search); }catch{}
     if(!payload)return;
     setView("badges");
+    // A shared link carries open bowling nights; only that collection
+    // can take them in, whatever mode the app is in.
+    setBadgeSet("casual");
     setPendingBadgeImport(payload);
   },[]);
 
@@ -7957,7 +7964,16 @@ export default function BowlingTracker(){
             Sharing and importing are casual-only: they exist because one
             phone keeps score for a group of friends, which is not how a
             league night works. */}
-        {view==="badges"&&(casualMode?(
+        {view==="badges"&&(
+          <div style={{...S.chips,marginBottom:"10px"}}>
+            {[["competitive","Competitive"],["casual","Open bowling"]].map(([id,label])=>(
+              <Chip key={id} label={label}
+                selected={(badgeSet||(casualMode?"casual":"competitive"))===id}
+                onToggle={()=>setBadgeSet(id)}/>
+            ))}
+          </div>
+        )}
+        {view==="badges"&&((badgeSet||(casualMode?"casual":"competitive"))==="casual"?(
           <BadgeCollection nights={casualNightsFrom(manualScores,CASUAL_SESSION_KEY)} me={activeBowler}
             onImportNights={importCasualNights}
             pendingImport={pendingBadgeImport} onPendingImportDone={()=>setPendingBadgeImport(null)}/>
@@ -8181,7 +8197,7 @@ export default function BowlingTracker(){
             <JourneyScreen
               sessions={visibleSessions} shots={visibleShots} tournaments={tournaments}
               bowler={displayName||activeBowler}
-              onOpenBadges={()=>setView("badges")} />
+              onOpenBadges={()=>{ setBadgeSet(null); setView("badges"); }} />
           </Suspense>
         )}
 
@@ -8222,7 +8238,7 @@ export default function BowlingTracker(){
             shots={shots}
             teams={teams} activeBowler={activeBowler} leaveTeam={leaveTeam} leftHandedForBowler={leftHandedForBowler}
             onOpenSubscribe={()=>setView("subscribe")}
-            onOpenBadges={()=>setView("badges")}/>
+            onOpenBadges={()=>{ setBadgeSet(null); setView("badges"); }}/>
         )}
 
         {view==="subscribe"&&(
@@ -8243,7 +8259,8 @@ export default function BowlingTracker(){
         {view==="social"&&casualMode&&(
           <CasualLeaderboard
             nights={casualNightsFrom(manualScores,CASUAL_SESSION_KEY)}
-            me={displayName||activeBowler}/>
+            me={displayName||activeBowler}
+            onOpenMyBadges={()=>{ setBadgeSet("casual"); setView("badges"); }}/>
         )}
 
         {view==="help"&&(

@@ -1865,7 +1865,7 @@ export default function LogView({
                                 ones that can have bowled the game. With no
                                 bag defined it falls back to everything, so
                                 nobody is forced to pack one first. */}
-                            <select style={{...S.sel,...smallInput,
+                            <select data-compact="" style={{...S.sel,...smallInput,
                               flex:"1 1 104px",minWidth:0}}
                               aria-label={`Game ${g} ball`}
                               value={shownBall||""}
@@ -1876,7 +1876,7 @@ export default function LogView({
                             {/* Disabled rather than hidden for plastic: a
                                 field that appears and disappears as you
                                 pick a ball shifts everything under it. */}
-                            <select style={{...S.sel,...smallInput,
+                            <select data-compact="" style={{...S.sel,...smallInput,
                               flex:"1 1 104px",minWidth:0}}
                               aria-label={`Game ${g} surface`}
                               value={equip.surface||""}
@@ -3525,12 +3525,15 @@ export default function LogView({
                     always been a list and everything downstream reads it
                     as one -- changing the shape to match the control
                     would be a data migration dressed as a layout tweak. */}
+                {/* Stacked now, not side by side: the card is half the
+                    screen, and with a dropdown chevron in each there was
+                    no room left to read "Acceptable". */}
                 <div style={{display:"grid",
-                  gridTemplateColumns:"repeat(2, minmax(0, 1fr))",gap:"10px"}}>
+                  gridTemplateColumns:"minmax(0, 1fr)",gap:"8px"}}>
                   {preferences.trackedFields.release&&(
                     <div style={{minWidth:0}}>
                       <div style={fieldHead}>Release</div>
-                      <select style={{...S.sel,...smallInput,width:"100%"}}
+                      <select data-compact="" style={{...S.sel,...smallInput,width:"100%"}}
                         value={form.release||""}
                         onChange={e=>set("release",e.target.value)}>
                         <option value="">—</option>
@@ -3541,7 +3544,7 @@ export default function LogView({
                   {preferences.trackedFields.miss&&(
                     <div style={{minWidth:0}}>
                       <div style={fieldHead}>Miss</div>
-                      <select style={{...S.sel,...smallInput,width:"100%"}}
+                      <select data-compact="" style={{...S.sel,...smallInput,width:"100%"}}
                         value={form.miss?.[0]||""}
                         onChange={e=>set("miss",e.target.value?[e.target.value]:[])}>
                         <option value="">—</option>

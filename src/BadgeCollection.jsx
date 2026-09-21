@@ -83,7 +83,7 @@ export default function BadgeCollection({
   return (
     <>
       <div style={S.card}>
-        <div style={S.label}>Your badges</div>
+        <div style={S.label}>{usingInjected ? "Your badges" : "Your open bowling badges"}</div>
         <div style={{ display: "flex", alignItems: "baseline", gap: "8px", marginBottom: "10px" }}>
           <div style={{ fontSize: "28px", fontWeight: 700, color: C.text, lineHeight: 1 }}>{got}</div>
           <div style={{ fontSize: "13px", color: C.textMuted }}>of {total}</div>

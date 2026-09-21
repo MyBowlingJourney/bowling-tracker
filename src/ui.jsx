@@ -47,6 +47,7 @@ export function applyTheme(id) {
     // styles.css reads this for :focus-visible rings, which inline
     // styles can't express.
     document.documentElement.style.setProperty("--ba-accent", C.accent);
+    setSelectChrome();
     // The browser chrome -- mobile address bar, task-switcher preview --
     // should match whichever theme is active, not the static default
     // baked into index.html for the moment before React mounts.
@@ -130,6 +131,19 @@ function buildStyles() { return {
   statLbl:{fontSize:"12px",color:C.textMuted,textTransform:"none",letterSpacing:"0"},
 }; }
 Object.assign(S, buildStyles());
+setSelectChrome();
+
+// Every <select> gets a chevron in a tinted well, drawn by styles.css
+// from these two variables. An SVG in a data URI cannot read CSS
+// variables, so the accent is baked in -- at load, and on every theme
+// change (the first applyTheme can return early, so load must do it too).
+function setSelectChrome() {
+  if (typeof document === "undefined") return;
+  const a = encodeURIComponent(C.accent);
+  document.documentElement.style.setProperty("--ba-select-chevron",
+    `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 34'%3E%3Crect width='34' height='34' rx='9' fill='${a}' fill-opacity='0.13'/%3E%3Cpath d='M11 14l6 6 6-6' fill='none' stroke='${a}' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`);
+  document.documentElement.style.setProperty("--ba-select-border", C.accent + "66");
+}
 
 // A tinted action row: coloured icon, label, chevron.
 //

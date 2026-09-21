@@ -34,6 +34,36 @@ html, body {
 /* Keyboard focus is visible on every control, in the accent. Inline
  * styles can't express :focus-visible, so this is the one thing the
  * stylesheet has to own. */
+/* Every dropdown looks like one.
+ *
+ * S.sel strips the platform arrow (appearance: none) and the rest used
+ * the platform's own, which in the Android WebView is a faint sliver --
+ * so pickers like Stats > Team read as a label, not a control. One rule
+ * for every <select>: a chevron in an accent-tinted well on the trailing
+ * edge, room so text never slides under it, and an accent-tinted border.
+ * !important because the selects carry inline padding and borders, which
+ * would otherwise win. The chevron image is set by ui.jsx per theme. */
+select {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  background-image: var(--ba-select-chevron) !important;
+  background-repeat: no-repeat !important;
+  background-position: right 5px center !important;
+  background-size: auto calc(100% - 10px) !important;
+  padding-right: 44px !important;
+  border-color: var(--ba-select-border, currentColor) !important;
+  cursor: pointer;
+}
+
+/* Compact selects sit two to a narrow card (Release / Miss), where a
+ * 34px well would leave no room for the value. Same chevron, smaller,
+ * with just enough room beside it. */
+select[data-compact] {
+  padding-right: 24px !important;
+  background-position: right 3px center !important;
+  background-size: auto calc(100% - 14px) !important;
+}
+
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
   outline: 2px solid var(--ba-accent, #E8A33D);
   outline-offset: 2px;

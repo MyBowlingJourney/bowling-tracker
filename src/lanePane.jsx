@@ -76,17 +76,7 @@ function Picker({ label, value, onChange, children }) {
           }}>
           {children}
         </select>
-        <span aria-hidden="true" style={{
-          position: "absolute", top: "5px", bottom: "5px", right: "5px",
-          width: "34px", borderRadius: "9px",
-          backgroundColor: `${C.accent}1f`,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          color: C.accent, fontSize: "11px", lineHeight: 1,
-          // The well is decoration sitting on top of the control; without
-          // this, tapping the most obviously tappable part of it does
-          // nothing.
-          pointerEvents: "none",
-        }}>▼</span>
+        {/* The chevron well is drawn for every select by styles.css. */}
       </div>
     </div>
   );
