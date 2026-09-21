@@ -5,7 +5,7 @@ import { PRACTICE_SESSION_KEY, CASUAL_SESSION_KEY, formatDate, STRIKE_DESCRIPTIO
 import {
   bowlerHighGame, bowlerHighSeries, teamHighGame, teamHighSeries, seasonRecord, weeklyPointsData,
   gameAvg, teamGameTotalAvg, teamGameTotalAvgAt, rAvg, cAvg, avgProgress, pinsForNextSession,
-  hungCounts, beatHighBowlerStats, scoreValues, scoreConsistency, histogramBuckets, threeSixNineResults,
+  hungCounts, handUpCounts, beatHighBowlerStats, scoreValues, scoreConsistency, histogramBuckets, threeSixNineResults,
 } from "./domain/stats.js";
 import { lineupSort } from "./domain/leagues.js";
 import { totalMoney } from "./domain/money.js";
@@ -927,21 +927,9 @@ teamCardsVisible&&bowlers.length>1&&(()=>{
                     detail={`${singlePinMade} of ${singlePinAttempts.length} made. Any leave with exactly one pin standing — 7, 4, 8, 10, or any other.`}/>
                 </div>
                 );
+                // Was filed under "loneFivePin", with the lone-5 card under
+                // "splits" -- so each card sat in the other's Settings row.
                 byId["splits"] = (
-fivePinAttempts.length>0&&(
-                  <div style={S.card}>
-                    <div style={S.label}>Lone 5-pin</div>
-                    {/* Conversion leads, consistent with the other spare
-                        cards -- misses become the supporting figure. */}
-                    <StatLead
-                      value={fivePinAttempts.length?Math.round(((fivePinAttempts.length-fivePinMisses)/fivePinAttempts.length)*100):"—"}
-                      unit={fivePinAttempts.length?"%":""}
-                      caption="converted" color={C.strike}
-                      detail={`${fivePinAttempts.length-fivePinMisses} of ${fivePinAttempts.length} made, ${fivePinMisses} missed. The 5-pin standing completely alone, nothing else in the way.`}/>
-                  </div>
-                )
-                );
-                byId["loneFivePin"] = (
 <LeaveBreakdown title="Splits" color={C.miss}
                   rows={isTeamView?[]:splitBreakdownList}
                   lead={
@@ -959,6 +947,55 @@ fivePinAttempts.length>0&&(
                     </StatRows>
                   )}
                 </LeaveBreakdown>
+                );
+                byId["loneFivePin"] = (
+teamCardsVisible&&bowlers.length>1&&(()=>{
+                  // Hand up: miss the lone 5 and you owe everyone with a
+                  // hand up a drink. A count, not a rate -- nobody buys a
+                  // round for a percentage.
+                  const title=<div style={S.label}>✋ Hand Up</div>;
+                  if(!statsLeague)return(
+                    <div style={S.card}>
+                      {title}
+                      <div style={{fontSize:"12px",color:C.textMuted}}>{pickATeam} to see who owes a round.</div>
+                    </div>
+                  );
+                  const counts=handUpCounts(shots,statsLeague);
+                  const leagueBowlers=bowlers.filter(b=>shots.some(s=>s.bowler===b&&s.league===statsLeague));
+                  const rows=leagueBowlers.map(b=>({bowler:b,count:counts[b]||0}))
+                    .sort((a,b)=>b.count-a.count||a.bowler.localeCompare(b.bowler));
+                  if(!rows.some(r=>r.count>0))return(
+                    <div style={S.card}>
+                      {title}
+                      <div style={{fontSize:"12px",color:C.textMuted}}>Nobody's missed a lone 5 yet. Hands stay down.</div>
+                    </div>
+                  );
+                  const cell={padding:"8px 0",borderBottom:`1px solid ${C.border}`};
+                  return(
+                    <div style={S.card}>
+                      {title}
+                      <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"8px"}}>
+                        Lone 5-pins missed. Each one owes a drink to everyone with a hand up.
+                      </div>
+                      <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
+                        <thead>
+                          <tr>
+                            <th scope="col" style={{...cell,textAlign:"left",fontSize:"11px",fontWeight:600,color:C.textMuted}}>Bowler</th>
+                            <th scope="col" style={{...cell,textAlign:"right",fontSize:"11px",fontWeight:600,color:C.textMuted}}>5s missed</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.map((r,i)=>(
+                            <tr key={r.bowler}>
+                              <td style={{...cell,fontWeight:600,...(i===rows.length-1?{borderBottom:"none"}:{})}}>{r.bowler}</td>
+                              <td style={{...cell,textAlign:"right",fontSize:"16px",fontWeight:700,color:r.count>0?C.miss:C.textMuted,...(i===rows.length-1?{borderBottom:"none"}:{})}}>{r.count}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })()
                 );
                 byId["nonSplitLeaves"] = (
 !isTeamView&&nonSplitLeaveList.length>0&&(
