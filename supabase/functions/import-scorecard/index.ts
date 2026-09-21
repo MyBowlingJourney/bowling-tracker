@@ -80,6 +80,20 @@ const GEMINI_MODEL = Deno.env.get("IMPORT_GEMINI_MODEL")?.trim()
 // reasons: one for speed on easy cards, one for capability on hard ones.
 const GEMINI_MODEL_DETAILED = Deno.env.get("IMPORT_GEMINI_MODEL_DETAILED")?.trim()
   || "gemini-3.6-flash";
+
+// Where the detailed read goes when its model is BUSY.
+//
+// Google answers a popular model with 503 "experiencing high demand" --
+// seen on gemini-3.8-flash on 21 Sep, three times running, which left a
+// scorecard with frames imported as scores only. Waiting does not help a
+// bowler standing at the lanes; another capable model does. Tried in
+// order, only on busy/overloaded/unavailable answers (503, a rate-limit
+// 429, 404, a timeout) -- never on a bad request or an exhausted quota,
+// where the next model would fail the same way.
+//
+// Comma-separated secret to change it without a deploy.
+const DETAILED_FALLBACKS = (Deno.env.get("IMPORT_GEMINI_MODEL_FALLBACKS") ?? "gemini-3.7-flash,gemini-3.6-flash")
+  .split(",").map((m) => m.trim()).filter(Boolean);
 // Built per request, because the model varies: the fast one by default,
 // the detailed one on a retry.
 //
@@ -584,7 +598,12 @@ Deno.serve(async (req) => {
     const counting = mode === "count";
     // The client sets detailed:true on the retry after a card reported
     // frame detail and returned none.
-    const modelForRequest = detailed ? GEMINI_MODEL_DETAILED : GEMINI_MODEL;
+    const modelChain = detailed
+      ? [...new Set([GEMINI_MODEL_DETAILED, ...DETAILED_FALLBACKS])]
+      : [GEMINI_MODEL];
+    let modelForRequest = modelChain[0];
+    // Which models were tried and why they were passed over, for the log.
+    const skipped: string[] = [];
     const gameFilter = Number.isInteger(onlyGame) && onlyGame > 0 ? onlyGame : null;
 
     // One game only. Said plainly and twice -- once as an instruction and
@@ -655,7 +674,12 @@ Deno.serve(async (req) => {
     // to hurry a success.
     const ATTEMPT_TIMEOUT_MS = 90_000;
 
-    for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    for (let m = 0; m < modelChain.length; m++) {
+    modelForRequest = modelChain[m];
+    // With another model waiting, one quick retry is enough before moving
+    // on; the full ladder is for the last model standing.
+    const delays = m < modelChain.length - 1 ? [2000] : RETRY_DELAYS_MS;
+    for (let attempt = 0; attempt <= delays.length; attempt++) {
       const ac = new AbortController();
       const killer = setTimeout(() => ac.abort(), ATTEMPT_TIMEOUT_MS);
       try {
@@ -697,8 +721,8 @@ Deno.serve(async (req) => {
         .test(lastErrText);
       const transient = geminiRes.status === 503
         || (geminiRes.status === 429 && !quotaExhausted);
-      if (!transient || attempt === RETRY_DELAYS_MS.length) break;
-      await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[attempt]));
+      if (!transient || attempt === delays.length) break;
+      await new Promise((r) => setTimeout(r, delays[attempt]));
       retries++;
       } catch (err) {
         // A timed-out attempt is transient by definition, so it retries
@@ -709,12 +733,21 @@ Deno.serve(async (req) => {
         lastErrText = (err as Error)?.name === "AbortError"
           ? `attempt timed out after ${ATTEMPT_TIMEOUT_MS / 1000}s`
           : String(err);
-        if (attempt === RETRY_DELAYS_MS.length) break;
-        await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[attempt]));
+        if (attempt === delays.length) break;
+        await new Promise((r) => setTimeout(r, delays[attempt]));
         retries++;
       } finally {
         clearTimeout(killer);
       }
+    }
+    if (geminiRes && geminiRes.ok) break;
+    // Next model only when this one was busy or gone, not when the
+    // request itself was the problem.
+    const st = geminiRes?.status ?? 0;
+    const quotaGone = /quota|exceeded your current quota|RESOURCE_EXHAUSTED/i.test(lastErrText);
+    const busy = st === 503 || st === 404 || st === 0 || (st === 429 && !quotaGone);
+    if (!busy) break;
+    skipped.push(`${modelForRequest}:${st || "timeout"}`);
     }
 
     if (!geminiRes || !geminiRes.ok) {
@@ -734,6 +767,8 @@ Deno.serve(async (req) => {
         // carry internal quota details and request identifiers. The
         // `reason` above is what the client actually branches on.
         retries,
+        model: modelForRequest,
+        skipped,
         detail: Deno.env.get("EXPOSE_UPSTREAM_ERRORS") === "true" ? lastErrText : undefined,
       }), {
         status: 502,
@@ -789,7 +824,7 @@ Deno.serve(async (req) => {
 
     // Which model produced this, so a model switch is measurable rather
     // than a guess -- quality and speed both move when it changes.
-    return new Response(JSON.stringify({ ...extracted, model: modelForRequest }), {
+    return new Response(JSON.stringify({ ...extracted, model: modelForRequest, skipped }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {

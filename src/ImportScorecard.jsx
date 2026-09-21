@@ -518,7 +518,8 @@ export default function ImportScorecard({
                 ?`frames did not match the printed total `
                  +`(${recon.mismatches.map(x=>`g${x.game} ${x.computed}!=${x.printed}`).join(", ")})`
                 :"saw frame detail but read none"}; `
-                +`retried on ${retry.data?.model}`,
+                +`retried on ${retry.data?.model}`
+                +(Array.isArray(retry.data?.skipped)&&retry.data.skipped.length?` (busy: ${retry.data.skipped.join(", ")})`:""),
             });
             data=retry.data;
           }else{
@@ -535,6 +536,8 @@ export default function ImportScorecard({
                 +(b.reason?` reason=${b.reason}`:"")
                 +(b.upstreamStatus!=null?` upstream=${b.upstreamStatus}`:"")
                 +(b.retries!=null?` retries=${b.retries}`:"")
+                +(b.model?` last=${b.model}`:"")
+                +(Array.isArray(b.skipped)&&b.skipped.length?` tried=${b.skipped.join(",")}`:"")
                 +(b.detail?` detail=${String(b.detail).slice(0,300)}`:"");
             }else if(!retry){
               why="timed out";
