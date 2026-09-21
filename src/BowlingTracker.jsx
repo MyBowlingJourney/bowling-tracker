@@ -5279,6 +5279,31 @@ export default function BowlingTracker(){
     finishNight();
   }
 
+  // After an import: switch to the mode the card was imported as and open
+  // its Results, for the league/date it was filed under.
+  function openImportedNight({kind,league,date,tournament}){
+    const env=kind==="tournament"?"tournament":kind==="practice"?"practice":"league";
+    if(preferences.environment!==env)updatePreferences(prev=>applyEnvironment(prev,env));
+    if(env==="league"){
+      setSessionLeague(league);
+      setLeagueTabChoice("results");
+    }else if(env==="practice"){
+      setPracticeMode("results");
+    }else{
+      // Open THAT tournament. Replacing the card on screen is safe when it
+      // is empty, is this same event, or is already saved in history; an
+      // unsaved, different event in progress is left alone rather than
+      // lost, and the import is still filed under the right event.
+      const cur=activeTournament||{};
+      const safe=!cur.name||cur.id===tournament?.id||(tournaments||[]).some(t=>t.id===cur.id);
+      if(tournament&&safe&&cur.id!==tournament.id)updateTournament(tournament);
+      setTournamentTab("results");
+    }
+    if(date)changeSessionDate(date);
+    setView("log");
+    try{window.scrollTo({top:0});}catch{}
+  }
+
   async function submitSession(){
     if(await fileNight())finishNight();
   }
@@ -7148,7 +7173,10 @@ export default function BowlingTracker(){
         if(Number.isFinite(n)&&n>highest)highest=n;
       }
     }
-    for(let n=4;n<=12;n++){
+    // From game 2, not 4: the loop assumed the three-game floor, so in
+    // practice (floor of one) typed or imported games 2 and 3 were left
+    // out -- an imported 201/188/222 practice summarised as one 201.
+    for(let n=2;n<=12;n++){
       if(getGameStrict(nightBowler,nightLeague,nightDate,n)!=null)highest=Math.max(highest,n);
     }
     highest=Math.min(12,highest);
@@ -8294,6 +8322,8 @@ export default function BowlingTracker(){
             updateManualScore={updateManualScore}
             setSessionLeague={setSessionLeague} setSessionDate={changeSessionDate} selectBowler={selectBowler}
             setView={setView} setSessionSaveMessage={setSessionSaveMessage}
+            userId={user?.id||""}
+            onImported={openImportedNight}
           />
         )}
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { C, S, Chip, PinDeck, CollapsibleCard, resultSym, AiNote } from "./ui.jsx";
-import { formatDate, RESULTS, localDateString, PRACTICE_SESSION_KEY } from "./constants.js";
+import { formatDate, RESULTS, localDateString, PRACTICE_SESSION_KEY, tournamentLeagueCloudName } from "./constants.js";
 import { convertExtractedGameToShots, normalizeExtraction, detailLevel, mergeColumnsByBowler, scoreDisagreement, scoreDisagreementNote, extractionQuality, extractionQualityNote, framesReconcile } from "./domain/scorecardImport.js";
 import { matchScorecard, rosterOrderCheck } from "./domain/nameMatching.js";
 import { strictPartial, frameScoresheet } from "./domain/scoring.js";
@@ -186,7 +186,7 @@ export default function ImportScorecard({
   // and the bowler is already chosen on the Log tab. Passing those in
   // lets the import skip straight to what it actually needs -- the
   // screenshots -- instead of asking questions with one possible answer.
-  presetLeague = null, presetBowler = null,
+  presetLeague = null, presetBowler = null, userId = "", onImported,
 }){
   const[step,setStep]=useState("setup"); // setup | processing | review | saving
   // Which team's scorecard this is. The team, not the league: a league
@@ -215,7 +215,11 @@ export default function ImportScorecard({
   // from the kind rather than from a team.
   const contextLeague=
     importKind==="practice"?(presetLeague||PRACTICE_SESSION_KEY)
-    :importKind==="tournament"?(selectedTournament?.name||"")
+    // The per-account container name tournament mode files under, not
+    // the bare event name: imported games under "City Open" were
+    // invisible to the City Open in tournament mode, which looks for
+    // "Tournament·City Open·<user>".
+    :importKind==="tournament"?(selectedTournament?.name?tournamentLeagueCloudName(selectedTournament.name,userId):"")
     :(contextTeam?.league||presetLeague||(Array.isArray(leagues)?leagues[0]:"")||"");
 
   // Whose card this is is NOT asked up front. Every column gets mapped to
@@ -902,11 +906,15 @@ export default function ImportScorecard({
 
     setSessionSaveMessage(
       mineParts.length
-        ? `Imported ${mineParts.join(" and ")}${sent?` · ${sent}`:""} -- tap "Save Session & View Summary" below to finalize.`
+        ? `Imported ${mineParts.join(" and ")}${sent?` · ${sent}`:""} -- check the Results, then save the night.`
         : sent||"Nothing was mapped to you on this card."
     );
     setTimeout(()=>setSessionSaveMessage(null),6000);
-    setView("log");
+    // Land in the mode the card was imported AS, on its Results -- not
+    // whatever mode the app happened to be in. A league card used to
+    // open Practice, which had none of the scores just imported.
+    if(onImported)onImported({kind:importKind,league:contextLeague,date:contextDate,tournament:selectedTournament});
+    else setView("log");
   }
 
   return(

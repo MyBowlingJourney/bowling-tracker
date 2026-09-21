@@ -438,6 +438,8 @@ async function hasSubscription(req: Request): Promise<boolean> {
 }
 
 Deno.serve(async (req) => {
+  // When this request started, for the time budget below.
+  const t0 = Date.now();
   const corsHeaders = corsFor(req);
 
   if (req.method === "OPTIONS") {
@@ -613,8 +615,19 @@ Deno.serve(async (req) => {
       ? `\n\nEXTRACT ONLY GAME ${gameFilter}. Ignore every other game on this card completely. Return exactly one entry in "games" per bowler, and set gameNumber to ${gameFilter} on each. Do not return game ${gameFilter === 1 ? 2 : 1} or any other game.`
       : "";
 
+    // The detailed retry happens BECAUSE a first read said this card shows
+    // frames. The base prompt goes out of its way to say empty frames are
+    // acceptable -- right for a results screen, and exactly the permission
+    // a careful model takes on a hard card: on 21 Sep gemini-3.6-flash and
+    // 3.7-flash both answered "has frame detail" and returned zero frames,
+    // while the Lite model on the same photo returned thirty. So the retry
+    // withdraws that permission for this card.
+    const detailedSuffix = detailed && !counting
+      ? `\n\nTHIS CARD HAS BEEN CHECKED AND DOES SHOW PER-FRAME DETAIL. For this card, an empty frames array is WRONG. Transcribe every frame of every game you can see -- all ten frames per game, each ball's pins, marks for strikes (X) and spares (/). Use each frame's running total printed on the card to check your reading, and make each game's frames add up to its printed totalScore. Where a single pin is genuinely unreadable, give your best reading consistent with the running total rather than dropping the frame.`
+      : "";
+
     const parts = [
-      { text: counting ? COUNT_PROMPT : EXTRACTION_PROMPT + gameSuffix },
+      { text: counting ? COUNT_PROMPT : EXTRACTION_PROMPT + gameSuffix + detailedSuffix },
       ...images.map((img) => ({
         inline_data: { mime_type: img.mimeType || "image/jpeg", data: img.base64 },
       })),
@@ -674,14 +687,36 @@ Deno.serve(async (req) => {
     // to hurry a success.
     const ATTEMPT_TIMEOUT_MS = 90_000;
 
+    // THE WHOLE REQUEST has a ceiling too: Supabase stops an Edge Function
+    // at about 150s of wall clock and the client sees a bare 546 -- which
+    // is what happened on 21 Sep: a busy 3.8 Flash, a retry and a fallback
+    // added up to 153s and the frames were thrown away mid-read.
+    //
+    // So every attempt is sized to what is LEFT of a budget kept under
+    // that limit, and when too little is left to finish a read, the
+    // function stops and says "timeout" itself rather than being killed.
+    // Overridable, in case the plan's limit changes (IMPORT_BUDGET_MS).
+    const BUDGET_MS = Number(Deno.env.get("IMPORT_BUDGET_MS")) || 135_000;
+    // A detailed read under this is not going to finish -- starting one
+    // only burns tokens on an answer that will be cut off.
+    const MIN_ATTEMPT_MS = 25_000;
+    const left = () => BUDGET_MS - (Date.now() - t0);
+    let outOfTime = false;
+
     for (let m = 0; m < modelChain.length; m++) {
     modelForRequest = modelChain[m];
     // With another model waiting, one quick retry is enough before moving
     // on; the full ladder is for the last model standing.
     const delays = m < modelChain.length - 1 ? [2000] : RETRY_DELAYS_MS;
     for (let attempt = 0; attempt <= delays.length; attempt++) {
+      if (left() < MIN_ATTEMPT_MS) { outOfTime = true; break; }
+      // The first model, with others behind it, may not take the whole
+      // budget: a model that is slow because it is overloaded should
+      // leave room for the next one to actually read the card.
+      const cap = m < modelChain.length - 1 ? 65_000 : ATTEMPT_TIMEOUT_MS;
+      const attemptMs = Math.min(cap, left() - 3_000);
       const ac = new AbortController();
-      const killer = setTimeout(() => ac.abort(), ATTEMPT_TIMEOUT_MS);
+      const killer = setTimeout(() => ac.abort(), attemptMs);
       try {
       // A URL without the key returns a 403 that reads like a function
       // permissions problem. Catch it here, where the message can say
@@ -731,9 +766,13 @@ Deno.serve(async (req) => {
         // says what happened, instead of the caller waiting forever.
         geminiRes = null;
         lastErrText = (err as Error)?.name === "AbortError"
-          ? `attempt timed out after ${ATTEMPT_TIMEOUT_MS / 1000}s`
+          ? `attempt timed out after ${Math.round(attemptMs / 1000)}s`
           : String(err);
         if (attempt === delays.length) break;
+        // A model that ran out the clock is overloaded, not unlucky: with
+        // another model waiting, go to it rather than wait out this one
+        // a second time.
+        if (m < modelChain.length - 1) break;
         await new Promise((r) => setTimeout(r, delays[attempt]));
         retries++;
       } finally {
@@ -741,6 +780,7 @@ Deno.serve(async (req) => {
       }
     }
     if (geminiRes && geminiRes.ok) break;
+    if (outOfTime) break;
     // Next model only when this one was busy or gone, not when the
     // request itself was the problem.
     const st = geminiRes?.status ?? 0;
@@ -754,7 +794,8 @@ Deno.serve(async (req) => {
       const status = geminiRes?.status ?? 0;
       // A machine-readable reason so the client can say something useful
       // instead of showing raw API JSON to a bowler.
-      const reason = status === 503 ? "busy"
+      const reason = outOfTime || (!geminiRes && /timed out/.test(lastErrText)) ? "timeout"
+        : status === 503 ? "busy"
         : status === 429 ? (/quota|RESOURCE_EXHAUSTED/i.test(lastErrText) ? "quota" : "rate_limited")
         : status === 404 ? "model_unavailable"
         : "api_error";

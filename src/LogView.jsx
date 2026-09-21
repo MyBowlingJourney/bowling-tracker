@@ -617,6 +617,10 @@ export default function LogView({
   // outside Baker, so everything else keeps the session's bowler.
   // Both names, for a Baker heading.
   const bakerTeamName=(()=>{
+    // Tournament mode only. The active tournament card stays in memory
+    // after the event, so a Baker block made every LEAGUE night read as
+    // a Baker night: pair heading, no Nightcap, frames given to a partner.
+    if(env!=="tournament")return null;
     if(!activeTournament||!isBaker(activeTournament))return null;
     const me=form.bowler||activeBowler;
     const partner=activeTournament.bakerPartner;
@@ -625,6 +629,10 @@ export default function LogView({
   })();
 
   const bakerBowlerName=(()=>{
+    // Tournament mode only. The active tournament card stays in memory
+    // after the event, so a Baker block made every LEAGUE night read as
+    // a Baker night: pair heading, no Nightcap, frames given to a partner.
+    if(env!=="tournament")return null;
     if(!activeTournament||!isBaker(activeTournament))return null;
     const who=bakerBowlerFor(form.game,form.frame,activeTournament.bakerStarter);
     if(!who)return null;
