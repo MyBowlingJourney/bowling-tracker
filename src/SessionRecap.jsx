@@ -267,6 +267,7 @@ function AchievementsCard({ achievements = [], onShare }) {
 export default function SessionRecap({
   environment, manualScores, bowler, allBowlers, league, date, priorAverage,
   drills, leftHandedForBowler, profile, placementId, tournamentName,
+  howItWentRef, onEnd,
 }) {
   // What's worth celebrating from this night. Computed here rather than
   // per-branch so league, practice, tournament and casual all get it.
@@ -306,7 +307,7 @@ export default function SessionRecap({
     return (
       <>
         <AchievementsCard achievements={achievementsForLine(myLine(recap))} />
-        <CasualRecap recap={recap} />
+        <div ref={howItWentRef}><CasualRecap recap={recap} /></div>
         {/* Casual bowlers are the ones most likely to share -- it's the
             one night, and the point was the people. The card says who
             won, the button sends it. */}
@@ -318,6 +319,13 @@ export default function SessionRecap({
               highlights: (recap.awards || []).slice(0, 2).map(a => a.title && a.bowler ? `${a.title}: ${a.bowler}` : "").filter(Boolean),
             }} />
           </div>
+        )}
+        {/* Open bowling is saved without leaving, so the results can be
+            read and shared; this is the way out. Restores the full nav. */}
+        {onEnd && (
+          <button style={{ ...S.btn("primary"), width: "100%", marginBottom: "12px" }} onClick={onEnd}>
+            End Open Bowling
+          </button>
         )}
       </>
     );

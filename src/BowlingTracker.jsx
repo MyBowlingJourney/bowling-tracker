@@ -840,6 +840,8 @@ export default function BowlingTracker(){
   // Games, which is the expected default rather than "wherever I left it."
   useEffect(() => {
     if (preferences.environment !== "practice") setPracticeMode("games");
+    // A new mode, however it was chosen, is not "left open bowling".
+    setCasualLeft(false);
   }, [preferences.environment]);
   // Practice/casual partners. Deliberately NEVER written to the cloud --
   // these are names typed about people who aren't users of this app and
@@ -1006,6 +1008,11 @@ export default function BowlingTracker(){
   // True from picking Open bowling on Home until that round is saved. The
   // simplified open-bowling nav keys on this -- see casualMode.
   const[casualRound,setCasualRound]=useState(false);
+  // Set when open bowling is ENDED or CANCELLED: the bowler has left the
+  // mode, so the full six-tab nav comes back even if nothing was filed
+  // (a night where only guests bowled files no session for the owner).
+  // Cleared when a mode is picked on Home.
+  const[casualLeft,setCasualLeft]=useState(false);
 
   // Which tab the Log screen is showing, owned HERE rather than in
   // LogView, because ending a session has to move it -- and a child
@@ -5182,9 +5189,16 @@ export default function BowlingTracker(){
 
     // Typed scores, through the normal path so each one's cloud row is
     // deleted the same way clearing the box by hand would.
-    for(let g=1;g<=12;g++){
-      if(getManualScore(manualScoresRef.current,bowler,league,date,g)!=null){
-        await updateManualScore(bowler,league,date,g,"");
+    // Open bowling is one sheet for the whole group, so cancelling it
+    // clears every name on the sheet, not just the phone's owner.
+    const scoreHolders=preferences.environment==="casual"
+      ?[...new Set([bowler,...(scoreOptions||[])].filter(Boolean))]
+      :[bowler];
+    for(const who of scoreHolders){
+      for(let g=1;g<=12;g++){
+        if(getManualScore(manualScoresRef.current,who,league,date,g)!=null){
+          await updateManualScore(who,league,date,g,"");
+        }
       }
     }
 
@@ -5242,8 +5256,21 @@ export default function BowlingTracker(){
     setSessionSaved(false);
     setSessionSaveMessage("");
     setLeagueTabChoice("setup");
+    if(preferences.environment==="casual"){setCasualRound(false);setCasualLeft(true);}
     setView("home");
     try{window.scrollTo({top:0,behavior:"smooth"});}catch{}
+  }
+
+  // Open bowling's Save & View Results: files the night quietly and stays
+  // on the page. casualRound keeps the simplified nav until End Open
+  // Bowling, rather than it switching to six tabs mid-results.
+  async function saveCasualResults(){
+    setCasualRound(true);
+    await fileNight({quiet:true});
+  }
+  function endCasual(){
+    setCasualLeft(true);
+    finishNight();
   }
 
   async function submitSession(){
@@ -6887,7 +6914,7 @@ export default function BowlingTracker(){
   // appeared not to work at all. Picking Open bowling on Home sets
   // casualRound, so each new round starts simplified; saving the round
   // clears it, so ending still unlocks the full nav as intended above.
-  const casualMode=preferences.environment==="casual"&&(casualRound||!nightEnded);
+  const casualMode=preferences.environment==="casual"&&!casualLeft&&(casualRound||!nightEnded);
   const navTabs=casualMode?[
     // Home first, so open bowling is never a dead end.
     //
@@ -8304,6 +8331,7 @@ export default function BowlingTracker(){
                 setSessionSaved(false);
                 setSessionSaveMessage(null);
                 setCasualRound(env==="casual");
+                setCasualLeft(false);
                 // The launch prompt asks which mode you are in. You have
                 // just answered that on Home, so showing it again on
                 // arrival asks the same question twice -- and it is the
@@ -8349,7 +8377,7 @@ export default function BowlingTracker(){
             selectBowler={selectBowler} set={set} setLanePattern={setLanePattern} setMatchHandicap={setMatchHandicap} setMatchOpponent={setMatchOpponent} setPokerWinnings={setPokerWinnings} setThreeSixNineWinnings={setThreeSixNineWinnings} winningsSaved={winningsSaved} confirmWinningsSaved={confirmWinningsSaved} setView={setView}
             leagueBuyIns={leagueBuyIns} onSaveLeagueBuyIns={saveLeagueBuyIns} onReplayTour={replayTour}
             casualExtraGames={casualExtraGames} setCasualExtraGames={setCasualExtraGames}
-            strictPartial={strictPartial} submitSession={submitSession} cancelSession={cancelSession} deleteGame={deleteGame} submitShot={submitShot} theoreticalScoreForGame={theoreticalScoreForGame} maxScoreThisGame={maxScoreThisGame} toggle={toggle} toggleMulti={toggleMulti} toggleSection={toggleSection}
+            strictPartial={strictPartial} submitSession={submitSession} saveCasualResults={saveCasualResults} endCasual={endCasual} cancelSession={cancelSession} deleteGame={deleteGame} submitShot={submitShot} theoreticalScoreForGame={theoreticalScoreForGame} maxScoreThisGame={maxScoreThisGame} toggle={toggle} toggleMulti={toggleMulti} toggleSection={toggleSection}
             preferences={logPreferences}
             setSessionMoneyArray={setSessionMoneyArray} setSessionMoneyValue={setSessionMoneyValue}
             activeBowlerLeftHanded={activeBowlerLeftHanded}

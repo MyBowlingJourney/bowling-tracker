@@ -13,6 +13,7 @@ import Scoresheet from "./Scoresheet.jsx";
 import TournamentSession from "./TournamentSession.jsx";
 import DrillSession from "./DrillSession.jsx";
 import SessionRecap from "./SessionRecap.jsx";
+import { casualRecap } from "./domain/sessionRecap.js";
 import Nightcap from "./Nightcap.jsx";
 import ShareButton from "./ShareButton.jsx";
 import OilPatternPicker from "./OilPatternPicker.jsx";
@@ -65,7 +66,7 @@ export default function LogView({
   leagueBuyIns, onSaveLeagueBuyIns, onReplayTour, casualExtraGames = 2, setCasualExtraGames,
   showSparePins, sparePinsStanding, spareKnocked, toggleSparePin, spareWillConvert, strictPartial, submitSession, cancelSession, deleteGame, submitShot, theoreticalScoreForGame, maxScoreThisGame, toggle, toggleMulti, toggleSection,
   preferences, setSessionMoneyArray, setSessionMoneyValue, activeBowlerLeftHanded,
-  ballLayouts, activeTournament, updateTournament, saveTournament, closeTournament, cancelTournament, tournamentSaved,
+  saveCasualResults, endCasual, ballLayouts, activeTournament, updateTournament, saveTournament, closeTournament, cancelTournament, tournamentSaved,
   manualScores, updateManualScore,
   // Handed straight to the Nightcap, which is the only paid thing
   // on this screen.
@@ -106,6 +107,12 @@ export default function LogView({
   // currently sits; cap, so its own top never slides under the header
   // and hides what is being agreed to.
   const cancelRef=useRef(null);
+  // Open bowling: Results appear only once asked for. Local, so leaving
+  // the screen hides them again -- a filed night shows them regardless.
+  const [casualResultsShown,setCasualResultsShown]=useState(false);
+  const [casualMsg,setCasualMsg]=useState("");
+  const [casualSpacer,setCasualSpacer]=useState(0);
+  const howItWentRef=useRef(null);
   // Which game number is armed for deletion, or null. One at a time, so
   // arming a second cancels the first rather than leaving two live.
   const [gameToDelete,setGameToDelete]=useState(null);
@@ -593,7 +600,10 @@ export default function LogView({
   // style and format, could pick a result and had no way to save it.
   // The bar now shows in tournament Scoring whenever there is a shot to
   // save, carrying Save Shot alone (the session button stays hidden).
-  const footerShown=!!(editingId||(activeBowler&&effectiveSessionLeague
+  // Not in open bowling: it has no shot form, and the night is saved
+  // and ended by the buttons in the page (Save & View Results, then End
+  // Open Bowling) rather than one bar that saved and left in one tap.
+  const footerShown=!!(editingId||(activeBowler&&effectiveSessionLeague&&env!=="casual"
     &&(env!=="tournament"||(onTab("scoring")&&showShotContext))));
 
   // In BAKER, the name follows the FRAME, not the session.
@@ -3149,8 +3159,91 @@ export default function LogView({
                 drills tab had no way to finish a session at all. It is
                 now the sticky bar at the bottom, unconditional. */}
 
-            {onTab("results")&&!editingId&&(preferences.environment==="casual"||preferences.environment==="practice")&&effectiveSessionLeague&&(
+            {/* OPEN BOWLING: save, see results, or cancel.
+                Under the scores table and above How It Went. Saving files
+                the night but does NOT leave -- the results appear below
+                and the page scrolls so How It Went sits at the top.
+                Leaving is End Open Bowling, under Share the night. */}
+            {!editingId&&preferences.environment==="casual"&&effectiveSessionLeague&&(()=>{
+              const people=scoreOptions.length?scoreOptions:[ownerName].filter(Boolean);
+              return (
+                <div style={{marginBottom:"12px"}}>
+                  <button style={{...S.btn("primary"),width:"100%"}}
+                    onClick={async()=>{
+                      if(!casualRecap(manualScores,people,effectiveSessionLeague,sessionDate)){
+                        setCasualMsg("Enter a score first");
+                        setTimeout(()=>setCasualMsg(""),2000);
+                        return;
+                      }
+                      setCasualResultsShown(true);
+                      await saveCasualResults?.();
+                      // Two frames: the recap renders from this state
+                      // change. Lands How It Went just under the sticky
+                      // header, which is the top of what can be seen.
+                      //
+                      // The results are short, so the page can end before
+                      // How It Went reaches the top. A spacer after them
+                      // makes up the difference, measured, then the page
+                      // scrolls on the frame after it exists.
+                      const headerBottom=()=>{
+                        // The app header is a sticky div, not a <header>.
+                        const stuck=[...document.querySelectorAll("body *")].find(n=>{
+                          const cs=getComputedStyle(n);
+                          return (cs.position==="sticky"||cs.position==="fixed")&&n.getBoundingClientRect().top<=0.5&&n.getBoundingClientRect().height>0&&n.getBoundingClientRect().height<200;
+                        });
+                        return stuck?stuck.getBoundingClientRect().bottom:0;
+                      };
+                      requestAnimationFrame(()=>requestAnimationFrame(()=>{
+                        const el=howItWentRef.current;
+                        if(!el)return;
+                        const hb=headerBottom();
+                        const top=el.getBoundingClientRect().top+window.scrollY-hb-8;
+                        const maxScroll=document.documentElement.scrollHeight-window.innerHeight;
+                        setCasualSpacer(Math.max(0,Math.ceil(top-maxScroll)));
+                        requestAnimationFrame(()=>requestAnimationFrame(()=>{
+                          try{window.scrollTo({top:Math.max(0,top),behavior:"smooth"});}catch{window.scrollTo(0,Math.max(0,top));}
+                        }));
+                      }));
+                    }}>
+                    {casualMsg||"Save & View Results"}
+                  </button>
+                  {typeof cancelSession==="function"&&(
+                    <div style={{marginTop:"10px"}}>
+                      {!cancelArmed?(
+                        <button
+                          style={{background:"none",border:"none",color:C.textMuted,cursor:"pointer",
+                                  fontSize:"13px",padding:"8px",width:"100%",
+                                  WebkitTapHighlightColor:"transparent"}}
+                          onClick={()=>{ setCancelArmed(true); revealBottomOf(cancelRef,{cap:true,allowUp:true}); }}>
+                          Cancel Open Bowling
+                        </button>
+                      ):(
+                        <div ref={cancelRef} style={{...S.card,padding:"12px",marginBottom:0}}>
+                          <div style={{fontSize:"13px",color:C.text,lineHeight:1.5,marginBottom:"10px"}}>
+                            This deletes tonight's open bowling scores for everyone on the sheet and takes you back to Home. This cannot be undone.
+                          </div>
+                          <div style={{display:"flex",gap:"8px"}}>
+                            <button style={{...S.btn(),flex:1}} onClick={()=>setCancelArmed(false)}>
+                              Keep bowling
+                            </button>
+                            <button style={{...S.btn("warn"),flex:1}}
+                              onClick={()=>{ setCancelArmed(false); setCasualResultsShown(false); setCasualSpacer(0); cancelSession(); }}>
+                              Delete and exit
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {onTab("results")&&!editingId&&(preferences.environment==="practice"||(preferences.environment==="casual"
+              &&(casualResultsShown||(sessions||[]).some(s=>s&&s.bowler===activeBowler&&s.league===effectiveSessionLeague&&String(s.date)===String(sessionDate)))))&&effectiveSessionLeague&&(
               <SessionRecap
+                howItWentRef={howItWentRef}
+                onEnd={preferences.environment==="casual"?()=>{ setCasualResultsShown(false); setCasualSpacer(0); endCasual?.(); }:undefined}
                 environment={preferences.environment}
                 manualScores={manualScores}
                 bowler={activeBowler}
@@ -3697,7 +3790,7 @@ export default function LogView({
             {/* League and open bowling only. A tournament has its own
                 Tournament Notes on the card above, and practice had a
                 note nobody asked for at the end of a practice night. */}
-            {onTab("results")&&env!=="tournament"&&env!=="practice"&&(
+            {onTab("results")&&env!=="tournament"&&env!=="practice"&&env!=="casual"&&(
             <CollapsibleCard
               title="Session Notes"
               summary={form.notes?"✓":""}
@@ -3713,6 +3806,7 @@ export default function LogView({
                 after that fragment -- the practice summary, Session Notes
                 -- had nothing between it and the sticky bar and got cut
                 off at the bottom. A spacer only clears what precedes it. */}
+          {env==="casual"&&casualSpacer>0&&<div style={{height:`${casualSpacer}px`}}/>}
           {(editingId||(activeBowler&&effectiveSessionLeague))&&(
             <div style={{height:footerShown?`${footerHeight}px`:"76px"}}/>
           )}
