@@ -31,7 +31,13 @@ const config: CapacitorConfig = {
   // Vite's output. `base: './'` in vite.config.js already makes the built
   // asset paths relative, which is what a WebView needs -- that part is
   // done.
-  webDir: 'dist',
+  // The NATIVE bundle, built by `npm run build:native`, not the website.
+  //
+  // The website now puts the welcome page at dist/index.html and the app
+  // at dist/app/ -- pointing the phone at dist would ship the marketing
+  // page as the app. dist-native is the same app built with relative
+  // URLs, which is what a file:// bundle needs.
+  webDir: 'dist-native',
   server: {
     // Served from the app bundle, not from the network. The PWA on GitHub
     // Pages stays where it is; this is a separate, self-contained copy.

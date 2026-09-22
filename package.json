@@ -5,12 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build --base=/app/ --outDir=dist/app --emptyOutDir && node scripts/build-site.mjs",
+    "build:native": "vite build --base=./ --outDir=dist-native --emptyOutDir",
     "preview": "vite preview",
     "test": "vitest run",
-    "cap:sync": "vite build && npx cap sync",
-    "cap:android": "vite build && npx cap sync android && npx cap open android",
-    "cap:ios": "vite build && npx cap sync ios && npx cap open ios"
+    "cap:sync": "npm run build:native && npx cap sync",
+    "cap:android": "npm run build:native && npx cap sync android && npx cap open android",
+    "cap:ios": "npm run build:native && npx cap sync ios && npx cap open ios"
   },
   "dependencies": {
     "@capacitor/android": "^7.0.0",

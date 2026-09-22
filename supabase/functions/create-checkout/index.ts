@@ -33,6 +33,10 @@ import {
 } from "../_shared/stripeApi.ts";
 
 const APP_URL = Deno.env.get("APP_URL")?.trim().replace(/\/+$/, "") || "";
+// The APP lives at /app/; APP_URL's root is the public welcome page.
+// Sending a bowler who just paid to the marketing page reads as a failed
+// checkout, so both Stripe returns point one level in.
+const APP_HOME = APP_URL ? `${APP_URL}/app` : "";
 const TRIAL_DAYS = 30;
 
 function json(body: unknown, cors: Record<string, string>, status = 200) {
@@ -273,8 +277,8 @@ Deno.serve(async (req: Request) => {
     // on its own and cannot convert without one.
     payment_method_collection: "always",
     allow_promotion_codes: true,
-    success_url: `${APP_URL}/?checkout=success`,
-    cancel_url: `${APP_URL}/?checkout=cancelled`,
+    success_url: `${APP_HOME}/?checkout=success`,
+    cancel_url: `${APP_HOME}/?checkout=cancelled`,
   });
 
   if (!session?.url) {

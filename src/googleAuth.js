@@ -44,7 +44,7 @@
 // thing to debug. Hence the deliberate naming below.
 
 import { supabase } from "./supabaseClient.js";
-import { APP_URL, GOOGLE_WEB_CLIENT_ID } from "./constants.js";
+import { APP_HOME, GOOGLE_WEB_CLIENT_ID } from "./constants.js";
 
 // Lazy, exactly as nativeAuth.js does it. A static import would pull the
 // native plugin into the bundle every PWA visitor downloads, to serve a
@@ -156,7 +156,7 @@ export async function signInWithGoogle() {
           // deployment or a stray origin would otherwise send bowlers
           // somewhere that isn't the app, and the redirect has to match a
           // URI registered in Google Cloud regardless.
-          redirectTo: APP_URL,
+          redirectTo: APP_HOME,
         },
       });
       return { error: error || null };

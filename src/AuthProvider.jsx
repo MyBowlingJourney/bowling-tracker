@@ -9,7 +9,7 @@ import { listenForAuthLinks } from './nativeAuth.js';
 // SignIn calls it through the context exactly like the email methods,
 // and gets back the same { error } shape.
 import { signInWithGoogle } from './googleAuth.js';
-import { APP_URL } from './constants.js';
+import { APP_HOME } from './constants.js';
 import { isBowlerFacing } from './domain/functionErrors.js';
 import { cloudRead, cloudWrite, adoptLegacyQueueItems, flushPendingQueue } from './syncQueue.js';
 import { setStorageUser, adoptLegacyData } from './scopedStorage.js';
@@ -199,7 +199,10 @@ export function AuthProvider({ children }) {
   async function signInWithMagicLink(email) {
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: APP_URL },
+      // APP_HOME, not APP_URL: the root is the welcome page now, and a
+      // magic link that lands there signs the bowler in on a page with no
+      // sign of it.
+      options: { emailRedirectTo: APP_HOME },
     });
     return { error };
   }

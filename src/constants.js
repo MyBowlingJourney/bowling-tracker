@@ -25,6 +25,18 @@ export const APP_NAME = "My Bowling Journey";
 // "mybowlingjourney.com/" on every card. The QR code is happy either way.
 export const APP_URL = "https://mybowlingjourney.com";
 
+// Where the APP itself lives, as opposed to the website.
+//
+// mybowlingjourney.com is the welcome page -- what a share card's QR code
+// and a first-time visitor should land on. The app is one level in, at
+// /app/, and that is the address sign-in has to come back to: a magic
+// link or a Google redirect that lands on the welcome page drops the
+// bowler on marketing copy holding a session they cannot see.
+//
+// Trailing slash on purpose: /app is a redirect on GitHub Pages, and a
+// redirect loses the auth fragment.
+export const APP_HOME = APP_URL + "/app/";
+
 // The Google OAuth **web** client ID, used for "Sign in with Google".
 //
 // HARDCODED, AND THAT IS CORRECT -- this is not a secret.

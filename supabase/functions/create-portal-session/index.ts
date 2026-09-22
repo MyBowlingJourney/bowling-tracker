@@ -95,7 +95,8 @@ Deno.serve(async (req: Request) => {
 
   const session = await stripeRequest("/billing_portal/sessions", {
     customer: customerId,
-    return_url: `${APP_URL}/`,
+    // /app/, not the root: the root is the public welcome page.
+    return_url: `${APP_URL}/app/`,
   });
 
   if (!session?.url) {
