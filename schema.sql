@@ -136,7 +136,8 @@ CREATE TABLE IF NOT EXISTS public.bowling_centers (
   lng numeric,
   created_by uuid,
   created_at timestamp with time zone DEFAULT now() NOT NULL,
-  rack_type text
+  rack_type text,
+  freefall_lanes integer[]
 );
 CREATE TABLE IF NOT EXISTS public.closed_seasons (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -819,9 +820,6 @@ CREATE POLICY 'users can view their own bowler profiles' ON public.bowler_profil
   USING ((created_by = auth.uid()));
 CREATE POLICY 'anyone can read bowling centers' ON public.bowling_centers FOR SELECT TO authenticated
   USING ((auth.uid() IS NOT NULL));
-CREATE POLICY 'centers update any authenticated' ON public.bowling_centers FOR UPDATE TO authenticated
-  USING (true)
-  WITH CHECK (true);
 CREATE POLICY 'creators can correct their own hand-entered centers' ON public.bowling_centers FOR UPDATE TO authenticated
   USING (((created_by = auth.uid()) AND (here_id IS NULL)))
   WITH CHECK (((created_by = auth.uid()) AND (here_id IS NULL)));
@@ -848,11 +846,11 @@ CREATE POLICY 'both sides can write notes' ON public.coaching_notes FOR INSERT T
   WHERE ((r.id = coaching_notes.relationship_id) AND (r.status = 'accepted'::text) AND ((r.coach_id = auth.uid()) OR (r.bowler_id = auth.uid())))))));
 CREATE POLICY 'either side can end a coaching relationship' ON public.coaching_relationships FOR DELETE TO authenticated
   USING (((coach_id = auth.uid()) OR (bowler_id = auth.uid())));
-CREATE POLICY 'either side can update their coaching relationship' ON public.coaching_relationships FOR UPDATE TO authenticated
-  USING (((coach_id = auth.uid()) OR (bowler_id = auth.uid())))
-  WITH CHECK (((coach_id = auth.uid()) OR (bowler_id = auth.uid())));
 CREATE POLICY 'either side can view their coaching relationship' ON public.coaching_relationships FOR SELECT TO authenticated
   USING (((coach_id = auth.uid()) OR (bowler_id = auth.uid())));
+CREATE POLICY 'the other side answers a coaching request' ON public.coaching_relationships FOR UPDATE TO authenticated
+  USING (((auth.uid() <> requested_by) AND ((auth.uid() = coach_id) OR (auth.uid() = bowler_id))))
+  WITH CHECK (((auth.uid() <> requested_by) AND ((auth.uid() = coach_id) OR (auth.uid() = bowler_id))));
 CREATE POLICY 'users can request a coaching relationship' ON public.coaching_relationships FOR INSERT TO authenticated
   WITH CHECK (((requested_by = auth.uid()) AND ((coach_id = auth.uid()) OR (bowler_id = auth.uid()))));
 CREATE POLICY 'both sides can update tasks' ON public.coaching_tasks FOR UPDATE TO authenticated
@@ -884,9 +882,9 @@ CREATE POLICY 'set own kept league' ON public.entitlements FOR UPDATE TO authent
   WITH CHECK ((auth.uid() = user_id));
 CREATE POLICY 'either side can delete a friendship' ON public.friendships FOR DELETE TO authenticated
   USING (((requester_id = auth.uid()) OR (addressee_id = auth.uid())));
-CREATE POLICY 'either side can respond to or cancel a request' ON public.friendships FOR UPDATE TO authenticated
-  USING (((requester_id = auth.uid()) OR (addressee_id = auth.uid())))
-  WITH CHECK (((requester_id = auth.uid()) OR (addressee_id = auth.uid())));
+CREATE POLICY 'only the addressee can answer a friend request' ON public.friendships FOR UPDATE TO authenticated
+  USING ((addressee_id = auth.uid()))
+  WITH CHECK ((addressee_id = auth.uid()));
 CREATE POLICY 'users can send friend requests' ON public.friendships FOR INSERT TO authenticated
   WITH CHECK ((requester_id = auth.uid()));
 CREATE POLICY 'users can view friendships they''re part of' ON public.friendships FOR SELECT TO authenticated
@@ -901,7 +899,8 @@ CREATE POLICY 'users can update their own hidden leagues' ON public.hidden_leagu
 CREATE POLICY 'users can view their own hidden leagues' ON public.hidden_leagues FOR SELECT TO authenticated
   USING ((user_id = auth.uid()));
 CREATE POLICY 'bowler or team can update imported scores' ON public.imported_scores FOR UPDATE TO authenticated
-  USING (((bowler_user_id = auth.uid()) OR ((team_id IS NOT NULL) AND is_team_member(team_id))));
+  USING (((bowler_user_id = auth.uid()) OR ((team_id IS NOT NULL) AND is_team_member(team_id))))
+  WITH CHECK (((bowler_user_id = auth.uid()) OR ((team_id IS NOT NULL) AND is_team_member(team_id))));
 CREATE POLICY 'team can view imported scores' ON public.imported_scores FOR SELECT TO authenticated
   USING (((bowler_user_id = auth.uid()) OR (uploaded_by = auth.uid()) OR ((team_id IS NOT NULL) AND is_team_member(team_id))));
 CREATE POLICY 'teammates can upload scores' ON public.imported_scores FOR INSERT TO authenticated
@@ -1012,8 +1011,10 @@ CREATE POLICY 'users can view their own shots' ON public.shots FOR SELECT TO aut
   USING ((user_id = auth.uid()));
 CREATE POLICY 'user can read their own tombstones' ON public.sync_tombstones FOR SELECT TO authenticated
   USING ((user_id = auth.uid()));
-CREATE POLICY 'team members can remove roster entries' ON public.team_members FOR DELETE TO authenticated
-  USING (is_team_member(team_id));
+CREATE POLICY 'leave a team, or the creator removes a member' ON public.team_members FOR DELETE TO authenticated
+  USING (((user_id = auth.uid()) OR (EXISTS ( SELECT 1
+   FROM teams t
+  WHERE ((t.id = team_members.team_id) AND (t.created_by = auth.uid()))))));
 CREATE POLICY 'team members can reorder their team''s roster' ON public.team_members FOR UPDATE TO authenticated
   USING (is_team_member(team_id))
   WITH CHECK (is_team_member(team_id));
@@ -1025,6 +1026,8 @@ CREATE POLICY 'you can only add yourself to a roster' ON public.team_members FOR
   WHERE ((teams.id = team_members.team_id) AND (teams.created_by = auth.uid())))) OR (EXISTS ( SELECT 1
    FROM pending_invites
   WHERE ((pending_invites.team_id = team_members.team_id) AND (lower(pending_invites.invited_email) = lower((auth.jwt() ->> 'email'::text))) AND (pending_invites.accepted_at IS NULL)))))));
+CREATE POLICY 'only the team creator can delete the team' ON public.teams FOR DELETE TO authenticated
+  USING ((created_by = auth.uid()));
 CREATE POLICY 'team creators can delete their team' ON public.teams FOR DELETE TO authenticated
   USING ((created_by = auth.uid()));
 CREATE POLICY 'team creators can rename their team' ON public.teams FOR UPDATE TO authenticated
@@ -1032,8 +1035,6 @@ CREATE POLICY 'team creators can rename their team' ON public.teams FOR UPDATE T
   WITH CHECK ((created_by = auth.uid()));
 CREATE POLICY 'team creators can view their team' ON public.teams FOR SELECT TO authenticated
   USING ((created_by = auth.uid()));
-CREATE POLICY 'team members can delete their team' ON public.teams FOR DELETE TO authenticated
-  USING (is_team_member(id));
 CREATE POLICY 'team members can rename their team' ON public.teams FOR UPDATE TO authenticated
   USING (is_team_member(id))
   WITH CHECK (is_team_member(id));
