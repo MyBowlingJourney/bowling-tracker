@@ -215,7 +215,8 @@ export function badgeHistory(bowler, nights = []) {
     .sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")));
 
   const out = {};
-  for (const b of CASUAL_BADGES) out[b.id] = { id: b.id, count: 0, lastDate: null };
+  // `dates`: every night it was earned -- see competitiveBadgeHistory.
+  for (const b of CASUAL_BADGES) out[b.id] = { id: b.id, count: 0, lastDate: null, dates: [] };
 
   let had = new Set();
   list.forEach((night, i) => {
@@ -229,11 +230,12 @@ export function badgeHistory(bowler, nights = []) {
         // Does THIS night earn it by itself? That is what makes a repeat
         // a repeat rather than a threshold staying crossed.
         const alone = badgesFor(casualStatsFor(bowler, [night])).some(x => x.id === b.id);
-        if (alone) { out[b.id].count++; out[b.id].lastDate = night.date || out[b.id].lastDate; }
-        else if (!had.has(b.id)) { out[b.id].count = 1; out[b.id].lastDate = night.date || null; }
+        if (alone) { out[b.id].count++; out[b.id].lastDate = night.date || out[b.id].lastDate; if (night.date) out[b.id].dates.push(night.date); }
+        else if (!had.has(b.id)) { out[b.id].count = 1; out[b.id].lastDate = night.date || null; if (night.date) out[b.id].dates.push(night.date); }
       } else if (!had.has(b.id)) {
         out[b.id].count = 1;
         out[b.id].lastDate = night.date || null;
+        if (night.date) out[b.id].dates.push(night.date);
       }
     }
     had = nowIds;

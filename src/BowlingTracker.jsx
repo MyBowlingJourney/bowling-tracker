@@ -27,6 +27,7 @@ const HomeScreen = lazyScreen("Home", () => import("./HomeView.jsx"));
 import { tourSteps, tourToOffer, markTourSeen, hasSeenTour, needsLeagueSetup, availableTours, FIRST_TOUR, TRACK_KEYS } from "./domain/tour.js";
 import HelpView from "./HelpView.jsx";
 import HeaderMenu from "./HeaderMenu.jsx";
+import PastNightResults from "./PastNightResults.jsx";
 import { laneDigits } from "./domain/laneInput.js";
 import Subscribe from "./Subscribe.jsx";
 import CasualLeaderboard from "./CasualLeaderboard.jsx";
@@ -96,13 +97,15 @@ import { standingAfterFirst, knockedFromSecondLeave, toggleKnocked, secondLeaveF
 import { visibleLeagues, isLeagueHidden, teamsInLeague, describeLeaveImpact, leaveConfirmationText, isContainerLeague } from "./domain/leagueMembership.js";
 import { decodeShare } from "./domain/badgeShare.js";
 import { allCompetitiveBadges } from "./domain/badgeContext.js";
+import { CASUAL_BADGES, badgeHistory as casualBadgeHistory } from "./domain/casualBadges.js";
+import { badgesEarnedOn } from "./domain/nightBadges.js";
 import { buildGenieContext } from "./domain/genie.js";
 import { COMPETITIVE_BADGES, whereEarnable } from "./domain/competitiveBadges.js";
 import { casualNightsFrom, setGameEquipment as setGameEquipmentIn, gameEquipmentFromRows, getGameEquipment, defaultPracticeBall, setManualScore as setManualScoreIn, getManualScore, resolveGameScore, normalizeManualScores, manualScoreToRow, manualScoresFromRows, isManualNight } from "./domain/manualScores.js";
 import { bowlerHighGame, bowlerHighSeries, hangAssistCounts, teamDateGroups, teamHighGame, teamHighSeries, seasonRecord, weeklyPointsData, gameAvg, teamGameTotalAvg, teamGameTotalAvgAt, rAvg, cAvg, avgProgress, cumulativeAvgBeforeDate, hungCounts, beatHighBowlerStats, scoreValues, scoreConsistency, histogramBuckets } from "./domain/stats.js";
 import { lineupSort, renameLeagueInRecords } from "./domain/leagues.js";
 import { C, S, F, Chip, applyTheme } from "./ui.jsx";
-import { PLASTIC_BALL, DEFAULT_ARSENAL, MISSES, DEFAULT_LEAGUES, localDateString, APP_NAME, PRACTICE_SESSION_KEY, CASUAL_SESSION_KEY, practiceLeagueCloudName, casualLeagueCloudName, practiceLeagueDisplayName, isPracticeLeagueName, isCasualLeagueName, TOURNAMENT_SESSION_KEY, tournamentLeagueCloudName, IMPORTED_SESSION_KEY } from "./constants.js";
+import { PLASTIC_BALL, DEFAULT_ARSENAL, MISSES, DEFAULT_LEAGUES, localDateString, APP_NAME, PRACTICE_SESSION_KEY, CASUAL_SESSION_KEY, practiceLeagueCloudName, casualLeagueCloudName, practiceLeagueDisplayName, isPracticeLeagueName, isCasualLeagueName, isTournamentLeagueName, TOURNAMENT_SESSION_KEY, tournamentLeagueCloudName, IMPORTED_SESSION_KEY } from "./constants.js";
 import { validTeamId,
   shotToSupabaseRow, shotFromSupabaseRow, sessionToSupabaseRow, sessionFromSupabaseRow,
   matchToSupabaseRow, matchFromSupabaseRow, lanePatternToSupabaseRow, lanePatternFromSupabaseRow,
@@ -507,6 +510,8 @@ export default function BowlingTracker(){
   const[genieAsked,setGenieAsked]=useState([]);
   // What was typed into the header menu's search box, handed to Help.
   const[helpQuery,setHelpQuery]=useState("");
+  // The past open bowling night being viewed, for the "pastNight" screen.
+  const[pastNightDate,setPastNightDate]=useState("");
   // Cleared on leaving Help, so reaching Help another way starts blank.
   useEffect(()=>{if(view!=="help")setHelpQuery("");},[view]);
   // The tournament currently being entered. Kept as one working record
@@ -5306,6 +5311,30 @@ export default function BowlingTracker(){
     finishNight();
   }
 
+  // History > Sessions: a tapped row opens that night's results.
+  //
+  // Open bowling goes to its own read-only results screen -- the scoring
+  // screen only ever shows the night in progress. Everything else opens
+  // the way an imported night does. A tournament night needs its
+  // tournament record; without one there is nothing to open, so the row
+  // does nothing rather than opening the wrong event.
+  function openHistoryNight(s){
+    if(!s||!s.date)return;
+    const lg=String(s.league||"");
+    if(isCasualLeagueName(lg)||lg===CASUAL_SESSION_KEY){
+      setPastNightDate(s.date);
+      setView("pastNight");
+      try{window.scrollTo({top:0});}catch{}
+      return;
+    }
+    if(isTournamentLeagueName(lg)){
+      const t=(tournaments||[]).find(t=>(Array.isArray(t?.days)?t.days:[]).some(d=>d&&d.date===s.date));
+      if(t)openImportedNight({kind:"tournament",league:lg,date:s.date,tournament:t});
+      return;
+    }
+    openImportedNight({kind:isPracticeLeagueName(lg)?"practice":"league",league:s.league,date:s.date});
+  }
+
   // After an import: switch to the mode the card was imported as and open
   // its Results, for the league/date it was filed under.
   function openImportedNight({kind,league,date,tournament}){
@@ -6973,15 +7002,29 @@ export default function BowlingTracker(){
   // count above zero -- rather than a second way of deciding what
   // "earned" means, which is how two screens end up disagreeing about the
   // same collection.
-  const earnedBadgeCount=(()=>{
+  const competitiveBadgeHist=(()=>{
     try{
-      const hist=allCompetitiveBadges({
+      return allCompetitiveBadges({
         sessions,shots,matches,drills,teams,leagueDates,
         bowler:activeBowler,
-      });
-      return Object.values(hist||{}).filter(r=>r&&r.count).length;
-    }catch{ return 0; }
+      })||{};
+    }catch{ return {}; }
   })();
+  const earnedBadgeCount=Object.values(competitiveBadgeHist).filter(r=>r&&r.count).length;
+
+  // The badges one night earned, for its share card. Only the active
+  // bowler's -- the history is theirs -- and open bowling has its own
+  // pool. Worked out when a share button renders, from the same history
+  // the Badges screen uses, so the two can never disagree.
+  function badgesEarnedOnNight(date,env){
+    try{
+      if(env==="casual"){
+        const hist=casualBadgeHistory(activeBowler,casualNightsFrom(manualScores,CASUAL_SESSION_KEY));
+        return badgesEarnedOn(hist,CASUAL_BADGES,date);
+      }
+      return badgesEarnedOn(competitiveBadgeHist,COMPETITIVE_BADGES,date);
+    }catch{ return []; }
+  }
 
   // Keyed on having ENDED the night in this visit, not on a session
   // existing for today. "A session exists" stayed true for the rest of the
@@ -7729,7 +7772,7 @@ export default function BowlingTracker(){
               : <div style={S.title}>{navTabs.find(t=>t.id===view)?.label
                   ||(view==="settings"?"Settings":view==="profile"?"Profile"
                     :view==="inbox"?"Inbox":view==="coaching"?"Coach"
-                    :view==="help"?"Help":view==="social"?(casualMode?"Standings":"Friends"):view==="import"?"Import scorecard"
+                    :view==="help"?"Help":view==="pastNight"?"Results":view==="social"?(casualMode?"Standings":"Friends"):view==="import"?"Import scorecard"
                     :view==="subscribe"?"My Bowling Journey Pro":"")}</div>}
           </div>
 
@@ -7766,7 +7809,7 @@ export default function BowlingTracker(){
                 sat there. Same conditions as before: not until there is
                 something to ask about, and never in open bowling. */}
             {onboarded&&hasAnythingLogged&&!casualMode&&(
-              <BowlingGenie inHeader asked={genieAsked} today={localDateString()} onAsk={askGenie}/>
+              <BowlingGenie inHeader leftHanded={!!preferences.leftHanded} asked={genieAsked} today={localDateString()} onAsk={askGenie}/>
             )}
 
             {/* Import lives here rather than on the Log tab. On Log it was
@@ -8301,6 +8344,7 @@ export default function BowlingTracker(){
              they have, not what the plan happens to show. */
           <Settings
             mode={view==="history"?"history":"settings"}
+            onOpenNight={openHistoryNight}
 
             drills={drills}
             restartOnboarding={restartOnboarding} replayTour={replayTour} isCoach={showCoachingTab}
@@ -8350,6 +8394,16 @@ export default function BowlingTracker(){
             nights={casualNightsFrom(manualScores,CASUAL_SESSION_KEY)}
             me={displayName||activeBowler}
             onOpenMyBadges={()=>{ setBadgeSet("casual"); setView("badges"); }}/>
+        )}
+
+        {view==="pastNight"&&(
+          <PastNightResults
+            date={pastNightDate}
+            manualScores={manualScores}
+            activeBowler={activeBowler}
+            badgesEarnedOnNight={badgesEarnedOnNight}
+            leftHandedForBowler={leftHandedForBowler}
+            onBack={()=>setView("history")}/>
         )}
 
         {view==="help"&&(
@@ -8508,6 +8562,7 @@ export default function BowlingTracker(){
             scoreOptions={scoreOptions} guests={guests} newGuestName={newGuestName} setNewGuestName={setNewGuestName}
             addGuestBowler={addGuestBowler} removeGuestBowler={removeGuestBowler}
             gameEquipment={gameEquipment} updateGameEquipment={updateGameEquipment}
+            badgesEarnedOnNight={badgesEarnedOnNight}
             practiceMode={practiceMode} setPracticeMode={setPracticeMode} activeDrill={activeDrill} setActiveDrill={setActiveDrill} startDrill={startDrill} startAnotherDrill={startAnotherDrill} saveDrill={saveDrill} drillSaved={drillSaved} drills={drills} leftHandedForBowler={leftHandedForBowler}
             envBags={envBags} selectedBagId={effectiveBagId} setSelectedBagId={setSelectedBagId} logBalls={logBalls}
             showSessionStart={showSessionStart}
@@ -8689,7 +8744,7 @@ export default function BowlingTracker(){
           "something needs you" and "here's where" become one signal. */}
       <nav data-bottom-nav style={{position:"fixed",bottom:0,left:0,right:0,zIndex:100,display:"flex",backgroundColor:C.surface+"F2",backdropFilter:"blur(18px)",WebkitBackdropFilter:"blur(18px)",borderTop:`1px solid ${C.border}CC`,padding:"8px 5px calc(10px + env(safe-area-inset-bottom, 0px))",boxShadow:`0 -12px 32px ${C.bg}44`}}>
         {navTabs.map(t=>{
-          const on=view===t.id||(t.id==="insights"&&view==="coaching")||(t.id==="locker"&&view==="social")||(t.id==="log"&&view==="import");
+          const on=view===t.id||(t.id==="history"&&view==="pastNight")||(t.id==="insights"&&view==="coaching")||(t.id==="locker"&&view==="social")||(t.id==="log"&&view==="import");
           // History does NOT badge the inbox count -- the inbox is
           // "things waiting for you" and lives in the header; History is
           // for reviewing what already happened. Two different jobs.

@@ -1,6 +1,24 @@
 import { useState } from "react";
 import { C, S, F } from "./ui.jsx";
 import { shareText, shareTitle, drawShareCard, drawTrendCard, trendShareText, drawStandingsCard, standingsShareText, drawBadgeCard, badgeShareText, drawShareQr } from "./domain/shareCard.js";
+import logoUrl from "../mbj-logo-512.png";
+
+// The app icon, for the corner of every share card. It ships inside the
+// app bundle, so it loads offline; loaded once and reused. A failed load
+// resolves to null and the card draws its fallback mark instead.
+let logoPromise = null;
+function loadLogo() {
+  if (typeof Image === "undefined") return Promise.resolve(null);
+  if (!logoPromise) {
+    logoPromise = new Promise(res => {
+      const img = new Image();
+      img.onload = () => res(img);
+      img.onerror = () => { logoPromise = null; res(null); };
+      img.src = logoUrl;
+    });
+  }
+  return logoPromise;
+}
 
 // One tap to share a night's scores.
 //
@@ -22,17 +40,18 @@ async function renderCardBlob(summary) {
     canvas.width = 1080; canvas.height = 1080;
     const ctx = canvas.getContext("2d");
     if (!ctx) return null;
+    const logo = await loadLogo();
     // A trend is a shape over time, not a scoreline -- it gets the graph
     // card instead of the score card.
-    if (summary?.trend) drawTrendCard(ctx, { ...summary, colors: C, fonts: F });
+    if (summary?.trend) drawTrendCard(ctx, { ...summary, colors: C, fonts: F, logo });
     // A running table is neither a scoreline nor a shape over time, so it
     // gets its own card rather than being forced into either.
-    else if (summary?.standings) drawStandingsCard(ctx, { ...summary, colors: C, fonts: F });
+    else if (summary?.standings) drawStandingsCard(ctx, { ...summary, colors: C, fonts: F, logo });
     // A badge card is meant to be posted somewhere, so it has to stand
     // alone: their name, what they earned, and the app name for anyone
     // who asks where it came from.
-    else if (summary?.badges) drawBadgeCard(ctx, { ...summary, colors: C, fonts: F });
-    else drawShareCard(ctx, { ...summary, colors: C, fonts: F });
+    else if (summary?.badges) drawBadgeCard(ctx, { ...summary, colors: C, fonts: F, logo });
+    else drawShareCard(ctx, { ...summary, colors: C, fonts: F, logo });
     // Additive: mark+name+url are already drawn above, so a QR that
     // fails to load (offline, package unavailable) still leaves a card
     // that says where it came from -- it just can't be scanned.
@@ -63,7 +82,7 @@ export default function ShareButton({ summary, label = "Share", compact = false 
       if (typeof navigator !== "undefined" && navigator.share) {
         const blob = await renderCardBlob(summary);
         if (blob && navigator.canShare) {
-          const file = new File([blob], "board-and-arrow.png", { type: "image/png" });
+          const file = new File([blob], "my-bowling-journey.png", { type: "image/png" });
           if (navigator.canShare({ files: [file] })) {
             await navigator.share({ title, text, files: [file] });
             setState("done"); setTimeout(() => setState("idle"), 1500);

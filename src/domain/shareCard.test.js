@@ -87,14 +87,42 @@ describe('share card', () => {
     expect(texts).toContain('203');
   });
 
-  // Replaced: the 39-board lane belonged to "Board & Arrow". The app is
-  // My Bowling Vault now, and a shared card should look like the app it
-  // came from -- that's the point of putting it on someone's feed.
-  it('draws the vault wheel: 8 spokes, a hub and three finger holes', () => {
+  // The ball-with-spokes wheel was the old app icon. The card now carries
+  // one mark -- the logo beside the name -- and no wheel.
+  it('no longer draws the old spoked wheel', () => {
     const ctx = fakeCtx();
     drawShareCard(ctx, { scores: [200] });
-    expect(ctx.calls.filter(c => c[0] === 'stroke')).toHaveLength(8);
-    expect(ctx.calls.filter(c => c[0] === 'arc')).toHaveLength(4);
+    expect(ctx.calls.filter(c => c[0] === 'stroke')).toHaveLength(0);
+    expect(ctx.calls.filter(c => c[0] === 'arc')).toHaveLength(0);
+  });
+
+  it('draws the logo image beside the name, bottom left, when it has loaded', () => {
+    const ctx = fakeCtx();
+    const drawn = [];
+    ctx.drawImage = (img, x, y, w, h) => drawn.push({ x, y, w, h });
+    drawShareCard(ctx, { scores: [200], logo: { naturalWidth: 512 } });
+    expect(drawn).toHaveLength(1);
+    expect(drawn[0].x).toBeLessThan(200);
+    expect(drawn[0].y).toBeGreaterThan(900);
+  });
+
+  it('shows the badges earned that night', () => {
+    const ctx = fakeCtx();
+    drawShareCard(ctx, { scores: [200], earned: [{ emoji: 'T', name: 'Turkey' }, { emoji: 'C', name: 'Clean game' }] });
+    const texts = ctx.calls.filter(c => c[0] === 'text').map(c => c[1]);
+    expect(texts).toContain('BADGES');
+    expect(texts.some(t => t.includes('Turkey') && t.includes('Clean game'))).toBe(true);
+  });
+
+  it('draws no badges row on a night that earned none', () => {
+    const ctx = fakeCtx();
+    drawShareCard(ctx, { scores: [200] });
+    const texts = ctx.calls.filter(c => c[0] === 'text').map(c => c[1]);
+    expect(texts.some(t => /^BADGE/.test(String(t)))).toBe(false);
+  });
+
+  it('puts earned badges in the share text too', () => {
+    expect(shareText({ scores: [200], earned: [{ emoji: 'T', name: 'Turkey' }] })).toContain('Badge earned: T Turkey');
   });
 
   it('draws highlights onto the image, not just into the text', () => {

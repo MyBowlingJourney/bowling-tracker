@@ -9,7 +9,7 @@ const PAGE_SIZE = 15;
 // bound, and it was pushing the actual analysis off the bottom of a phone
 // screen. Looking up "what did I shoot three weeks ago" is a deliberate
 // act, not something you want between you and your averages.
-export default function SessionHistory({ sessions, bowlers, leagues, teams = [], displayName = "", statsBowler, setStatsBowler, statsLeague, setStatsLeague }) {
+export default function SessionHistory({ sessions, bowlers, leagues, teams = [], displayName = "", statsBowler, setStatsBowler, statsLeague, setStatsLeague, onOpenNight }) {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   // Your own sessions only. The sessions array also holds nights logged
@@ -103,12 +103,21 @@ export default function SessionHistory({ sessions, bowlers, leagues, teams = [],
         ) : (
           <>
             {visible.map(s => (
-              <div key={s.id} style={{ borderBottom: `1px solid ${C.border}`, paddingBottom: "10px", marginBottom: "10px" }}>
+              // A row opens that night's results. A div with a button role
+              // rather than a <button>, so the row keeps its own layout and
+              // text styles untouched.
+              <div key={s.id}
+                role={onOpenNight ? "button" : undefined} tabIndex={onOpenNight ? 0 : undefined}
+                onClick={onOpenNight ? () => onOpenNight(s) : undefined}
+                onKeyDown={onOpenNight ? e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpenNight(s); } } : undefined}
+                aria-label={onOpenNight ? `Open results for ${formatDate(s.date)}` : undefined}
+                style={{ borderBottom: `1px solid ${C.border}`, paddingBottom: "10px", marginBottom: "10px",
+                  cursor: onOpenNight ? "pointer" : "default" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
                   <span style={{ fontSize: "12px", fontWeight: 600 }}>
                     {!statsBowler && s.bowler ? `${s.bowler} · ` : ""}{practiceLeagueDisplayName(s.league).replace(" House Shot", "")}
                   </span>
-                  <span style={{ fontSize: "11px", color: C.textMuted }}>{formatDate(s.date)}</span>
+                  <span style={{ fontSize: "11px", color: C.textMuted }}>{formatDate(s.date)}{onOpenNight && <span aria-hidden="true" style={{ color: C.accent, marginLeft: "6px" }}>›</span>}</span>
                 </div>
                 <div style={{ display: "flex", gap: "6px", marginBottom: "4px" }}>
                   {/* A session whose scores never arrived: the row still

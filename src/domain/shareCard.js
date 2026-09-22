@@ -31,7 +31,7 @@ function scoresLine(scores) {
 // score.
 export function shareText(arg) {
   // A default parameter covers undefined, not null.
-  const { bowler, scores, league, date, environment, highlights = [] } = (arg && typeof arg === "object") ? arg : {};
+  const { bowler, scores, league, date, environment, highlights = [], earned = [] } = (arg && typeof arg === "object") ? arg : {};
   const clean = (Array.isArray(scores) ? scores : []).filter(v => Number.isFinite(v));
   const series = clean.reduce((a, b) => a + b, 0);
   const who = bowler ? `${bowler} bowled` : "Bowled";
@@ -43,12 +43,15 @@ export function shareText(arg) {
   else if (clean.length === 1) headline = `${who} a ${clean[0]}${where}${when}.`;
   else headline = `${who} ${series} for ${clean.length}${where}${when}: ${scoresLine(clean)}.`;
 
-  const extras = highlights.filter(Boolean).map(h => `• ${h}`);
+  const extras = (Array.isArray(highlights) ? highlights : []).filter(Boolean).map(h => `• ${h}`);
+  const badgeNames = (Array.isArray(earned) ? earned : []).filter(b => b && b.name)
+    .map(b => `${b.emoji ? b.emoji + " " : ""}${b.name}`);
   const tag = environment === "practice" ? "Practice session" : environment === "casual" ? "Just for fun" : "";
 
   return [
     headline,
     ...(extras.length ? ["", ...extras] : []),
+    ...(badgeNames.length ? ["", `Badge${badgeNames.length === 1 ? "" : "s"} earned: ${badgeNames.join(", ")}`] : []),
     ...(tag ? ["", tag] : []),
     "",
     `Tracked with ${APP_NAME} — ${APP_URL}`,
@@ -92,7 +95,7 @@ export function drawArrowMark(ctx, x, y, size, color) {
 // The second argument defaults to {}. Destructuring happens BEFORE the
 // body, so a guard inside never runs -- calling this with only a ctx
 // threw on the parameter list itself.
-export function drawShareCard(ctx, { bowler, scores, league, date, colors, fonts, highlights } = {}) {
+export function drawShareCard(ctx, { bowler, scores, league, date, colors, fonts, highlights, earned, logo } = {}) {
   // A canvas context or nothing. Checking for the METHOD rather than
   // truthiness: any object passes a truthy test and then throws on
   // the first draw call.
@@ -105,52 +108,9 @@ export function drawShareCard(ctx, { bowler, scores, league, date, colors, fonts
   ctx.fillStyle = c.bg || "#14110E";
   ctx.fillRect(0, 0, W, H);
 
-  // The wheel, matching the app icon.
-  //
-  // Was a 39-board lane with every 5th board lit. That was right for
-  // "Board & Arrow"; it says nothing about a wheel, and a shared card
-  // should look like the app it came from -- that's the whole point of
-  // putting it on someone's feed.
-  //
-  // Drawn low and large behind the attribution, dim enough not to
-  // compete with the score.
-  const wheelX = W - 210, wheelY = H - 210, spokeR = 130, hubR = 58;
-  ctx.globalAlpha = 0.5;
-  for (let i = 0; i < 8; i++) {
-    const a = (i * 45) * Math.PI / 180;
-    ctx.strokeStyle = c.border || "#332B22";
-    ctx.lineWidth = 16;
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.moveTo(wheelX, wheelY);
-    ctx.lineTo(wheelX + Math.sin(a) * spokeR, wheelY - Math.cos(a) * spokeR);
-    ctx.stroke();
-  }
-  ctx.fillStyle = c.accent || "#E8A33D";
-  ctx.beginPath();
-  ctx.arc(wheelX, wheelY, hubR, 0, Math.PI * 2);
-  ctx.fill();
-  // The three finger holes, so it reads as a ball at the hub.
-  //
-  // A DARKENING of the hub, not the page colour.
-  //
-  // This was c.bg, which works on a dark theme by coincidence -- the
-  // background happens to be darker than the accent, so the holes read
-  // as holes. On a light theme it inverts: chalk draws a near-white
-  // #F7F8FA on a #1B4FD8 hub, and the holes all but disappear. Rendering
-  // the card in both themes is how that showed up; it is invisible in
-  // code review because both lines are just "c.bg".
-  //
-  // Translucent black darkens whatever the accent is, so a hole is a hole
-  // on every theme present and future. Not c.onAccent either -- that is
-  // WHITE on a light theme, which is the same failure a shade brighter.
-  ctx.fillStyle = "rgba(0,0,0,0.42)";
-  for (const [dx, dy] of [[-18, -22], [18, -22], [0, 8]]) {
-    ctx.beginPath();
-    ctx.arc(wheelX + dx, wheelY + dy, 8, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.globalAlpha = 1;
+  // No background mark. The ball-with-spokes wheel that sat bottom right
+  // was the old app icon; the logo now sits with the name in the corner
+  // (see drawBrand), so the card carries one mark, not two.
 
   // Name and where
   ctx.fillStyle = c.textMuted || "#9A8F80";
@@ -192,23 +152,90 @@ export function drawShareCard(ctx, { bowler, scores, league, date, colors, fonts
     });
   }
 
-  // Attribution. Always present, always readable: this is the line that
-  // makes a shared card also an invitation.
-  //
-  // The mark is drawn, not loaded: a share can happen offline, and an
-  // image that silently loses its logo is worse than one that draws it
-  // every time. It's a single triangle -- the lane arrow the app is
-  // named for -- so drawing it costs nothing.
-  drawArrowMark(ctx, 80, 962, 42, c.accent || "#E8A33D");
+  // Badges earned this night, when there are any. A badge is the thing a
+  // bowler most wants to show off, and until now the card never said.
+  // Two lines at most. The first ends above the QR code (which starts at
+  // y 890) so it can run nearly the full width; the second stops short
+  // of the code's left edge.
+  drawEarnedBadges(ctx, { earned, x: 84, y: 836, maxWidth: 920, secondWidth: 800, colors: c, fonts });
 
-  ctx.fillStyle = c.accent || "#E8A33D";
-  ctx.font = `700 40px ${fonts?.display || "system-ui, sans-serif"}`;
-  ctx.fillText(APP_NAME, 140, 975);
-  ctx.fillStyle = c.textMuted || "#9A8F80";
-  ctx.font = `500 30px ${fonts?.body || "system-ui, sans-serif"}`;
-  ctx.fillText(APP_URL.replace(/^https?:\/\//, ""), 140, 1025);
+  // Attribution, bottom left: the logo beside the name. Always present,
+  // always readable -- it is what makes a shared card an invitation.
+  drawBrand(ctx, { x: 80, y: 948, size: 84, logo, colors: c, fonts, nameSize: 40, urlSize: 30 });
 
   return true;
+}
+
+// The logo, the app name beside it, and the address under the name.
+//
+// The logo is the app icon, loaded by the caller and passed in as an
+// image. A share can happen offline, and the icon ships inside the app,
+// so it is there -- but if it has not loaded (or there is no DOM, as in
+// tests) the lane-arrow triangle stands in, so the card never goes out
+// without a mark.
+export function drawBrand(ctx, { x, y, size, logo, colors, fonts, nameSize = 34, urlSize = 26 } = {}) {
+  if (!ctx || typeof ctx.fillText !== "function") return null;
+  const c = colors || {};
+  const hasLogo = !!logo && (logo.naturalWidth > 0 || logo.width > 0) && typeof ctx.drawImage === "function";
+  if (hasLogo) {
+    try {
+      ctx.save?.();
+      // Rounded like the icon on a home screen.
+      if (typeof ctx.roundRect === "function" && typeof ctx.clip === "function") {
+        ctx.beginPath(); ctx.roundRect(x, y, size, size, size * 0.22); ctx.clip();
+      }
+      ctx.drawImage(logo, x, y, size, size);
+      ctx.restore?.();
+    } catch { drawArrowMark(ctx, x, y + size * 0.15, size * 0.7, c.accent || "#E8A33D"); }
+  } else {
+    drawArrowMark(ctx, x, y + size * 0.15, size * 0.7, c.accent || "#E8A33D");
+  }
+  const tx = x + size + 18;
+  ctx.textBaseline = "top";
+  ctx.fillStyle = c.accent || "#E8A33D";
+  ctx.font = `700 ${nameSize}px ${fonts?.display || "system-ui, sans-serif"}`;
+  ctx.fillText(APP_NAME, tx, y + size / 2 - nameSize - 2);
+  ctx.fillStyle = c.textMuted || "#9A8F80";
+  ctx.font = `500 ${urlSize}px ${fonts?.body || "system-ui, sans-serif"}`;
+  ctx.fillText(APP_URL.replace(/^https?:\/\//, ""), tx, y + size / 2 + 6);
+  return true;
+}
+
+// "BADGES  🦃 Turkey · 🧹 Clean game", wrapping to a second line when
+// they don't fit on one, and "+2 more" only past that -- never running
+// under the QR code.
+export function drawEarnedBadges(ctx, { earned, x, y, maxWidth, secondWidth, colors, fonts } = {}) {
+  const list = (Array.isArray(earned) ? earned : []).filter(b => b && b.name);
+  if (!list.length || !ctx || typeof ctx.fillText !== "function") return null;
+  const c = colors || {};
+  const measure = t => (typeof ctx.measureText === "function" ? ctx.measureText(t).width : t.length * 18);
+  ctx.textBaseline = "top";
+  ctx.font = `700 26px ${fonts?.body || "system-ui, sans-serif"}`;
+  ctx.fillStyle = c.accent || "#E8A33D";
+  const label = list.length === 1 ? "BADGE" : "BADGES";
+  ctx.fillText(label, x, y + 6);
+  const start = x + measure(label) + 20;
+  ctx.font = `600 34px ${fonts?.body || "system-ui, sans-serif"}`;
+  const parts = list.map(b => `${b.emoji ? b.emoji + " " : ""}${b.name}`);
+  const sep = "  \u00b7  ";
+  const room1 = maxWidth - (start - x);
+  const room2 = (secondWidth || maxWidth) - (start - x);
+  // Greedy: as many as fit on line one, then line two.
+  let i = 1;
+  while (i < parts.length && measure(parts.slice(0, i + 1).join(sep)) <= room1) i++;
+  const line1 = parts.slice(0, i);
+  const rest = parts.slice(i);
+  let line2 = [];
+  if (rest.length) {
+    let n = rest.length;
+    const tail = k => (k < rest.length ? `${k ? sep.trimEnd() + " " : ""}+${rest.length - k} more` : "");
+    while (n > 0 && measure(rest.slice(0, n).join(sep) + tail(n)) > room2) n--;
+    line2 = n ? [rest.slice(0, n).join(sep) + tail(n)] : [`+${rest.length} more`];
+  }
+  ctx.fillStyle = c.text || "#F4F0E6";
+  ctx.fillText(line1.join(sep), start, y);
+  if (line2.length) ctx.fillText(line2[0], start, y + 46);
+  return line1.length + (line2.length ? rest.length : 0);
 }
 
 // ── What's worth saying about a night ──────────────────────────────────
@@ -278,7 +305,7 @@ export function sessionHighlights(arg) {
 //
 // So a trend gets its own card: the line itself, with high, low and
 // average, and no series total anywhere.
-export function drawTrendCard(ctx, { bowler, label, points, league, colors, fonts } = {}) {
+export function drawTrendCard(ctx, { bowler, label, points, league, colors, fonts, logo } = {}) {
   // A canvas context or nothing. Checking for the METHOD rather than
   // truthiness: any object passes a truthy test and then throws on
   // the first draw call.
@@ -355,13 +382,7 @@ export function drawTrendCard(ctx, { bowler, label, points, league, colors, font
   // Mark, name AND url -- the score card already had all three; this
   // card was missing the url, so a screenshot of it said what app made
   // it but not where to get it.
-  drawArrowMark(ctx, 80, 985, 34, c.accent || "#E8A33D");
-  ctx.fillStyle = c.accent || "#E8A33D";
-  ctx.font = `700 34px ${fonts?.display || "system-ui, sans-serif"}`;
-  ctx.fillText(APP_NAME, 128, 978);
-  ctx.fillStyle = c.textMuted || "#9A8F80";
-  ctx.font = `500 26px ${fonts?.body || "system-ui, sans-serif"}`;
-  ctx.fillText(APP_URL.replace(/^https?:\/\//, ""), 128, 1015);
+  drawBrand(ctx, { x: 80, y: 962, size: 72, logo, colors: c, fonts });
 
   return true;
 }
@@ -395,7 +416,7 @@ export function trendShareText(arg) {
 // Ranked by AVERAGE, matching CasualLeaderboard -- people bowl different
 // numbers of games, and the games count travels alongside so a
 // three-game average is not mistaken for a thirty-game one.
-export function drawStandingsCard(ctx, { rows, me, colors, fonts } = {}) {
+export function drawStandingsCard(ctx, { rows, me, colors, fonts, logo } = {}) {
   // A canvas context or nothing. Checking for the METHOD rather than
   // truthiness: any object passes a truthy test and then throws on
   // the first draw call.
@@ -464,13 +485,7 @@ export function drawStandingsCard(ctx, { rows, me, colors, fonts } = {}) {
     y += rowH;
   });
 
-  drawArrowMark(ctx, 80, 985, 34, c.accent || "#E8A33D");
-  ctx.fillStyle = c.accent || "#E8A33D";
-  ctx.font = `700 34px ${fonts?.display || "system-ui, sans-serif"}`;
-  ctx.fillText(APP_NAME, 128, 978);
-  ctx.fillStyle = c.textMuted || "#9A8F80";
-  ctx.font = `500 26px ${fonts?.body || "system-ui, sans-serif"}`;
-  ctx.fillText(APP_URL.replace(/^https?:\/\//, ""), 128, 1015);
+  drawBrand(ctx, { x: 80, y: 962, size: 72, logo, colors: c, fonts });
 
   return true;
 }
@@ -534,9 +549,8 @@ export function drawBadgeCard(ctx, options) {
     ctx.fillText(`and ${badges.length - shown.length} more`, 72, 300 + Math.ceil(shown.length / 2) * 92 + 20);
   }
 
-  ctx.fillStyle = muted;
-  ctx.font = `500 30px ${body}`;
-  ctx.fillText(APP_NAME, 72, H - 80);
+  // Logo and name bottom left, as on every other card.
+  drawBrand(ctx, { x: 72, y: H - 132, size: 72, logo: o.logo, colors: { ...colors, textMuted: muted }, fonts });
 
   return { width: W, height: H };
 }

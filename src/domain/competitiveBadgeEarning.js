@@ -218,7 +218,9 @@ export function competitiveBadgeHistory(nights, evaluate, seasonIds) {
     .sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")));
 
   const out = {};
-  for (const b of COMPETITIVE_BADGES) out[b.id] = { id: b.id, count: 0, lastDate: null };
+  // `dates`: every night it was earned, so a share card can show what a
+  // single night earned -- lastDate alone loses a repeat earned twice.
+  for (const b of COMPETITIVE_BADGES) out[b.id] = { id: b.id, count: 0, lastDate: null, dates: [] };
 
   const fn = typeof evaluate === "function" ? evaluate : () => [];
   const seen = new Set();
@@ -245,9 +247,11 @@ export function competitiveBadgeHistory(nights, evaluate, seasonIds) {
       if (REPEATABLE.has(id)) {
         out[id].count++;
         out[id].lastDate = night.date || out[id].lastDate;
+        if (night.date) out[id].dates.push(night.date);
       } else if (!seen.has(id)) {
         out[id].count = 1;
         out[id].lastDate = night.date || null;
+        if (night.date) out[id].dates.push(night.date);
         seen.add(id);
       }
     }
@@ -267,6 +271,9 @@ export function competitiveBadgeHistory(nights, evaluate, seasonIds) {
     if (!out[id] || out[id].count) continue;
     out[id].count = 1;
     out[id].lastDate = FIRST_NIGHT_IDS.has(id) ? firstDate : lastDate;
+    // Only First night belongs to one night. The other season badges
+    // carry no dates, so they never claim to have been earned tonight.
+    if (FIRST_NIGHT_IDS.has(id) && firstDate) out[id].dates = [firstDate];
   }
 
   return out;

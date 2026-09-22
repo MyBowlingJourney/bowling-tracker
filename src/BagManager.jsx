@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { C, S, Chip } from "./ui.jsx";
+import { C, S, Chip, CollapsibleCard } from "./ui.jsx";
 import {
   BAG_TYPES, BAG_TYPE_LABELS, emptyBag, describeCapacity, bagCapacity,
   bagHasRoom, unassignedBalls, isBallInBag, ballsByBagFor,
@@ -90,9 +90,11 @@ export default function BagManager({
         <BagEditor bag={editing} onChange={setEditing} onSave={commit} onCancel={() => setEditing(null)} />
       )}
 
+      {/* Adding a bag gets its own card at the top, the same shape as Add
+          a ball, Add a league and Add team on the other Setup tabs. */}
       {!editing && (
         <div style={S.card}>
-          <div style={S.label}>Bags</div>
+          <div style={S.label}>Add a bag</div>
           <div style={{ fontSize: "11px", color: C.textMuted, marginBottom: "10px" }}>
             What you carry to league differs from what you carry to a tournament — and tournaments often cap how many balls you may bring, so you can keep several.
           </div>
@@ -103,6 +105,12 @@ export default function BagManager({
         </div>
       )}
 
+      <CollapsibleCard title="Bags"
+        summary={`${bowlerBags.length} bag${bowlerBags.length === 1 ? "" : "s"}`}
+        fixed>
+      {bowlerBags.length === 0 && (
+        <div style={{ fontSize: "12px", color: C.textMuted }}>No bags yet. Add one above.</div>
+      )}
       {bowlerBags.map(bag => {
         // ballsByBag itself can be absent, not just the entry in it.
         const inBag = (ballsByBag && ballsByBag[bag.id]) || [];
@@ -157,6 +165,7 @@ export default function BagManager({
           </div>
         );
       })}
+      </CollapsibleCard>
 
       {balls.length > 0 && bowlerBags.length > 0 && (
         <div style={S.card}>

@@ -43,6 +43,9 @@ const CARD_LABEL_BY_ID = Object.fromEntries(MOVABLE_STATS_CARDS.map(c => [c.id, 
 
 export default function Settings({
   onAddLeague,
+  // History > Sessions: opens a saved night's results when its row is
+  // tapped. Absent, the rows are plain text as before.
+  onOpenNight,
   drills = [],
   mode = "both",
   restartOnboarding, replayTour, isCoach = false,
@@ -396,7 +399,8 @@ export default function Settings({
             <SessionHistory
               sessions={sessions || []} bowlers={bowlers || []} leagues={leagues || []} teams={teams || []} displayName={displayName}
               statsBowler={statsBowler} setStatsBowler={setStatsBowler}
-              statsLeague={statsLeague} setStatsLeague={setStatsLeague} />
+              statsLeague={statsLeague} setStatsLeague={setStatsLeague}
+              onOpenNight={onOpenNight} />
             </div>
           )}
           {historyTab === "season" && (() => {

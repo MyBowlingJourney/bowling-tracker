@@ -267,7 +267,7 @@ function AchievementsCard({ achievements = [], onShare }) {
 export default function SessionRecap({
   environment, manualScores, bowler, allBowlers, league, date, priorAverage,
   drills, leftHandedForBowler, profile, placementId, tournamentName,
-  howItWentRef, onEnd,
+  howItWentRef, onEnd, badgesEarnedOnNight,
 }) {
   // What's worth celebrating from this night. Computed here rather than
   // per-branch so league, practice, tournament and casual all get it.
@@ -315,6 +315,7 @@ export default function SessionRecap({
           <div style={{ marginTop: "-4px", marginBottom: "12px" }}>
             <ShareButton label="Share the night" summary={{
               ...mine,
+              earned: badgesEarnedOnNight?.(date, "casual") || [],
               // "Winner: Kim" reads better in a text than the full detail line.
               highlights: (recap.awards || []).slice(0, 2).map(a => a.title && a.bowler ? `${a.title}: ${a.bowler}` : "").filter(Boolean),
             }} />
@@ -349,6 +350,7 @@ export default function SessionRecap({
           <div style={{ marginBottom: "12px" }}>
             <ShareButton label="Share this practice" summary={{
               bowler, scores: recap.scores, date: formatDate(date), environment: "practice",
+              earned: badgesEarnedOnNight?.(date, "practice") || [],
               highlights: [
                 recap.vsAverage != null ? `${recap.vsAverage >= 0 ? "+" : ""}${recap.vsAverage} on my average` : null,
                 dRecap && dRecap.lines?.length ? `${dRecap.lines.length} drill${dRecap.lines.length === 1 ? "" : "s"}` : null,

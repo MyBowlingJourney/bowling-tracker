@@ -5,7 +5,7 @@ import { reviewAiOutput, overreachNote } from "./domain/aiGuard.js";
 import { recordError } from "./errorLogStore.js";
 import {
   classifyQuestion, refusalMessage, questionsLeftToday, canAskToday,
-  budgetLabel, DAILY_QUESTIONS, GENIE_NAME,
+  budgetLabel, DAILY_QUESTIONS, GENIE_NAME, GENIE_EXAMPLES,
 } from "./domain/genie.js";
 
 // The bowling genie.
@@ -46,6 +46,8 @@ export default function BowlingGenie({
   // sat there -- on Home, the Open bowling card. In the header it covers
   // nothing, and the panel drops down from the top instead.
   inHeader = false,
+  // For the example questions: a left-hander's corner pin is the 7.
+  leftHanded = false,
 }) {
   const lampMid = C.accent;
   const lampDark = shade(C.accent, -0.22);
@@ -294,17 +296,37 @@ export default function BowlingGenie({
 
           {canAsk && (
             <>
-              <div style={{ fontSize: "11px", color: C.textMuted, marginBottom: "8px", lineHeight: 1.5 }}>
-                Ask about your own bowling — {GENIE_NAME} can see your scores, spares, splits and which balls
-                you've been throwing.
+              {/* What she is FOR. The Stats screens already show the standard
+                  numbers; she answers the questions they don't, from what
+                  the bowler has logged -- and says what to start tracking
+                  when the answer needs something they don't. */}
+              <div style={{ fontSize: "11.5px", color: C.textMuted, marginBottom: "8px", lineHeight: 1.5 }}>
+                The Stats screens cover the usual numbers. {GENIE_NAME} is for the questions they
+                don't answer — ask about your own bowling and she works it out from what you've
+                logged. If it needs something you don't track yet, she'll tell you what to start logging.
               </div>
+              {/* Examples, tap to fill. Each one is answerable from what she
+                  is actually sent, so the first try works. Hidden once
+                  something is typed. */}
+              {!question && !answer && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "8px" }}>
+                  {GENIE_EXAMPLES.map(ex => leftHanded ? ex.replace("the 10", "the 7") : ex).map(ex => (
+                    <button key={ex} type="button" onClick={() => setQuestion(ex)}
+                      style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: "999px",
+                        color: C.text, fontSize: "11.5px", padding: "6px 10px", cursor: "pointer",
+                        fontFamily: "inherit", WebkitTapHighlightColor: "transparent" }}>
+                      {ex}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div style={{ display: "flex", gap: "8px" }}>
                 <input
                   style={{ ...S.input, flex: 1, minWidth: 0, marginBottom: 0, fontSize: "12px" }}
                   value={question}
                   onChange={e => { setQuestion(e.target.value); setFreeRefusal(""); }}
                   onKeyDown={e => { if (e.key === "Enter") ask(); }}
-                  placeholder="Why do I keep leaving the 10?"
+                  placeholder="Ask about your bowling…"
                   disabled={thinking} />
                 <button
                   style={{ ...S.btn("primary"), width: "auto", flexShrink: 0, padding: "9px 16px", fontSize: "13px" }}

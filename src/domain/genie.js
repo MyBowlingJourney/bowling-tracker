@@ -26,6 +26,16 @@
 
 export const DAILY_QUESTIONS = 3;
 
+// Example questions in the panel, tap to fill. Each is answerable from
+// what buildGenieContext actually sends -- the leave comparison, strike
+// rate by ball, best game by position -- so a bowler's first try works
+// rather than teaching them she can't help.
+export const GENIE_EXAMPLES = [
+  "Why do I keep leaving the 10?",
+  "Which ball carries best for me?",
+  "Do I fade late in a set?",
+];
+
 // Obvious other domains. Each one is a thing people genuinely ask an
 // assistant, and none of them is a bowling question by any reading.
 const OTHER_DOMAINS = [
@@ -219,5 +229,40 @@ export function buildGenieContext(summary) {
   // answered from league shots alone.
   add("Drill conversion", s.drillRates);
 
+  // Why the corner pins are left. The summary has always computed this
+  // and the prompt tells Brooklyn to answer "why" questions from it -- but
+  // it was never written into the text she receives, so every "why do I
+  // leave the ten?" was answered without it.
+  for (const line of leaveCauseLines(s.leaveCauses)) lines.push(line);
+
   return lines.join("\n");
+}
+
+// leaveCauses as plain lines: for each corner leave, how the shots that
+// left it differed from the rest, or -- when there are too few -- what
+// to start tracking. Exported for its tests.
+export function leaveCauseLines(leaveCauses) {
+  if (!leaveCauses || typeof leaveCauses !== "object") return [];
+  const out = [];
+  for (const [pins, p] of Object.entries(leaveCauses)) {
+    if (!p || typeof p !== "object") continue;
+    const name = `the ${pins} leave`;
+    if (!p.enough) {
+      const missing = Array.isArray(p.missing) && p.missing.length ? ` Tracking ${p.missing.join(", ")} would show why.` : "";
+      out.push(`Why ${name} happens: not enough yet (${p.count ?? 0} of ${p.need ?? "?"} shots needed).${missing}`);
+      continue;
+    }
+    const parts = (Array.isArray(p.factors) ? p.factors : []).map(f => {
+      if (!f || !f.label) return "";
+      if (typeof f.whenLeft === "number") {
+        const u = f.unit ? ` ${f.unit}` : "";
+        return `${f.label} ${f.whenLeft}${u} when left vs ${f.otherwise}${u} otherwise`;
+      }
+      // share is already a percentage (leaveCauses rounds it to 0-100).
+      const share = v => (typeof v === "number" ? ` (${v}%)` : "");
+      return `${f.label} ${f.whenLeft}${share(f.whenLeftShare)} when left vs ${f.otherwise ?? "none"}${share(f.otherwiseShare)} otherwise`;
+    }).filter(Boolean);
+    if (parts.length) out.push(`leaveCauses, ${name} (${p.count} shots): ${parts.join("; ")}`);
+  }
+  return out;
 }

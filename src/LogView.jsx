@@ -57,7 +57,7 @@ export default function LogView({
   activeBowler, arsenals, form, setForm, editingId, saved, sessionSaved, sessionSaveMessage, tournamentSaveMessage,
   leagueTabChoice = "scoring", setLeagueTabChoice, tournamentTab = "setup", setTournamentTab,
   sessionLeague, setSessionLeague, effectiveSessionLeague, sessionDate, setSessionDate,
-  startingLane, setStartingLane, expandedSections,
+  startingLane, setStartingLane, expandedSections, badgesEarnedOnNight,
   ballNumLabel, curSession, currentLane, firstBallPins, gameScores = [], frameScores = [],
   hasLeave, leaveDescribed, inTenth, isNoTap, isStrike, needsSpareMade, needsPins, sessionTotal,
   standingPins, tenthOptions,
@@ -1099,6 +1099,9 @@ export default function LogView({
                   <div style={{marginTop:"14px"}}>
                     <ShareButton label="Share tonight" summary={{
                       bowler:cs.bowler||activeBowler,
+                      // Badges are the active bowler's; a teammate's night
+                      // logged on this phone gets none rather than theirs.
+                      earned:(!cs.bowler||cs.bowler===activeBowler)?(badgesEarnedOnNight?.(cs.date,"league")||[]):[],
                       scores:cs.scores,
                       league:cs.league,
                       date:formatDate(cs.date),
@@ -3261,6 +3264,7 @@ export default function LogView({
                 date={sessionDate}
                 priorAverage={practicePriorAverage}
                 drills={drills}
+                badgesEarnedOnNight={badgesEarnedOnNight}
                 leftHandedForBowler={leftHandedForBowler}/>
             )}
 

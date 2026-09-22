@@ -193,6 +193,15 @@ const S = new Proxy({}, {
   },
 });
 
+// The last teams list loaded, per signed-in account.
+//
+// The Team tab unmounts when you leave it, so every visit started from
+// nothing and showed "Loading teams…" while four reads went out. The
+// cached list is shown at once on the next visit and refreshed quietly
+// behind it. Keyed by user id, so switching accounts never shows the
+// previous account's teams; nothing is cached without a signed-in user.
+const teamsCache = new Map();
+
 export default function TeamManagement({
   leagues = [],
   onTeamsChange, focusTeamId,
@@ -207,9 +216,12 @@ export default function TeamManagement({
   // how the rest of the app already works with leagues as plain strings) —
   // this ref is only consulted at the moment of talking to Supabase, so a
   // team row always gets the correct league_id foreign key.
-  const leagueIdsRef = useRef({});
-  const[teams, setTeams] = useState([]);
-  const[loading, setLoading] = useState(true);
+  const cached = user?.id ? teamsCache.get(user.id) : null;
+  const leagueIdsRef = useRef({ ...(cached?.leagueIds || {}) });
+  const[teams, setTeams] = useState(() => cached?.teams || []);
+  // Only a first-ever visit waits on a spinner; later ones show the
+  // cached list while the refresh runs.
+  const[loading, setLoading] = useState(!cached);
   const[loadError, setLoadError] = useState(false);
   const[editingTeamId, setEditingTeamId] = useState(null);
 
@@ -282,7 +294,7 @@ export default function TeamManagement({
   // QR code for the sign-in URL, generated once on mount
 
   async function loadAll() {
-    setLoading(true);
+    if (!(user?.id && teamsCache.has(user.id))) setLoading(true);
     // try/finally, because "Loading teams..." with no way out is worse
     // than an empty list.
     //
@@ -292,7 +304,23 @@ export default function TeamManagement({
     // message and no retry.
     try {
 
-    const leaguesRes = await cloudRead("leagues", q => q.select("id,name"));
+    // All four reads at once. They were awaited one after another, so
+    // the tab waited for four round trips in a row; none needs another's
+    // result, so the wait is now the slowest one rather than the sum.
+    const [leaguesRes, teamsRes, membersRes, firstInvites] = await Promise.all([
+      cloudRead("leagues", q => q.select("id,name")),
+      // created_by so a team you made can show YOU on its roster even
+      // when the membership row has not landed -- see the fallback where
+      // members are assembled below.
+      cloudRead("teams", q => q.select("id,name,league_id,created_by")),
+      cloudRead("team_members", q => q.select("team_id,user_id,lineup_position,left_handed,is_sub,profiles(display_name)")),
+      // Selecting signup_code fails outright if migration_signup_codes.sql
+      // hasn't been run -- and a failed select here blanks the whole Team
+      // tab. Try with it, fall back without (below), so a database one
+      // migration behind loses the codes rather than the screen.
+      cloudRead("pending_invites", q =>
+        q.select("id,team_id,invited_name,invited_email,lineup_position,left_handed,is_sub,signup_code").is("accepted_at", null)),
+    ]);
     const leagueNameById = {};
     if (leaguesRes.online && leaguesRes.data) {
       leaguesRes.data.forEach(l => {
@@ -301,17 +329,7 @@ export default function TeamManagement({
       });
     }
 
-    // created_by so a team you made can show YOU on its roster even
-    // when the membership row has not landed -- see the fallback where
-    // members are assembled below.
-    const teamsRes = await cloudRead("teams", q => q.select("id,name,league_id,created_by"));
-    const membersRes = await cloudRead("team_members", q => q.select("team_id,user_id,lineup_position,left_handed,is_sub,profiles(display_name)"));
-    // Selecting signup_code fails outright if migration_signup_codes.sql
-    // hasn't been run -- and a failed select here blanks the whole Team tab.
-    // Try with it, fall back without, so a database one migration behind
-    // loses the codes rather than the screen.
-    let invitesRes = await cloudRead("pending_invites", q =>
-      q.select("id,team_id,invited_name,invited_email,lineup_position,left_handed,is_sub,signup_code").is("accepted_at", null));
+    let invitesRes = firstInvites;
     if (!invitesRes.online || invitesRes.error) {
       invitesRes = await cloudRead("pending_invites", q =>
         q.select("id,team_id,invited_name,invited_email,lineup_position,left_handed,is_sub").is("accepted_at", null));
@@ -341,7 +359,7 @@ export default function TeamManagement({
         });
       });
 
-      setTeams(teamsRes.data.map(t => {
+      const nextTeams = teamsRes.data.map(t => {
         const loaded = membersByTeam[t.id] || [];
         // A team you created always shows YOU on its roster.
         //
@@ -366,7 +384,9 @@ export default function TeamManagement({
           members,
           pendingInvites: invitesByTeam[t.id] || [],
         };
-      }));
+      });
+      setTeams(nextTeams);
+      if (user?.id) teamsCache.set(user.id, { teams: nextTeams, leagueIds: { ...leagueIdsRef.current } });
     }
     } catch (err) {
       // The list stays as it was. An empty Teams tab the bowler can act
@@ -381,6 +401,13 @@ export default function TeamManagement({
     loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Keep the cache in step with every change made on this tab -- renames,
+  // roster edits, invites -- so the next visit shows what the bowler last
+  // saw rather than the list as it was first loaded.
+  useEffect(() => {
+    if (!loading && user?.id) teamsCache.set(user.id, { teams, leagueIds: { ...leagueIdsRef.current } });
+  }, [teams, loading, user?.id]);
 
 
 

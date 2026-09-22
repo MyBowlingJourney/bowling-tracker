@@ -510,10 +510,9 @@ export default function Profile({
       </CollapsibleCard>
       )}
 
+      {/* No wrapping card: BagManager draws Add a bag and Bags as two
+          cards itself, the way Balls has Add a ball above Arsenal. */}
       {show("bags") && (
-      <CollapsibleCard title="Bags"
-        summary={`${bowlerBagCount} bag${bowlerBagCount === 1 ? "" : "s"}`}
-        fixed>
         <BagManager
           activeBowler={profileBowler}
           retired={(retiredBalls || {})[profileBowler] || {}}
@@ -525,7 +524,6 @@ export default function Profile({
           saveBag={saveBag}
           deleteBag={deleteBag}
           toggleBallBag={toggleBallBag} />
-      </CollapsibleCard>
       )}
 
       {/* The Notes card is gone from the profile. Existing notes are

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   classifyQuestion, refusalMessage, questionsUsedToday, questionsLeftToday,
-  canAskToday, budgetLabel, buildGenieContext, DAILY_QUESTIONS, GENIE_NAME,
+  canAskToday, budgetLabel, buildGenieContext, leaveCauseLines, DAILY_QUESTIONS, GENIE_NAME,
 } from './genie.js';
 
 describe('the classifier lets bowling through', () => {
@@ -163,5 +163,26 @@ describe('the context sent to Gemini', () => {
       expect(() => buildGenieContext(junk)).not.toThrow();
     }
     expect(buildGenieContext(null)).toBe('');
+  });
+});
+
+describe('leave causes reach Brooklyn', () => {
+  it('writes the comparison into the context she is sent', () => {
+    const ctx = buildGenieContext({ leaveCauses: { '10': { enough: true, count: 24, need: 12, factors: [
+      { key: 'speed', label: 'speed', unit: 'mph', whenLeft: 16.8, otherwise: 15.2, delta: 1.6 },
+      { key: 'miss', label: 'where it missed', whenLeft: 'Light', whenLeftShare: 75, otherwise: 'Left', otherwiseShare: 40 },
+    ] } } });
+    expect(ctx).toContain('leaveCauses, the 10 leave (24 shots)');
+    expect(ctx).toContain('speed 16.8 mph when left vs 15.2 mph otherwise');
+    expect(ctx).toContain('where it missed Light (75%) when left vs Left (40%) otherwise');
+  });
+  it('says what to track when there is not enough yet', () => {
+    const lines = leaveCauseLines({ '6-10': { enough: false, count: 4, need: 12, missing: ['speed', 'miss'] } });
+    expect(lines[0]).toContain('not enough yet (4 of 12 shots needed)');
+    expect(lines[0]).toContain('Tracking speed, miss would show why');
+  });
+  it('adds nothing when there is nothing', () => {
+    expect(leaveCauseLines(null)).toEqual([]);
+    expect(buildGenieContext({})).not.toContain('leaveCauses');
   });
 });

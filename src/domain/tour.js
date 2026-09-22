@@ -162,7 +162,7 @@ const ALL_STEPS = [
     track: "ai",
     tab: "improve",
     title: "Ask Brooklyn",
-    body: "Brooklyn is the genie, and she has your whole history in front of her. Ask her anything about your bowling in plain words. Three wishes a day.",
+    body: "The Stats screens cover the usual numbers. Brooklyn is for the questions they don't answer — ask about your own bowling in plain words and she works it out from what you've logged. If it needs something you don't track yet, she'll say what to start logging. Tap the lamp at the top of any screen. Three wishes a day.",
   },
 
   // ── Stats ─────────────────────────────────────────────────────────────
