@@ -187,7 +187,7 @@ Deno.serve(async (req: Request) => {
   const purchase = await fetchPurchase(token);
   if (!purchase) return json({ error: "That purchase could not be verified." }, cors, 402);
 
-  const row = entitlementFromPlayPurchase(purchase);
+  const row = entitlementFromPlayPurchase(purchase, { purchaseToken: token });
 
   const admin = createClient(
     Deno.env.get("SUPABASE_URL")!,

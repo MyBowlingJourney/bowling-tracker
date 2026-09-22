@@ -1481,7 +1481,7 @@ export default function BowlingTracker(){
           // A mapper that reads a column the query does not ask for
           // fails silently in exactly this way: no error, just a field
           // that is quietly always empty.
-          cloudRead("bowling_centers",q=>q.select("id,here_id,name,address,city,state,postal_code,country,lat,lng,rack_type,created_by")),
+          cloudRead("bowling_centers",q=>q.select("id,here_id,name,address,city,state,postal_code,country,lat,lng,rack_type,freefall_lanes,created_by")),
           cloudRead("oil_patterns",q=>q.select("id,name,series,length_feet,ratio,volume_ml,forward_ml,reverse_ml,verified,source_note,year")),
           cloudRead("bowler_goals",q=>q.select("bowler_name,goals")),
           cloudRead("tournaments",q=>q.select("id,bowler_name,name,center,days,buy_in,winnings,side_pots,match_play,notes,handicap,baker_partner,baker_starter,scoring_basis,pin_format,play_style")),
@@ -8377,10 +8377,15 @@ export default function BowlingTracker(){
              withholding their own data -- a data-rights problem, and the
              fastest route to a one-star review. hasData is raw for the
              same reason: "is there anything to clear" is about everything
-             they have, not what the plan happens to show. */
+             they have, not what the plan happens to show.
+
+             deleteNight is what makes the calendar's "Delete this night"
+             appear -- History never passed it, so the confirm-and-delete
+             flow built into CalendarView was unreachable. */
           <Settings
             mode={view==="history"?"history":"settings"}
             onOpenNight={openHistoryNight}
+            deleteNight={deleteNight}
 
             drills={drills}
             restartOnboarding={restartOnboarding} replayTour={replayTour} isCoach={showCoachingTab}

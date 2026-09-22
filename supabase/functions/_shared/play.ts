@@ -232,9 +232,9 @@ export function playStatus(
 // is_subscriber() in SQL.
 export function entitlementFromPlayPurchase(
   p: SubscriptionPurchaseV2 | null | undefined,
-  opts: { trialOfferId?: string } = {},
+  opts: { trialOfferId?: string; purchaseToken?: string } = {},
 ): EntitlementRow {
-  const { trialOfferId = PLAY_TRIAL_OFFER_ID } = opts;
+  const { trialOfferId = PLAY_TRIAL_OFFER_ID, purchaseToken = "" } = opts;
   const status = playStatus(p, trialOfferId);
   const ends = currentPeriodEnd(p);
   const grants = status === "active" || status === "trialing"
@@ -249,6 +249,18 @@ export function entitlementFromPlayPurchase(
     // subscription would otherwise renew. Writing it for a paying
     // subscriber would make trialDaysLeft() count down to their renewal.
     trial_end: status === "trialing" ? ends : null,
-    play_purchase_token: typeof p?.purchaseToken === "string" ? p.purchaseToken : null,
+    // The token the CALLER verified, not a field of Google's answer.
+    //
+    // subscriptionsv2 does not return purchaseToken at all (its resource
+    // is kind, regionCode, lineItems, startTime, subscriptionState,
+    // linkedPurchaseToken, ...), so reading it off the response stored
+    // null on every purchase. Two things quietly depended on it: the
+    // one-token-one-account check in verify-purchase, which could never
+    // find an owner, and play-rtdn, which finds the bowler for a
+    // renewal or a cancellation BY this token.
+    play_purchase_token: purchaseToken
+      || (typeof (p as { purchaseToken?: unknown })?.purchaseToken === "string"
+        ? (p as { purchaseToken: string }).purchaseToken
+        : null),
   };
 }

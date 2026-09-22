@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { C, S, Chip, AiNote } from "./ui.jsx";
-import { RACK_TYPES } from "./domain/centers.js";
+import { RACK_TYPES, laneListLabel, normalizeLaneList } from "./domain/centers.js";
 import { centerLabel, distanceMiles } from "./domain/centers.js";
 
 // Picks the bowling center a league plays at.
@@ -11,13 +11,14 @@ import { centerLabel, distanceMiles } from "./domain/centers.js";
 // Manual entry is always available, not a fallback for errors only. Small
 // houses are genuinely missing from HERE's data, and a league at one must
 // still be recordable.
-export default function CenterPicker({ leagueName, currentCenter, onSelect, onSearch, onSetRackType }) {
+export default function CenterPicker({ leagueName, currentCenter, onSelect, onSearch, onSetRackType, onSetFreefallLanes }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState(null);
   const [manualName, setManualName] = useState("");
   const [showManual, setShowManual] = useState(false);
+  const [laneDraft, setLaneDraft] = useState(null);
   const timer = useRef(null);
 
   useEffect(() => () => clearTimeout(timer.current), []);
@@ -93,6 +94,32 @@ export default function CenterPicker({ leagueName, currentCenter, onSelect, onSe
               );
             })}
           </div>
+          {/* A mixed house has to say WHICH lanes, or nothing can be
+              compared: every stat resolves string against free fall from
+              the lane a shot was thrown on. Free fall is the side that
+              gets listed because it is usually the smaller half -- the
+              houses converting are converting to string. */}
+          {currentCenter.rackType === "mixed" && onSetFreefallLanes && (
+            <div style={{ marginTop: "8px" }}>
+              <div style={{ fontSize: "11px", color: C.textMuted, marginBottom: "4px" }}>
+                Which lanes are free fall? Everything else counts as string.
+              </div>
+              <input
+                style={{ ...S.input, fontSize: "14px", padding: "10px 12px" }}
+                type="text" inputMode="numeric" placeholder="e.g. 1-8, 15, 16"
+                value={laneDraft ?? laneListLabel(currentCenter.freefallLanes)}
+                onChange={e => setLaneDraft(e.target.value)}
+                onBlur={() => {
+                  if (laneDraft !== null) onSetFreefallLanes(currentCenter, normalizeLaneList(laneDraft));
+                  setLaneDraft(null);
+                }} />
+              <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "4px", lineHeight: 1.45 }}>
+                {normalizeLaneList(laneDraft ?? currentCenter.freefallLanes).length
+                  ? `Free fall on ${laneListLabel(laneDraft ?? currentCenter.freefallLanes)}.`
+                  : "Until these are set, this house stays out of the free fall vs string comparison."}
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <>

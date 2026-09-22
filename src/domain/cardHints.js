@@ -23,7 +23,7 @@ export const CARD_HINTS = {
   teamSeries: "Team totals by night. Needs team-mates with logged scores.",
 
   // ── The house ──
-  rackType: "Free fall against string pins. Set the rack type on two centers.",
+  rackType: "Free fall against string pins. Set the rack type on two centers — or on one mixed house, with its free-fall lanes.",
   byCenter: "Averages by house. Bowl at more than one center.",
 
   // ── The ball ──

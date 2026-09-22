@@ -32,14 +32,10 @@ import {
   setMoneyGameHidden,
   setTheme,
   TRACKED_FIELD_KEYS,
-  MOVABLE_STATS_CARDS,
   TRACKING_MODE_LABELS,
   resetToEnvironmentDefaults,
-  toggleStatsCardHidden,
-  defaultStatsCardOrder,
   } from "./domain/preferences.js";
 
-const CARD_LABEL_BY_ID = Object.fromEntries(MOVABLE_STATS_CARDS.map(c => [c.id, c.label]));
 
 export default function Settings({
   onAddLeague,
@@ -172,9 +168,6 @@ export default function Settings({
     return () => { live = false; };
   }, [tester]);
   const [historyTab, setHistoryTab] = useState("sessions");
-  // Reset wipes theme and card order as well as toggles, so it confirms
-  // rather than firing on a single tap.
-  const [resetArmed, setResetArmed] = useState(false);
   // Keyed by league so two leagues' in-progress team names can't collide.
   const [teamDrafts, setTeamDrafts] = useState({});
   const [shareStatus, setShareStatus] = useState("");
@@ -262,9 +255,6 @@ export default function Settings({
     setTimeout(() => setSavedFlash(false), 1200);
   }
 
-  // The order the Stats tab actually uses -- see visibleStatsCardOrder.
-  const cardOrder = defaultStatsCardOrder(preferences.environment);
-  const hidden = new Set(preferences.hiddenStatsCards || []);
 
   return (
     <div className={`mbj-settings-screen ${mode === "history" ? "mbj-history-screen" : "mbj-settings-main"}`}>
@@ -721,6 +711,7 @@ export default function Settings({
                   currentCenter={center}
                   onSelect={candidate => setLeagueCenter(league, candidate)}
                   onSetRackType={(c, rackType) => updateCenter(c.id, { rackType })}
+                  onSetFreefallLanes={(c, freefallLanes) => updateCenter(c.id, { freefallLanes })}
                   onSearch={searchCenters} />
 
                 {/* Season dates, editable here in case they were skipped
@@ -1141,6 +1132,7 @@ export default function Settings({
                   currentCenter={center}
                   onSelect={candidate => setLeagueCenter(league, candidate)}
                   onSetRackType={(c, rackType) => updateCenter(c.id, { rackType })}
+                  onSetFreefallLanes={(c, freefallLanes) => updateCenter(c.id, { freefallLanes })}
                   onSearch={searchCenters} />
 
                 {/* Season dates, editable here in case they were skipped
@@ -1482,30 +1474,13 @@ export default function Settings({
       </CollapsibleCard>
       )}
 
-      {showCard("statsLayout") && (
-      <CollapsibleCard title="Stats Card Layout" summary={`${cardOrder.length - hidden.size} of ${cardOrder.length} visible`}
-        expanded={expanded.statsLayout} onToggle={() => toggle("statsLayout")}>
-        <div style={{ fontSize: "12px", color: C.textMuted, marginBottom: "10px" }}>
-          Hide cards you don't want on the Stats tab. You can also hide one from the eye on the card itself, and bring them all back from the bottom of each Stats tab.
-        </div>
-        {cardOrder.map((id, idx) => {
-          const isHidden = hidden.has(id);
-          return (
-            <div key={id} style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px" }}>
-              <div style={{ flex: 1, fontSize: "13px", color: isHidden ? C.textMuted : C.text, textDecoration: isHidden ? "line-through" : "none" }}>
-                {CARD_LABEL_BY_ID[id] || id}
-              </div>
-              {/* The up/down arrows are gone: cards keep the app's order
-                  for your mode. Hiding is the whole control now. */}
-              <button style={{ ...S.btn(), padding: "4px 10px", fontSize: "11px", minWidth: "54px" }}
-                onClick={() => apply(prev => toggleStatsCardHidden(prev, id))}>
-                {isHidden ? "Show" : "Hide"}
-              </button>
-            </div>
-          );
-        })}
-      </CollapsibleCard>
-      )}
+      {/* The Stats Card Layout list lived here.
+
+          It began as a reorderable list, lost its arrows when cards were
+          given a fixed order per mode, and what was left was a second
+          place to do what the eye on each card already does. Hiding is
+          still on the card itself, and "show hidden cards" at the foot of
+          each Stats tab still brings them back. */}
 
       {/* Export lives in Settings, not under History › Season.
           

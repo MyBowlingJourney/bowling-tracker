@@ -30,9 +30,70 @@
 export const RACK_TYPES = [
   { id: "freefall", label: "Free fall", blurb: "Pins set by machine, fall freely." },
   { id: "string", label: "String", blurb: "Pins on strings, pulled back up." },
+  // A house that converted half its lanes and left the rest. Common
+  // enough that recording it as one type or the other would put every
+  // shot in the wrong bucket -- so "mixed" carries the lane numbers that
+  // are still free fall, and every stat resolves per shot from the lane
+  // it was thrown on.
+  { id: "mixed", label: "Mixed house", blurb: "Some lanes string, some free fall." },
 ];
 
 export const RACK_TYPE_IDS = RACK_TYPES.map(r => r.id).filter(Boolean);
+
+// Lane numbers, however they arrive: an array from the cloud, or the
+// "1, 2, 7-10" a bowler types. Ranges expand, duplicates collapse, and
+// anything that is not a lane number is dropped rather than stored.
+export function normalizeLaneList(raw) {
+  const out = new Set();
+  const add = n => { if (Number.isInteger(n) && n >= 1 && n <= 200) out.add(n); };
+  const fromText = text => String(text).split(/[,;\s]+/).filter(Boolean).forEach(part => {
+    const range = part.match(/^(\d+)\s*[-\u2013]\s*(\d+)$/);
+    if (range) {
+      const a = parseInt(range[1], 10), b = parseInt(range[2], 10);
+      if (Number.isInteger(a) && Number.isInteger(b) && Math.abs(b - a) <= 200) {
+        for (let n = Math.min(a, b); n <= Math.max(a, b); n++) add(n);
+      }
+      return;
+    }
+    add(parseInt(part, 10));
+  });
+  if (Array.isArray(raw)) raw.forEach(v => (typeof v === "string" ? fromText(v) : add(Number(v))));
+  else if (typeof raw === "string") fromText(raw);
+  else if (typeof raw === "number") add(raw);
+  return [...out].sort((a, b) => a - b);
+}
+
+// How a list of lanes reads back to the bowler: "1-4, 9, 12".
+export function laneListLabel(lanes) {
+  const list = normalizeLaneList(lanes);
+  const parts = [];
+  let i = 0;
+  while (i < list.length) {
+    let j = i;
+    while (j + 1 < list.length && list[j + 1] === list[j] + 1) j++;
+    parts.push(j > i + 1 ? `${list[i]}-${list[j]}` : list.slice(i, j + 1).join(", "));
+    i = j + 1;
+  }
+  return parts.join(", ");
+}
+
+// THE question every rack-type statistic has to answer: what was under
+// this particular shot?
+//
+// A single-type house answers it without the lane. A mixed house cannot:
+// the same night, the same league, even the same game can cross a string
+// pair and a free-fall pair. So a mixed house answers per lane, and
+// answers null when the lane is missing or the bowler has not said which
+// lanes are which -- null meaning "leave this shot out", never a guess.
+export function rackTypeForLane(center, lane) {
+  const type = center?.rackType || "";
+  if (type !== "mixed") return type || null;
+  const lanes = normalizeLaneList(center?.freefallLanes);
+  if (!lanes.length) return null;
+  const n = parseInt(lane, 10);
+  if (!Number.isInteger(n) || n < 1) return null;
+  return lanes.includes(n) ? "freefall" : "string";
+}
 
 export function rackTypeLabel(id) {
   return RACK_TYPES.find(r => r.id === id)?.label || "";
@@ -52,6 +113,12 @@ export function emptyCenter() {
     lng: null,
     // "" means unrecorded, not free fall.
     rackType: "",
+    // Mixed houses only: the lane numbers that are FREE FALL. Every
+    // other lane in the house is string. Empty while the bowler has not
+    // said yet, which reads as "mixed, but we cannot tell which lane is
+    // which" -- those shots stay out of the comparison rather than being
+    // guessed into a bucket.
+    freefallLanes: [],
   };
 }
 
@@ -80,6 +147,7 @@ export function normalizeCenter(raw) {
       : RACK_TYPE_IDS.includes(raw.rack_type) ? raw.rack_type : "",
     // Carried so the client can tell a centre it created from one
     // somebody else did. Read-only here -- the server sets it.
+    freefallLanes: normalizeLaneList(raw.freefallLanes ?? raw.freefall_lanes),
     createdBy: String(raw.createdBy ?? raw.created_by ?? "").trim(),
     lat: numOrNull(raw.lat),
     lng: numOrNull(raw.lng),
@@ -155,12 +223,31 @@ export function statsByRackType(sessions, shots, leagues, centers, bowler) {
   const centerById = {};
   centers.forEach(c => { centerById[c.id] = c; });
 
-  // Only leagues whose centre has a recorded rack type contribute at all.
-  const rackTypeByLeague = {};
+  // The CENTRE per league, not a rack type: a mixed house answers per
+  // lane, so the type is resolved shot by shot below.
+  const centerFor = {};
   for (const [league, centerId] of Object.entries(centerByLeague)) {
-    const rt = centerById[centerId]?.rackType;
-    if (rt) rackTypeByLeague[league] = rt;
+    const c = centerById[centerId];
+    if (c?.rackType) centerFor[league] = c;
   }
+
+  // Which rack type a GAME was bowled on, for mixed houses.
+  //
+  // A session stores scores, not lanes, so the only record of where a
+  // game was bowled is the shots logged during it. A game whose shots all
+  // sit on free-fall lanes counts as free fall; one that crosses both --
+  // which a pair change mid-game can do -- counts as neither, because
+  // splitting one score between two buckets would invent bowling that did
+  // not happen.
+  const gameType = {};              // "league|date|game" -> "freefall" | "string" | "mixed"
+  shots.forEach(sh => {
+    const center = centerFor[sh.league];
+    if (!center || center.rackType !== "mixed") return;
+    const rt = rackTypeForLane(center, sh.lane);
+    if (rt !== "freefall" && rt !== "string") return;
+    const key = `${sh.league}|${sh.date}|${sh.game}`;
+    gameType[key] = gameType[key] && gameType[key] !== rt ? "mixed" : rt;
+  });
 
   // firstBalls counts the strike OPPORTUNITIES, which is what a strike
   // percentage is a percentage of. strikes counts every strike including
@@ -172,18 +259,26 @@ export function statsByRackType(sessions, shots, leagues, centers, bowler) {
   sessions
     .filter(s => !bowler || s.bowler === bowler)
     .forEach(session => {
-      const rt = rackTypeByLeague[session.league];
-      if (!rt) return;
-      (session.scores || []).forEach(sc => {
-        if (typeof sc === "number") buckets[rt].games.push(sc);
+      const center = centerFor[session.league];
+      if (!center) return;
+      (session.scores || []).forEach((sc, i) => {
+        if (typeof sc !== "number") return;
+        // A single-type house needs no lane. A mixed one takes the game's
+        // type from the shots logged in it, and skips the game when those
+        // are missing or span both.
+        const rt = center.rackType === "mixed"
+          ? gameType[`${session.league}|${session.date}|${i + 1}`]
+          : center.rackType;
+        if (rt !== "freefall" && rt !== "string") return;
+        buckets[rt].games.push(sc);
       });
     });
 
   shots
     .filter(sh => !bowler || sh.bowler === bowler)
     .forEach(sh => {
-      const rt = rackTypeByLeague[sh.league];
-      if (!rt) return;
+      const rt = rackTypeForLane(centerFor[sh.league], sh.lane);
+      if (rt !== "freefall" && rt !== "string") return;
       // The app's first-ball test, copied from domain/stats.js rather
       // than invented here: a first ball is ballNum 1 OR absent, because
       // some paths store it and some do not.
@@ -313,6 +408,11 @@ export function centerToRow(center, userId) {
     // an empty string would be a third value meaning the same thing,
     // which is exactly what removing the "not sure" chip avoided.
     rack_type: center.rackType || null,
+    // Only meaningful for a mixed house; null everywhere else so a type
+    // change cannot leave a stale lane list behind it.
+    freefall_lanes: center.rackType === "mixed" && center.freefallLanes?.length
+      ? normalizeLaneList(center.freefallLanes)
+      : null,
     created_by: userId || null,
   };
 }
@@ -331,6 +431,7 @@ export function centerFromRow(row) {
     lat: row.lat,
     lng: row.lng,
     rackType: row.rack_type || "",
+    freefallLanes: row.freefall_lanes || [],
     // Who created it.
     //
     // Written on every save and never read back, so the client had no way

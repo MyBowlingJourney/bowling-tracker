@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   emptyCenter, normalizeCenter, centerLabel, distanceMiles, centerKey,
   findExistingCenter, statsByCenter, centerToRow, centerFromRow,
-  rackTypeLabel, RACK_TYPES, statsByRackType,
+  rackTypeLabel, RACK_TYPES, statsByRackType, normalizeLaneList, laneListLabel, rackTypeForLane,
 } from './centers.js';
 
 // Shape taken from a real HERE Discover response.
@@ -150,8 +150,10 @@ describe('rack type', () => {
 });
 
 describe('rack type vs "not sure"', () => {
-  it('offers only the two real answers, no "not sure"', () => {
-    expect(RACK_TYPES.map(r => r.id).sort()).toEqual(['freefall', 'string']);
+  it('offers the real answers and mixed, but no "not sure"', () => {
+    // "mixed" is a real answer about the house, not a way of saying "I
+    // don't know" -- a bowler who doesn't know still leaves it blank.
+    expect(RACK_TYPES.map(r => r.id).sort()).toEqual(['freefall', 'mixed', 'string']);
   });
 
   it('still normalizes a blank to unrecorded', () => {
@@ -296,5 +298,72 @@ describe('free fall against string', () => {
     for (const j of [null, undefined, 'x', 42]) {
       expect(() => statsByRackType(j, j, j, j, j)).not.toThrow();
     }
+  });
+});
+
+
+describe('mixed houses', () => {
+  const mixed = { id: 'm1', rackType: 'mixed', freefallLanes: [9, 10, 11, 12] };
+
+  it('reads lane lists however they are typed', () => {
+    expect(normalizeLaneList('1, 2, 7-10')).toEqual([1, 2, 7, 8, 9, 10]);
+    expect(normalizeLaneList(['3', '5-6', 9])).toEqual([3, 5, 6, 9]);
+    expect(normalizeLaneList('rubbish')).toEqual([]);
+    expect(normalizeLaneList(null)).toEqual([]);
+  });
+
+  it('reads a lane list back in ranges', () => {
+    expect(laneListLabel([1, 2, 3, 4, 9, 12])).toBe('1-4, 9, 12');
+  });
+
+  it('answers per lane', () => {
+    expect(rackTypeForLane(mixed, 9)).toBe('freefall');
+    expect(rackTypeForLane(mixed, '10')).toBe('freefall');
+    expect(rackTypeForLane(mixed, 3)).toBe('string');
+  });
+
+  it('refuses to guess without a lane, or before the lanes are recorded', () => {
+    expect(rackTypeForLane(mixed, '')).toBeNull();
+    expect(rackTypeForLane(mixed, null)).toBeNull();
+    expect(rackTypeForLane({ rackType: 'mixed', freefallLanes: [] }, 9)).toBeNull();
+  });
+
+  it('leaves single-type houses alone', () => {
+    expect(rackTypeForLane({ rackType: 'string' }, 4)).toBe('string');
+    expect(rackTypeForLane({ rackType: 'freefall' }, null)).toBe('freefall');
+    expect(rackTypeForLane({ rackType: '' }, 4)).toBeNull();
+  });
+
+  it('buckets shots in one house by the lane they were thrown on', () => {
+    const leagues = [{ name: 'Mon', centerId: 'm1' }];
+    const shots = [
+      { bowler: 'R', league: 'Mon', date: '2026-01-05', game: '1', lane: '9', ballNum: 1, result: 'Strike' },
+      { bowler: 'R', league: 'Mon', date: '2026-01-05', game: '1', lane: '9', ballNum: 1, result: 'Strike' },
+      { bowler: 'R', league: 'Mon', date: '2026-01-05', game: '2', lane: '3', ballNum: 1, result: 'Other Leave', otherLeave: ['10'] },
+      // No lane: cannot be placed, so it counts for neither.
+      { bowler: 'R', league: 'Mon', date: '2026-01-05', game: '3', lane: '', ballNum: 1, result: 'Strike' },
+    ];
+    const [ff, st] = statsByRackType([], shots, leagues, [mixed], 'R');
+    expect(ff.firstBalls).toBe(2);
+    expect(ff.strikes).toBe(2);
+    expect(st.firstBalls).toBe(1);
+    expect(st.strikes).toBe(0);
+  });
+
+  it('gives a game score to the rack type its shots were bowled on', () => {
+    const leagues = [{ name: 'Mon', centerId: 'm1' }];
+    const sessions = [{ bowler: 'R', league: 'Mon', date: '2026-01-05', scores: [200, 150, 180] }];
+    const shots = [
+      { bowler: 'R', league: 'Mon', date: '2026-01-05', game: '1', lane: '9', ballNum: 1, result: 'Strike' },
+      { bowler: 'R', league: 'Mon', date: '2026-01-05', game: '2', lane: '4', ballNum: 1, result: 'Strike' },
+      // Game 3 crossed both pairs, so its score belongs to neither.
+      { bowler: 'R', league: 'Mon', date: '2026-01-05', game: '3', lane: '9', ballNum: 1, result: 'Strike' },
+      { bowler: 'R', league: 'Mon', date: '2026-01-05', game: '3', lane: '4', ballNum: 1, result: 'Strike' },
+    ];
+    const [ff, st] = statsByRackType(sessions, shots, leagues, [mixed], 'R');
+    expect(ff.games).toBe(1);
+    expect(ff.average).toBe(200);
+    expect(st.games).toBe(1);
+    expect(st.average).toBe(150);
   });
 });

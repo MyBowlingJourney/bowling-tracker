@@ -7,6 +7,7 @@
 // three tabs never disagree about which games count.
 
 import { isSplit, isCornerPinLeave, pinForHand, splitKey } from "./splits.js";
+import { rackTypeForLane } from "./centers.js";
 
 const rows = v => (Array.isArray(v) ? v : []).filter(x => x && typeof x === "object");
 const isFirstBall = s => !s.ballNum || Number(s.ballNum) === 1;
@@ -34,13 +35,17 @@ export function pinsStanding(shot, leftHanded = false) {
     .filter(n => Number.isInteger(n) && n >= 1 && n <= 10);
 }
 
-function rackTypeByLeague(leagues, centers) {
+// The CENTRE each league bowls at, not the rack type -- because a mixed
+// house has no single answer. rackTypeForLane resolves each shot from the
+// lane it was thrown on, and a shot with no lane in a mixed house is left
+// out rather than guessed.
+function centerByLeague(leagues, centers) {
   const centerById = {};
   rows(centers).forEach(c => { centerById[c.id] = c; });
   const out = {};
   rows(leagues).forEach(l => {
-    const rt = l.centerId && centerById[l.centerId]?.rackType;
-    if (rt === "freefall" || rt === "string") out[l.name] = rt;
+    const c = l.centerId && centerById[l.centerId];
+    if (c && c.rackType) out[l.name] = c;
   });
   return out;
 }
@@ -51,13 +56,13 @@ function emptyBucket() {
 }
 
 export function rackTypeDetail(shots, leagues, centers, bowler, leftHanded = false) {
-  const rtByLeague = rackTypeByLeague(leagues, centers);
+  const centerFor = centerByLeague(leagues, centers);
   const b = { freefall: emptyBucket(), string: emptyBucket() };
 
   for (const s of rows(shots)) {
     if (bowler && s.bowler !== bowler) continue;
-    const rt = rtByLeague[s.league];
-    if (!rt) continue;
+    const rt = rackTypeForLane(centerFor[s.league], s.lane);
+    if (rt !== "freefall" && rt !== "string") continue;
     const x = b[rt];
     if (s.result === "Strike") {
       const d = STRIKE_SHAPES.includes(s.strikeDescription) ? s.strikeDescription : null;

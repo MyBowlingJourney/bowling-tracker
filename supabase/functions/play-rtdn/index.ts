@@ -382,7 +382,7 @@ Deno.serve(async (req: Request) => {
     return new Response("Lookup failed", { status: 500 });
   }
 
-  const row = entitlementFromPlayPurchase(purchase);
+  const row = entitlementFromPlayPurchase(purchase, { purchaseToken: token });
   const { error: writeErr } = await db
     .from("entitlements")
     .update(row)
