@@ -104,6 +104,7 @@ column,bowling_centers,city,text
 column,bowling_centers,country,text
 column,bowling_centers,created_at,timestamp with time zone NOT NULL
 column,bowling_centers,created_by,uuid
+column,bowling_centers,freefall_lanes,integer[]
 column,bowling_centers,here_id,text
 column,bowling_centers,id,uuid NOT NULL
 column,bowling_centers,lat,numeric
@@ -609,10 +610,10 @@ grant,bowler_profiles,INSERT,"aliases, all_time_high_game, all_time_high_series,
 grant,bowler_profiles,REFERENCES,"aliases, all_time_high_game, all_time_high_series, backup_ball, book_average, book_average_as_of, book_games, book_season, bowler_name, created_at, created_by, drift_boards, home_centers, id, is_coach, lateral_offset, left_handed, notes, two_handed, updated_at"
 grant,bowler_profiles,SELECT,"aliases, all_time_high_game, all_time_high_series, backup_ball, book_average, book_average_as_of, book_games, book_season, bowler_name, created_at, created_by, drift_boards, home_centers, id, is_coach, lateral_offset, left_handed, notes, two_handed, updated_at"
 grant,bowler_profiles,UPDATE,"aliases, all_time_high_game, all_time_high_series, backup_ball, book_average, book_average_as_of, book_games, book_season, bowler_name, created_at, created_by, drift_boards, home_centers, id, is_coach, lateral_offset, left_handed, notes, two_handed, updated_at"
-grant,bowling_centers,INSERT,"address, city, country, created_at, created_by, here_id, id, lat, lng, name, postal_code, rack_type, state"
-grant,bowling_centers,REFERENCES,"address, city, country, created_at, created_by, here_id, id, lat, lng, name, postal_code, rack_type, state"
-grant,bowling_centers,SELECT,"address, city, country, created_at, created_by, here_id, id, lat, lng, name, postal_code, rack_type, state"
-grant,bowling_centers,UPDATE,"address, city, country, created_at, created_by, here_id, id, lat, lng, name, postal_code, rack_type, state"
+grant,bowling_centers,INSERT,"address, city, country, created_at, created_by, freefall_lanes, here_id, id, lat, lng, name, postal_code, rack_type, state"
+grant,bowling_centers,REFERENCES,"address, city, country, created_at, created_by, freefall_lanes, here_id, id, lat, lng, name, postal_code, rack_type, state"
+grant,bowling_centers,SELECT,"address, city, country, created_at, created_by, freefall_lanes, here_id, id, lat, lng, name, postal_code, rack_type, state"
+grant,bowling_centers,UPDATE,"address, city, country, created_at, created_by, freefall_lanes, here_id, id, lat, lng, name, postal_code, rack_type, state"
 grant,closed_seasons,INSERT,"closed_at, created_at, end_date, id, league, start_date, user_id"
 grant,closed_seasons,REFERENCES,"closed_at, created_at, end_date, id, league, start_date, user_id"
 grant,closed_seasons,SELECT,"closed_at, created_at, end_date, id, league, start_date, user_id"
@@ -865,7 +866,6 @@ policy,bowler_profiles,users can insert their own bowler profiles,INSERT :: no u
 policy,bowler_profiles,users can update their own bowler profiles,UPDATE :: using (created_by = auth.uid()) :: check (created_by = auth.uid()) :: to authenticated
 policy,bowler_profiles,users can view their own bowler profiles,SELECT :: using (created_by = auth.uid()) :: check none :: to authenticated
 policy,bowling_centers,anyone can read bowling centers,SELECT :: using (auth.uid() IS NOT NULL) :: check none :: to authenticated
-policy,bowling_centers,centers update any authenticated,UPDATE :: using true :: check true :: to authenticated
 policy,bowling_centers,creators can correct their own hand-entered centers,UPDATE :: using ((created_by = auth.uid()) AND (here_id IS NULL)) :: check ((created_by = auth.uid()) AND (here_id IS NULL)) :: to authenticated
 policy,bowling_centers,signed-in users can add centers,INSERT :: no using :: check (auth.uid() IS NOT NULL) :: to authenticated
 policy,closed_seasons,own closed seasons: delete,DELETE :: using (user_id = auth.uid()) :: check none :: to authenticated
@@ -880,8 +880,8 @@ policy,coaching_notes,both sides can write notes,"INSERT :: no using :: check ((
    FROM coaching_relationships r
   WHERE ((r.id = coaching_notes.relationship_id) AND (r.status = 'accepted'::text) AND ((r.coach_id = auth.uid()) OR (r.bowler_id = auth.uid())))))) :: to authenticated"
 policy,coaching_relationships,either side can end a coaching relationship,DELETE :: using ((coach_id = auth.uid()) OR (bowler_id = auth.uid())) :: check none :: to authenticated
-policy,coaching_relationships,either side can update their coaching relationship,UPDATE :: using ((coach_id = auth.uid()) OR (bowler_id = auth.uid())) :: check ((coach_id = auth.uid()) OR (bowler_id = auth.uid())) :: to authenticated
 policy,coaching_relationships,either side can view their coaching relationship,SELECT :: using ((coach_id = auth.uid()) OR (bowler_id = auth.uid())) :: check none :: to authenticated
+policy,coaching_relationships,the other side answers a coaching request,UPDATE :: using ((auth.uid() <> requested_by) AND ((auth.uid() = coach_id) OR (auth.uid() = bowler_id))) :: check ((auth.uid() <> requested_by) AND ((auth.uid() = coach_id) OR (auth.uid() = bowler_id))) :: to authenticated
 policy,coaching_relationships,users can request a coaching relationship,INSERT :: no using :: check ((requested_by = auth.uid()) AND ((coach_id = auth.uid()) OR (bowler_id = auth.uid()))) :: to authenticated
 policy,coaching_tasks,both sides can update tasks,"UPDATE :: using (EXISTS ( SELECT 1
    FROM coaching_relationships r
@@ -901,14 +901,14 @@ policy,drills,users manage their own drills,ALL :: using (user_id = auth.uid()) 
 policy,entitlements,read own entitlement,SELECT :: using (auth.uid() = user_id) :: check none :: to authenticated
 policy,entitlements,set own kept league,UPDATE :: using (auth.uid() = user_id) :: check (auth.uid() = user_id) :: to authenticated
 policy,friendships,either side can delete a friendship,DELETE :: using ((requester_id = auth.uid()) OR (addressee_id = auth.uid())) :: check none :: to authenticated
-policy,friendships,either side can respond to or cancel a request,UPDATE :: using ((requester_id = auth.uid()) OR (addressee_id = auth.uid())) :: check ((requester_id = auth.uid()) OR (addressee_id = auth.uid())) :: to authenticated
+policy,friendships,only the addressee can answer a friend request,UPDATE :: using (addressee_id = auth.uid()) :: check (addressee_id = auth.uid()) :: to authenticated
 policy,friendships,users can send friend requests,INSERT :: no using :: check (requester_id = auth.uid()) :: to authenticated
 policy,friendships,users can view friendships they're part of,SELECT :: using ((requester_id = auth.uid()) OR (addressee_id = auth.uid())) :: check none :: to authenticated
 policy,hidden_leagues,users can hide leagues for themselves,INSERT :: no using :: check (user_id = auth.uid()) :: to authenticated
 policy,hidden_leagues,users can unhide their own leagues,DELETE :: using (user_id = auth.uid()) :: check none :: to authenticated
 policy,hidden_leagues,users can update their own hidden leagues,UPDATE :: using (user_id = auth.uid()) :: check (user_id = auth.uid()) :: to authenticated
 policy,hidden_leagues,users can view their own hidden leagues,SELECT :: using (user_id = auth.uid()) :: check none :: to authenticated
-policy,imported_scores,bowler or team can update imported scores,UPDATE :: using ((bowler_user_id = auth.uid()) OR ((team_id IS NOT NULL) AND is_team_member(team_id))) :: check none :: to authenticated
+policy,imported_scores,bowler or team can update imported scores,UPDATE :: using ((bowler_user_id = auth.uid()) OR ((team_id IS NOT NULL) AND is_team_member(team_id))) :: check ((bowler_user_id = auth.uid()) OR ((team_id IS NOT NULL) AND is_team_member(team_id))) :: to authenticated
 policy,imported_scores,team can view imported scores,SELECT :: using ((bowler_user_id = auth.uid()) OR (uploaded_by = auth.uid()) OR ((team_id IS NOT NULL) AND is_team_member(team_id))) :: check none :: to authenticated
 policy,imported_scores,teammates can upload scores,INSERT :: no using :: check ((uploaded_by = auth.uid()) AND ((team_id IS NULL) OR is_team_member(team_id))) :: to authenticated
 policy,imported_scores,uploader can delete their upload,DELETE :: using (uploaded_by = auth.uid()) :: check none :: to authenticated
@@ -960,7 +960,9 @@ policy,shots,users can insert their own shots,INSERT :: no using :: check (user_
 policy,shots,users can update their own shots,UPDATE :: using (user_id = auth.uid()) :: check (user_id = auth.uid()) :: to authenticated
 policy,shots,users can view their own shots,SELECT :: using (user_id = auth.uid()) :: check none :: to authenticated
 policy,sync_tombstones,user can read their own tombstones,SELECT :: using (user_id = auth.uid()) :: check none :: to authenticated
-policy,team_members,team members can remove roster entries,DELETE :: using is_team_member(team_id) :: check none :: to authenticated
+policy,team_members,"leave a team, or the creator removes a member","DELETE :: using ((user_id = auth.uid()) OR (EXISTS ( SELECT 1
+   FROM teams t
+  WHERE ((t.id = team_members.team_id) AND (t.created_by = auth.uid()))))) :: check none :: to authenticated"
 policy,team_members,team members can reorder their team's roster,UPDATE :: using is_team_member(team_id) :: check is_team_member(team_id) :: to authenticated
 policy,team_members,team members can view their own roster,SELECT :: using is_team_member(team_id) :: check none :: to authenticated
 policy,team_members,you can only add yourself to a roster,"INSERT :: no using :: check ((user_id = auth.uid()) AND ((EXISTS ( SELECT 1
@@ -968,10 +970,10 @@ policy,team_members,you can only add yourself to a roster,"INSERT :: no using ::
   WHERE ((teams.id = team_members.team_id) AND (teams.created_by = auth.uid())))) OR (EXISTS ( SELECT 1
    FROM pending_invites
   WHERE ((pending_invites.team_id = team_members.team_id) AND (lower(pending_invites.invited_email) = lower((auth.jwt() ->> 'email'::text))) AND (pending_invites.accepted_at IS NULL)))))) :: to authenticated"
+policy,teams,only the team creator can delete the team,DELETE :: using (created_by = auth.uid()) :: check none :: to authenticated
 policy,teams,team creators can delete their team,DELETE :: using (created_by = auth.uid()) :: check none :: to authenticated
 policy,teams,team creators can rename their team,UPDATE :: using (created_by = auth.uid()) :: check (created_by = auth.uid()) :: to authenticated
 policy,teams,team creators can view their team,SELECT :: using (created_by = auth.uid()) :: check none :: to authenticated
-policy,teams,team members can delete their team,DELETE :: using is_team_member(id) :: check none :: to authenticated
 policy,teams,team members can rename their team,UPDATE :: using is_team_member(id) :: check is_team_member(id) :: to authenticated
 policy,teams,team members can view their team,SELECT :: using is_team_member(id) :: check none :: to authenticated
 policy,teams,users can create teams as themselves,INSERT :: no using :: check (created_by = auth.uid()) :: to authenticated
