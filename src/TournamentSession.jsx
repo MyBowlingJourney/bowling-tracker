@@ -1034,6 +1034,25 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
         + Add Another Day
       </button>
 
+      {/* Start Scoring: the one way forward from Set up, the same button
+          league has. It opens the first squad without games yet (or the
+          last one), so the bowler lands on the games they are about to
+          bowl. The per-squad "Go to scoring" links still work too. */}
+      <button style={{ ...S.btn("primary"), width: "100%", marginBottom: "12px" }}
+        onClick={() => {
+          const days = tournament.days || [];
+          const next = days.find(d => !(Array.isArray(d.games) && d.games.some(g => Number(g?.score) > 0)))
+            || days[days.length - 1];
+          if (next) {
+            setOpen(o => ({ ...o, [`score${next.dayNumber}`]: true }));
+            if (next.date && onUseDate) onUseDate(next.date);
+          }
+          setTab("scoring");
+          try { window.scrollTo({ top: 0 }); } catch {}
+        }}>
+        Start Scoring
+      </button>
+
       {/* A way out of an event that is not happening -- a test entry, the
           wrong tournament, a block logged in the wrong place. Quiet, under
           everything, and it asks twice: nothing it removes comes back. */}
@@ -1043,7 +1062,7 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
             style={{ background: "none", border: "none", color: C.textMuted, cursor: "pointer",
               fontSize: "13px", padding: "8px", width: "100%", WebkitTapHighlightColor: "transparent" }}
             onClick={() => setCancelArmed(true)}>
-            Cancel this tournament
+            Cancel Tournament
           </button>
         ) : (
           <div style={{ ...S.card, padding: "12px" }}>
@@ -1196,7 +1215,7 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
         </div>
       )}
       <button style={S.btn("primary")} onClick={onSave}>
-        {saved ? "✓ Tournament Saved" : "Save Tournament & Return Home"}
+        {saved ? "✓ Tournament Saved" : "Save & Finish Tournament"}
       </button>
 
       {/* The whole event, once it is saved.
@@ -1372,6 +1391,13 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
           idea what anyone else shot, so it can't tell a win from a
           middling weekend. Sits right before Save because it's the last
           thing you know. */}
+      {/* End Tournament & View Results: the same step as every mode's
+          Scoring. Nothing is saved here -- Save & Finish Tournament on
+          Results does that, after the bowler has seen the event. */}
+      <button style={{ ...S.btn("primary"), width: "100%", marginBottom: "12px" }}
+        onClick={() => { setTab("results"); try { window.scrollTo({ top: 0 }); } catch {} }}>
+        End Tournament &amp; View Results
+      </button>
       <div style={{ height: "24px" }} />
 
       </>)}

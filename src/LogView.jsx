@@ -111,6 +111,9 @@ export default function LogView({
   // Open bowling: Results appear only once asked for. Local, so leaving
   // the screen hides them again -- a filed night shows them regardless.
   const [casualResultsShown,setCasualResultsShown]=useState(false);
+  // Open bowling's two tabs, Scoring and Results -- the same shape every
+  // mode now has. Local: a new round of open bowling starts on Scoring.
+  const [casualTab,setCasualTab]=useState("scoring");
   const [casualMsg,setCasualMsg]=useState("");
   const [casualSpacer,setCasualSpacer]=useState(0);
   const howItWentRef=useRef(null);
@@ -337,6 +340,10 @@ export default function LogView({
       if(t==="scoring")return practiceMode!=="results";
       return false;
     }
+    // Open bowling: Results shows the recap, everything else belongs to
+    // Scoring. It had no tabs, so results appeared under the scores on
+    // one long page.
+    if(env==="casual")return t==="results"?casualTab==="results":casualTab!=="results";
     if(!leagueTabs)return true;
     return leagueTab===t;
   };
@@ -601,10 +608,10 @@ export default function LogView({
   // style and format, could pick a result and had no way to save it.
   // The bar now shows in tournament Scoring whenever there is a shot to
   // save, carrying Save Shot alone (the session button stays hidden).
-  // Not in open bowling: it has no shot form, and the night is saved
-  // and ended by the buttons in the page (Save & View Results, then End
-  // Open Bowling) rather than one bar that saved and left in one tap.
-  const footerShown=!!(editingId||(activeBowler&&effectiveSessionLeague&&env!=="casual"
+  // Open bowling too, now: it ends like every mode, with End Open Bowling
+  // & View Results then Save & Finish Open Bowling on this bar. It has no
+  // shot form, so the bar carries only that one button there.
+  const footerShown=!!(editingId||(activeBowler&&effectiveSessionLeague
     &&(env!=="tournament"||(onTab("scoring")&&showShotContext))));
 
   // In BAKER, the name follows the FRAME, not the session.
@@ -1211,6 +1218,17 @@ export default function LogView({
               </div>
             )}
 
+            {/* Open bowling's tabs, like practice's: somewhere to bowl and
+                somewhere to look back at the night before it is saved. */}
+            {!editingId&&preferences.environment==="casual"&&effectiveSessionLeague&&(
+              <div style={{...S.card,padding:"10px 12px"}}>
+                <div style={{...S.chips,marginBottom:0}}>
+                  <Chip label="Scoring" selected={casualTab!=="results"} onToggle={()=>setCasualTab("scoring")}/>
+                  <Chip label="Results" selected={casualTab==="results"} onToggle={()=>{setCasualResultsShown(true);setCasualTab("results");}}/>
+                </div>
+              </div>
+            )}
+
             {!editingId&&activeBowler&&preferences.environment==="practice"&&(
               <div style={{...S.card,padding:"10px 12px"}}>
                 <div style={S.chips}>
@@ -1517,7 +1535,7 @@ export default function LogView({
                         // the card that was just left.
                         try{window.scrollTo({top:0,behavior:"smooth"});}catch{}
                       }}>
-                      Go to Scoring
+                      Start Scoring
                     </button>
 
                     {/* Cancel sits HERE, in Set up, not at the bottom of
@@ -1548,7 +1566,7 @@ export default function LogView({
                               // rendered by this very state change.
                               revealBottomOf(cancelRef,{cap:true,allowUp:true});
                             }}>
-                            Cancel this session
+                            Cancel League
                           </button>
                         ):(
                           <div ref={cancelRef} style={{...S.card,padding:"12px",marginBottom:0}}>
@@ -3031,7 +3049,8 @@ export default function LogView({
                 
                 Never collapsible: in this mode it's the only thing on the
                 tab that matters. */}
-            {!editingId&&preferences.environment==="casual"&&effectiveSessionLeague&&(()=>{
+            {/* Scoring tab only: Results shows the night, not the entry table. */}
+            {!editingId&&preferences.environment==="casual"&&effectiveSessionLeague&&casualTab!=="results"&&(()=>{
               const people=scoreOptions.length?scoreOptions:[ownerName].filter(Boolean);
               const highest=[1,2,3,4,5,6,7,8,9,10].reduce((hi,g)=>
                 people.some(p=>getManualScore(manualScores,p,effectiveSessionLeague,sessionDate,g)!=null)?g:hi,0);
@@ -3171,54 +3190,13 @@ export default function LogView({
                 drills tab had no way to finish a session at all. It is
                 now the sticky bar at the bottom, unconditional. */}
 
-            {/* OPEN BOWLING: save, see results, or cancel.
-                Under the scores table and above How It Went. Saving files
-                the night but does NOT leave -- the results appear below
-                and the page scrolls so How It Went sits at the top.
-                Leaving is End Open Bowling, under Share the night. */}
-            {!editingId&&preferences.environment==="casual"&&effectiveSessionLeague&&(()=>{
-              const people=scoreOptions.length?scoreOptions:[ownerName].filter(Boolean);
+            {/* Open bowling's first page: Cancel, quiet, under the scores.
+                Ending the night is the bottom bar's End Open Bowling &
+                View Results, then Save & Finish on Results -- the same two
+                steps as every other mode. */}
+            {!editingId&&preferences.environment==="casual"&&effectiveSessionLeague&&casualTab!=="results"&&(()=>{
               return (
                 <div style={{marginBottom:"12px"}}>
-                  <button style={{...S.btn("primary"),width:"100%"}}
-                    onClick={async()=>{
-                      if(!casualRecap(manualScores,people,effectiveSessionLeague,sessionDate)){
-                        setCasualMsg("Enter a score first");
-                        setTimeout(()=>setCasualMsg(""),2000);
-                        return;
-                      }
-                      setCasualResultsShown(true);
-                      await saveCasualResults?.();
-                      // Two frames: the recap renders from this state
-                      // change. Lands How It Went just under the sticky
-                      // header, which is the top of what can be seen.
-                      //
-                      // The results are short, so the page can end before
-                      // How It Went reaches the top. A spacer after them
-                      // makes up the difference, measured, then the page
-                      // scrolls on the frame after it exists.
-                      const headerBottom=()=>{
-                        // The app header is a sticky div, not a <header>.
-                        const stuck=[...document.querySelectorAll("body *")].find(n=>{
-                          const cs=getComputedStyle(n);
-                          return (cs.position==="sticky"||cs.position==="fixed")&&n.getBoundingClientRect().top<=0.5&&n.getBoundingClientRect().height>0&&n.getBoundingClientRect().height<200;
-                        });
-                        return stuck?stuck.getBoundingClientRect().bottom:0;
-                      };
-                      requestAnimationFrame(()=>requestAnimationFrame(()=>{
-                        const el=howItWentRef.current;
-                        if(!el)return;
-                        const hb=headerBottom();
-                        const top=el.getBoundingClientRect().top+window.scrollY-hb-8;
-                        const maxScroll=document.documentElement.scrollHeight-window.innerHeight;
-                        setCasualSpacer(Math.max(0,Math.ceil(top-maxScroll)));
-                        requestAnimationFrame(()=>requestAnimationFrame(()=>{
-                          try{window.scrollTo({top:Math.max(0,top),behavior:"smooth"});}catch{window.scrollTo(0,Math.max(0,top));}
-                        }));
-                      }));
-                    }}>
-                    {casualMsg||"Save & View Results"}
-                  </button>
                   {typeof cancelSession==="function"&&(
                     <div style={{marginTop:"10px"}}>
                       {!cancelArmed?(
@@ -3251,11 +3229,12 @@ export default function LogView({
               );
             })()}
 
-            {onTab("results")&&!editingId&&(preferences.environment==="practice"||(preferences.environment==="casual"
-              &&(casualResultsShown||(sessions||[]).some(s=>s&&s.bowler===activeBowler&&s.league===effectiveSessionLeague&&String(s.date)===String(sessionDate)))))&&effectiveSessionLeague&&(
+            {onTab("results")&&!editingId&&(preferences.environment==="practice"||preferences.environment==="casual")&&effectiveSessionLeague&&(
               <SessionRecap
                 howItWentRef={howItWentRef}
-                onEnd={preferences.environment==="casual"?()=>{ setCasualResultsShown(false); setCasualSpacer(0); endCasual?.(); }:undefined}
+                // No End Open Bowling here any more: Save & Finish Open
+                // Bowling on the bottom bar is the one way to finish.
+                onEnd={undefined}
                 environment={preferences.environment}
                 manualScores={manualScores}
                 bowler={activeBowler}
@@ -3819,6 +3798,39 @@ export default function LogView({
                 placeholder="How the night went, what to try next time…" value={sessionNotes} onChange={e=>setSessionNotes?.(e.target.value)}/>
             </CollapsibleCard>
             )}
+            {/* Practice's first page is Games, so its Cancel lives there --
+                quiet, at the foot, asking twice, like league's on Set up
+                and open bowling's under the scores. Practice had no way
+                to discard a session at all. */}
+            {!editingId&&env==="practice"&&practiceMode==="games"&&effectiveSessionLeague&&typeof cancelSession==="function"&&(
+              <div style={{marginBottom:"12px"}}>
+                {!cancelArmed?(
+                  <button
+                    style={{background:"none",border:"none",color:C.textMuted,cursor:"pointer",
+                            fontSize:"13px",padding:"8px",width:"100%",
+                            WebkitTapHighlightColor:"transparent"}}
+                    onClick={()=>{ setCancelArmed(true); revealBottomOf(cancelRef,{cap:true,allowUp:true}); }}>
+                    Cancel Practice
+                  </button>
+                ):(
+                  <div ref={cancelRef} style={{...S.card,padding:"12px",marginBottom:0}}>
+                    <div style={{fontSize:"13px",color:C.text,lineHeight:1.5,marginBottom:"10px"}}>
+                      This deletes today's practice shots and game scores for{" "}
+                      <strong>{form.bowler||activeBowler}</strong> and takes you back to Home. This cannot be undone.
+                    </div>
+                    <div style={{display:"flex",gap:"8px"}}>
+                      <button style={{...S.btn(),flex:1}} onClick={()=>setCancelArmed(false)}>
+                        Keep practicing
+                      </button>
+                      <button style={{...S.btn("warn"),flex:1}}
+                        onClick={()=>{ setCancelArmed(false); cancelSession(); }}>
+                        Delete and exit
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             {/* The spacer goes LAST, after every card.
                 
                 It sat inside the shot-form fragment, so anything rendered
@@ -3887,24 +3899,43 @@ export default function LogView({
             {/* Not in a tournament either: the tournament card has its own
                 Save Tournament on Results, and "End Block" beside it asks
                 which one finishes the event. */}
-            {!editingId&&env!=="tournament"&&(
-            // Practice ends in two steps. "End Practice" goes to Results so
-            // the bowler sees the night before it is filed; "Save Practice"
-            // on Results is what saves it and goes home. Saving straight
-            // from the Games tab skipped the one screen that sums it up.
-            <button style={{...S.btn("primary"),flex:1}}
-              onClick={preferences.environment==="practice"&&practiceMode!=="results"
-                ?()=>{setPracticeMode("results");try{window.scrollTo({top:0});}catch{}}
-                :submitSession}>
-              {sessionSaveMessage?sessionSaveMessage:sessionSaved
-                ?"✓ Session Saved"
-                :preferences.environment==="practice"
-                  ?(practiceMode==="results"?"Save Practice":"End Practice")
-                  :preferences.environment==="league"
-                    ?"Save League & Return Home"
-                    :"Save Open Bowling & Return Home"}
-            </button>
-            )}
+            {/* Every mode ends in the same two steps:
+                  on Scoring   -> "End <mode> & View Results": to Results,
+                                  nothing saved yet;
+                  on Results   -> "Save & Finish <mode>": saves, goes home.
+                A night is always seen before it is filed. Tournament has
+                the same two buttons inside its own screen. League's Set up
+                has Start Scoring instead, so nothing ends from there. */}
+            {!editingId&&env!=="tournament"&&!(env==="league"&&leagueTab==="setup")&&(()=>{
+              const name=env==="practice"?"Practice":env==="league"?"League":"Open Bowling";
+              const onResults=env==="practice"?practiceMode==="results"
+                :env==="league"?leagueTab==="results":casualTab==="results";
+              const toResults=()=>{
+                if(env==="casual"){
+                  const people=scoreOptions.length?scoreOptions:[ownerName].filter(Boolean);
+                  if(!casualRecap(manualScores,people,effectiveSessionLeague,sessionDate)){
+                    setCasualMsg("Enter a score first");
+                    setTimeout(()=>setCasualMsg(""),2000);
+                    return;
+                  }
+                  setCasualResultsShown(true);
+                  setCasualTab("results");
+                }
+                else if(env==="practice")setPracticeMode("results");
+                else setLeagueTabChoice("results");
+                try{window.scrollTo({top:0});}catch{}
+              };
+              const saveAndFinish=env==="casual"
+                ?async()=>{ await saveCasualResults?.(); setCasualResultsShown(false); setCasualSpacer(0); setCasualTab("scoring"); endCasual?.(); }
+                :submitSession;
+              return (
+                <button style={{...S.btn("primary"),flex:1}} onClick={onResults?saveAndFinish:toResults}>
+                  {(env==="casual"&&casualMsg)||sessionSaveMessage||(sessionSaved
+                    ?"✓ Session Saved"
+                    :onResults?`Save & Finish ${name}`:`End ${name} & View Results`)}
+                </button>
+              );
+            })()}
           </div>
           )}
 

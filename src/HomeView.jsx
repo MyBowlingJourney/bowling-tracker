@@ -217,14 +217,16 @@ export default function HomeView({
       <div className={`mbj-mode-grid${compact ? " mbj-mode-grid--compact" : ""}`}>
         {ENVIRONMENTS.map(env => {
           const description = ENVIRONMENT_DESCRIPTIONS[env] || "";
-          const shortDescription = description.split(".")[0] + (description.includes(".") ? "." : "");
           return (
             <button key={env} type="button" onClick={() => onPickMode?.(env)} className="mbj-mode-card"
+              aria-label={description ? `${ENVIRONMENT_LABELS[env]}. ${description}` : ENVIRONMENT_LABELS[env]}
               style={{"--mode-color": ENVIRONMENT_COLORS[env] || C.accent}}>
               <span className="mbj-mode-icon" aria-hidden="true"><ModeIcon mode={env} color={ENVIRONMENT_COLORS[env] || C.accent} /></span>
+              {/* Name only. The one-line descriptions were cut off by the
+                  card edge on real phones, and the names say enough. The
+                  full text stays in the button's label for screen readers. */}
               <span className="mbj-mode-copy">
                 <span className="mbj-mode-label">{ENVIRONMENT_LABELS[env]}</span>
-                <span className="mbj-mode-detail">{shortDescription}</span>
               </span>
               <span className="mbj-mode-arrow" aria-hidden="true">›</span>
             </button>

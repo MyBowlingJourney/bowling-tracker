@@ -99,7 +99,7 @@ export default function SessionHistory({ sessions, bowlers, leagues, teams = [],
             : `Showing ${visible.length} of ${filtered.length}, newest first.`}
         </div>
         {filtered.length === 0 ? (
-          <div style={{ fontSize: "12px", color: C.textMuted, lineHeight: 1.5 }}>Nothing saved yet. Finish a night with "End session" on the Log tab and it lands here.</div>
+          <div style={{ fontSize: "12px", color: C.textMuted, lineHeight: 1.5 }}>Nothing saved yet. Finish a night with "Save & Finish" on its Results tab and it lands here.</div>
         ) : (
           <>
             {visible.map(s => (
