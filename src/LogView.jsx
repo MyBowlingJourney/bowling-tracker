@@ -35,6 +35,7 @@ import { practiceSummary, practiceShotStats } from "./domain/practiceSummary.js"
 
 import { isSplit } from "./domain/splits.js";
 import { laneDigits } from "./domain/laneInput.js";
+import { deleteGameColumnPlan, columnHasScores } from "./domain/casualColumns.js";
 export default function LogView({
   // The night's own note, owned by BowlingTracker so it can be saved with
   // the session. It used to write form.notes -- the shot form -- so a
@@ -3062,8 +3063,28 @@ export default function LogView({
               // game. Two is the honest default for a casual night, and
               // an explicit button means the width is the bowler's
               // choice rather than a side effect of typing.
-              const cols=Math.min(10,Math.max(2,highest,casualExtraGames));
+              // At least one column, not two: a deleted G2 has to be able
+              // to go. New nights still open with two (casualExtraGames
+              // starts at 2).
+              const cols=Math.min(10,Math.max(1,highest,casualExtraGames));
               const gameNums=Array.from({length:cols},(_,i)=>i+1);
+              const getScore=(who,g)=>getManualScore(manualScores,who,effectiveSessionLeague,sessionDate,g);
+              // The x beside each game. G2 onwards: the column goes, for
+              // everyone, and later games move down. G1 stays -- its x
+              // clears the scores. Asks first when there is anything in
+              // the column, since it cannot be undone.
+              const deleteColumn=g=>{
+                if(columnHasScores({people,game:g,get:getScore})){
+                  const msg=g===1
+                    ?"Clear everyone's game 1 scores?"
+                    :`Delete game ${g} for everyone?${g<cols?` Later games move down one.`:""}`;
+                  if(typeof window!=="undefined"&&window.confirm&&!window.confirm(msg))return;
+                }
+                for(const w of deleteGameColumnPlan({people,game:g,lastGame:cols,get:getScore})){
+                  updateManualScore(w.who,effectiveSessionLeague,sessionDate,w.game,w.value);
+                }
+                if(g>1)setCasualExtraGames(Math.max(1,cols-1));
+              };
 
               const NAME_W=92;
               const CELL_W=54;
@@ -3100,6 +3121,11 @@ export default function LogView({
                           <div key={g} style={{width:`${CELL_W}px`,flexShrink:0,display:"flex",alignItems:"center",
                                                justifyContent:"center",borderRight:`1px solid ${C.border}`}}>
                             <span style={{fontSize:"10px",fontWeight:700,color:C.textMuted}}>G{g}</span>
+                            <button type="button" onClick={()=>deleteColumn(g)}
+                              aria-label={g===1?"Clear game 1 scores":`Delete game ${g}`}
+                              style={{background:"none",border:"none",padding:"0 0 0 4px",margin:0,cursor:"pointer",
+                                      color:C.textMuted,fontSize:"13px",lineHeight:1,opacity:0.75,
+                                      WebkitTapHighlightColor:"transparent"}}>×</button>
                           </div>
                         ))}
                       </div>

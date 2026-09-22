@@ -1300,3 +1300,18 @@ body {
 }
 .mbj-mode-grid--compact .mbj-mode-copy { margin: auto 0; padding: 0 18px 0 50px; }
 .mbj-mode-grid--compact .mbj-mode-arrow { top: 50%; transform: translateY(-50%); }
+
+/* Empty blocks are spacers, not cards.
+   The screens leave an empty div at the bottom so the last card can
+   scroll clear of the bottom bar. The screen-level rules above paint
+   every top-level div as a card -- background, border, shadow -- so the
+   spacer showed as an empty card on every mode and tab. It keeps its
+   height; it just draws nothing. */
+.mbj-app-content > div:empty {
+  background: none !important;
+  background-image: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+.mbj-app-content > div:empty::before,
+.mbj-app-content > div:empty::after { display: none !important; }

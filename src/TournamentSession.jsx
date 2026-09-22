@@ -890,15 +890,14 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
           to between games. Same chip pattern as Stats and Trends. */}
       <div style={{ ...S.card, padding: "10px 12px" }}>
         {/* One line, always. Five chips wrap on a narrow phone and a
-            wrapped tab row reads as two rows of unrelated buttons, so
-            this scrolls sideways instead. */}
-        <div style={{ ...S.chips, flexWrap: "nowrap", overflowX: "auto",
-          WebkitOverflowScrolling: "touch", paddingBottom: "2px" }}>
-          <Chip label="Set up" selected={tab === "setup"} onToggle={() => setTab("setup")} />
-          <Chip label="Scoring" selected={tab === "scoring"} onToggle={() => setTab("scoring")} />
-          <Chip label="Brackets" selected={tab === "brackets"} onToggle={() => setTab("brackets")} />
-          <Chip label="Match" selected={tab === "match"} onToggle={() => setTab("match")} />
-          <Chip label="Results" selected={tab === "results"} onToggle={() => setTab("results")} />
+            wrapped tab row reads as two rows of unrelated buttons, and a
+            sideways-scrolling one hid Results off the edge. So all five
+            share the row equally (dense + fill: they shrink rather than
+            overflow) and each label stays on one line. */}
+        <div style={{ ...S.chips, flexWrap: "nowrap", gap: "4px", marginBottom: 0 }}>
+          {[["setup", "Set up"], ["scoring", "Scoring"], ["brackets", "Brackets"], ["match", "Match"], ["results", "Results"]].map(([id, label]) => (
+            <Chip key={id} label={label} dense fill selected={tab === id} onToggle={() => setTab(id)} />
+          ))}
         </div>
       </div>
 
