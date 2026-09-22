@@ -369,6 +369,7 @@ export default function Settings({
               sessions={sessions || []}
               tournaments={tournaments || []}
               onDeleteNight={deleteNight ? n => deleteNight(statsBowler || activeBowler, n.league, n.date) : undefined}
+              onOpenNight={onOpenNight}
               bowler={statsBowler || activeBowler}
               league="" />
             </div>

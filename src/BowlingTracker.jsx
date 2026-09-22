@@ -5328,7 +5328,7 @@ export default function BowlingTracker(){
       try{window.scrollTo({top:0});}catch{}
       return;
     }
-    if(isTournamentLeagueName(lg)){
+    if(s.mode==="tournament"||isTournamentLeagueName(lg)){
       const t=(tournaments||[]).find(t=>(Array.isArray(t?.days)?t.days:[]).some(d=>d&&d.date===s.date));
       if(t)openImportedNight({kind:"tournament",league:lg,date:s.date,tournament:t});
       return;

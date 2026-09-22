@@ -41,10 +41,13 @@ import {
 //
 // miss is the only remaining token that differs from accent in every
 // theme; checked across all eight.
+// Fixed hues, not theme tokens: in Pin deck accent AND miss are both red,
+// so league and practice drew the same. Mid-brightness so they read on
+// light and dark cards alike.
 const MODE_COLORS = {
-  league: c => c.accent,
-  practice: c => c.miss,
-  tournament: c => c.strike,
+  league: () => "#3B82F6",
+  practice: () => "#22A55B",
+  tournament: () => "#E0902A",
   casual: c => c.textMuted,
 };
 
@@ -57,7 +60,7 @@ const MODE_LABELS = {
 
 export default function CalendarView({
   sessions = [], shots = [], drills = [], tournaments = [], bowler = "", league = "", weekStart = 0,
-  onDeleteNight,
+  onDeleteNight, onOpenNight,
 }) {
   // Tournament days are folded in as nights, because they are nights the
   // bowler bowled -- they just live in a different table. Without this a
@@ -231,14 +234,18 @@ export default function CalendarView({
       </div>
 
       {open && open.nights.map((night, i) => (
-        <div key={i} style={S.card}>
+        <div key={i} style={{ ...S.card, cursor: onOpenNight ? "pointer" : undefined }}
+          role={onOpenNight ? "button" : undefined} tabIndex={onOpenNight ? 0 : undefined}
+          aria-label={onOpenNight ? `Open results for ${night.date}` : undefined}
+          onClick={onOpenNight ? e => { if (e.target.closest("button")) return; onOpenNight(night); } : undefined}
+          onKeyDown={onOpenNight ? e => { if (e.key === "Enter" && e.target === e.currentTarget) onOpenNight(night); } : undefined}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "6px" }}>
             <div style={{ fontSize: "13px", fontWeight: 600, color: (MODE_COLORS[night.mode]||MODE_COLORS.league)(C) }}>
               {/* Display name: a container league's stored name carries
                   the user id, and the calendar was printing the uuid. */}
               {practiceLeagueDisplayName(night.league) || "Bowling"}
             </div>
-            <div style={{ fontSize: "12px", color: C.textMuted }}>{night.date}</div>
+            <div style={{ fontSize: "12px", color: C.textMuted }}>{night.date}{onOpenNight ? " ›" : ""}</div>
           </div>
           <div style={{ fontSize: "13px", color: C.text, marginBottom: "4px" }}>
             {night.scores.join(" · ")}
