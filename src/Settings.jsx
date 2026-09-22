@@ -435,16 +435,16 @@ export default function Settings({
                     <div style={{ display: "flex", gap: "6px", marginBottom: "8px" }}>
                       <div className="mbj-history-stat" style={{ ...S.statBox, border: `1px solid ${C.accent}44` }}>
                         <div style={{ ...S.statNum, color: C.accent }}>{sum.average}</div>
-                        <div style={S.statLbl}>Average</div>
+                        <div style={{ ...S.statLbl, whiteSpace: "nowrap", fontSize: "clamp(10.5px, 3vw, 12px)" }}>Average</div>
                       </div>
                       <div className="mbj-history-stat" style={S.statBox}>
                         <div style={S.statNum}>{sum.highGame}</div>
-                        <div style={S.statLbl}>High Game</div>
+                        <div style={{ ...S.statLbl, whiteSpace: "nowrap", fontSize: "clamp(10.5px, 3vw, 12px)" }}>High Game</div>
                       </div>
                       {sum.highSeries && (
                         <div className="mbj-history-stat" style={S.statBox}>
                           <div style={S.statNum}>{sum.highSeries}</div>
-                          <div style={S.statLbl}>High Series</div>
+                          <div style={{ ...S.statLbl, whiteSpace: "nowrap", fontSize: "clamp(10.5px, 3vw, 12px)" }}>High Series</div>
                         </div>
                       )}
                     </div>

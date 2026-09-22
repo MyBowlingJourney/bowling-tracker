@@ -14,8 +14,8 @@ export function TabBar({ tabs, value, onChange, label }) {
         const on = t.id === value;
         return (
           <button key={t.id} type="button" aria-pressed={on} onClick={() => onChange(t.id)}
-            style={{ flex: 1, minWidth: 0, minHeight: "36px", padding: "0 8px", border: "none",
-              borderRadius: "999px", font: "inherit", fontSize: "12px", fontWeight: on ? 750 : 600,
+            style={{ flex: 1, minWidth: 0, minHeight: "36px", padding: "0 4px", border: "none",
+              borderRadius: "999px", font: "inherit", fontSize: "clamp(10.5px, 3vw, 12px)", letterSpacing: "-0.01em", fontWeight: on ? 750 : 600,
               cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
               background: on ? `linear-gradient(180deg, ${C.card}, ${C.surface})` : "transparent", color: on ? C.text : C.textMuted,
               boxShadow: on ? `0 5px 14px ${C.bg}28, 0 0 0 1px ${C.border}` : "none" }}>

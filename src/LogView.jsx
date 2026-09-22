@@ -1216,10 +1216,10 @@ export default function LogView({
                 that does not exist yet. */}
             {leagueTabs&&!editingId&&(
               <div style={{...S.card,padding:"10px 12px"}}>
-                <div style={{...S.chips,flexWrap:"nowrap",overflowX:"auto",marginBottom:0}}>
+                <div style={{...S.chips,flexWrap:"nowrap",gap:"4px",marginBottom:0}}>
                   {[["setup","Set up"],["scoring","Scoring"],
                     ["side","Side games"],["results","Results"]].map(([id,label])=>(
-                    <Chip key={id} label={label} dense
+                    <Chip key={id} label={label} dense fill
                       selected={leagueTab===id}
                       onToggle={()=>setLeagueTab(id)} />
                   ))}
@@ -2686,7 +2686,7 @@ export default function LogView({
                   // always the canonical "Weak 10"/"Ringing 10" value.
                   const stored=storedResultFor(label);
                   return(
-                    <Chip key={label} label={label} selected={form.result===stored}
+                    <Chip key={label} fill label={label==="Other Leave"?"Other":label} selected={form.result===stored}
                       onToggle={()=>{
                         const newResult=form.result===stored?"":stored;
 
@@ -3472,7 +3472,7 @@ export default function LogView({
             {(preferences.trackedFields.ballSpeed||preferences.trackedFields.revRate
               ||preferences.trackedFields.axisRotation||preferences.trackedFields.axisTilt)&&(
               <div style={S.card}>
-                <div style={S.label}>Release Measurements</div>
+                <div style={S.label}>Release</div>
                 <div style={{display:"grid",
                   gridTemplateColumns:"repeat(2, minmax(0, 1fr))",gap:"8px"}}>
                   {preferences.trackedFields.ballSpeed&&(
@@ -3493,7 +3493,7 @@ export default function LogView({
                   )}
                   {preferences.trackedFields.axisRotation&&(
                     <div style={{minWidth:0}}>
-                      <div style={fieldHead}>Axis rotation</div>
+                      <div style={fieldHead}>Axis rot.</div>
                       <input style={{...S.input,...smallInput,width:"100%"}}
                         type="number" inputMode="numeric" placeholder="degrees"
                         value={form.axisRotation} onChange={e=>set("axisRotation",e.target.value)}/>

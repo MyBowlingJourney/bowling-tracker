@@ -54,6 +54,14 @@ select {
   padding-right: 44px !important;
   border-color: var(--ba-select-border, currentColor) !important;
   cursor: pointer;
+  /* A long league name must shorten with an ellipsis, never widen
+     the card (and with it the whole page) past the screen. */
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 /* Compact selects sit two to a narrow card (Release / Miss), where a
@@ -163,7 +171,7 @@ img { max-width: 100%; }
 .mbj-mode-icon svg { display:block; }
 .mbj-mode-icon img { display:block; width:46px !important; height:46px !important; max-width:46px !important; max-height:46px !important; object-fit:contain !important; flex:0 0 46px; }
 .mbj-mode-copy { display:block; min-width:0; margin-top:auto; padding-top:10px; padding-right:18px; position:relative;z-index:1; }
-.mbj-mode-label { display:block; font-size:16px; font-weight:800; letter-spacing:-.015em; }
+.mbj-mode-label { display:block; font-size:clamp(12.5px, 3.7vw, 16px); font-weight:800; letter-spacing:-.015em; white-space:nowrap; }
 .mbj-mode-detail { display:block; margin-top:3px; font-size:11px; line-height:1.35; color:var(--mbj-muted, #6b7280); max-width:22ch; }
 .mbj-mode-arrow { position:absolute; right:12px; top:13px; color:var(--mode-color); font-size:22px; line-height:1; z-index:1; }
 [data-app-header] img { box-shadow:0 6px 16px rgba(10,30,70,.18) !important; }
@@ -1315,3 +1323,10 @@ body {
 }
 .mbj-app-content > div:empty::before,
 .mbj-app-content > div:empty::after { display: none !important; }
+
+/* Small phones: Import shows as its camera only, so the app name fits. */
+@media (max-width: 420px){ .mbj-import-word{display:none} }
+
+/* Under 380px the logo's 41px is the difference between the app name
+   showing and reading "My Bowling Jour…". */
+@media (max-width: 380px){ .mbj-app-logo { display:none } }

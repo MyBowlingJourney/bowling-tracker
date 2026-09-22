@@ -213,7 +213,10 @@ export function Chip({label,selected,onToggle,color,dense,fill}){
   // whatever the labels say.
   const base=dense?{...S.chip(selected,color),padding:"5px 9px"}:S.chip(selected,color);
   const style=fill
-    ?{...base,flex:"1 1 0",minWidth:0,padding:dense?"5px 4px":"9px 6px",
+    ?{...base,flex:"1 1 0",minWidth:0,padding:dense?"6px 2px":"9px 2px",
+      // Shrinks with the screen so a tab name never needs its "…":
+      // at 360px six tabs have ~50px each, and 13px "Center" needs 57.
+      fontSize:dense?"clamp(10px, 2.85vw, 13px)":"clamp(10px, 2.9vw, 13px)",letterSpacing:"-0.01em",
       textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}
     :base;
   return <button style={style} onClick={onToggle}>{label}</button>;

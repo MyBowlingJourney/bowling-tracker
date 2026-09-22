@@ -1137,7 +1137,7 @@ teamCardsVisible&&bowlers.length>1&&(()=>{
                             would go, and a clipped label beside a whole
                             number reads better than a stray chip. */}
                         <div style={{display:"flex",gap:"5px",marginBottom:"4px",
-                          flexWrap:"nowrap",alignItems:"center"}}>
+                          flexWrap:"wrap",alignItems:"center"}}>
                           {[
                             {v:`Strike ${b.rate}%`,c:b.reliable?C.strike:C.textMuted},
                             ...(b.leaveAvg!=null
@@ -1154,9 +1154,9 @@ teamCardsVisible&&bowlers.length>1&&(()=>{
                           ].map(t=>(
                             <span key={t.v} style={{...S.tag(t.c),
                               marginRight:0,marginBottom:0,
-                              fontSize:"11px",padding:"4px 8px",
-                              minWidth:0,flexShrink:1,
-                              overflow:"hidden",textOverflow:"ellipsis",
+                              fontSize:"11px",padding:"4px 6px",
+                              // Whole chips, never "Strike 5…": on a phone
+                              // too narrow for one row they drop to a second.
                               whiteSpace:"nowrap"}}>{t.v}</span>
                           ))}
                         </div>

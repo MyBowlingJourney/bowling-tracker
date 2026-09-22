@@ -261,7 +261,7 @@ export default function ArsenalList({
         padding: "12px 14px",
         marginBottom: "10px",
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
           {/* A ball, not a bullet.
               
               The app has no ball photographs, so a coloured disc stands in
@@ -276,7 +276,27 @@ export default function ArsenalList({
             color: "#FFFFFF", fontSize: "15px", fontWeight: 500,
           }}>{ballInitials(ball)}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: "15px", fontWeight: 500 }}>{ball}</div>
+            {/* Buttons ride on the name's line so the name and the stats
+                below it get the card's full width, instead of a narrow
+                column squeezed beside Details and x. */}
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <div style={{ flex: 1, minWidth: 0, fontSize: "clamp(13.5px, 4vw, 15px)", fontWeight: 500 }}>{ball}</div>
+              <button style={{ ...S.btn(), padding: "4px 10px", fontSize: "11px", width: "auto", flexShrink: 0 }}
+                onClick={() => setOpenBall(isOpen ? null : ball)}>
+                {isOpen ? "Done" : "Details"}
+              </button>
+              {confirmRemove === ball ? (
+                <>
+                  <button style={{ ...S.btn("warn"), padding: "4px 10px", fontSize: "11px", width: "auto" }}
+                    onClick={() => { removeBall(activeBowler, ball); setConfirmRemove(null); }}>Remove</button>
+                  <button style={{ ...S.btn(), padding: "4px 8px", fontSize: "11px" }}
+                    onClick={() => setConfirmRemove(null)}>Cancel</button>
+                </>
+              ) : (
+                <button style={{ background: "none", border: "none", color: C.textMuted, cursor: "pointer", fontSize: "16px", padding: "0 4px" }}
+                  onClick={() => setConfirmRemove(ball)} aria-label={`Remove ${ball}`}>×</button>
+              )}
+            </div>
             {/* What this ball DOES for you, above what it is made of.
                 
                 Average, games and carry are the reason to open the screen;
@@ -299,21 +319,6 @@ export default function ArsenalList({
               {layout || "No layout recorded"}
             </div>
           </div>
-          <button style={{ ...S.btn(), padding: "4px 10px", fontSize: "11px" }}
-            onClick={() => setOpenBall(isOpen ? null : ball)}>
-            {isOpen ? "Done" : "Details"}
-          </button>
-          {confirmRemove === ball ? (
-            <>
-              <button style={{ ...S.btn("warn"), padding: "4px 10px", fontSize: "11px", width: "auto" }}
-                onClick={() => { removeBall(activeBowler, ball); setConfirmRemove(null); }}>Remove</button>
-              <button style={{ ...S.btn(), padding: "4px 8px", fontSize: "11px" }}
-                onClick={() => setConfirmRemove(null)}>Cancel</button>
-            </>
-          ) : (
-            <button style={{ background: "none", border: "none", color: C.textMuted, cursor: "pointer", fontSize: "16px", padding: "0 4px" }}
-              onClick={() => setConfirmRemove(ball)} aria-label={`Remove ${ball}`}>×</button>
-          )}
         </div>
 
         {isOpen && (

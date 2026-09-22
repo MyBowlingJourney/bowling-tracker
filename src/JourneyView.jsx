@@ -87,7 +87,7 @@ function Hero({ totals, earned, onOpenBadges }) {
             style={{ borderRadius: "14px", boxShadow: "0 6px 18px rgba(0,0,0,0.35)", flexShrink: 0 }}
             onError={e => { e.currentTarget.style.display = "none"; }} />
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ fontFamily: F.display, fontSize: "19px", fontWeight: 700, lineHeight: 1.15 }}>
+            <div style={{ fontFamily: F.display, fontSize: "clamp(16px, 4.8vw, 19px)", fontWeight: 700, lineHeight: 1.15, whiteSpace: "nowrap" }}>
               My Bowling Journey
             </div>
             <div style={{ fontSize: "12px", color: BRAND.soft, marginTop: "3px" }}>

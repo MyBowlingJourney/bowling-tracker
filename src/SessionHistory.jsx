@@ -113,11 +113,11 @@ export default function SessionHistory({ sessions, bowlers, leagues, teams = [],
                 aria-label={onOpenNight ? `Open results for ${formatDate(s.date)}` : undefined}
                 style={{ borderBottom: `1px solid ${C.border}`, paddingBottom: "10px", marginBottom: "10px",
                   cursor: onOpenNight ? "pointer" : "default" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
-                  <span style={{ fontSize: "12px", fontWeight: 600 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px", gap: "10px", alignItems: "baseline" }}>
+                  <span style={{ fontSize: "12px", fontWeight: 600, minWidth: 0 }}>
                     {!statsBowler && s.bowler ? `${s.bowler} · ` : ""}{practiceLeagueDisplayName(s.league).replace(" House Shot", "")}
                   </span>
-                  <span style={{ fontSize: "11px", color: C.textMuted }}>{formatDate(s.date)}{onOpenNight && <span aria-hidden="true" style={{ color: C.accent, marginLeft: "6px" }}>›</span>}</span>
+                  <span style={{ fontSize: "11px", color: C.textMuted, whiteSpace: "nowrap", flexShrink: 0 }}>{formatDate(s.date)}{onOpenNight && <span aria-hidden="true" style={{ color: C.accent, marginLeft: "6px" }}>›</span>}</span>
                 </div>
                 <div style={{ display: "flex", gap: "6px", marginBottom: "4px" }}>
                   {/* A session whose scores never arrived: the row still

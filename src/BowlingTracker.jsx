@@ -7797,8 +7797,8 @@ export default function BowlingTracker(){
                 buys back about 26px and is a one-line change. */}
             {(view==="home"||view==="log")
               ? <div style={{display:"flex",alignItems:"center",gap:"9px",minWidth:0}}>
-                  <img src={appLogo} alt="" aria-hidden="true" style={{width:"32px",height:"32px",borderRadius:"9px",objectFit:"cover",flexShrink:0,boxShadow:`0 5px 14px ${C.bg}30`}} />
-                  <div style={{...S.title,fontSize:"clamp(15px, 4.4vw, 19px)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:0}}>{APP_NAME}</div>
+                  <img src={appLogo} alt="" aria-hidden="true" className="mbj-app-logo" style={{width:"32px",height:"32px",borderRadius:"9px",objectFit:"cover",flexShrink:0,boxShadow:`0 5px 14px ${C.bg}30`}} />
+                  <div style={{...S.title,fontSize:"clamp(13px, 3.9vw, 19px)",letterSpacing:"-0.02em",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:0}}>{APP_NAME}</div>
                 </div>
               : <div style={S.title}>{navTabs.find(t=>t.id===view)?.label
                   ||(view==="settings"?"Settings":view==="profile"?"Profile"
@@ -7860,7 +7860,7 @@ export default function BowlingTracker(){
                 display:"flex",alignItems:"center",gap:"4px",whiteSpace:"nowrap"}}
               aria-label="Import scorecard">
               <span style={{fontSize:"13px"}}>📷</span>
-              <span>Import</span>
+              <span className="mbj-import-word">Import</span>
             </button>}
             {/* Search, Profile and Settings, folded into one menu. Search
                 stays reachable in open bowling -- it is the way back for

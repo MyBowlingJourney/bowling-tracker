@@ -249,10 +249,13 @@ export default function HomeView({
             padding:"12px 14px",borderRadius:"14px",cursor:"pointer",fontFamily:"inherit",textAlign:"left",
             background:C.card,border:`1px solid ${C.border}`,color:C.text,
           }}>
-          <span style={{fontSize:"13px",color:C.textMuted,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-            Latest · <b style={{color:C.text}}>{recent.kind === "league"
+          {/* Only the league name shortens: "Latest" and the date always show. */}
+          <span style={{fontSize:"13px",color:C.textMuted,minWidth:0,display:"flex",gap:"4px",whiteSpace:"nowrap"}}>
+            <span style={{flexShrink:0}}>Latest ·</span>
+            <b style={{color:C.text,minWidth:0,overflow:"hidden",textOverflow:"ellipsis"}}>{recent.kind === "league"
               ? String(recent.league).replace(" House Shot", "")
-              : recent.kind === "practice" ? "Practice" : recent.league}</b> · {formatDate(recent.date, { weekday: false })}
+              : recent.kind === "practice" ? "Practice" : recent.league}</b>
+            <span style={{flexShrink:0}}>· {formatDate(recent.date, { weekday: false })}</span>
           </span>
           <span style={{fontSize:"13px",fontWeight:800,color:C.accent,flexShrink:0}}>
             {recent.average != null ? `${recent.average} avg` : "Results"} ›
