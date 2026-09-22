@@ -1390,13 +1390,6 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
           idea what anyone else shot, so it can't tell a win from a
           middling weekend. Sits right before Save because it's the last
           thing you know. */}
-      {/* End Tournament & View Results: the same step as every mode's
-          Scoring. Nothing is saved here -- Save & Finish Tournament on
-          Results does that, after the bowler has seen the event. */}
-      <button style={{ ...S.btn("primary"), width: "100%", marginBottom: "12px" }}
-        onClick={() => { setTab("results"); try { window.scrollTo({ top: 0 }); } catch {} }}>
-        End Tournament &amp; View Results
-      </button>
       <div style={{ height: "24px" }} />
 
       </>)}

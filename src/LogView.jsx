@@ -612,8 +612,11 @@ export default function LogView({
   // Open bowling too, now: it ends like every mode, with End Open Bowling
   // & View Results then Save & Finish Open Bowling on this bar. It has no
   // shot form, so the bar carries only that one button there.
+  // Tournament: on Scoring and Match, for End Tournament & View Results
+  // (and Save Shot on Scoring). Set up has Start Scoring; Results has its
+  // own Save & Finish.
   const footerShown=!!(editingId||(activeBowler&&effectiveSessionLeague
-    &&(env!=="tournament"||(onTab("scoring")&&showShotContext))));
+    &&(env!=="tournament"||tournamentTab==="scoring"||tournamentTab==="match")));
 
   // In BAKER, the name follows the FRAME, not the session.
   //
@@ -1096,12 +1099,17 @@ export default function LogView({
                       are the recap; Side games ends at Save Winnings. */}
                   {onTab("results")&&(
                   <>
+                  {/* League figures, so not on a tournament's Results -- a
+                      tournament night is not a league night, and showing
+                      league averages there read as if it were. */}
+                  {env!=="tournament"&&(<>
                   <div style={S.divider}/>
                   <div style={S.label}>Running Averages</div>
                   <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
                     {leagueAs.map(({league,avg})=><div key={league} style={S.statBox}><div style={{...S.statNum,fontSize:"18px"}}>{avg}</div><div style={S.statLbl}>{league.replace(" House Shot","")}</div></div>)}
                     {cA&&<div style={{...S.statBox,border:`1px solid ${C.accent}44`}}><div style={{...S.statNum,fontSize:"18px",color:C.accent}}>{cA}</div><div style={S.statLbl}>Composite</div></div>}
                   </div>
+                  </>)}
                   {/* Share sits with the summary because that's the moment
                       someone wants to send it -- not buried in a menu. */}
                   <div style={{marginTop:"14px"}}>
@@ -3932,9 +3940,13 @@ export default function LogView({
                 A night is always seen before it is filed. Tournament has
                 the same two buttons inside its own screen. League's Set up
                 has Start Scoring instead, so nothing ends from there. */}
-            {!editingId&&env!=="tournament"&&!(env==="league"&&leagueTab==="setup")&&(()=>{
-              const name=env==="practice"?"Practice":env==="league"?"League":"Open Bowling";
-              const onResults=env==="practice"?practiceMode==="results"
+            {!editingId&&!(env==="league"&&leagueTab==="setup")
+              &&!(env==="tournament"&&tournamentTab!=="scoring"&&tournamentTab!=="match")&&(()=>{
+              const name=env==="practice"?"Practice":env==="league"?"League":env==="tournament"?"Tournament":"Open Bowling";
+              // Tournament's Save & Finish is on its Results tab, inside
+              // the tournament screen, so the bar only ever moves it on.
+              const onResults=env==="tournament"?false
+                :env==="practice"?practiceMode==="results"
                 :env==="league"?leagueTab==="results":casualTab==="results";
               const toResults=()=>{
                 if(env==="casual"){
@@ -3948,6 +3960,7 @@ export default function LogView({
                   setCasualTab("results");
                 }
                 else if(env==="practice")setPracticeMode("results");
+                else if(env==="tournament")setTournamentTab("results");
                 else setLeagueTabChoice("results");
                 try{window.scrollTo({top:0});}catch{}
               };
