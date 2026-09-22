@@ -1,4 +1,4 @@
-import { isPracticeLeagueName, isCasualLeagueName, isTournamentLeagueName } from "../constants.js";
+import { isPracticeLeagueName, isCasualLeagueName, isTournamentLeagueName, isImportedLeagueName } from "../constants.js";
 
 // What the home screen says, before anyone taps anything.
 //
@@ -175,4 +175,51 @@ export function recentTournament(tournaments, { bowler, today, withinDays } = {}
     placement: clean(best.t.placement),
     winnings: Number(best.t.winnings) || 0,
   };
+}
+
+// The bowler's most recent night, for the slim row under Home's mode cards.
+//
+// League, practice and tournament nights only. Open bowling is skipped:
+// a past open bowling night has no results screen to open yet, and a row
+// that goes nowhere is worse than no row.
+//
+// Tournaments come from their own records rather than session rows, since
+// opening a tournament's results needs the tournament itself. A tournament
+// day and a league night on the same date: the tournament wins, as the
+// bigger event of the day.
+//
+// Returns null when there is nothing to show.
+export function latestNight(sessions, tournaments, { bowler } = {}) {
+  const who = clean(bowler);
+  const avg = list => list.length
+    ? Math.round((list.reduce((a, b) => a + b, 0) / list.length) * 10) / 10
+    : null;
+
+  const candidates = [];
+  for (const s of rows(sessions)) {
+    if (who && clean(s.bowler) !== who) continue;
+    const league = clean(s.league);
+    const date = clean(s.date);
+    if (!league || !date) continue;
+    if (isCasualLeagueName(league) || isTournamentLeagueName(league)) continue;
+    if (isImportedLeagueName(league)) continue;
+    const kind = isPracticeLeagueName(league) ? "practice" : "league";
+    candidates.push({ kind, league, date, average: avg(scoresOf(s)), rank: 0 });
+  }
+  for (const t of rows(tournaments)) {
+    if (!clean(t.name) || (who && clean(t.bowler) !== who)) continue;
+    for (const d of Array.isArray(t.days) ? t.days : []) {
+      const date = clean(d && d.date);
+      if (!date) continue;
+      const games = (Array.isArray(d.games) ? d.games : [])
+        .map(g => Number(g && g.score !== undefined ? g.score : g))
+        .filter(v => Number.isFinite(v) && v > 0);
+      candidates.push({ kind: "tournament", league: clean(t.name), date,
+        average: avg(games), tournament: t, rank: 1 });
+    }
+  }
+  if (!candidates.length) return null;
+  candidates.sort((a, b) => (a.date !== b.date ? (a.date < b.date ? 1 : -1) : b.rank - a.rank));
+  const { rank, ...night } = candidates[0];
+  return night;
 }

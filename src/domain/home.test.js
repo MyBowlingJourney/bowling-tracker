@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sessionIsLive, seasonFigures, journeyRecap } from './home.js';
+import { sessionIsLive, seasonFigures, journeyRecap, latestNight } from './home.js';
 
 const night = (date, scores) => ({ bowler: 'R', league: 'Tuesday', date, scores });
 
@@ -138,5 +138,47 @@ describe('what counts toward a season figure', () => {
     const f = seasonFigures([night('Practice\u00b7u1', 'd1', [120, 130, 140])], { bowler: 'R' });
     expect(f.average).toBe(null);
     expect(f.games).toBe(0);
+  });
+});
+
+describe('latestNight', () => {
+  const s = (league, date, scores = [200, 210, 190], bowler = 'R') => ({ bowler, league, date, scores });
+  const t = (name, dates, bowler = 'R') => ({ name, bowler,
+    days: dates.map(date => ({ date, games: [{ score: 220 }, { score: 180 }] })) });
+
+  it('is null with nothing logged', () => {
+    expect(latestNight([], [], { bowler: 'R' })).toBe(null);
+    expect(latestNight(null, undefined, {})).toBe(null);
+  });
+
+  it('picks the newest league night, with its average', () => {
+    const n = latestNight([s('Tuesday', '2026-09-08'), s('Thursday', '2026-09-17', [210, 200, 214])], [], { bowler: 'R' });
+    expect(n).toMatchObject({ kind: 'league', league: 'Thursday', date: '2026-09-17', average: 208 });
+  });
+
+  it('marks practice as practice', () => {
+    expect(latestNight([s('Practice', '2026-09-20')], [], { bowler: 'R' }).kind).toBe('practice');
+  });
+
+  it('skips open bowling, even when it is newest', () => {
+    const n = latestNight([s('Tuesday', '2026-09-15'), s('Just Bowling', '2026-09-20')], [], { bowler: 'R' });
+    expect(n.league).toBe('Tuesday');
+  });
+
+  it('includes tournament days and hands back the tournament', () => {
+    const ev = t('Fall Classic', ['2026-09-19', '2026-09-20']);
+    const n = latestNight([s('Tuesday', '2026-09-15')], [ev], { bowler: 'R' });
+    expect(n).toMatchObject({ kind: 'tournament', league: 'Fall Classic', date: '2026-09-20', average: 200 });
+    expect(n.tournament).toBe(ev);
+  });
+
+  it('prefers the tournament on a shared date', () => {
+    const n = latestNight([s('Tuesday', '2026-09-20')], [t('Fall Classic', ['2026-09-20'])], { bowler: 'R' });
+    expect(n.kind).toBe('tournament');
+  });
+
+  it("ignores other bowlers' nights", () => {
+    const n = latestNight([s('Tuesday', '2026-09-20', [200], 'Guest'), s('Tuesday', '2026-09-10')], [], { bowler: 'R' });
+    expect(n.date).toBe('2026-09-10');
   });
 });

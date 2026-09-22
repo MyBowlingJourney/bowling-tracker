@@ -41,6 +41,11 @@ function shade(hex, amount) {
 
 export default function BowlingGenie({
   asked = [], today = "", onAsk, disabled = false,
+  // In the app header rather than floating over the screen. The lamp
+  // floated bottom-right on every screen, which put it over whatever card
+  // sat there -- on Home, the Open bowling card. In the header it covers
+  // nothing, and the panel drops down from the top instead.
+  inHeader = false,
 }) {
   const lampMid = C.accent;
   const lampDark = shade(C.accent, -0.22);
@@ -167,13 +172,22 @@ export default function BowlingGenie({
         onClick={() => setOpen(v => !v)}
         aria-label={`Ask ${GENIE_NAME}, the bowling genie`}
         style={{
-          position: "fixed",
-          right: "16px",
-          bottom: "calc(84px + env(safe-area-inset-bottom, 0px))",
-          width: "52px", height: "52px", borderRadius: "26px",
-          backgroundColor: C.card,
-          border: `1px solid ${C.accent}55`,
-          boxShadow: "0 4px 14px rgba(0,0,0,0.28)",
+          ...(inHeader ? {
+            position: "relative",
+            width: "34px", height: "34px", borderRadius: "10px",
+            backgroundColor: C.surface,
+            border: `1px solid ${C.accent}88`,
+            boxShadow: `0 4px 12px ${C.bg}22`,
+            padding: 0, flexShrink: 0,
+          } : {
+            position: "fixed",
+            right: "16px",
+            bottom: "calc(84px + env(safe-area-inset-bottom, 0px))",
+            width: "52px", height: "52px", borderRadius: "26px",
+            backgroundColor: C.card,
+            border: `1px solid ${C.accent}55`,
+            boxShadow: "0 4px 14px rgba(0,0,0,0.28)",
+          }),
           lineHeight: 1, cursor: "pointer",
           display: "flex", alignItems: "center", justifyContent: "center",
           zIndex: 200, WebkitTapHighlightColor: "transparent",
@@ -196,7 +210,7 @@ export default function BowlingGenie({
             The handle is a CLOSED loop, joined to the body at the
             shoulder and again at the waist. A detached curve beside a
             tapered body reads as a person with an arm out. */}
-        <svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true">
+        <svg viewBox="0 0 32 32" width={inHeader ? 20 : 30} height={inHeader ? 20 : 30} aria-hidden="true">
           <ellipse cx="16.6" cy="27" rx="4.2" ry="1.1" fill={C.accent} opacity="0.75"/>
           <path d="M15.1 24.4h3l.6 2.2h-4.2z" fill={C.accent} opacity="0.75"/>
           <path d="M23.4 16.4c2.9.6 4.8 2.2 4.8 4.1 0 2-2.1 3.5-5 3.8l-.5-1.8c1.9-.2 3.3-1 3.3-2 0-.9-1.1-1.7-2.9-2.1z" fill={C.accent}/>
@@ -209,7 +223,7 @@ export default function BowlingGenie({
         {/* How many are left, without opening it. */}
         {left > 0 && left < DAILY_QUESTIONS && (
           <span style={{
-            position: "absolute", top: "-2px", right: "-2px",
+            position: "absolute", top: inHeader ? "-7px" : "-2px", right: inHeader ? "-7px" : "-2px",
             minWidth: "18px", height: "18px", borderRadius: "9px",
             backgroundColor: C.accent, color: C.bg,
             fontSize: "10px", fontWeight: 700, lineHeight: "18px",
@@ -249,7 +263,13 @@ export default function BowlingGenie({
       {open && (
         <div style={{
           position: "fixed", left: "12px", right: "12px",
-          bottom: "calc(144px + env(safe-area-inset-bottom, 0px))",
+          ...(inHeader ? {
+            top: "calc(70px + env(safe-area-inset-top, 0px))",
+            maxHeight: "calc(100dvh - 170px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))",
+            overflowY: "auto",
+          } : {
+            bottom: "calc(144px + env(safe-area-inset-bottom, 0px))",
+          }),
           backgroundColor: C.card, borderRadius: "14px",
           // Accent, not the neutral border every other card uses.
           //

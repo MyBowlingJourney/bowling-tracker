@@ -4,8 +4,10 @@ import { searchHelp, helpByArea, helpFor, HELP } from "./domain/help.js";
 
 // Searchable help, scoped to the mode being bowled. Entries used to carry
 // a "Take me there" button; see Entry below for why it came out.
-export default function HelpView({ onNavigate, onClose, onReplayTour, environment }) {
-  const [query, setQuery] = useState("");
+export default function HelpView({ onNavigate, onClose, onReplayTour, environment, initialQuery = "" }) {
+  // Seeded from the header menu's search box, so what was typed there
+  // is already searched when Help opens.
+  const [query, setQuery] = useState(initialQuery);
   // Scoped to the mode: a Just Bowling user's docs should describe their
   // app, not features their app doesn't have.
   const scoped = helpFor(environment);

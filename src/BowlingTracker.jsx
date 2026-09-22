@@ -26,6 +26,7 @@ const JourneyScreen = lazyScreen("Journey", () => import("./JourneyView.jsx"));
 const HomeScreen = lazyScreen("Home", () => import("./HomeView.jsx"));
 import { tourSteps, tourToOffer, markTourSeen, hasSeenTour, needsLeagueSetup, availableTours, FIRST_TOUR, TRACK_KEYS } from "./domain/tour.js";
 import HelpView from "./HelpView.jsx";
+import HeaderMenu from "./HeaderMenu.jsx";
 import Subscribe from "./Subscribe.jsx";
 import CasualLeaderboard from "./CasualLeaderboard.jsx";
 const BadgeCollection = lazyScreen("BadgeCollection", () => import("./BadgeCollection.jsx"));
@@ -503,6 +504,10 @@ export default function BowlingTracker(){
   // authoritative tally -- this resets if storage is cleared, which is
   // exactly why it cannot be the limit.
   const[genieAsked,setGenieAsked]=useState([]);
+  // What was typed into the header menu's search box, handed to Help.
+  const[helpQuery,setHelpQuery]=useState("");
+  // Cleared on leaving Help, so reaching Help another way starts blank.
+  useEffect(()=>{if(view!=="help")setHelpQuery("");},[view]);
   // The tournament currently being entered. Kept as one working record
   // rather than a list -- you're filling in one tournament at a time, and
   // saving commits it to the cloud.
@@ -7751,9 +7756,13 @@ export default function BowlingTracker(){
               
                 Import is genuinely hidden: there's no scorecard to
                 photograph on a casual night. */}
-            {<button onClick={()=>setView("help")}
-              style={{background:C.surface,border:`1px solid ${C.border}`,cursor:"pointer",fontSize:"16px",padding:"7px 8px",lineHeight:1,borderRadius:"10px",boxShadow:`0 4px 12px ${C.bg}22`}}
-              aria-label="Search help">🔍</button>}
+            {/* Brooklyn, in the header on every screen. It floated over
+                the bottom-right of the screen, covering whatever card
+                sat there. Same conditions as before: not until there is
+                something to ask about, and never in open bowling. */}
+            {onboarded&&hasAnythingLogged&&!casualMode&&(
+              <BowlingGenie inHeader asked={genieAsked} today={localDateString()} onAsk={askGenie}/>
+            )}
 
             {/* Import lives here rather than on the Log tab. On Log it was
                 gated on the current environment AND on a league already
@@ -7766,16 +7775,21 @@ export default function BowlingTracker(){
                 photo" -- several bowlers looked for import on the Bowl
                 tab and gave up. There's room in the header for the words. */}
             {!casualMode&&<button onClick={()=>setView("import")}
-              style={{background:"none",border:`1px solid ${C.border}`,cursor:"pointer",
-                fontSize:"12px",fontWeight:600,color:C.text,
-                padding:"5px 9px",borderRadius:"7px",lineHeight:1,
+              style={{background:C.surface,border:`1px solid ${C.border}`,cursor:"pointer",
+                fontSize:"12px",fontWeight:700,color:C.text,height:"34px",
+                padding:"0 9px",borderRadius:"10px",lineHeight:1,boxShadow:`0 4px 12px ${C.bg}22`,
                 display:"flex",alignItems:"center",gap:"4px",whiteSpace:"nowrap"}}
               aria-label="Import scorecard">
               <span style={{fontSize:"13px"}}>📷</span>
               <span>Import</span>
             </button>}
-            <button onClick={()=>setView("profile")} style={{background:C.surface,border:`1px solid ${C.border}`,cursor:"pointer",fontSize:"16px",padding:"7px 8px",lineHeight:1,borderRadius:"10px",boxShadow:`0 4px 12px ${C.bg}22`}} aria-label="Profile">👤</button>
-            <button onClick={()=>setView("settings")} style={{background:C.surface,border:`1px solid ${C.border}`,cursor:"pointer",fontSize:"16px",padding:"7px 8px",lineHeight:1,borderRadius:"10px",boxShadow:`0 4px 12px ${C.bg}22`}} aria-label="Settings">⚙️</button>
+            {/* Search, Profile and Settings, folded into one menu. Search
+                stays reachable in open bowling -- it is the way back for
+                someone who picked that mode by accident. */}
+            <HeaderMenu
+              onSearch={q=>{setHelpQuery(q);setView("help");}}
+              onOpenProfile={()=>setView("profile")}
+              onOpenSettings={()=>setView("settings")}/>
           </div>
         </div>
       </div>
@@ -8335,6 +8349,8 @@ export default function BowlingTracker(){
 
         {view==="help"&&(
           <HelpView
+            key={helpQuery}
+            initialQuery={helpQuery}
             environment={preferences.environment}
             onNavigate={setView}
             onClose={()=>setView("log")}
@@ -8394,6 +8410,9 @@ export default function BowlingTracker(){
               leagues={leagues}
               onOpenJourney={()=>setView("journey")}
               onOpenStats={()=>setView("data")}
+              // The "Latest" row: opens that night's results, the same way
+              // an imported scorecard opens its night.
+              onOpenNight={n=>openImportedNight({kind:n.kind,league:n.league,date:n.date,tournament:n.tournament})}
 
               badgeCount={earnedBadgeCount}
 
@@ -8656,9 +8675,7 @@ export default function BowlingTracker(){
           app back to a scoresheet and badges; a coaching genie is
           exactly the kind of thing that mode exists to get out of the
           way. */}
-      {onboarded&&hasAnythingLogged&&!casualMode&&(
-        <BowlingGenie asked={genieAsked} today={localDateString()} onAsk={askGenie}/>
-      )}
+      {/* Brooklyn now lives in the header -- see the header buttons. */}
 
 
       {/* Bottom nav. At the bottom because the top of a phone is out of

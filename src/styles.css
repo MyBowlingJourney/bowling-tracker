@@ -114,8 +114,8 @@ img { max-width: 100%; }
 }
 .mbj-mode-card {
   position:relative;
-  min-height:142px;
-  padding:12px;
+  min-height:0;
+  padding:11px;
   border:1px solid color-mix(in srgb, var(--mode-color) 28%, var(--mbj-border, rgba(0,0,0,.10)));
   border-radius:22px;
   background:
@@ -147,7 +147,7 @@ img { max-width: 100%; }
 }
 .mbj-mode-card:active { transform:translateY(0); }
 .mbj-mode-icon {
-  width:64px;height:64px;border-radius:16px;
+  width:46px;height:46px;border-radius:12px;
   display:flex;align-items:center;justify-content:center;
   background:linear-gradient(145deg, color-mix(in srgb,var(--mode-color) 92%, white 8%), color-mix(in srgb,var(--mode-color) 72%,#0b1630));
   color:#fff;
@@ -155,7 +155,7 @@ img { max-width: 100%; }
   position:relative;z-index:1;
 }
 .mbj-mode-icon svg { display:block; }
-.mbj-mode-icon img { display:block; width:64px !important; height:64px !important; max-width:64px !important; max-height:64px !important; object-fit:contain !important; flex:0 0 64px; }
+.mbj-mode-icon img { display:block; width:46px !important; height:46px !important; max-width:46px !important; max-height:46px !important; object-fit:contain !important; flex:0 0 46px; }
 .mbj-mode-copy { display:block; min-width:0; margin-top:auto; padding-top:10px; padding-right:18px; position:relative;z-index:1; }
 .mbj-mode-label { display:block; font-size:16px; font-weight:800; letter-spacing:-.015em; }
 .mbj-mode-detail { display:block; margin-top:3px; font-size:11px; line-height:1.35; color:var(--mbj-muted, #6b7280); max-width:22ch; }
@@ -554,7 +554,8 @@ body {
   --mbj-page-pad: clamp(12px, 3vw, 20px);
   padding-left: var(--mbj-page-pad) !important;
   padding-right: var(--mbj-page-pad) !important;
-  padding-bottom: max(18px, env(safe-area-inset-bottom)) !important;
+  /* No padding-bottom here: S.content reserves room for the fixed
+     bottom nav, and overriding it hid the last card on every screen. */
 }
 
 /* Give each major destination a recognizable page surface. */
@@ -1258,3 +1259,38 @@ body {
   color: var(--mbj-text) !important;
   border-color: var(--mbj-border) !important;
 }
+
+/* Home fits between the header and the bottom nav with no scrolling.
+   HomeView sizes itself to that space, so the content wrapper must not
+   add the nav-clearing bottom padding every other screen needs -- that
+   padding alone would make Home scroll. The mode grid takes whatever
+   height is left, up to two 120px rows, and shrinks on a short phone. */
+.mbj-app-content.mbj-view-home {
+  padding-bottom: 0 !important;
+}
+.mbj-home-fit .mbj-mode-grid {
+  flex: 1 1 0;
+  min-height: 122px;
+  max-height: 250px;
+  grid-template-rows: repeat(2, minmax(56px, 1fr));
+}
+.mbj-home-fit .mbj-mode-copy { padding-top: 6px; }
+/* One line of description on Home; a wrapped second line had no room. */
+.mbj-home-fit .mbj-mode-detail {
+  max-width: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* Short phones: HomeView adds --compact when a card row would be under
+   100px tall. The icon moves beside the name instead of above it, and the
+   arrow centres, so the cards stay readable instead of shrinking away.
+   (ModeIcon's span carries .mbj-mode-icon too, inside the card's own; the
+   child combinator keeps the positioning on the outer one only.) */
+.mbj-mode-grid--compact .mbj-mode-card > .mbj-mode-icon {
+  position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+  width: 38px; height: 38px;
+}
+.mbj-mode-grid--compact .mbj-mode-icon .mbj-mode-icon,
+.mbj-mode-grid--compact .mbj-mode-icon img {
+  width: 38px !important; height: 38px !important; max-width: 38px !important; max-height: 38px !important; flex-basis: 38px;
+}
+.mbj-mode-grid--compact .mbj-mode-copy { margin: auto 0; padding: 0 18px 0 50px; }
+.mbj-mode-grid--compact .mbj-mode-arrow { top: 50%; transform: translateY(-50%); }
