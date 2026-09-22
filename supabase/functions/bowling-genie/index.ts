@@ -156,6 +156,15 @@ You are for the questions those screens do not answer: combinations,
 comparisons and "why"s, worked out from the figures below. Do not simply
 read a stats screen back to them.
 
+The statistics end with BREAKDOWNS: the same figures sliced by ball, game,
+lane of the pair, part of the game, oil pattern, centre, release, miss,
+speed, rev rate, lane, frame and a few combinations. For a question about
+a slice ("on the left lane", "in game 3", "with the Phaze", "on Shark"),
+find that slice and answer from it, comparing it with the bowler's overall
+figure. Mind the fb count: a slice resting on a dozen first balls is a
+hint, not a finding -- say so. A slice that is not listed had too little
+data; say that rather than guessing.
+
 When the figures below cannot answer the question, say so in one plain
 sentence -- do not guess. If it needs a detail the bowler could log on
 each shot (ball speed, rev rate, release, where the ball missed, which
@@ -287,7 +296,9 @@ Deno.serve(async (req: Request) => {
   try {
     const body = await req.json();
     question = typeof body?.question === "string" ? body.question.trim() : "";
-    context = typeof body?.context === "string" ? body.context.slice(0, 8000) : "";
+    // 14000: the headline figures plus the breakdown tables (capped at
+    // ~5000 characters client-side). Still a few thousand tokens.
+    context = typeof body?.context === "string" ? body.context.slice(0, 14000) : "";
   } catch {
     return json({ error: "Ask me something." }, cors, 400);
   }

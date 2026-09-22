@@ -186,3 +186,14 @@ describe('leave causes reach Brooklyn', () => {
     expect(buildGenieContext({})).not.toContain('leaveCauses');
   });
 });
+
+describe('breakdowns reach Brooklyn', () => {
+  it('appends the sliced tables after the headline figures', () => {
+    const ctx = buildGenieContext({ strikePct: '58%', breakdowns: ['Breakdowns of logged shots. Key: ...', 'By ball: Phaze 120fb X58%'] });
+    expect(ctx).toContain('By ball: Phaze 120fb X58%');
+    expect(ctx.indexOf('Breakdowns')).toBeGreaterThan(0);
+  });
+  it('adds nothing without them', () => {
+    expect(buildGenieContext({ breakdowns: [] })).not.toContain('Breakdowns');
+  });
+});

@@ -99,6 +99,7 @@ import { decodeShare } from "./domain/badgeShare.js";
 import { allCompetitiveBadges } from "./domain/badgeContext.js";
 import { CASUAL_BADGES, badgeHistory as casualBadgeHistory } from "./domain/casualBadges.js";
 import { badgesEarnedOn } from "./domain/nightBadges.js";
+import { genieBreakdowns } from "./domain/genieBreakdowns.js";
 import { buildGenieContext } from "./domain/genie.js";
 import { COMPETITIVE_BADGES, whereEarnable } from "./domain/competitiveBadges.js";
 import { casualNightsFrom, setGameEquipment as setGameEquipmentIn, gameEquipmentFromRows, getGameEquipment, defaultPracticeBall, setManualScore as setManualScoreIn, getManualScore, resolveGameScore, normalizeManualScores, manualScoreToRow, manualScoresFromRows, isManualNight } from "./domain/manualScores.js";
@@ -5978,6 +5979,36 @@ export default function BowlingTracker(){
           }
         }
         return Object.keys(out).length?out:null;
+      })(),
+      // The shots, sliced -- by ball, game, lane of the pair, oil
+      // pattern, centre and the rest. What lets her answer a question
+      // the Stats screens don't. See domain/genieBreakdowns.js.
+      breakdowns:(()=>{
+        try{
+          const patternByNight=new Map();
+          for(const p of (lanePatterns||[]))if(p?.patternName)patternByNight.set(`${p.league}|${p.date}`,p.patternName);
+          const tournamentPattern=(lg,date)=>{
+            for(const t of (tournaments||[])){
+              if(tournamentLeagueCloudName(t?.name,user?.id)!==lg)continue;
+              const d=(Array.isArray(t.days)?t.days:[]).find(x=>x&&x.date===date);
+              if(d?.oilPattern)return String(d.oilPattern).trim();
+            }
+            return null;
+          };
+          const centerName=lg=>{
+            const id=leagueCenters?.[lg];
+            return id?((centers||[]).find(c=>c&&c.id===id)?.name||null):null;
+          };
+          return genieBreakdowns(myShots,{
+            isSplit,
+            patternFor:(lg,date)=>patternByNight.get(`${lg}|${date}`)
+              ||(typeof leaguePatterns?.[lg]==="string"&&leaguePatterns[lg].trim())
+              ||tournamentPattern(lg,date)||null,
+            centerFor:centerName,
+            kindFor:lg=>isPracticeLeagueName(lg)?"practice":isTournamentLeagueName(lg)?"tournament"
+              :isCasualLeagueName(lg)?"open bowling":"league",
+          });
+        }catch{ return []; }
       })(),
       topBall,
       arsenal:(arsenals?.[activeBowler]||[]).join(", ")||null,

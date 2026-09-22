@@ -235,6 +235,13 @@ export function buildGenieContext(summary) {
   // leave the ten?" was answered without it.
   for (const line of leaveCauseLines(s.leaveCauses)) lines.push(line);
 
+  // The sliced tables, last: the headline figures above are the summary,
+  // these are where a specific question gets its specific answer.
+  if (Array.isArray(s.breakdowns) && s.breakdowns.length) {
+    lines.push("");
+    for (const line of s.breakdowns) if (typeof line === "string" && line) lines.push(line);
+  }
+
   return lines.join("\n");
 }
 
