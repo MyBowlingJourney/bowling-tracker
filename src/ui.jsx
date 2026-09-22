@@ -44,6 +44,7 @@ export function applyTheme(id) {
   // short screen keeps the previous theme's colour.
   if (typeof document !== "undefined" && document.body) {
     document.body.style.backgroundColor = C.bg;
+    document.documentElement.setAttribute("data-mbj-theme", next);
     // styles.css reads this for :focus-visible rings, which inline
     // styles can't express.
     document.documentElement.style.setProperty("--ba-accent", C.accent);
@@ -59,7 +60,7 @@ export function applyTheme(id) {
 
 export const S = {};
 function buildStyles() { return {
-  app:{minHeight:"100vh",backgroundColor:C.bg,color:C.text,fontFamily:F.body,fontSize:"15px",lineHeight:1.55},
+  app:{minHeight:"100vh",backgroundColor:C.bg,backgroundImage:`radial-gradient(circle at 50% -10%, ${C.accent}18 0%, transparent 42%), linear-gradient(180deg, ${C.bg} 0%, ${C.bg} 52%, ${C.surface} 100%)`,color:C.text,fontFamily:F.body,fontSize:"15px",lineHeight:1.55,letterSpacing:"-0.005em"},
   // The top padding carries the status-bar inset, and that is not
   // cosmetic -- it is what makes the header's buttons TAPPABLE.
   //
@@ -82,40 +83,40 @@ function buildStyles() { return {
   // The background still extends under the status bar, which is the
   // point of edge-to-edge and looks deliberate. Only the CONTENT moves
   // down out of it.
-  header:{backgroundColor:C.bg,padding:"calc(16px + env(safe-area-inset-top, 0px)) 18px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100,borderBottom:`1px solid ${C.border}`},
+  header:{backgroundColor:C.bg+"E8",backdropFilter:"blur(22px)",WebkitBackdropFilter:"blur(22px)",padding:"calc(15px + env(safe-area-inset-top, 0px)) 18px 13px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100,borderBottom:`1px solid ${C.border}`,boxShadow:`0 10px 34px ${C.bg}66, inset 0 -1px 0 ${C.text}06`},
   // The wordmark. Weight and width carry it, not uppercase tracking --
   // ALL-CAPS-with-letterspacing was the single loudest "generated
   // dashboard" signal in the old header.
-  title:{fontSize:"18px",fontWeight:600,fontFamily:F.display,letterSpacing:"-0.015em",color:C.text},
+  title:{fontSize:"20px",fontWeight:700,fontFamily:F.display,letterSpacing:"-0.035em",color:C.text},
   // Five tabs, not four. Tighter gap and horizontal padding, plus
   // flexShrink:0 on the buttons so labels never wrap mid-word if a
   // narrow phone still runs short.
-  nav:{display:"flex",gap:"2px",flexShrink:0},
+  nav:{display:"flex",gap:"3px",flexShrink:0},
   // Active tab is an underline in the accent, not a filled pill. A
   // filled pill competes with every button on the page for "the thing
   // to press"; an underline just says where you are.
-  navBtn:(a)=>({padding:"8px 10px 9px",whiteSpace:"nowrap",flexShrink:0,border:"none",borderBottom:`2px solid ${a?C.accent:"transparent"}`,borderRadius:0,cursor:"pointer",fontSize:"13px",fontWeight:a?600:500,backgroundColor:"transparent",color:a?C.text:C.textMuted,fontFamily:F.body}),
+  navBtn:(a)=>({padding:"8px 11px 9px",whiteSpace:"nowrap",flexShrink:0,border:`1px solid ${a?C.accent+"44":"transparent"}`,borderBottom:`2px solid ${a?C.accent:"transparent"}`,borderRadius:"10px",cursor:"pointer",fontSize:"13px",fontWeight:a?700:500,backgroundColor:a?C.accent+"14":"transparent",color:a?C.text:C.textMuted,fontFamily:F.body}),
   // Bottom padding clears the fixed nav (and the iOS home indicator via
   // safe-area). Without it the last card on every screen sits underneath
   // the tab bar and can't be reached.
-  content:{padding:"18px",paddingBottom:"calc(88px + env(safe-area-inset-bottom, 0px))",maxWidth:"480px",margin:"0 auto"},
+  content:{padding:"22px 18px",paddingBottom:"calc(102px + env(safe-area-inset-bottom, 0px))",maxWidth:"520px",margin:"0 auto"},
   // No hairline border. On a dark ground the card tone already separates
   // it; a border on every card is what made every screen read at the same
   // volume, because nothing was allowed to be quieter than anything else.
-  card:{backgroundColor:C.card,borderRadius:"16px",padding:"18px",marginBottom:"14px",border:`1px solid ${C.border}`},
+  card:{backgroundColor:C.card,borderRadius:"22px",padding:"20px",marginBottom:"18px",border:`1px solid ${C.accent}2B`,boxShadow:`0 16px 38px ${C.bg}45, 0 0 0 1px ${C.text}06, inset 0 1px 0 ${C.text}18`,backgroundImage:`linear-gradient(180deg, ${C.accent}12 0%, transparent 34%), linear-gradient(145deg, ${C.text}08, transparent 52%)`},
   // Section headings. Sentence case, normal tracking, readable size.
   // This one definition was 172 all-caps tracked-out eyebrows across the
   // app -- the visual language of a spreadsheet column header, and the
   // thing most responsible for it feeling like accounting software.
-  label:{fontSize:"12px",fontWeight:500,letterSpacing:"0.01em",textTransform:"none",color:C.textMuted,marginBottom:"10px"},
+  label:{fontSize:"11px",fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",color:C.accent,marginBottom:"11px"},
   chips:{display:"flex",flexWrap:"wrap",gap:"8px",marginBottom:"14px"},
-  chip:(sel,col)=>({padding:"9px 15px",borderRadius:"20px",border:`1px solid ${sel?(col||C.accent):C.border}`,backgroundColor:sel?(col?col+"22":C.accentDim):C.surface,color:sel?(col||C.accent):C.textMuted,cursor:"pointer",fontSize:"13px",fontWeight:sel?600:500,fontFamily:F.body,WebkitTapHighlightColor:"transparent"}),
+  chip:(sel,col)=>({padding:"9px 15px",borderRadius:"999px",border:`1px solid ${sel?(col||C.accent)+"88":C.border}`,background:sel?`linear-gradient(180deg, ${col?col+"2A":C.accentDim}, ${col?col+"18":C.accentDim})`:C.surface,color:sel?(col||C.accent):C.textMuted,cursor:"pointer",fontSize:"13px",fontWeight:sel?700:600,fontFamily:F.body,WebkitTapHighlightColor:"transparent",transition:"transform 120ms ease, background-color 120ms ease",boxShadow:sel?`0 6px 16px ${col||C.accent}18, inset 0 1px 0 ${C.text}10`:`inset 0 1px 0 ${C.text}08`}),
   row:{display:"flex",gap:"8px",marginBottom:"8px"},
-  input:{width:"100%",backgroundColor:C.surface,border:`1px solid ${C.border}`,borderRadius:"12px",padding:"13px 14px",color:C.text,fontSize:"15px",fontFamily:F.body,boxSizing:"border-box",outline:"none"},
-  sel:{flex:1,backgroundColor:C.surface,border:`1px solid ${C.border}`,borderRadius:"12px",padding:"13px 14px",color:C.text,fontSize:"15px",fontFamily:F.body,outline:"none",appearance:"none"},
-  btn:(v)=>({padding:"14px 20px",borderRadius:"14px",border:"none",cursor:"pointer",fontSize:"15px",fontWeight:500,fontFamily:F.body,WebkitTapHighlightColor:"transparent",...(v==="primary"?{backgroundColor:C.accent,color:C.onAccent,width:"100%"}:v==="sm"?{backgroundColor:C.surface,color:C.text,padding:"8px 14px",fontSize:"18px"}:v==="warn"?{backgroundColor:C.miss+"1A",color:C.miss,width:"100%"}:{backgroundColor:C.surface,color:C.text})}),
+  input:{width:"100%",backgroundColor:C.surface,border:`1px solid ${C.border}`,borderRadius:"14px",padding:"14px 15px",color:C.text,fontSize:"15px",fontFamily:F.body,boxSizing:"border-box",outline:"none",boxShadow:`0 5px 16px ${C.bg}18, inset 0 1px 0 ${C.text}08`},
+  sel:{flex:1,backgroundColor:C.surface,border:`1px solid ${C.border}`,borderRadius:"14px",padding:"14px 15px",color:C.text,fontSize:"15px",fontFamily:F.body,outline:"none",appearance:"none",boxShadow:`0 5px 16px ${C.bg}18, inset 0 1px 0 ${C.text}08`},
+  btn:(v)=>({padding:"14px 20px",borderRadius:"15px",border:`1px solid ${v==="primary"?C.accent+"AA":C.border}`,cursor:"pointer",fontSize:"15px",fontWeight:700,fontFamily:F.body,WebkitTapHighlightColor:"transparent",boxShadow:v==="primary"?`0 12px 30px ${C.accent}45, inset 0 1px 0 ${C.text}28`:`0 7px 18px ${C.bg}35, inset 0 1px 0 ${C.text}10`,...(v==="primary"?{backgroundColor:C.accent,backgroundImage:`linear-gradient(180deg, ${C.accent}, ${C.accent}D9)`,color:C.onAccent,width:"100%"}:v==="sm"?{backgroundColor:C.surface,color:C.text,padding:"8px 14px",fontSize:"18px"}:v==="warn"?{backgroundColor:C.miss+"1A",color:C.miss,width:"100%"}:{backgroundColor:C.surface,color:C.text})}),
   divider:{height:"1px",backgroundColor:C.border,margin:"16px 0",opacity:0.6},
-  shotCard:{backgroundColor:C.card,borderRadius:"12px",padding:"12px",marginBottom:"8px",display:"flex",gap:"12px",alignItems:"flex-start"},
+  shotCard:{backgroundColor:C.card,borderRadius:"14px",padding:"13px",marginBottom:"9px",display:"flex",gap:"12px",alignItems:"flex-start",border:`1px solid ${C.border}AA`},
   dot:(r)=>({width:"32px",height:"32px",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"12px",fontWeight:700,flexShrink:0,backgroundColor:r==="Strike"?C.strike+"22":r?.includes("10")?C.miss+"22":C.spare+"22",color:r==="Strike"?C.strike:r?.includes("10")?C.miss:C.spare}),
   tag:(c)=>({display:"inline-block",padding:"4px 10px",borderRadius:"999px",fontSize:"12px",fontWeight:500,backgroundColor:(c||C.accent)+"18",color:c||C.accent,marginRight:"4px",marginBottom:"4px"}),
   // Peer groups (Shots/Strike%/Spare%, Game 1/2/3) still use boxes -- those
@@ -123,11 +124,11 @@ function buildStyles() { return {
   // surface panels while every redesigned card sits flat on the card
   // background, so they read as a different component. Same tone as the
   // cards around them, separated by a hairline instead of a fill.
-  statBox:{backgroundColor:"transparent",borderRadius:"12px",padding:"10px 8px",textAlign:"center",flex:1,border:`1px solid ${C.border}`},
+  statBox:{backgroundColor:C.surface,borderRadius:"18px",padding:"15px 9px",textAlign:"center",flex:1,border:`1px solid ${C.accent}22`,boxShadow:`0 10px 22px ${C.bg}32, inset 0 1px 0 ${C.text}10`},
   // Numbers are the point. Condensed, big, in the text colour -- accent
   // is reserved for the one number on a screen that matters most, not
   // sprayed across every stat so that none of them stands out.
-  statNum:{fontSize:"28px",fontWeight:700,fontFamily:F.num,fontVariantNumeric:"tabular-nums",color:C.text,lineHeight:1,marginBottom:"5px",letterSpacing:"-0.01em"},
+  statNum:{fontSize:"32px",fontWeight:700,fontFamily:F.num,fontVariantNumeric:"tabular-nums",color:C.accent,lineHeight:1,marginBottom:"6px",letterSpacing:"-0.035em"},
   statLbl:{fontSize:"12px",color:C.textMuted,textTransform:"none",letterSpacing:"0"},
 }; }
 Object.assign(S, buildStyles());
@@ -139,6 +140,16 @@ setSelectChrome();
 // change (the first applyTheme can return early, so load must do it too).
 function setSelectChrome() {
   if (typeof document === "undefined") return;
+  const root = document.documentElement;
+  root.setAttribute("data-mbj-theme", activeThemeId);
+  root.style.setProperty("--mbj-bg", C.bg);
+  root.style.setProperty("--mbj-card", C.card);
+  root.style.setProperty("--mbj-surface", C.surface);
+  root.style.setProperty("--mbj-text", C.text);
+  root.style.setProperty("--mbj-muted", C.textMuted);
+  root.style.setProperty("--mbj-border", C.border);
+  root.style.setProperty("--mbj-accent", C.accent);
+  root.style.setProperty("--mbj-on-accent", C.onAccent);
   const a = encodeURIComponent(C.accent);
   document.documentElement.style.setProperty("--ba-select-chevron",
     `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 34'%3E%3Crect width='34' height='34' rx='9' fill='${a}' fill-opacity='0.13'/%3E%3Cpath d='M11 14l6 6 6-6' fill='none' stroke='${a}' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`);
@@ -160,47 +171,35 @@ function setSelectChrome() {
 // picker and a row on a settings list cannot drift apart.
 export function ActionRow({icon,label,detail,color,onClick,disabled,compact}){
   const tint=color||C.accent;
-  // Compact is for a screen that must fit without scrolling -- Home
-  // carries four of these plus two cards, and the full-size row is
-  // generous enough that four of them push the last one under the nav
-  // bar on a smaller phone.
-  const pad=compact?"10px 14px":"14px 16px";
-  const box=compact?34:38;
-  const gap=compact?"6px":"10px";
+  const pad=compact?"12px 14px":"15px 16px";
+  const box=compact?40:44;
+  const gap=compact?"9px":"11px";
   return (
     <button onClick={onClick} disabled={disabled}
       style={{
         width:"100%",display:"flex",alignItems:"center",gap:"12px",
-        // The tint is the row, not a border on it. A 10% wash of the
-        // icon's own colour ties the two together without a second
-        // colour to reconcile.
-        backgroundColor:tint+"14",
-        border:"none",borderRadius:"14px",
+        background:`linear-gradient(135deg, ${C.card}, ${C.surface})`,
+        border:`1px solid ${C.border}`,borderRadius:"18px",
         padding:pad,marginBottom:gap,
+        boxShadow:`0 10px 28px ${C.bg}38, inset 0 1px 0 ${C.text}12`,
         textAlign:"left",cursor:disabled?"default":"pointer",
-        opacity:disabled?0.5:1,
-        fontFamily:F.body,WebkitTapHighlightColor:"transparent",
+        opacity:disabled?0.5:1,fontFamily:F.body,
+        WebkitTapHighlightColor:"transparent",transition:"transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease",
       }}>
-      <span aria-hidden="true"
-        style={{
-          width:`${box}px`,height:`${box}px`,borderRadius:"11px",flexShrink:0,
-          backgroundColor:tint,color:C.onAccent,
-          display:"flex",alignItems:"center",justifyContent:"center",
-          fontSize:compact?"16px":"18px",
-        }}>{icon}</span>
+      <span aria-hidden="true" style={{
+        width:`${box}px`,height:`${box}px`,borderRadius:"13px",flexShrink:0,
+        background:`linear-gradient(145deg, ${tint}, ${tint}CC)`,color:C.onAccent,
+        display:"flex",alignItems:"center",justifyContent:"center",
+        fontSize:compact?"18px":"19px",
+        boxShadow:`0 7px 16px ${tint}35, inset 0 1px 0 ${C.text}22`,
+      }}>{icon}</span>
       <span style={{flex:1,minWidth:0}}>
-        <span style={{display:"block",fontSize:"15px",fontWeight:500,color:C.text}}>
+        <span style={{display:"block",fontSize:compact?"15px":"16px",fontWeight:700,color:C.text,letterSpacing:"-0.01em"}}>
           {label}
         </span>
-        {detail&&(
-          <span style={{display:"block",fontSize:"12px",color:C.textMuted,marginTop:"1px"}}>
-            {detail}
-          </span>
-        )}
+        {detail&&(<span style={{display:"block",fontSize:"12px",color:C.textMuted,marginTop:"2px",lineHeight:1.35}}>{detail}</span>)}
       </span>
-      <span aria-hidden="true" style={{color:C.textMuted,fontSize:"17px",flexShrink:0}}>
-        {"›"}
-      </span>
+      <span aria-hidden="true" style={{color:C.textMuted,fontSize:"22px",fontWeight:300,flexShrink:0,lineHeight:1}}>›</span>
     </button>
   );
 }

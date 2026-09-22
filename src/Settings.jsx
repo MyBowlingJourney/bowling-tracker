@@ -264,7 +264,7 @@ export default function Settings({
   const hidden = new Set(preferences.hiddenStatsCards || []);
 
   return (
-    <div>
+    <div className={`mbj-settings-screen ${mode === "history" ? "mbj-history-screen" : "mbj-settings-main"}`}>
       {/* Placed at the very top, not the bottom, of what can be a long
           scrolling page. A confirmation or error tied to a control near
           the top of a 30-card Settings screen was previously rendered
@@ -361,35 +361,43 @@ export default function Settings({
               The calendar answers "what did I bowl this month", across all
               of it. The colours ARE the filter. */}
           {historyTab === "calendar" && (
+            <div className="mbj-history-calendar">
             <CalendarView
               sessions={sessions || []}
               tournaments={tournaments || []}
               onDeleteNight={deleteNight ? n => deleteNight(statsBowler || activeBowler, n.league, n.date) : undefined}
               bowler={statsBowler || activeBowler}
               league="" />
+            </div>
           )}
           {historyTab === "journey" && (
-            <Suspense fallback={null}>
-              <JourneyScreen
-                sessions={sessions || []}
-                shots={shots || []}
-                tournaments={tournaments || []}
-                bowler={displayName || activeBowler}
-                onOpenBadges={onOpenBadges} />
-            </Suspense>
+            <div className="mbj-history-journey">
+              <Suspense fallback={null}>
+                <JourneyScreen
+                  sessions={sessions || []}
+                  shots={shots || []}
+                  tournaments={tournaments || []}
+                  bowler={displayName || activeBowler}
+                  onOpenBadges={onOpenBadges} />
+              </Suspense>
+            </div>
           )}
           {historyTab === "journal" && (
+            <div className="mbj-history-journal">
             <JournalView
               sessions={sessions || []}
               shots={shots || []}
               drills={drills || []}
               bowler={statsBowler || activeBowler} />
+            </div>
           )}
           {historyTab === "sessions" && (
+            <div className="mbj-history-sessions">
             <SessionHistory
               sessions={sessions || []} bowlers={bowlers || []} leagues={leagues || []} teams={teams || []} displayName={displayName}
               statsBowler={statsBowler} setStatsBowler={setStatsBowler}
               statsLeague={statsLeague} setStatsLeague={setStatsLeague} />
+            </div>
           )}
           {historyTab === "season" && (() => {
             const bowler = statsBowler || activeBowler;
@@ -410,7 +418,7 @@ export default function Settings({
               setTimeout(() => setShareStatus(""), 2000);
             }
             return (
-              <>
+              <div className="mbj-history-season">
                 {sum ? (
                   <div style={{ ...S.card, border: `1px solid ${C.accent}44` }}>
                     <div style={{ ...S.label, color: C.accent }}>
@@ -420,34 +428,34 @@ export default function Settings({
                       {sum.firstDate} to {sum.lastDate} · {sum.sessions} night{sum.sessions === 1 ? "" : "s"}, {sum.games} game{sum.games === 1 ? "" : "s"}
                     </div>
                     <div style={{ display: "flex", gap: "6px", marginBottom: "8px" }}>
-                      <div style={{ ...S.statBox, border: `1px solid ${C.accent}44` }}>
+                      <div className="mbj-history-stat" style={{ ...S.statBox, border: `1px solid ${C.accent}44` }}>
                         <div style={{ ...S.statNum, color: C.accent }}>{sum.average}</div>
                         <div style={S.statLbl}>Average</div>
                       </div>
-                      <div style={S.statBox}>
+                      <div className="mbj-history-stat" style={S.statBox}>
                         <div style={S.statNum}>{sum.highGame}</div>
                         <div style={S.statLbl}>High Game</div>
                       </div>
                       {sum.highSeries && (
-                        <div style={S.statBox}>
+                        <div className="mbj-history-stat" style={S.statBox}>
                           <div style={S.statNum}>{sum.highSeries}</div>
                           <div style={S.statLbl}>High Series</div>
                         </div>
                       )}
                     </div>
                     <div style={{ display: "flex", gap: "6px", marginBottom: "10px" }}>
-                      <div style={S.statBox}>
+                      <div className="mbj-history-stat" style={S.statBox}>
                         <div style={{ ...S.statNum, fontSize: "18px", color: C.strike }}>{sum.gamesOver200}</div>
                         <div style={S.statLbl}>200+ Games</div>
                       </div>
                       {sum.strikeRate !== null && (
-                        <div style={S.statBox}>
+                        <div className="mbj-history-stat" style={S.statBox}>
                           <div style={{ ...S.statNum, fontSize: "18px", color: C.strike }}>{sum.strikeRate}%</div>
                           <div style={S.statLbl}>Strikes</div>
                         </div>
                       )}
                       {(sum.won || sum.paid) ? (
-                        <div style={S.statBox}>
+                        <div className="mbj-history-stat" style={S.statBox}>
                           <div style={{ ...S.statNum, fontSize: "18px", color: sum.net >= 0 ? C.strike : C.miss }}>
                             {sum.net < 0 ? "−" : "+"}${Math.abs(sum.net).toFixed(0)}
                           </div>
@@ -464,8 +472,7 @@ export default function Settings({
                     <div style={{ fontSize: "12px", color: C.textMuted }}>No sessions yet for this bowler and league.</div>
                   </div>
                 )}
-
-              </>
+              </div>
             );
           })()}
         </>

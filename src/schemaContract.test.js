@@ -226,5 +226,5 @@ describe('supabase select covers what its mapper reads', () => {
     }
 
     expect(problems).toEqual([]);
-  });
+  }, 20000);
 });

@@ -68,7 +68,7 @@ function Stat({ value, label }) {
 
 function Hero({ totals, earned, onOpenBadges }) {
   return (
-    <div style={{
+    <div className="mbj-journey-hero" style={{
       ...S.card, padding: 0, overflow: "hidden", border: "none",
       background: `linear-gradient(155deg, ${BRAND.top} 0%, ${BRAND.mid} 42%, ${BRAND.deep} 100%)`,
       color: BRAND.ink, position: "relative",

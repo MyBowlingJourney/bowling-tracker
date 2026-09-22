@@ -44,12 +44,12 @@ export const THEMES = {
     label: "Classic",
     hint: "Slate and blue, the original look",
     colors: {
-      bg: "#0f1117", surface: "#1a1d27", card: "#22263a",
-      accent: "#4a9eff", accentDim: "#1e3a5f",
+      bg: "#061326", surface: "#0C1D34", card: "#122A47",
+      accent: "#2F8CFF", accentDim: "#103B68",
       onAccent: "#0B1626",
-      compare: "#f59e0b",
-      strike: "#22c55e", spare: "#f59e0b", miss: "#ef4444",
-      text: "#e8eaf0", textMuted: "#8892a4", border: "#2e3347",
+      compare: "#F3B84B",
+      strike: "#43C978", spare: "#F3B84B", miss: "#F05A5A",
+      text: "#F6FAFF", textMuted: "#9CB1C9", border: "#244867",
     },
   },
 
@@ -165,10 +165,10 @@ Object.assign(THEMES, {
       // and border is light enough to be an edge rather than a line --
       // the most common way a flat interface ends up looking like a
       // spreadsheet is a border that competes with its content.
-      bg: "#F7F8FA", surface: "#FFFFFF", card: "#FFFFFF",
+      bg: "#F4F7FB", surface: "#FFFFFF", card: "#FFFFFF",
       // A deeper, less saturated blue. #2457B0 is a link colour; this
       // reads as a considered brand choice at the same contrast.
-      accent: "#1B4FD8", accentDim: "#E8EFFE",
+      accent: "#1557D6", accentDim: "#E7EEFF",
       onAccent: "#FFFFFF",
       compare: "#A5620F",
       strike: "#1E7A44", spare: "#A5620F", miss: "#B8322C",

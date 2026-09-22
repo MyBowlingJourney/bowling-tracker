@@ -43,7 +43,7 @@ describe('themes', () => {
   });
 
   it('keeps the original palette available as Classic', () => {
-    expect(THEMES.classic.colors.accent).toBe('#4a9eff');
+    expect(THEMES.classic.colors.accent).toBe('#2F8CFF');
   });
 
   // Replaced an earlier "every theme is dark" assertion, which was my

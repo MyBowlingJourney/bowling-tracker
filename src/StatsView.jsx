@@ -1,6 +1,6 @@
 import { Fragment, useState } from "react";
 import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { C, S, F, Chip, CompareBadge, StatLead, StatRow, StatRows, ActionRow, LockedNote } from "./ui.jsx";
+import { C, S, F, Chip, CompareBadge, StatLead, StatRow, StatRows, ActionRow, LockedNote, currentThemeId } from "./ui.jsx";
 import { PRACTICE_SESSION_KEY, CASUAL_SESSION_KEY, formatDate, STRIKE_DESCRIPTIONS, RELEASES, BALL_CHANGE_REASONS, strikeDescriptionsForHand, storedStrikeDescriptionFor } from "./constants.js";
 import {
   bowlerHighGame, bowlerHighSeries, teamHighGame, teamHighSeries, seasonRecord, weeklyPointsData,
@@ -32,6 +32,21 @@ import { PAID_STATS_CARDS, canSeeStatsCard } from "./domain/entitlements.js";
 // card is called one thing in both places.
 const CARD_LABELS = Object.fromEntries(
   (MOVABLE_STATS_CARDS || []).map(c => [c.id, c.label]));
+
+// Frame Position uses semantic colors rather than the generic Stats colors.
+// Glow and Pin deck both already use strong green/red accents elsewhere, so
+// weakest/strongest are deliberately amber/blue in those palettes. This keeps
+// the three chart states visually distinct without relying on red vs green.
+function framePositionColors() {
+  const theme = currentThemeId();
+  if (theme === "pattern") {
+    return { weakest: "#F5B84B", strongest: "#59A7FF", other: "#52BFA7" };
+  }
+  if (theme === "pindeck") {
+    return { weakest: "#F2A93B", strongest: "#4F91FF", other: "#727982" };
+  }
+  return { weakest: C.miss, strongest: C.strike, other: C.accent };
+}
 import BallCompare from "./BallCompare.jsx";
 
 // How the By Ball list can be ordered.
@@ -200,7 +215,7 @@ bowlers.length>1&&(
                   // Viewing and Compare To side by side: two halves of one
                   // question -- whose numbers, against whose. Stacked, they
                   // read as two separate settings.
-                  <div style={{...S.card,display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)",columnGap:"10px",alignItems:"end"}}>
+                  <div className="mbj-stat-viewing-card" style={{...S.card,display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)",columnGap:"10px",alignItems:"end"}}>
                     <div style={{...S.label,gridColumn:1,gridRow:1}}>Viewing</div>
                     {/* A grouped dropdown, not a chip row of every name.
                     
@@ -810,6 +825,7 @@ teamCardsVisible&&bowlers.length>1&&(()=>{
                   const worstFrames=(!allTied&&vals.length)?withData.filter(f=>f.avgScore===minVal).map(f=>f.frame):[];
                   const bestFrames=(!allTied&&vals.length)?withData.filter(f=>f.avgScore===maxVal).map(f=>f.frame):[];
                   const listFrames=arr=>arr.length>1?`Frames ${arr.join(", ")}`:`Frame ${arr[0]}`;
+                  const frameColors = framePositionColors();
                   return(
                     <div style={S.card}>
                       <div style={S.label}>Frame Position</div>
@@ -831,16 +847,16 @@ teamCardsVisible&&bowlers.length>1&&(()=>{
                             <Tooltip contentStyle={{backgroundColor:C.surface,border:`1px solid ${C.border}`,borderRadius:"8px",fontSize:"12px"}} labelStyle={{color:C.text}} formatter={(v,n,p)=>[v,`Frame ${p.payload.frame} (n=${p.payload.total})`]}/>
                             <Bar dataKey="avgScore" radius={[4,4,0,0]}>
                               {framePosition.map((f,i)=>(
-                                <Cell key={i} fill={worstFrames.includes(f.frame)?C.miss:bestFrames.includes(f.frame)?C.strike:C.accent}/>
+                                <Cell key={i} fill={worstFrames.includes(f.frame)?frameColors.weakest:bestFrames.includes(f.frame)?frameColors.strongest:frameColors.other}/>
                               ))}
                             </Bar>
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
                       <div style={{fontSize:"10px",color:C.textMuted,marginTop:"6px",display:"flex",gap:"12px",flexWrap:"wrap"}}>
-                        <span><span style={{color:C.miss}}>●</span> Weakest</span>
-                        <span><span style={{color:C.strike}}>●</span> Strongest</span>
-                        <span><span style={{color:C.accent}}>●</span> Everything else</span>
+                        <span><span style={{color:frameColors.weakest}}>●</span> Weakest</span>
+                        <span><span style={{color:frameColors.strongest}}>●</span> Strongest</span>
+                        <span><span style={{color:frameColors.other}}>●</span> Everything else</span>
                       </div>
                       {framePositionReliable&&worstFrames.length>0&&bestFrames.length>0&&(
                         <div style={{fontSize:"11px",color:C.textMuted,marginTop:"8px"}}>
@@ -1796,7 +1812,7 @@ anyMoneyGameShown(preferences)&&statsBowler&&(()=>{
 // bottom of the same chip, or from Settings.
 function HideableCard({ label, onHide, children }) {
   return (
-    <div style={{ position: "relative" }}>
+    <div className="mbj-stat-card-shell" style={{ position: "relative" }}>
       {children}
       <button
         onClick={onHide}

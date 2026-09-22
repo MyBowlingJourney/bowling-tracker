@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, Suspense } from "react";
+import appLogo from "../mbj-logo-512.png";
 // lazyScreen instead of React.lazy: a deploy while the app is open
 // replaces every content-hashed chunk, and a page already loaded asks
 // for names that no longer exist. See src/lazyScreen.js.
@@ -7711,10 +7712,10 @@ export default function BowlingTracker(){
                 that truncation ever shows up in practice, dropping the 🎳
                 buys back about 26px and is a one-line change. */}
             {(view==="home"||view==="log")
-              ? <div style={{...S.title,
-                  fontSize:"clamp(14px, 4.4vw, 18px)",
-                  whiteSpace:"nowrap",overflow:"hidden",
-                  textOverflow:"ellipsis",minWidth:0}}>🎳 {APP_NAME}</div>
+              ? <div style={{display:"flex",alignItems:"center",gap:"9px",minWidth:0}}>
+                  <img src={appLogo} alt="" aria-hidden="true" style={{width:"32px",height:"32px",borderRadius:"9px",objectFit:"cover",flexShrink:0,boxShadow:`0 5px 14px ${C.bg}30`}} />
+                  <div style={{...S.title,fontSize:"clamp(15px, 4.4vw, 19px)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:0}}>{APP_NAME}</div>
+                </div>
               : <div style={S.title}>{navTabs.find(t=>t.id===view)?.label
                   ||(view==="settings"?"Settings":view==="profile"?"Profile"
                     :view==="inbox"?"Inbox":view==="coaching"?"Coach"
@@ -7722,7 +7723,7 @@ export default function BowlingTracker(){
                     :view==="subscribe"?"My Bowling Journey Pro":"")}</div>}
           </div>
 
-          <div style={{display:"flex",gap:"12px",flexShrink:0,alignItems:"center"}}>
+          <div style={{display:"flex",gap:"7px",flexShrink:0,alignItems:"center"}}>
             {/* Only shown when something is genuinely in flight. */}
             {pendingSyncCount>0&&(
               <button onClick={openSyncDetail}
@@ -7751,7 +7752,7 @@ export default function BowlingTracker(){
                 Import is genuinely hidden: there's no scorecard to
                 photograph on a casual night. */}
             {<button onClick={()=>setView("help")}
-              style={{background:"none",border:"none",cursor:"pointer",fontSize:"17px",padding:0,lineHeight:1}}
+              style={{background:C.surface,border:`1px solid ${C.border}`,cursor:"pointer",fontSize:"16px",padding:"7px 8px",lineHeight:1,borderRadius:"10px",boxShadow:`0 4px 12px ${C.bg}22`}}
               aria-label="Search help">🔍</button>}
 
             {/* Import lives here rather than on the Log tab. On Log it was
@@ -7773,8 +7774,8 @@ export default function BowlingTracker(){
               <span style={{fontSize:"13px"}}>📷</span>
               <span>Import</span>
             </button>}
-            <button onClick={()=>setView("profile")} style={{background:"none",border:"none",cursor:"pointer",fontSize:"17px",padding:0,lineHeight:1}} aria-label="Profile">👤</button>
-            <button onClick={()=>setView("settings")} style={{background:"none",border:"none",cursor:"pointer",fontSize:"17px",padding:0,lineHeight:1}} aria-label="Settings">⚙️</button>
+            <button onClick={()=>setView("profile")} style={{background:C.surface,border:`1px solid ${C.border}`,cursor:"pointer",fontSize:"16px",padding:"7px 8px",lineHeight:1,borderRadius:"10px",boxShadow:`0 4px 12px ${C.bg}22`}} aria-label="Profile">👤</button>
+            <button onClick={()=>setView("settings")} style={{background:C.surface,border:`1px solid ${C.border}`,cursor:"pointer",fontSize:"16px",padding:"7px 8px",lineHeight:1,borderRadius:"10px",boxShadow:`0 4px 12px ${C.bg}22`}} aria-label="Settings">⚙️</button>
           </div>
         </div>
       </div>
@@ -7921,7 +7922,7 @@ export default function BowlingTracker(){
         );
       })()}
 
-      <div style={S.content}>
+      <div className={`mbj-app-content mbj-view-${view}`} style={S.content}>
         {/* A crash in one screen used to unmount the whole app, leaving
             a blank white page with no message and no way back. This
             keeps the nav alive and shows what broke -- on a phone there
@@ -8664,7 +8665,7 @@ export default function BowlingTracker(){
           thumb reach and this app is used standing up holding a ball.
           One badge per tab, on the tab where the waiting thing lives:
           "something needs you" and "here's where" become one signal. */}
-      <nav style={{position:"fixed",bottom:0,left:0,right:0,zIndex:100,display:"flex",backgroundColor:C.surface,borderTop:`1px solid ${C.border}`,padding:"8px 4px calc(10px + env(safe-area-inset-bottom, 0px))"}}>
+      <nav data-bottom-nav style={{position:"fixed",bottom:0,left:0,right:0,zIndex:100,display:"flex",backgroundColor:C.surface+"F2",backdropFilter:"blur(18px)",WebkitBackdropFilter:"blur(18px)",borderTop:`1px solid ${C.border}CC`,padding:"8px 5px calc(10px + env(safe-area-inset-bottom, 0px))",boxShadow:`0 -12px 32px ${C.bg}44`}}>
         {navTabs.map(t=>{
           const on=view===t.id||(t.id==="insights"&&view==="coaching")||(t.id==="locker"&&view==="social")||(t.id==="log"&&view==="import");
           // History does NOT badge the inbox count -- the inbox is
@@ -8685,14 +8686,14 @@ export default function BowlingTracker(){
                 // background that read as barely there. "40" (~25%) plus
                 // a visible border is what actually holds up as contrast
                 // rather than a tint, in both light and dark surfaces.
-                flex:1,background:isBowl?C.accent+"40":"none",
-                border:isBowl?`1px solid ${C.accent}66`:"none",cursor:"pointer",
+                flex:1,background:isBowl?C.accent+"28":on?C.accent+"10":"none",
+                border:isBowl?`1px solid ${C.accent}66`:on?`1px solid ${C.accent}22`:"1px solid transparent",cursor:"pointer",
                 display:"flex",flexDirection:"column",alignItems:"center",gap:isBowl?"4px":"3px",
-                padding:isBowl?"5px 0":"5px 0",margin:isBowl?"0 1px":0,
-                borderRadius:isBowl?"10px":0,position:"relative",
+                padding:isBowl?"6px 0":"6px 0",margin:isBowl?"0 1px":"0 1px",
+                borderRadius:"12px",position:"relative",
                 color:on?C.accent:C.textMuted,fontFamily:F.body,
-                fontSize:isBowl?"11px":"10.5px",fontWeight:(on||isBowl)?600:500,
-                WebkitTapHighlightColor:"transparent",
+                fontSize:isBowl?"11px":"10.5px",fontWeight:(on||isBowl)?700:600,
+                WebkitTapHighlightColor:"transparent",boxShadow:on?`inset 0 1px 0 ${C.accent}22`:"none",
               }}>
               <span style={{fontSize:isBowl?"23px":"17px",lineHeight:1}} aria-hidden="true">{t.icon}</span>
               {t.label}

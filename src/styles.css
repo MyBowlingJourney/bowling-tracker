@@ -15,6 +15,7 @@
 
 html, body {
   margin: 0;
+  min-height: 100%;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -67,4 +68,1193 @@ select[data-compact] {
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
   outline: 2px solid var(--ba-accent, #E8A33D);
   outline-offset: 2px;
+}
+
+
+/* Visual polish layer: shared, non-functional UI treatment. */
+* { box-sizing: border-box; }
+button, input, select, textarea { font-family: inherit; }
+button { transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease, background-color 120ms ease; }
+button:active:not(:disabled) { transform: translateY(1px); }
+button:disabled { cursor: not-allowed; }
+[data-app-header] { isolation: isolate; }
+[data-bottom-nav] {
+  box-shadow: 0 -18px 42px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.06);
+  backdrop-filter: blur(22px) saturate(1.15);
+  -webkit-backdrop-filter: blur(22px) saturate(1.15);
+}
+
+/* Stronger hierarchy for the existing application without changing its
+ * structure: headings, interactive surfaces, and data cards get clear
+ * depth while the underlying DOM and behavior remain untouched. */
+[data-app-header] button:not([disabled]):hover,
+[data-bottom-nav] button:not([disabled]):hover { filter: brightness(1.08); }
+
+button:not([disabled]):hover { filter: brightness(1.035); }
+
+img { max-width: 100%; }
+@media (min-width: 700px) {
+  [data-app-header] { padding-left: 24px !important; padding-right: 24px !important; }
+}
+@media (max-width: 380px) {
+  [data-app-header] { padding-left: 14px !important; padding-right: 14px !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  button { transition: none !important; }
+}
+
+
+/* My Bowling Journey visual system: shared screen-level polish. */
+.mbj-mode-grid {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+  margin-left:2px;
+  margin-right:2px;
+}
+.mbj-mode-card {
+  position:relative;
+  min-height:142px;
+  padding:12px;
+  border:1px solid color-mix(in srgb, var(--mode-color) 28%, var(--mbj-border, rgba(0,0,0,.10)));
+  border-radius:22px;
+  background:
+    radial-gradient(circle at 88% 8%, color-mix(in srgb, var(--mode-color) 13%, transparent), transparent 44%),
+    linear-gradient(145deg, var(--mbj-card, #fff), var(--mbj-surface, #f5f7fa));
+  color:var(--mbj-text, #111827);
+  text-align:left;
+  cursor:pointer;
+  box-shadow:0 12px 28px color-mix(in srgb, var(--mbj-bg, #f4f7fb) 22%, transparent), inset 0 1px 0 color-mix(in srgb, var(--mbj-text, #111827) 8%, transparent);
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  overflow:hidden;
+  transition:transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+}
+.mbj-mode-card::after {
+  content:"";
+  position:absolute;
+  width:88px;height:88px;
+  right:-34px;bottom:-40px;
+  border-radius:50%;
+  border:1px solid color-mix(in srgb, var(--mode-color) 22%, transparent);
+  box-shadow:0 0 0 10px color-mix(in srgb, var(--mode-color) 5%, transparent);
+}
+.mbj-mode-card:hover {
+  transform:translateY(-2px);
+  box-shadow:0 17px 34px color-mix(in srgb, var(--mbj-bg, #f4f7fb) 30%, transparent), inset 0 1px 0 color-mix(in srgb, var(--mbj-text, #111827) 10%, transparent);
+  border-color:color-mix(in srgb, var(--mode-color) 48%, var(--mbj-border));
+}
+.mbj-mode-card:active { transform:translateY(0); }
+.mbj-mode-icon {
+  width:64px;height:64px;border-radius:16px;
+  display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(145deg, color-mix(in srgb,var(--mode-color) 92%, white 8%), color-mix(in srgb,var(--mode-color) 72%,#0b1630));
+  color:#fff;
+  box-shadow:0 9px 18px color-mix(in srgb,var(--mode-color) 26%, transparent), inset 0 1px 0 rgba(255,255,255,.28);
+  position:relative;z-index:1;
+}
+.mbj-mode-icon svg { display:block; }
+.mbj-mode-icon img { display:block; width:64px !important; height:64px !important; max-width:64px !important; max-height:64px !important; object-fit:contain !important; flex:0 0 64px; }
+.mbj-mode-copy { display:block; min-width:0; margin-top:auto; padding-top:10px; padding-right:18px; position:relative;z-index:1; }
+.mbj-mode-label { display:block; font-size:16px; font-weight:800; letter-spacing:-.015em; }
+.mbj-mode-detail { display:block; margin-top:3px; font-size:11px; line-height:1.35; color:var(--mbj-muted, #6b7280); max-width:22ch; }
+.mbj-mode-arrow { position:absolute; right:12px; top:13px; color:var(--mode-color); font-size:22px; line-height:1; z-index:1; }
+[data-app-header] img { box-shadow:0 6px 16px rgba(10,30,70,.18) !important; }
+[data-bottom-nav] { border-top:1px solid rgba(30,60,110,.10) !important; }
+[data-bottom-nav] button[aria-current="page"], [data-bottom-nav] button[aria-selected="true"] {
+  background:linear-gradient(180deg, rgba(36,99,235,.14), rgba(36,99,235,.06)) !important;
+  border-radius:14px !important;
+}
+input,select,textarea { transition:border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease; }
+input:focus,select:focus,textarea:focus { box-shadow:0 0 0 4px color-mix(in srgb,var(--ba-accent,#2463eb) 12%, transparent), inset 0 1px 0 rgba(255,255,255,.12); }
+@media (prefers-reduced-motion:reduce) {
+  .mbj-mode-card { transition:none !important; }
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   My Bowling Journey — full-app visual skin
+   This layer deliberately changes presentation only. It does not alter
+   navigation, interaction, data, scoring, or persistence.
+   ──────────────────────────────────────────────────────────────────── */
+:root {
+  --mbj-radius-lg: 20px;
+  --mbj-radius-md: 16px;
+  --mbj-shadow: 0 14px 34px rgba(20, 35, 65, .10);
+}
+
+body {
+  --mbj-number-font: 'Roboto Condensed', 'Archivo', system-ui, sans-serif;
+  background: var(--mbj-bg, #f4f7fb);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Give every screen a subtle branded atmosphere without changing its
+   existing layout. */
+.mbj-app-content {
+  position: relative;
+  isolation: isolate;
+}
+
+.mbj-app-content::before {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  top: 58px;
+  left: 50%;
+  width: min(720px, 130vw);
+  height: 260px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--mbj-accent, #1557d6) 10%, transparent), transparent 68%);
+}
+
+/* Different sections get a slightly different accent wash. */
+.mbj-view-stats::before,
+.mbj-view-trends::before { background: radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--mbj-accent, #1557d6) 13%, transparent), transparent 68%); }
+.mbj-view-insights::before,
+.mbj-view-coaching::before,
+.mbj-view-goals::before { background: radial-gradient(circle at 50% 0%, color-mix(in srgb, #8b5cf6 10%, transparent), transparent 68%); }
+.mbj-view-gear::before,
+.mbj-view-arsenal::before { background: radial-gradient(circle at 50% 0%, color-mix(in srgb, #14b8a6 9%, transparent), transparent 68%); }
+.mbj-view-history::before,
+.mbj-view-sessionHistory::before { background: radial-gradient(circle at 50% 0%, color-mix(in srgb, #f59e0b 8%, transparent), transparent 68%); }
+.mbj-view-teams::before,
+.mbj-view-tournament::before { background: radial-gradient(circle at 50% 0%, color-mix(in srgb, #ef4444 7%, transparent), transparent 68%); }
+
+/* Shared controls get a consistent tactile finish even in components
+   that use their own small inline variations. */
+.mbj-app-content button:not([disabled]):hover,
+.mbj-profile-screen button:not([disabled]):hover,
+.mbj-settings-screen button:not([disabled]):hover {
+  filter: brightness(1.025);
+}
+
+.mbj-app-content input:focus,
+.mbj-app-content select:focus,
+.mbj-app-content textarea:focus,
+.mbj-profile-screen input:focus,
+.mbj-profile-screen select:focus,
+.mbj-profile-screen textarea:focus,
+.mbj-settings-screen input:focus,
+.mbj-settings-screen select:focus,
+.mbj-settings-screen textarea:focus {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mbj-accent, #1557d6) 13%, transparent), 0 7px 18px rgba(20, 35, 65, .08) !important;
+}
+
+/* Profile and Settings are deliberately denser, more structured screens;
+   this gives their shared cards a stronger hierarchy without moving any
+   controls or changing their behavior. */
+.mbj-profile-screen,
+.mbj-settings-screen {
+  position: relative;
+}
+
+.mbj-profile-screen > div,
+.mbj-settings-screen > div {
+  position: relative;
+}
+
+.mbj-profile-screen > div > [style*="borderRadius"],
+.mbj-settings-screen > div > [style*="borderRadius"] {
+  transition: transform 140ms ease, box-shadow 140ms ease;
+}
+
+.mbj-profile-screen > div > [style*="borderRadius"]:hover,
+.mbj-settings-screen > div > [style*="borderRadius"]:hover {
+  transform: translateY(-1px);
+}
+
+/* Tables/lists feel lighter than dashboard cards. */
+.mbj-app-content table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.mbj-app-content th {
+  font-size: 11px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--mbj-muted, #6b7684);
+}
+
+/* Long settings/history lists remain readable on small phones. */
+.mbj-settings-screen,
+.mbj-profile-screen {
+  padding-bottom: 4px;
+}
+
+/* Better native scrollbars where supported, without affecting touch. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--mbj-accent, #1557d6) 30%, transparent) transparent;
+}
+
+
+/* V5 full-app visual refinement. Presentation only. */
+.mbj-app-content {
+  background:
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--mbj-accent, #1557d6) 7%, transparent), transparent 32%),
+    radial-gradient(circle at 0% 35%, color-mix(in srgb, var(--mbj-accent, #1557d6) 4%, transparent), transparent 28%);
+}
+
+/* Shared S.card surfaces become unmistakable product surfaces rather than
+   generic white containers. */
+.mbj-app-content [style*="box-shadow: 0 16px 38px"],
+.mbj-profile-screen [style*="box-shadow: 0 16px 38px"],
+.mbj-settings-screen [style*="box-shadow: 0 16px 38px"] {
+  position: relative;
+  overflow: hidden;
+}
+.mbj-app-content [style*="box-shadow: 0 16px 38px"]::before,
+.mbj-profile-screen [style*="box-shadow: 0 16px 38px"]::before,
+.mbj-settings-screen [style*="box-shadow: 0 16px 38px"]::before {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--mbj-accent, #1557d6), color-mix(in srgb, var(--mbj-accent, #1557d6) 40%, transparent));
+  pointer-events: none;
+}
+
+/* Non-home screens get stronger page-level rhythm: controls sit on the
+   same visual plane and primary actions read as actions, not text links. */
+.mbj-app-content:not(.mbj-view-home) button:not([aria-label^="Pin"]):not(.mbj-mode-card) {
+  border-radius: 15px;
+}
+.mbj-app-content:not(.mbj-view-home) button[style*="backgroundColor"]:not([aria-label^="Pin"]):not(.mbj-mode-card) {
+  box-shadow: 0 8px 20px rgba(20,35,65,.10), inset 0 1px 0 rgba(255,255,255,.20) !important;
+}
+
+/* Stats / Trends: make the analytics feel like an instrument panel. */
+.mbj-view-data > *:first-child,
+.mbj-view-trends > *:first-child {
+  box-shadow: 0 14px 34px rgba(20,35,65,.10), inset 0 3px 0 var(--mbj-accent, #1557d6) !important;
+}
+.mbj-view-data .num,
+.mbj-view-trends .num {
+  text-shadow: 0 1px 0 rgba(255,255,255,.35);
+}
+
+/* Log: retain the dense bowling workflow, but give the surrounding cards
+   a stronger scoreboard feel. */
+.mbj-view-log [style*="border-radius: 20px"],
+.mbj-view-log [style*="border-radius: 22px"] {
+  border-color: color-mix(in srgb, var(--mbj-accent, #1557d6) 18%, var(--mbj-border)) !important;
+}
+.mbj-view-log input,
+.mbj-view-log select,
+.mbj-view-log textarea {
+  border-radius: 13px !important;
+}
+
+/* Setup / Gear / Teams / History / Improve: use stronger section separation
+   without moving any controls. */
+.mbj-view-locker,
+.mbj-view-history,
+.mbj-view-insights,
+.mbj-view-coaching,
+.mbj-view-social,
+.mbj-view-journey,
+.mbj-view-inbox,
+.mbj-view-help,
+.mbj-view-import,
+.mbj-view-subscribe {
+  --screen-accent: var(--mbj-accent, #1557d6);
+}
+.mbj-view-locker .mbj-settings-screen [style*="border-radius"],
+.mbj-view-history .mbj-settings-screen [style*="border-radius"],
+.mbj-view-insights [style*="border-radius: 20px"],
+.mbj-view-coaching [style*="border-radius: 20px"],
+.mbj-view-social [style*="border-radius: 20px"] {
+  border-color: color-mix(in srgb, var(--screen-accent) 20%, var(--mbj-border)) !important;
+}
+
+/* Profile: make identity, bowling setup and equipment feel like one
+   premium athlete profile rather than a long settings form. */
+.mbj-profile-screen {
+  background: radial-gradient(circle at 90% 0%, color-mix(in srgb, var(--mbj-accent, #1557d6) 8%, transparent), transparent 35%);
+  border-radius: 24px;
+}
+.mbj-profile-screen > div:first-child {
+  border-radius: 22px;
+}
+
+/* Settings: stronger hierarchy between the setting cards and their labels. */
+.mbj-settings-screen {
+  background: radial-gradient(circle at 10% 0%, color-mix(in srgb, var(--mbj-accent, #1557d6) 6%, transparent), transparent 32%);
+  border-radius: 24px;
+}
+.mbj-settings-screen [style*="border-radius: 20px"],
+.mbj-settings-screen [style*="border-radius: 22px"] {
+  border-color: color-mix(in srgb, var(--mbj-accent, #1557d6) 18%, var(--mbj-border)) !important;
+}
+
+/* Tables and dense lists: a quiet header band makes them much easier to
+   scan without changing their contents. */
+.mbj-app-content table thead th {
+  background: color-mix(in srgb, var(--mbj-accent, #1557d6) 7%, transparent);
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+/* Narrow screens keep the same visual hierarchy without squeezing cards. */
+@media (max-width: 420px) {
+  .mbj-app-content { padding-left: 0; padding-right: 0; }
+}
+
+/* V6 screen compositions: substantial visual treatment for existing layouts.
+   Presentation only; no selectors alter interaction or layout destinations. */
+.mbj-view-history,
+.mbj-view-stats,
+.mbj-view-data,
+.mbj-view-insights,
+.mbj-view-coaching,
+.mbj-view-journey,
+.mbj-view-locker,
+.mbj-view-social,
+.mbj-view-profile,
+.mbj-view-settings,
+.mbj-view-help,
+.mbj-view-import,
+.mbj-view-badges,
+.mbj-view-inbox,
+.mbj-view-subscribe {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--mbj-accent,#1557d6) 5%, transparent), transparent 170px);
+  border-radius: 28px 28px 0 0;
+}
+
+/* The first-level panels on information-heavy screens become deliberate
+   sections rather than a stack of indistinguishable white rectangles. */
+.mbj-view-history > div,
+.mbj-view-stats > div,
+.mbj-view-data > div,
+.mbj-view-insights > div,
+.mbj-view-coaching > div,
+.mbj-view-locker > div,
+.mbj-view-social > div,
+.mbj-view-profile > div,
+.mbj-view-settings > div,
+.mbj-view-help > div,
+.mbj-view-import > div,
+.mbj-view-badges > div,
+.mbj-view-inbox > div,
+.mbj-view-subscribe > div {
+  border-radius: 22px !important;
+}
+
+/* History: turn each saved night into a visually distinct record card. */
+.mbj-view-history [style*="border-bottom"] {
+  padding: 14px 4px 16px !important;
+  margin: 0 !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--mbj-accent,#1557d6) 14%, transparent) !important;
+}
+.mbj-view-history [style*="border-bottom"]:first-of-type { padding-top: 4px !important; }
+.mbj-view-history [style*="border-bottom"] > div:first-child span:first-child {
+  font-size: 13px !important;
+  font-weight: 800 !important;
+}
+.mbj-view-history [style*="border-bottom"] > div:nth-child(2) span:last-child {
+  font-family: var(--mbj-number-font,'Roboto Condensed',sans-serif) !important;
+  font-size: 18px !important;
+  color: var(--mbj-accent,#1557d6) !important;
+}
+
+/* Stats / Trends: make the first metric in a card read as the headline,
+   and give dense analytical panels a stronger frame. */
+.mbj-view-stats [style*="grid-template-columns"],
+.mbj-view-data [style*="grid-template-columns"] {
+  background: linear-gradient(145deg, rgba(255,255,255,.98), rgba(244,248,255,.96)) !important;
+}
+.mbj-view-stats [style*="font-size: 24px"],
+.mbj-view-data [style*="font-size: 24px"] {
+  font-family: 'Roboto Condensed',sans-serif !important;
+  font-weight: 700 !important;
+}
+.mbj-view-stats button,
+.mbj-view-data button,
+.mbj-view-insights button,
+.mbj-view-coaching button {
+  border-radius: 14px !important;
+}
+
+/* Journey gets the same signature treatment as the Home Journey card. */
+.mbj-view-journey > div:first-child {
+  border-radius: 24px !important;
+  overflow: hidden;
+}
+
+/* Gear / setup: make equipment sections feel like a locker room rather
+   than a settings form. */
+.mbj-view-locker [style*="border-radius"] {
+  border-radius: 20px !important;
+}
+.mbj-view-locker img {
+  border-radius: 16px !important;
+}
+
+/* Team / social screens: stronger roster/list rows and action hierarchy. */
+.mbj-view-social [style*="border-bottom"],
+.mbj-view-locker [style*="border-bottom"] {
+  padding-top: 12px !important;
+  padding-bottom: 12px !important;
+}
+
+/* Profile / settings: group the long-form controls into calm sections. */
+.mbj-profile-screen,
+.mbj-settings-screen {
+  background: linear-gradient(180deg, rgba(255,255,255,.58), transparent 220px);
+  border-radius: 26px;
+}
+.mbj-profile-screen > div,
+.mbj-settings-screen > div {
+  border-radius: 20px !important;
+}
+.mbj-profile-screen input,
+.mbj-profile-screen select,
+.mbj-settings-screen input,
+.mbj-settings-screen select,
+.mbj-settings-screen textarea {
+  min-height: 44px;
+  border-radius: 14px !important;
+}
+
+/* Forms / imports / help: make primary actions visually obvious without
+   changing their order or behavior. */
+.mbj-view-import button,
+.mbj-view-help button,
+.mbj-view-subscribe button {
+  min-height: 44px;
+  border-radius: 14px !important;
+}
+
+/* Score entry stays compact and fast. We only polish its surrounding
+   surfaces; the pin deck and scoring controls retain their geometry. */
+.mbj-view-log {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--mbj-accent,#1557d6) 4%, transparent), transparent 130px);
+}
+.mbj-view-log > div {
+  border-radius: 20px;
+}
+
+@media (max-width: 430px) {
+  .mbj-view-history [style*="border-bottom"] { padding-left: 2px !important; padding-right: 2px !important; }
+}
+
+/* ========================================================================
+   My Bowling Journey — final visual modernization layer
+   Visual-only: no navigation, data, scoring, persistence, or interaction
+   behavior is changed here.
+   ======================================================================== */
+
+.mbj-app-content {
+  --mbj-page-pad: clamp(12px, 3vw, 20px);
+  padding-left: var(--mbj-page-pad) !important;
+  padding-right: var(--mbj-page-pad) !important;
+  padding-bottom: max(18px, env(safe-area-inset-bottom)) !important;
+}
+
+/* Give each major destination a recognizable page surface. */
+.mbj-app-content:not(.mbj-view-home)::after {
+  content: "";
+  display: block;
+  height: 1px;
+  margin-top: 8px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--mbj-accent,#1557d6) 22%, transparent), transparent);
+}
+
+/* Shared cards: stronger depth, cleaner borders, and a quiet brand highlight. */
+.mbj-app-content [style*="borderRadius"] {
+  border-radius: 20px !important;
+}
+.mbj-app-content [style*="boxShadow"] {
+  transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
+}
+
+/* Page-level panels on every major destination. */
+.mbj-view-history > div,
+.mbj-view-data > div,
+.mbj-view-log > div,
+.mbj-view-journey > div,
+.mbj-view-locker > div,
+.mbj-view-social > div,
+.mbj-view-insights > div,
+.mbj-view-coaching > div,
+.mbj-view-help > div,
+.mbj-view-import > div,
+.mbj-view-inbox > div,
+.mbj-view-profile > div,
+.mbj-view-settings > div,
+.mbj-view-subscribe > div {
+  border-radius: 20px !important;
+}
+
+/* History is Settings.jsx in history mode, so style the actual cards inside
+   that screen rather than relying on the outer route alone. */
+.mbj-history-screen {
+  background: linear-gradient(180deg, rgba(245,249,255,.96), rgba(255,255,255,.70) 180px, transparent 420px);
+  border-radius: 24px;
+}
+.mbj-history-screen > div {
+  background: linear-gradient(145deg, rgba(255,255,255,.98), rgba(246,249,255,.94)) !important;
+  border: 1px solid color-mix(in srgb, var(--mbj-accent,#1557d6) 14%, var(--mbj-border,#dfe5ee)) !important;
+  box-shadow: 0 12px 30px rgba(24,42,76,.09), inset 0 1px 0 rgba(255,255,255,.9) !important;
+}
+.mbj-history-screen > div:first-child {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+.mbj-history-screen button {
+  border-radius: 13px !important;
+}
+
+/* Stats and Trends: make analytics read like an instrument panel. */
+.mbj-view-data,
+.mbj-view-trends {
+  background: radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--mbj-accent,#1557d6) 8%, transparent), transparent 300px);
+}
+.mbj-view-data > div,
+.mbj-view-trends > div {
+  background: linear-gradient(145deg, rgba(255,255,255,.98), rgba(246,249,255,.95)) !important;
+  border: 1px solid color-mix(in srgb, var(--mbj-accent,#1557d6) 13%, var(--mbj-border,#dfe5ee)) !important;
+  box-shadow: 0 12px 30px rgba(24,42,76,.08), inset 0 1px 0 rgba(255,255,255,.92) !important;
+}
+.mbj-view-data .num,
+.mbj-view-trends .num {
+  font-family: 'Roboto Condensed', sans-serif !important;
+  font-weight: 700 !important;
+  letter-spacing: -.02em;
+}
+.mbj-view-data button,
+.mbj-view-trends button {
+  border-radius: 13px !important;
+}
+
+/* Log: preserve the compact scoring workflow while giving its sections a
+   scoreboard-like visual hierarchy. */
+.mbj-view-log {
+  background: radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--mbj-accent,#1557d6) 7%, transparent), transparent 280px);
+}
+.mbj-view-log > div {
+  background: linear-gradient(145deg, rgba(255,255,255,.98), rgba(246,249,255,.94));
+  border-color: color-mix(in srgb, var(--mbj-accent,#1557d6) 12%, var(--mbj-border,#dfe5ee)) !important;
+  box-shadow: 0 10px 26px rgba(24,42,76,.075), inset 0 1px 0 rgba(255,255,255,.9) !important;
+}
+.mbj-view-log button:not([aria-label^="Pin"]) { border-radius: 13px !important; }
+
+/* Gear / setup / teams: turn dense management screens into clear sections. */
+.mbj-view-locker,
+.mbj-view-social {
+  background: radial-gradient(circle at 90% 0%, rgba(20,184,166,.07), transparent 300px);
+}
+.mbj-view-locker > div,
+.mbj-view-social > div {
+  background: linear-gradient(145deg, rgba(255,255,255,.98), rgba(247,250,252,.95));
+  border-color: color-mix(in srgb, var(--mbj-accent,#1557d6) 11%, var(--mbj-border,#dfe5ee)) !important;
+  box-shadow: 0 11px 28px rgba(24,42,76,.07), inset 0 1px 0 rgba(255,255,255,.9) !important;
+}
+.mbj-view-locker img { border-radius: 16px !important; }
+.mbj-view-locker button,
+.mbj-view-social button { border-radius: 13px !important; }
+
+/* Improve: purple is used only as a subtle section accent so the screen
+   remains part of the blue My Bowling Journey system. */
+.mbj-view-insights,
+.mbj-view-coaching,
+.mbj-view-goals {
+  background: radial-gradient(circle at 90% 0%, rgba(139,92,246,.075), transparent 310px);
+}
+.mbj-view-insights > div,
+.mbj-view-coaching > div,
+.mbj-view-goals > div {
+  background: linear-gradient(145deg, rgba(255,255,255,.98), rgba(248,247,255,.95));
+  border-color: color-mix(in srgb, #8b5cf6 10%, var(--mbj-border,#dfe5ee)) !important;
+  box-shadow: 0 11px 28px rgba(35,30,70,.07), inset 0 1px 0 rgba(255,255,255,.9) !important;
+}
+.mbj-view-insights button,
+.mbj-view-coaching button,
+.mbj-view-goals button { border-radius: 13px !important; }
+
+/* Journey: make the whole page feel like an extension of the Home Journey
+   card rather than a separate utility screen. */
+.mbj-view-journey {
+  background: radial-gradient(circle at 50% 0%, rgba(21,87,214,.10), transparent 360px);
+}
+.mbj-view-journey > div {
+  border-color: rgba(21,87,214,.13) !important;
+  box-shadow: 0 13px 34px rgba(24,42,76,.08), inset 0 1px 0 rgba(255,255,255,.9) !important;
+}
+
+/* Profile and Settings: calm, premium form sections. */
+.mbj-profile-screen,
+.mbj-settings-screen {
+  background: linear-gradient(180deg, rgba(245,249,255,.96), rgba(255,255,255,.72) 210px, transparent 430px);
+  border-radius: 24px;
+}
+.mbj-profile-screen > div,
+.mbj-settings-main > div {
+  background: linear-gradient(145deg, rgba(255,255,255,.98), rgba(247,249,253,.95));
+  border-color: color-mix(in srgb, var(--mbj-accent,#1557d6) 12%, var(--mbj-border,#dfe5ee)) !important;
+  box-shadow: 0 10px 26px rgba(24,42,76,.065), inset 0 1px 0 rgba(255,255,255,.9) !important;
+}
+.mbj-profile-screen input,
+.mbj-profile-screen select,
+.mbj-settings-screen input,
+.mbj-settings-screen select,
+.mbj-settings-screen textarea { border-radius: 13px !important; }
+
+/* Secondary destinations get the same visual grammar without changing their
+   content or navigation. */
+.mbj-view-help,
+.mbj-view-import,
+.mbj-view-inbox,
+.mbj-view-subscribe,
+.mbj-view-badges {
+  background: linear-gradient(180deg, rgba(245,249,255,.94), transparent 260px);
+}
+.mbj-view-help > div,
+.mbj-view-import > div,
+.mbj-view-inbox > div,
+.mbj-view-subscribe > div,
+.mbj-view-badges > div {
+  background: linear-gradient(145deg, rgba(255,255,255,.98), rgba(247,249,253,.95));
+  border-color: color-mix(in srgb, var(--mbj-accent,#1557d6) 11%, var(--mbj-border,#dfe5ee)) !important;
+  box-shadow: 0 10px 26px rgba(24,42,76,.065), inset 0 1px 0 rgba(255,255,255,.9) !important;
+}
+.mbj-view-help button,
+.mbj-view-import button,
+.mbj-view-inbox button,
+.mbj-view-subscribe button,
+.mbj-view-badges button { border-radius: 13px !important; }
+
+/* Common section labels become easier to scan without altering copy. */
+.mbj-app-content [style*="textTransform: \"uppercase\""] {
+  letter-spacing: .07em !important;
+}
+
+@media (max-width: 520px) {
+  .mbj-app-content { padding-left: 10px !important; padding-right: 10px !important; }
+  .mbj-history-screen > div,
+  .mbj-view-data > div,
+  .mbj-view-trends > div,
+  .mbj-view-log > div,
+  .mbj-view-locker > div,
+  .mbj-view-social > div,
+  .mbj-view-insights > div,
+  .mbj-view-coaching > div,
+  .mbj-view-goals > div,
+  .mbj-view-journey > div,
+  .mbj-profile-screen > div,
+  .mbj-settings-main > div { border-radius: 18px !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mbj-app-content [style*="boxShadow"],
+  .mbj-profile-screen > div > [style*="borderRadius"],
+  .mbj-settings-screen > div > [style*="borderRadius"] { transition: none !important; }
+}
+
+
+/* ========================================================================
+   Final polish correction — theme-aware surfaces and hierarchy.
+   The preceding modernization layer was too light-centric: its white
+   gradients correctly polished Chalk, but overrode the dark theme tokens.
+   This layer keeps the same design language while letting every surface
+   inherit the active theme. The Journey hero is explicitly protected from
+   generic card styling because its branded dark gradient is intentional.
+   ======================================================================== */
+
+.mbj-app-content:not(.mbj-view-home) {
+  color: var(--mbj-text, #11151C);
+  background:
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--mbj-accent, #1557D6) 8%, transparent), transparent 300px),
+    linear-gradient(180deg, color-mix(in srgb, var(--mbj-surface, #FFFFFF) 72%, var(--mbj-bg, #F4F7FB) 28%), var(--mbj-bg, #F4F7FB));
+}
+
+.mbj-view-history > div,
+.mbj-view-data > div,
+.mbj-view-trends > div,
+.mbj-view-log > div,
+.mbj-view-locker > div,
+.mbj-view-social > div,
+.mbj-view-insights > div,
+.mbj-view-coaching > div,
+.mbj-view-goals > div,
+.mbj-view-journey > div,
+.mbj-view-help > div,
+.mbj-view-import > div,
+.mbj-view-inbox > div,
+.mbj-view-subscribe > div,
+.mbj-view-badges > div,
+.mbj-profile-screen > div,
+.mbj-settings-main > div {
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--mbj-card, #FFFFFF) 98%, var(--mbj-text, #11151C) 2%),
+    color-mix(in srgb, var(--mbj-surface, #F4F7FB) 94%, var(--mbj-card, #FFFFFF) 6%)
+  ) !important;
+  color: var(--mbj-text, #11151C);
+  border-color: color-mix(in srgb, var(--mbj-accent, #1557D6) 18%, var(--mbj-border, #E6E9EF)) !important;
+  box-shadow:
+    0 10px 28px color-mix(in srgb, var(--mbj-bg, #F4F7FB) 55%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--mbj-text, #11151C) 8%, transparent) !important;
+}
+
+/* A card should not become a white slab in a dark theme. */
+.mbj-app-content [style*="backgroundColor"] {
+  /* Keep inline component colours authoritative; only the screen-level
+     surfaces above are normalized here. */
+}
+
+/* History's first panel is the tab rail; it should feel like a control
+   surface, not a floating white rectangle. */
+.mbj-history-screen > div:first-of-type {
+  background: color-mix(in srgb, var(--mbj-card, #FFFFFF) 96%, var(--mbj-accent, #1557D6) 4%) !important;
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--mbj-bg, #F4F7FB) 48%, transparent) !important;
+}
+
+/* The Journey hero is branded and intentionally dark in every theme. */
+.mbj-history-screen .mbj-journey-hero,
+.mbj-view-journey .mbj-journey-hero {
+  background: linear-gradient(155deg, #0B4DB3 0%, #00398B 42%, #061A45 100%) !important;
+  color: #FFFFFF !important;
+  border: none !important;
+  box-shadow: 0 16px 34px rgba(6, 26, 69, .24) !important;
+}
+.mbj-history-screen .mbj-journey-hero * {
+  color: inherit;
+}
+.mbj-history-screen .mbj-journey-hero button {
+  color: #FFFFFF !important;
+  background: rgba(255,255,255,.14) !important;
+  border-color: rgba(255,255,255,.18) !important;
+}
+
+/* Dark themes need deliberate contrast, not a black card with red text.
+   Keep labels muted, primary copy bright, and borders quiet. */
+.mbj-view-data > div,
+.mbj-view-trends > div,
+.mbj-view-log > div,
+.mbj-view-insights > div,
+.mbj-view-coaching > div,
+.mbj-view-goals > div {
+  box-shadow:
+    0 12px 30px rgba(0,0,0,.22),
+    inset 0 1px 0 rgba(255,255,255,.045) !important;
+}
+
+/* Make secondary controls read as controls in both themes. */
+.mbj-app-content button:not([aria-label^="Pin"]):not(.mbj-mode-card) {
+  border-color: color-mix(in srgb, var(--mbj-border, #E6E9EF) 82%, var(--mbj-accent, #1557D6) 18%);
+}
+
+/* Don't let the broad card rules make Journey's own road surface fight the
+   theme. Journey already uses the active C tokens for its content cards. */
+.mbj-view-journey > div:not(.mbj-journey-hero) {
+  box-shadow: 0 11px 28px rgba(0,0,0,.12), inset 0 1px 0 rgba(255,255,255,.06) !important;
+}
+
+/* Remove the accidental sticky treatment from the History wrapper. */
+.mbj-history-screen > div:first-child {
+  position: static;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+@media (max-width: 520px) {
+  .mbj-app-content:not(.mbj-view-home) {
+    border-radius: 0;
+  }
+  .mbj-history-screen .mbj-journey-hero {
+    border-radius: 18px !important;
+  }
+}
+
+/* ========================================================================
+   Polished theme correction — dark surfaces and History > Journey.
+   Keep the light themes exactly as designed, but stop light-centric legacy
+   selectors from repainting dark screens. The theme attribute is written by
+   ui.jsx so this is explicit rather than guessing from a colour value.
+   ======================================================================== */
+
+.mbj-history-journey {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* The Journey component owns its own cards. Do not let the History wrapper's
+   generic direct-child card treatment leak into those cards. */
+.mbj-history-screen > .mbj-history-journey {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  color: inherit !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.mbj-history-screen > .mbj-history-journey > .mbj-journey-hero,
+.mbj-history-screen > .mbj-history-journey > div {
+  box-sizing: border-box;
+}
+
+/* Dark themes: one continuous dark canvas, with slightly lifted cards.
+   No white slabs, no transparent cards that expose the page underneath. */
+:root[data-mbj-theme="lane"] .mbj-app-content,
+:root[data-mbj-theme="classic"] .mbj-app-content,
+:root[data-mbj-theme="pattern"] .mbj-app-content,
+:root[data-mbj-theme="urethane"] .mbj-app-content,
+:root[data-mbj-theme="pindeck"] .mbj-app-content {
+  background:
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--mbj-accent) 8%, transparent), transparent 300px),
+    linear-gradient(180deg, var(--mbj-bg) 0%, var(--mbj-bg) 100%) !important;
+}
+
+:root[data-mbj-theme="lane"] .mbj-view-locker,
+:root[data-mbj-theme="classic"] .mbj-view-locker,
+:root[data-mbj-theme="pattern"] .mbj-view-locker,
+:root[data-mbj-theme="urethane"] .mbj-view-locker,
+:root[data-mbj-theme="pindeck"] .mbj-view-locker,
+:root[data-mbj-theme="lane"] .mbj-history-screen,
+:root[data-mbj-theme="classic"] .mbj-history-screen,
+:root[data-mbj-theme="pattern"] .mbj-history-screen,
+:root[data-mbj-theme="urethane"] .mbj-history-screen,
+:root[data-mbj-theme="pindeck"] .mbj-history-screen {
+  background: transparent !important;
+}
+
+/* Setup: League and Team were the two screens still inheriting the old
+   light card treatment. Give their sections the same deliberate hierarchy
+   as the rest of the dark UI. */
+:root[data-mbj-theme="lane"] .mbj-team-screen > div,
+:root[data-mbj-theme="classic"] .mbj-team-screen > div,
+:root[data-mbj-theme="pattern"] .mbj-team-screen > div,
+:root[data-mbj-theme="urethane"] .mbj-team-screen > div,
+:root[data-mbj-theme="pindeck"] .mbj-team-screen > div,
+:root[data-mbj-theme="lane"] .mbj-settings-main > div,
+:root[data-mbj-theme="classic"] .mbj-settings-main > div,
+:root[data-mbj-theme="pattern"] .mbj-settings-main > div,
+:root[data-mbj-theme="urethane"] .mbj-settings-main > div,
+:root[data-mbj-theme="pindeck"] .mbj-settings-main > div {
+  background: var(--mbj-card) !important;
+  color: var(--mbj-text) !important;
+  border-color: var(--mbj-border) !important;
+  box-shadow: 0 10px 24px rgba(0,0,0,.20), inset 0 1px 0 rgba(255,255,255,.035) !important;
+}
+
+:root[data-mbj-theme="lane"] .mbj-team-screen select,
+:root[data-mbj-theme="classic"] .mbj-team-screen select,
+:root[data-mbj-theme="pattern"] .mbj-team-screen select,
+:root[data-mbj-theme="urethane"] .mbj-team-screen select,
+:root[data-mbj-theme="pindeck"] .mbj-team-screen select,
+:root[data-mbj-theme="lane"] .mbj-team-screen input,
+:root[data-mbj-theme="classic"] .mbj-team-screen input,
+:root[data-mbj-theme="pattern"] .mbj-team-screen input,
+:root[data-mbj-theme="urethane"] .mbj-team-screen input,
+:root[data-mbj-theme="pindeck"] .mbj-team-screen input,
+:root[data-mbj-theme="lane"] .mbj-settings-main select,
+:root[data-mbj-theme="classic"] .mbj-settings-main select,
+:root[data-mbj-theme="pattern"] .mbj-settings-main select,
+:root[data-mbj-theme="urethane"] .mbj-settings-main select,
+:root[data-mbj-theme="pindeck"] .mbj-settings-main select,
+:root[data-mbj-theme="lane"] .mbj-settings-main input,
+:root[data-mbj-theme="classic"] .mbj-settings-main input,
+:root[data-mbj-theme="pattern"] .mbj-settings-main input,
+:root[data-mbj-theme="urethane"] .mbj-settings-main input,
+:root[data-mbj-theme="pindeck"] .mbj-settings-main input {
+  background-color: var(--mbj-surface) !important;
+  color: var(--mbj-text) !important;
+  border-color: var(--mbj-border) !important;
+}
+
+/* Setup's League editor uses the Settings screen in `mode="leagues"`. */
+:root[data-mbj-theme="lane"] .mbj-settings-main,
+:root[data-mbj-theme="classic"] .mbj-settings-main,
+:root[data-mbj-theme="pattern"] .mbj-settings-main,
+:root[data-mbj-theme="urethane"] .mbj-settings-main,
+:root[data-mbj-theme="pindeck"] .mbj-settings-main {
+  color: var(--mbj-text) !important;
+}
+
+/* History > Journey: all Journey-owned cards stay on the dark theme.
+   The hero remains the branded navy treatment. */
+:root[data-mbj-theme="lane"] .mbj-history-journey > div:not(.mbj-journey-hero),
+:root[data-mbj-theme="classic"] .mbj-history-journey > div:not(.mbj-journey-hero),
+:root[data-mbj-theme="pattern"] .mbj-history-journey > div:not(.mbj-journey-hero),
+:root[data-mbj-theme="urethane"] .mbj-history-journey > div:not(.mbj-journey-hero),
+:root[data-mbj-theme="pindeck"] .mbj-history-journey > div:not(.mbj-journey-hero) {
+  background: var(--mbj-card) !important;
+  color: var(--mbj-text) !important;
+  border-color: var(--mbj-border) !important;
+  box-shadow: 0 10px 26px rgba(0,0,0,.20), inset 0 1px 0 rgba(255,255,255,.035) !important;
+}
+
+:root[data-mbj-theme="lane"] .mbj-history-journey .mbj-journey-hero,
+:root[data-mbj-theme="classic"] .mbj-history-journey .mbj-journey-hero,
+:root[data-mbj-theme="pattern"] .mbj-history-journey .mbj-journey-hero,
+:root[data-mbj-theme="urethane"] .mbj-history-journey .mbj-journey-hero,
+:root[data-mbj-theme="pindeck"] .mbj-history-journey .mbj-journey-hero {
+  background: linear-gradient(155deg, #0B4DB3 0%, #00398B 42%, #061A45 100%) !important;
+  color: #fff !important;
+}
+
+/* The five History controls should be a dark control rail, not a pale slab. */
+:root[data-mbj-theme="lane"] .mbj-history-screen > div:first-of-type,
+:root[data-mbj-theme="classic"] .mbj-history-screen > div:first-of-type,
+:root[data-mbj-theme="pattern"] .mbj-history-screen > div:first-of-type,
+:root[data-mbj-theme="urethane"] .mbj-history-screen > div:first-of-type,
+:root[data-mbj-theme="pindeck"] .mbj-history-screen > div:first-of-type {
+  background: var(--mbj-card) !important;
+  border-color: var(--mbj-border) !important;
+}
+
+/* Setup navigation itself: the four tabs should belong to the same dark
+   surface as the setup content, with the selected tab carrying the accent. */
+:root[data-mbj-theme="lane"] .mbj-view-locker > [role="group"],
+:root[data-mbj-theme="classic"] .mbj-view-locker > [role="group"],
+:root[data-mbj-theme="pattern"] .mbj-view-locker > [role="group"],
+:root[data-mbj-theme="urethane"] .mbj-view-locker > [role="group"],
+:root[data-mbj-theme="pindeck"] .mbj-view-locker > [role="group"] {
+  background: var(--mbj-surface) !important;
+  border-color: var(--mbj-border) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035) !important;
+}
+
+:root[data-mbj-theme="lane"] .mbj-view-locker > [role="group"] button[aria-pressed="true"],
+:root[data-mbj-theme="classic"] .mbj-view-locker > [role="group"] button[aria-pressed="true"],
+:root[data-mbj-theme="pattern"] .mbj-view-locker > [role="group"] button[aria-pressed="true"],
+:root[data-mbj-theme="urethane"] .mbj-view-locker > [role="group"] button[aria-pressed="true"],
+:root[data-mbj-theme="pindeck"] .mbj-view-locker > [role="group"] button[aria-pressed="true"] {
+  background: var(--mbj-accent) !important;
+  color: var(--mbj-on-accent) !important;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--mbj-accent) 22%, transparent) !important;
+}
+
+:root[data-mbj-theme="lane"] .mbj-view-locker > [role="group"] button[aria-pressed="false"],
+:root[data-mbj-theme="classic"] .mbj-view-locker > [role="group"] button[aria-pressed="false"],
+:root[data-mbj-theme="pattern"] .mbj-view-locker > [role="group"] button[aria-pressed="false"],
+:root[data-mbj-theme="urethane"] .mbj-view-locker > [role="group"] button[aria-pressed="false"],
+:root[data-mbj-theme="pindeck"] .mbj-view-locker > [role="group"] button[aria-pressed="false"] {
+  color: var(--mbj-text-muted, var(--mbj-muted)) !important;
+}
+
+/* ========================================================================
+   History + Settings refinement
+   History is a collection of different tools, not one generic card stack.
+   Give each tool a clear container while keeping the active theme's palette.
+   ======================================================================== */
+
+.mbj-history-screen {
+  background: var(--mbj-bg) !important;
+  color: var(--mbj-text) !important;
+}
+
+.mbj-history-screen > .mbj-history-sessions,
+.mbj-history-screen > .mbj-history-calendar,
+.mbj-history-screen > .mbj-history-journal,
+.mbj-history-screen > .mbj-history-season {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  color: var(--mbj-text) !important;
+}
+
+/* Sessions */
+.mbj-history-sessions .mbj-history-list > div {
+  background: var(--mbj-card) !important;
+  color: var(--mbj-text) !important;
+  border: 1px solid var(--mbj-border) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--mbj-bg) 45%, transparent), inset 0 1px 0 color-mix(in srgb, var(--mbj-text) 5%, transparent) !important;
+  padding: 18px !important;
+  margin-bottom: 12px !important;
+}
+
+.mbj-history-sessions .mbj-history-list > div:first-child {
+  margin-top: 0 !important;
+}
+
+.mbj-history-sessions .mbj-history-list > div > select,
+.mbj-history-sessions select {
+  background: var(--mbj-surface) !important;
+  color: var(--mbj-text) !important;
+  border-color: var(--mbj-border) !important;
+}
+
+/* Calendar */
+.mbj-history-calendar > div {
+  background: var(--mbj-card) !important;
+  color: var(--mbj-text) !important;
+  border: 1px solid var(--mbj-border) !important;
+  border-radius: 22px !important;
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--mbj-bg) 45%, transparent), inset 0 1px 0 color-mix(in srgb, var(--mbj-text) 5%, transparent) !important;
+}
+
+.mbj-history-calendar button {
+  color: inherit;
+}
+
+/* Journal */
+.mbj-history-journal > input {
+  background: var(--mbj-surface) !important;
+  color: var(--mbj-text) !important;
+  border: 1px solid var(--mbj-border) !important;
+  border-radius: 15px !important;
+}
+
+.mbj-history-journal > div:not(.mbj-history-journal) {
+  color: var(--mbj-text) !important;
+}
+
+.mbj-history-journal > div > div {
+  background: var(--mbj-card) !important;
+  color: var(--mbj-text) !important;
+  border-color: var(--mbj-border) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--mbj-bg) 38%, transparent) !important;
+}
+
+/* Season */
+.mbj-history-season > div {
+  background: var(--mbj-card) !important;
+  color: var(--mbj-text) !important;
+  border: 1px solid color-mix(in srgb, var(--mbj-accent) 24%, var(--mbj-border)) !important;
+  border-radius: 22px !important;
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--mbj-bg) 45%, transparent), inset 0 1px 0 color-mix(in srgb, var(--mbj-text) 5%, transparent) !important;
+}
+
+.mbj-history-stat {
+  background: var(--mbj-surface) !important;
+  color: var(--mbj-text) !important;
+  border-color: color-mix(in srgb, var(--mbj-accent) 20%, var(--mbj-border)) !important;
+  box-shadow: none !important;
+}
+
+/* History's selected tab is the only filled control in the rail. */
+.mbj-history-screen > div:first-of-type .mbj-history-tabs {
+  background: var(--mbj-surface);
+}
+
+/* Settings: one coherent surface system, with a quieter page background. */
+.mbj-settings-main {
+  background: var(--mbj-bg) !important;
+  color: var(--mbj-text) !important;
+  border-radius: 24px;
+}
+
+.mbj-settings-main > div {
+  background: var(--mbj-card) !important;
+  color: var(--mbj-text) !important;
+  border-color: var(--mbj-border) !important;
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--mbj-bg) 42%, transparent), inset 0 1px 0 color-mix(in srgb, var(--mbj-text) 5%, transparent) !important;
+}
+
+.mbj-settings-main input,
+.mbj-settings-main select,
+.mbj-settings-main textarea {
+  background: var(--mbj-surface) !important;
+  color: var(--mbj-text) !important;
+  border-color: var(--mbj-border) !important;
+}
+
+/* Light themes: retain the clean paper-like hierarchy instead of a stack
+   of pure-white rectangles. */
+:root[data-mbj-theme="daylight"] .mbj-history-screen,
+:root[data-mbj-theme="scoresheet"] .mbj-history-screen,
+:root[data-mbj-theme="chalk"] .mbj-history-screen,
+:root[data-mbj-theme="daylight"] .mbj-settings-main,
+:root[data-mbj-theme="scoresheet"] .mbj-settings-main,
+:root[data-mbj-theme="chalk"] .mbj-settings-main {
+  background: var(--mbj-bg) !important;
+}
+
+:root[data-mbj-theme="daylight"] .mbj-history-screen > div,
+:root[data-mbj-theme="scoresheet"] .mbj-history-screen > div,
+:root[data-mbj-theme="chalk"] .mbj-history-screen > div,
+:root[data-mbj-theme="daylight"] .mbj-settings-main > div,
+:root[data-mbj-theme="scoresheet"] .mbj-settings-main > div,
+:root[data-mbj-theme="chalk"] .mbj-settings-main > div {
+  box-shadow: 0 8px 22px rgba(30,40,55,.07), inset 0 1px 0 rgba(255,255,255,.8) !important;
+}
+
+
+/* Final targeted correction: Stats cards are wrapped by HideableCard, so
+   the earlier direct-child selectors never reached the actual Mine cards.
+   Give the shell and its card a theme-aware surface without touching the
+   Stats content or behavior. */
+.mbj-stat-card-shell {
+  position: relative;
+}
+.mbj-view-data .mbj-stat-card-shell > div {
+  background: var(--mbj-card) !important;
+  color: var(--mbj-text) !important;
+  border-color: var(--mbj-border) !important;
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--mbj-bg) 42%, transparent),
+              inset 0 1px 0 color-mix(in srgb, var(--mbj-text) 5%, transparent) !important;
+}
+
+/* The four Home mode icons use white line art over their colored wells.
+   The previous version used the accent for both, which made the artwork
+   nearly disappear against the matching gradient. */
+.mbj-mode-icon svg {
+  width: 46px !important;
+  height: 46px !important;
+  filter: drop-shadow(0 2px 3px rgba(0,0,0,.18));
+}
+
+
+/* Final Mine-tab correction: Viewing/Compare is a special card, not a
+   HideableCard, so it needs its own explicit theme surface. */
+.mbj-stat-viewing-card {
+  background: var(--mbj-card) !important;
+  color: var(--mbj-text) !important;
+  border: 1px solid var(--mbj-border) !important;
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--mbj-bg) 42%, transparent),
+              inset 0 1px 0 color-mix(in srgb, var(--mbj-text) 5%, transparent) !important;
+}
+.mbj-stat-viewing-card select,
+.mbj-stat-viewing-card button {
+  background: var(--mbj-surface) !important;
+  color: var(--mbj-text) !important;
+  border-color: var(--mbj-border) !important;
+}
+:root[data-mbj-theme="daylight"] .mbj-stat-viewing-card,
+:root[data-mbj-theme="scoresheet"] .mbj-stat-viewing-card,
+:root[data-mbj-theme="chalk"] .mbj-stat-viewing-card {
+  background: linear-gradient(145deg, rgba(255,255,255,.98), rgba(247,249,252,.96)) !important;
+}
+
+
+/* Mine tab: the Viewing/Compare panel is rendered outside the data-card
+   wrapper, so its theme must be explicit at the component level. */
+:root[data-mbj-theme="lane"] .mbj-stat-viewing-card,
+:root[data-mbj-theme="classic"] .mbj-stat-viewing-card,
+:root[data-mbj-theme="pattern"] .mbj-stat-viewing-card,
+:root[data-mbj-theme="urethane"] .mbj-stat-viewing-card,
+:root[data-mbj-theme="pindeck"] .mbj-stat-viewing-card {
+  background: var(--mbj-card) !important;
+  color: var(--mbj-text) !important;
+  border-color: var(--mbj-border) !important;
+}
+:root[data-mbj-theme="lane"] .mbj-stat-viewing-card select,
+:root[data-mbj-theme="classic"] .mbj-stat-viewing-card select,
+:root[data-mbj-theme="pattern"] .mbj-stat-viewing-card select,
+:root[data-mbj-theme="urethane"] .mbj-stat-viewing-card select,
+:root[data-mbj-theme="pindeck"] .mbj-stat-viewing-card select,
+:root[data-mbj-theme="lane"] .mbj-stat-viewing-card button,
+:root[data-mbj-theme="classic"] .mbj-stat-viewing-card button,
+:root[data-mbj-theme="pattern"] .mbj-stat-viewing-card button,
+:root[data-mbj-theme="urethane"] .mbj-stat-viewing-card button {
+  background: var(--mbj-surface) !important;
+  color: var(--mbj-text) !important;
+  border-color: var(--mbj-border) !important;
 }
