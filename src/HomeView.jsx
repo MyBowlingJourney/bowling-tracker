@@ -142,19 +142,22 @@ export default function HomeView({
             <span style={{fontSize:"12px",fontWeight:700,color:C.accent}}>{figures.games ? `${figures.games} games logged` : "No games yet"}</span>
           </div>
           <div style={{display:"flex",alignItems:"flex-end",gap:"10px"}}>
-            <div style={{minWidth:0,flex:"1.25 1 0"}}>
+            {/* The average gives up a little width so the two boxes can
+                hold "HIGH SERIES" on one line; stacked, its number sat
+                lower than High game's and the pair no longer lined up. */}
+            <div style={{minWidth:0,flex:"1 1 0"}}>
               <div style={{fontSize:"11px",fontWeight:800,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted}}>Average</div>
               <div style={{fontFamily:"Roboto Condensed, Archivo, system-ui, sans-serif",fontSize:"40px",fontWeight:800,lineHeight:.95,letterSpacing:"-0.045em",color:C.text}}>{figures.average ?? "—"}</div>
               <div style={{fontSize:"12px",color:C.textMuted,marginTop:"3px"}}>season average</div>
             </div>
             <div style={{width:"1px",height:"54px",background:C.border,flexShrink:0}}/>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",flex:"1.5 1 0"}}>
-              <div style={{padding:"9px 10px",borderRadius:"14px",background:C.surface,border:`1px solid ${C.border}`}}>
-                <div style={{fontSize:"10px",fontWeight:800,textTransform:"uppercase",letterSpacing:"0.06em",color:C.textMuted}}>High game</div>
+            <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)",gap:"8px",flex:"1.9 1 0"}}>
+              <div style={{padding:"9px 8px",borderRadius:"14px",background:C.surface,border:`1px solid ${C.border}`,minWidth:0}}>
+                <div style={{fontSize:"clamp(9px, 2.6vw, 10px)",fontWeight:800,textTransform:"uppercase",letterSpacing:"0.03em",color:C.textMuted,whiteSpace:"nowrap"}}>High game</div>
                 <div style={{fontFamily:"Roboto Condensed, Archivo, system-ui, sans-serif",fontSize:"25px",fontWeight:800,color:C.text,marginTop:"2px"}}>{figures.highGame ?? "—"}</div>
               </div>
-              <div style={{padding:"9px 10px",borderRadius:"14px",background:C.surface,border:`1px solid ${C.border}`}}>
-                <div style={{fontSize:"10px",fontWeight:800,textTransform:"uppercase",letterSpacing:"0.06em",color:C.textMuted}}>High series</div>
+              <div style={{padding:"9px 8px",borderRadius:"14px",background:C.surface,border:`1px solid ${C.border}`,minWidth:0}}>
+                <div style={{fontSize:"clamp(9px, 2.6vw, 10px)",fontWeight:800,textTransform:"uppercase",letterSpacing:"0.03em",color:C.textMuted,whiteSpace:"nowrap"}}>High series</div>
                 <div style={{fontFamily:"Roboto Condensed, Archivo, system-ui, sans-serif",fontSize:"25px",fontWeight:800,color:C.text,marginTop:"2px"}}>{figures.highSeries ?? "—"}</div>
               </div>
             </div>
