@@ -128,7 +128,6 @@ export default function HomeView({
           <div style={{fontSize:"11px",fontWeight:800,letterSpacing:"0.12em",textTransform:"uppercase",color:C.accent,marginBottom:"5px"}}>Your bowling</div>
           <div style={{fontFamily:"Archivo Expanded, Archivo, system-ui, sans-serif",fontSize:"27px",fontWeight:800,lineHeight:1.05,letterSpacing:"-0.045em",color:C.text}}>This season</div>
         </div>
-        <button onClick={onOpenStats} aria-label="Open statistics" style={{border:`1px solid ${C.accent}44`,background:C.accentDim,color:C.accent,borderRadius:"999px",padding:"8px 11px",fontSize:"12px",fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>View stats</button>
       </div>
 
       <button onClick={onOpenStats} style={{

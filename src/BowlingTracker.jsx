@@ -27,6 +27,7 @@ const HomeScreen = lazyScreen("Home", () => import("./HomeView.jsx"));
 import { tourSteps, tourToOffer, markTourSeen, hasSeenTour, needsLeagueSetup, availableTours, FIRST_TOUR, TRACK_KEYS } from "./domain/tour.js";
 import HelpView from "./HelpView.jsx";
 import HeaderMenu from "./HeaderMenu.jsx";
+import { laneDigits } from "./domain/laneInput.js";
 import Subscribe from "./Subscribe.jsx";
 import CasualLeaderboard from "./CasualLeaderboard.jsx";
 const BadgeCollection = lazyScreen("BadgeCollection", () => import("./BadgeCollection.jsx"));
@@ -1191,7 +1192,9 @@ export default function BowlingTracker(){
     try{window.storage.set(TOURNAMENT_KEY,JSON.stringify(fresh));}catch{}
   }
 
-  const[startingLane,setStartingLane]=useState(savedContext?.lane||"");
+  // Cleaned on load too: a negative lane saved before the field was fixed
+  // would otherwise come back every time the app opened.
+  const[startingLane,setStartingLane]=useState(laneDigits(savedContext?.lane));
   const[confirmClear,setConfirmClear]=useState(false);
   const[showBackup,setShowBackup]=useState(false);
   const[expandedSections,setExpandedSections]=useState({releaseMiss:false,ballChange:false,notes:false,tonightSession:false,arsenal:false,surface:false,/* open by default: reaching this card means a league is chosen and the
@@ -4242,6 +4245,8 @@ export default function BowlingTracker(){
   function calcLane(sl,game,frame,ballNum){
     if(!sl||!game||!frame)return null;
     const start=parseInt(sl),g=parseInt(game),f=parseInt(frame);
+    // Lanes start at 1. Anything else is no lane, not a negative one.
+    if(!(start>=1))return null;
     function lat(gsl,fr){
       const gp=gsl%2===0?gsl-1:gsl+1;
       if(fr<=9)return fr%2===1?gsl:gp;

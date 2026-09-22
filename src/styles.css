@@ -64,6 +64,12 @@ select[data-compact] {
   background-position: right 3px center !important;
   background-size: auto calc(100% - 14px) !important;
 }
+/* The Execution card's pair: two dropdowns in half a screen. A
+   narrower chevron well leaves "Acceptable" room to read. */
+select[data-compact][data-tight] {
+  padding-right: 20px !important;
+  background-position: right 2px center !important;
+}
 
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
   outline: 2px solid var(--ba-accent, #E8A33D);

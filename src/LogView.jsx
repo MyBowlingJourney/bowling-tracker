@@ -34,6 +34,7 @@ import { isBaker, bakerBowlerFor } from "./domain/tournamentFormats.js";
 import { practiceSummary, practiceShotStats } from "./domain/practiceSummary.js";
 
 import { isSplit } from "./domain/splits.js";
+import { laneDigits } from "./domain/laneInput.js";
 export default function LogView({
   // The night's own note, owned by BowlingTracker so it can be saved with
   // the session. It used to write form.notes -- the shot form -- so a
@@ -1348,8 +1349,9 @@ export default function LogView({
                   <div style={S.label}>Starting Lane</div>
                   <div style={S.row}>
                     <input style={{...S.input,flex:1,textAlign:"center",fontSize:"18px",fontWeight:700}}
-                      type="number" placeholder="e.g. 8" value={startingLane}
-                      onChange={e=>setStartingLane(e.target.value)}/>
+                      type="text" inputMode="numeric" pattern="[0-9]*" maxLength={3}
+                      placeholder="e.g. 8" value={startingLane}
+                      onChange={e=>setStartingLane(laneDigits(e.target.value))}/>
                     {startingLane&&(()=>{
                       const l=parseInt(startingLane),p=l%2===0?l-1:l+1;
                       return(
@@ -2337,7 +2339,7 @@ export default function LogView({
                 </div>
               )}
               {editingId&&(
-                <input style={S.input} placeholder="Lane" type="number" value={form.lane} onChange={e=>set("lane",e.target.value)}/>
+                <input style={S.input} placeholder="Lane" type="text" inputMode="numeric" pattern="[0-9]*" maxLength={3} value={form.lane} onChange={e=>set("lane",laneDigits(e.target.value))}/>
               )}
             </div>
             )}
@@ -3532,15 +3534,18 @@ export default function LogView({
                     always been a list and everything downstream reads it
                     as one -- changing the shape to match the control
                     would be a data migration dressed as a layout tweak. */}
-                {/* Stacked now, not side by side: the card is half the
-                    screen, and with a dropdown chevron in each there was
-                    no room left to read "Acceptable". */}
+                {/* Side by side again, so the card is the same height as
+                    Shoes beside it -- stacked, Execution ran a row taller
+                    and the pair no longer lined up. The dropdowns lose a
+                    little inner padding here to leave "Acceptable" room
+                    to read. One column when only one is tracked. */}
                 <div style={{display:"grid",
-                  gridTemplateColumns:"minmax(0, 1fr)",gap:"8px"}}>
+                  gridTemplateColumns:(preferences.trackedFields.release&&preferences.trackedFields.miss)
+                    ?"repeat(2, minmax(0, 1fr))":"minmax(0, 1fr)",gap:"8px"}}>
                   {preferences.trackedFields.release&&(
                     <div style={{minWidth:0}}>
                       <div style={fieldHead}>Release</div>
-                      <select data-compact="" style={{...S.sel,...smallInput,width:"100%"}}
+                      <select data-compact="" data-tight="" style={{...S.sel,...smallInput,width:"100%",paddingLeft:"8px"}}
                         value={form.release||""}
                         onChange={e=>set("release",e.target.value)}>
                         <option value="">—</option>
@@ -3551,7 +3556,7 @@ export default function LogView({
                   {preferences.trackedFields.miss&&(
                     <div style={{minWidth:0}}>
                       <div style={fieldHead}>Miss</div>
-                      <select data-compact="" style={{...S.sel,...smallInput,width:"100%"}}
+                      <select data-compact="" data-tight="" style={{...S.sel,...smallInput,width:"100%",paddingLeft:"8px"}}
                         value={form.miss?.[0]||""}
                         onChange={e=>set("miss",e.target.value?[e.target.value]:[])}>
                         <option value="">—</option>
@@ -3879,11 +3884,18 @@ export default function LogView({
                 Save Tournament on Results, and "End Block" beside it asks
                 which one finishes the event. */}
             {!editingId&&env!=="tournament"&&(
-            <button style={{...S.btn("primary"),flex:1}} onClick={submitSession}>
+            // Practice ends in two steps. "End Practice" goes to Results so
+            // the bowler sees the night before it is filed; "Save Practice"
+            // on Results is what saves it and goes home. Saving straight
+            // from the Games tab skipped the one screen that sums it up.
+            <button style={{...S.btn("primary"),flex:1}}
+              onClick={preferences.environment==="practice"&&practiceMode!=="results"
+                ?()=>{setPracticeMode("results");try{window.scrollTo({top:0});}catch{}}
+                :submitSession}>
               {sessionSaveMessage?sessionSaveMessage:sessionSaved
                 ?"✓ Session Saved"
                 :preferences.environment==="practice"
-                  ?"Save Practice & Return Home"
+                  ?(practiceMode==="results"?"Save Practice":"End Practice")
                   :preferences.environment==="league"
                     ?"Save League & Return Home"
                     :"Save Open Bowling & Return Home"}
