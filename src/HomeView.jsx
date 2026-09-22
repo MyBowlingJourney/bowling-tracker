@@ -8,6 +8,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { seasonFigures, journeyRecap, latestNight } from "./domain/home.js";
 import { journeyMilestones, upcomingMilestones, describeUpcoming } from "./domain/journey.js";
 import { formatDate } from "./constants.js";
+import { progressPercent } from "./domain/progressPercent.js";
 
 
 import { ENVIRONMENTS, ENVIRONMENT_COLORS, ENVIRONMENT_LABELS, ENVIRONMENT_DESCRIPTIONS } from "./domain/preferences.js";
@@ -196,10 +197,10 @@ export default function HomeView({
               {nextUp && (
                 <div style={{marginTop:"10px"}}>
                   <div style={{display:"flex",justifyContent:"space-between",fontSize:"11px",fontWeight:700,color:C.textMuted,marginBottom:"6px"}}>
-                    <span>Progress to next milestone</span><span style={{color:C.accent}}>{Math.round(nextUp.progress*100)}%</span>
+                    <span>Progress to next milestone</span><span style={{color:C.accent}}>{progressPercent(nextUp.progress)}%</span>
                   </div>
                   <div style={{height:"8px",borderRadius:"999px",background:C.surface,overflow:"hidden",border:`1px solid ${C.border}`}}>
-                    <div style={{width:`${Math.max(4,Math.round(nextUp.progress*100))}%`,height:"100%",borderRadius:"999px",background:`linear-gradient(90deg, ${C.accent}, ${C.strike})`}}/>
+                    <div style={{width:`${Math.max(4,progressPercent(nextUp.progress))}%`,height:"100%",borderRadius:"999px",background:`linear-gradient(90deg, ${C.accent}, ${C.strike})`}}/>
                   </div>
                 </div>
               )}

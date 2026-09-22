@@ -2,6 +2,7 @@ import { useState } from "react";
 import { C, S, F, ActionRow } from "./ui.jsx";
 import journeyIcon from "../journey-icon.png";
 import { formatDate } from "./constants.js";
+import { progressPercent } from "./domain/progressPercent.js";
 import {
   journeyMilestones,
   journeyProgress,
@@ -146,11 +147,11 @@ function UpNext({ steps }) {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "8px" }}>
               <div style={{ fontSize: "14px", fontWeight: 600, color: C.text }}>{m.label}</div>
               <div style={{ fontFamily: F.num, fontSize: "13px", fontWeight: 700, color: C.accent, flexShrink: 0 }}>
-                {Math.round(m.progress * 100)}%
+                {progressPercent(m.progress)}%
               </div>
             </div>
             <div style={{ height: "7px", borderRadius: "4px", backgroundColor: C.surface, overflow: "hidden", margin: "7px 0 5px" }}>
-              <div style={{ width: `${Math.max(4, Math.round(m.progress * 100))}%`, height: "100%",
+              <div style={{ width: `${Math.max(4, progressPercent(m.progress))}%`, height: "100%",
                 borderRadius: "4px", background: `linear-gradient(90deg, ${C.accent}, ${C.strike})` }} />
             </div>
             <div style={{ fontSize: "11.5px", color: C.textMuted }}>{describeUpcoming(m)}</div>

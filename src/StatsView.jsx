@@ -26,6 +26,7 @@ import { HOUSE_PATTERN } from "./domain/laneTransition.js";
 
 import { cardsInGroup } from "./domain/statsGroups.js";
 import { cardHint } from "./domain/cardHints.js";
+import { progressPercent } from "./domain/progressPercent.js";
 import { PAID_STATS_CARDS, canSeeStatsCard } from "./domain/entitlements.js";
 
 // Card titles, taken from the same list Settings orders them by, so a
@@ -1414,7 +1415,7 @@ sessions.length>0&&(()=>{
                       </div>
                       <div style={{textAlign:"center",marginTop:"8px"}}>
                         <span style={{fontSize:"20px",fontWeight:700,color:C.accent}}>{progress.raw.toFixed(1)}</span>
-                        <span style={{fontSize:"12px",color:C.textMuted,marginLeft:"6px"}}>({Math.round(progress.pct)}% to {progress.nextMilestone})</span>
+                        <span style={{fontSize:"12px",color:C.textMuted,marginLeft:"6px"}}>({progressPercent(progress.pct / 100)}% to {progress.nextMilestone})</span>
                       </div>
 
                       {(()=>{
