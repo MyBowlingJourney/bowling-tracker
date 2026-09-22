@@ -6,6 +6,7 @@ import { knockedFromSecondLeave, toggleKnocked, secondLeaveFrom, pinCountFrom } 
 import { convertExtractedGameToShots, normalizeExtraction, detailLevel, mergeColumnsByBowler, scoreDisagreement, scoreDisagreementNote, extractionQuality, extractionQualityNote, framesReconcile } from "./domain/scorecardImport.js";
 import { matchScorecard, rosterOrderCheck } from "./domain/nameMatching.js";
 import { strictPartial, frameScoresheet } from "./domain/scoring.js";
+import Scoresheet from "./Scoresheet.jsx";
 import { findExistingShotSlot } from "./domain/sessions.js";
 import { isValidGameScore, invalidScoreIndexes } from "./domain/importVerification.js";
 import { supabase } from "./supabaseClient.js";
@@ -108,7 +109,7 @@ function ShotEditor({shot,onChange}){
 // frames start expanded and visually distinct -- they're the one scenario
 // confirmed unreliable to extract from a scorecard image, so they need
 // eyes-on before saving, not just an easy-to-miss footnote.
-function GameReview({game,onUpdateShot,onUpdateScore,expandedFrames,onToggleExpanded}){
+function GameReview({game,onUpdateShot,onUpdateScore,expandedFrames,onToggleExpanded,leftHanded}){
   const score=game.scoreOnly?game.totalScore:strictPartial(game.shots);
   // Two independent readings of the same card: the total the model read,
   // and what its own frames actually score to. A verified engine can say
@@ -169,6 +170,23 @@ function GameReview({game,onUpdateShot,onUpdateScore,expandedFrames,onToggleExpa
           ⚠️ {game.warnings.length} fill ball{game.warnings.length>1?"s":""} below couldn't be reliably read from the image -- please double-check the pin count.
         </div>
       )}
+      {/* The card as a scoresheet, not a list of rows.
+          
+          An imported game is read the way it was bowled: ten boxes with
+          the marks and the rack, so a pin the model got wrong is visible
+          at a glance. Tapping a frame opens that ball's editor below. */}
+      {!game.scoreOnly&&game.shots.length>0&&(
+        <div style={{marginBottom:"10px"}}>
+          <Scoresheet shots={game.shots} game={String(game.gameNumber)} leftHanded={leftHanded}
+            onSelectFrame={frame=>{
+              const hit=game.shots.find(s=>String(s.frame)===String(frame));
+              if(hit)onToggleExpanded(frameKey(hit),{open:true});
+            }}/>
+          <div style={{fontSize:"11px",color:C.textMuted,marginTop:"6px"}}>
+            Tap a frame to fix what was read.
+          </div>
+        </div>
+      )}
       {game.shots.map((s,idx)=>{
         const key=frameKey(s);
         const blank=!s.result;
@@ -194,6 +212,78 @@ function GameReview({game,onUpdateShot,onUpdateScore,expandedFrames,onToggleExpa
   );
 }
 
+// Where the card is going: kind, then the team or tournament, then the
+// date. Shown on the setup step AND again on the review step -- picking
+// the wrong league used to mean the whole import had to be run again,
+// because the destination was only askable before the read.
+function DestinationFields({
+  importKind,setImportKind,teamsForImport,contextTeamId,setContextTeamId,contextTeam,
+  tournaments,contextTournamentId,setContextTournamentId,contextDate,setContextDate,
+}){
+  return(
+    <>
+          <div style={S.label}>What are you importing?</div>
+          <div style={S.chips}>
+            <Chip label="Practice" selected={importKind==="practice"} onToggle={()=>setImportKind("practice")}/>
+            <Chip label="League" selected={importKind==="league"} onToggle={()=>setImportKind("league")}/>
+            <Chip label="Tournament" selected={importKind==="tournament"} onToggle={()=>setImportKind("tournament")}/>
+          </div>
+
+          {importKind==="league"&&(
+            <>
+              {/* Team, not league: every column gets mapped to a bowler
+                  in the review step, and the team is the roster it's
+                  mapped against. Its league comes with it. */}
+              <div style={S.label}>Which team?</div>
+              {teamsForImport.length===0?(
+                <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"10px"}}>
+                  No teams yet — add one under a league in Team, then import.
+                </div>
+              ):(
+                <div style={S.chips}>
+                  {teamsForImport.map(t=>(
+                    <Chip key={t.id} label={t.name} selected={contextTeamId===t.id}
+                      onToggle={()=>setContextTeamId(t.id)}/>
+                  ))}
+                </div>
+              )}
+              {contextTeam&&(
+                <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"10px"}}>
+                  {String(contextTeam.league||"").replace(" House Shot","")}
+                </div>
+              )}
+            </>
+          )}
+
+          {importKind==="tournament"&&(
+            <>
+              <div style={S.label}>Which tournament?</div>
+              {(tournaments||[]).length===0?(
+                <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"10px"}}>
+                  No tournaments yet — start one on the Bowl tab first.
+                </div>
+              ):(
+                <div style={S.chips}>
+                  {(tournaments||[]).map(t=>(
+                    <Chip key={t.id} label={t.name} selected={contextTournamentId===t.id}
+                      onToggle={()=>setContextTournamentId(t.id)}/>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
+          {importKind==="practice"&&(
+            <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"10px"}}>
+              Filed as practice — no league or team needed.
+            </div>
+          )}
+      <div style={S.label}>Date</div>
+      <input style={S.input} type="date" value={contextDate} onChange={e=>setContextDate(e.target.value)}/>
+    </>
+  );
+}
+
 export default function ImportScorecard({
   bowlers, activeBowler, leagues, teams, tournaments = [], profiles, shots, saveShots, updateManualScore, onSubmitTeammateScores,
   setSessionLeague, setSessionDate, selectBowler, setView, setSessionSaveMessage,
@@ -202,6 +292,7 @@ export default function ImportScorecard({
   // lets the import skip straight to what it actually needs -- the
   // screenshots -- instead of asking questions with one possible answer.
   presetLeague = null, presetBowler = null, userId = "", onImported,
+  leftHandedForBowler,
 }){
   const[step,setStep]=useState("setup"); // setup | processing | review | saving
   // Which team's scorecard this is. The team, not the league: a league
@@ -228,20 +319,17 @@ export default function ImportScorecard({
   // stronger model rather than asking the fast one first and escalating --
   // the fast one cannot read pin decks, so asking it only added a minute.
   //
-  // FRAME IMPORT RETIRED (Sep 2026). Scores only, read by
-  // gemini-3.5-flash-lite. The frame read got the shape of a game right
-  // but kept getting pins wrong, and wrong pins saved to history skew
-  // spare/leave stats no matter what label the button has. It was also
-  // only ever tuned on LaneTalk screenshots, which real users mostly won't
-  // have -- centre printouts are the realistic source and were never tested.
+  // FRAME IMPORT IS BACK (Sep 2026, second pass). It was retired because
+  // pins came back wrong and wrong pins skew spare and leave stats. Every
+  // frame is now shown as a scoresheet with a pin rack before anything is
+  // saved, so a misread pin is fixed in the review instead of filed
+  // silently.
   //
-  // To turn it back on: restore the useState line below, uncomment the
-  // "Frames" chip and its hint in the setup step, restore importedShots in
-  // handleSave, and follow the steps in the matching note in
-  // supabase/functions/import-scorecard/index.ts (the server forces
-  // detailed off too, so both have to change).
-  // const[cardType,setCardType]=useState("totals");
-  const cardType="totals";
+  // "Game" is the default and the fast path. Picking wrong costs one
+  // extra read, not a restart: a game read on a card that turns out to
+  // show frames escalates to the detailed model, and a frame read on a
+  // card with no frame detail keeps the scores it got.
+  const[cardType,setCardType]=useState("totals");
   const[contextTeamId,setContextTeamId]=useState(initialTeam?.id||"");
   const contextTeam=teamsForImport.find(t=>t.id===contextTeamId)||initialTeam||null;
   const selectedTournament=(tournaments||[]).find(t=>t.id===contextTournamentId)||null;
@@ -515,12 +603,12 @@ export default function ImportScorecard({
 
       // Totals: whatever frames a model volunteered are dropped. They were
       // not asked for, and a fast read's pin decks are not to be trusted.
-      if(!fnError&&cardType==="totals"&&Array.isArray(data?.games)){
+      if(!fnError&&cardType==="totals"&&data?.hasFrameDetail!==true&&Array.isArray(data?.games)){
         data={...data,games:data.games.map(g=>g?{...g,frames:[]}:g)};
       }
-      // Escalation only exists for the old auto path; with the card type
-      // asked up front, frames already went to the detailed read.
-      if(cardType==="auto"&&!fnError&&data?.hasFrameDetail===true){
+      // ESCALATE: they said Game, the card shows frames. One extra read
+      // beats making them start the import over.
+      if(cardType==="totals"&&!fnError&&data?.hasFrameDetail===true){
         const gotFrames=(data?.games||[]).some(g=>(g.frames||[]).length);
 
         // Frames present is NOT frames correct. The fast model returned
@@ -847,11 +935,14 @@ export default function ImportScorecard({
     setGames(prev=>prev.map((g,i)=>i!==gameIdx?g:{...g,shots:reconcileTenth(g.shots.map((s,j)=>j!==shotIdx?s:updatedShot))}));
   }
 
-  function toggleExpanded(gameIdx,key){
+  // opts.open forces it open: tapping a frame on the scoresheet means
+  // "show me this one", never "close the one I just tapped".
+  function toggleExpanded(gameIdx,key,opts){
     setExpandedByGame(prev=>prev.map((set,i)=>{
       if(i!==gameIdx)return set;
       const next=new Set(set);
-      next.has(key)?next.delete(key):next.add(key);
+      if(opts&&opts.open)next.add(key);
+      else next.has(key)?next.delete(key):next.add(key);
       return next;
     }));
   }
@@ -945,11 +1036,9 @@ export default function ImportScorecard({
         // an approved shot is marked as imported rather than self-logged.
         // A card showing only totals sends no frames, which is a normal
         // case rather than a failure.
-        // FRAME IMPORT RETIRED (Sep 2026) -- teammates get scores only.
-        // importedShots:convertColumn(column,bowler)
-        //   .filter(g=>!g.scoreOnly&&g.shots.length)
-        //   .map(g=>({gameNumber:g.gameNumber,ballUsed:g.ballUsed,shots:g.shots})),
-        importedShots:[],
+        importedShots:convertColumn(column,bowler)
+          .filter(g=>!g.scoreOnly&&g.shots.length)
+          .map(g=>({gameNumber:g.gameNumber,ballUsed:g.ballUsed,shots:g.shots})),
       })));
     }
 
@@ -989,81 +1078,27 @@ export default function ImportScorecard({
             {/* What kind of bowling, then which one. Asked here rather
                 than inherited from the Log tab's current mode, so any
                 card can be imported from anywhere. */}
-            <div style={S.label}>What are you importing?</div>
-            <div style={S.chips}>
-              <Chip label="Practice" selected={importKind==="practice"} onToggle={()=>setImportKind("practice")}/>
-              <Chip label="League" selected={importKind==="league"} onToggle={()=>setImportKind("league")}/>
-              <Chip label="Tournament" selected={importKind==="tournament"} onToggle={()=>setImportKind("tournament")}/>
-            </div>
+            <DestinationFields
+              importKind={importKind} setImportKind={setImportKind}
+              teamsForImport={teamsForImport} contextTeamId={contextTeamId} setContextTeamId={setContextTeamId}
+              contextTeam={contextTeam} tournaments={tournaments}
+              contextTournamentId={contextTournamentId} setContextTournamentId={setContextTournamentId}
+              contextDate={contextDate} setContextDate={setContextDate}/>
 
-            {importKind==="league"&&(
-              <>
-                {/* Team, not league: every column gets mapped to a bowler
-                    in the review step, and the team is the roster it's
-                    mapped against. Its league comes with it. */}
-                <div style={S.label}>Which team?</div>
-                {teamsForImport.length===0?(
-                  <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"10px"}}>
-                    No teams yet — add one under a league in Team, then import.
-                  </div>
-                ):(
-                  <div style={S.chips}>
-                    {teamsForImport.map(t=>(
-                      <Chip key={t.id} label={t.name} selected={contextTeamId===t.id}
-                        onToggle={()=>setContextTeamId(t.id)}/>
-                    ))}
-                  </div>
-                )}
-                {contextTeam&&(
-                  <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"10px"}}>
-                    {String(contextTeam.league||"").replace(" House Shot","")}
-                  </div>
-                )}
-              </>
-            )}
-
-            {importKind==="tournament"&&(
-              <>
-                <div style={S.label}>Which tournament?</div>
-                {(tournaments||[]).length===0?(
-                  <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"10px"}}>
-                    No tournaments yet — start one on the Bowl tab first.
-                  </div>
-                ):(
-                  <div style={S.chips}>
-                    {(tournaments||[]).map(t=>(
-                      <Chip key={t.id} label={t.name} selected={contextTournamentId===t.id}
-                        onToggle={()=>setContextTournamentId(t.id)}/>
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
-
-            {importKind==="practice"&&(
-              <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"10px"}}>
-                Filed as practice — no league or team needed.
-              </div>
-            )}
-
-            {/* FRAME IMPORT RETIRED (Sep 2026) -- see the note at cardType.
-                The card-type picker is gone; only game totals are read.
+            {/* What the photo shows. Game is the default because it is
+                the fast read; picking wrong costs one extra read, not a
+                restart. */}
             <div style={S.label}>What's on the card?</div>
             <div style={{...S.chips,marginBottom:"6px"}}>
-              <Chip label="Game totals" selected={cardType==="totals"} onToggle={()=>setCardType("totals")}/>
-              <Chip label="Frames · Beta" selected={cardType==="frames"} onToggle={()=>setCardType("frames")}/>
+              <Chip label="Game scores" selected={cardType==="totals"} onToggle={()=>setCardType("totals")}/>
+              <Chip label="Frame by frame" selected={cardType==="frames"} onToggle={()=>setCardType("frames")}/>
             </div>
             <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"10px",lineHeight:1.5}}>
               {cardType==="totals"
-                ?"Reads each game's score only. Check the numbers before saving."
-                :<><span style={{display:"inline-block",fontSize:"10px",fontWeight:700,color:C.spare,border:`1px solid ${C.spare}`,borderRadius:"6px",padding:"0 5px",marginRight:"6px"}}>BETA</span>
-                  Also tries to read every frame ball by ball. Slower, and leaves and counts can come back wrong — check each frame before saving.</>}
+                ?"Reads each game's score. Fastest. If the card turns out to show frames, they get read too."
+                :"Reads every ball and the pins it left. Slower, and leaves can come back wrong — you'll see each frame as a scoresheet to fix before saving."}
             </div>
-            */}
 
-            {/* Always visible, whatever the kind. */}
-            <div style={S.label}>Date</div>
-            <input style={S.input} type="date" value={contextDate} onChange={e=>setContextDate(e.target.value)}/>
           </div>
 
 
@@ -1270,6 +1305,20 @@ export default function ImportScorecard({
                     : "review each frame below, tap any of them to correct it, then save."
             }
           </div>
+          {/* Where it lands, still changeable. The destination used to be
+              locked in before the read, so a card imported into the wrong
+              league meant scanning it again. */}
+          {step==="review"&&(
+            <div style={S.card}>
+              <div style={{...S.label,marginBottom:"8px"}}>Where this goes</div>
+              <DestinationFields
+                importKind={importKind} setImportKind={setImportKind}
+                teamsForImport={teamsForImport} contextTeamId={contextTeamId} setContextTeamId={setContextTeamId}
+                contextTeam={contextTeam} tournaments={tournaments}
+                contextTournamentId={contextTournamentId} setContextTournamentId={setContextTournamentId}
+                contextDate={contextDate} setContextDate={setContextDate}/>
+            </div>
+          )}
           {/* The reading itself is AI. The instruction above says to check
               it; this says why that matters. */}
           <AiNote what="This scorecard" verb="read" check="check the numbers against the card before saving" />
@@ -1286,7 +1335,8 @@ export default function ImportScorecard({
               onUpdateShot={(shotIdx,updated)=>updateShot(idx,shotIdx,updated)}
               onUpdateScore={value=>updateScore(idx,value)}
               expandedFrames={expandedByGame[idx]||new Set()}
-              onToggleExpanded={key=>toggleExpanded(idx,key)}/>
+              leftHanded={!!leftHandedForBowler?.(contextBowler)}
+              onToggleExpanded={(key,opts)=>toggleExpanded(idx,key,opts)}/>
           ))}
           {/* Teammates' scores, before they're sent. Two reasons this is
               here and not silent: the uploader is the only person who saw

@@ -512,6 +512,11 @@ export default function BowlingTracker(){
   // What was typed into the header menu's search box, handed to Help.
   const[helpQuery,setHelpQuery]=useState("");
   // The past open bowling night being viewed, for the "pastNight" screen.
+  // The import screen stays alive behind the app once it has been
+  // opened; importRunId remounts it after a finished import.
+  const[importOpened,setImportOpened]=useState(false);
+  const[importRunId,setImportRunId]=useState(0);
+  useEffect(()=>{if(view==="import")setImportOpened(true);},[view]);
   const[pastNightDate,setPastNightDate]=useState("");
   // Cleared on leaving Help, so reaching Help another way starts blank.
   useEffect(()=>{if(view!=="help")setHelpQuery("");},[view]);
@@ -8447,19 +8452,31 @@ export default function BowlingTracker(){
             onReplayTour={replayTour}/>
         )}
 
-        {view==="import"&&(
-          /* RAW shots, deliberately. Import dedupes against everything
-             already logged, so a filtered list would let it re-import a
-             night into a league the bowler cannot currently see -- and
-             they would never find the duplicate to fix it. */
+        {/* Stays MOUNTED once opened, hidden rather than unmounted.
+            
+            A read takes a minute or two, and leaving the screen used to
+            throw away the whole import -- the photos, the review, an
+            extraction already in flight. Hidden keeps all of it, so
+            checking a score on another tab and coming back lands exactly
+            where they left off. A finished import bumps importRunId,
+            which remounts it fresh for next time. */}
+        {importOpened&&(
+          <div style={view==="import"?undefined:{display:"none"}} aria-hidden={view!=="import"?"true":undefined}>
+          {/* RAW shots, deliberately. Import dedupes against everything
+              already logged, so a filtered list would let it re-import a
+              night into a league the bowler cannot currently see -- and
+              they would never find the duplicate to fix it. */}
           <ImportScorecard
             bowlers={bowlers} activeBowler={activeBowler} profiles={profiles} leagues={leagues} teams={teams} tournaments={tournaments} shots={shots} saveShots={saveShots} onSubmitTeammateScores={submitTeammateScores}
             updateManualScore={updateManualScore}
             setSessionLeague={setSessionLeague} setSessionDate={changeSessionDate} selectBowler={selectBowler}
             setView={setView} setSessionSaveMessage={setSessionSaveMessage}
             userId={user?.id||""}
-            onImported={openImportedNight}
+            leftHandedForBowler={leftHandedForBowler}
+            key={importRunId}
+            onImported={n=>{setImportRunId(i=>i+1);openImportedNight(n);}}
           />
+          </div>
         )}
 
         {/* Home IS the night while one is live.

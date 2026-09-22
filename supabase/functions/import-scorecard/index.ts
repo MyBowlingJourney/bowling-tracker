@@ -577,40 +577,21 @@ Deno.serve(async (req) => {
     // point -- it is a handle into logs they cannot read.
     const requestId = crypto.randomUUID().slice(0, 8);
 
-    // const { images, mode, onlyGame, detailed, totalsOnly } = await req.json();
-    const { images, mode, onlyGame, totalsOnly } = await req.json();
+    const { images, mode, onlyGame, detailed, totalsOnly } = await req.json();
 
     // ------------------------------------------------------------------
-    // FRAME IMPORT RETIRED (Sep 2026) -- the detailed (frame-by-frame,
-    // pin-deck) read is switched off HERE, server-side, so an old client
-    // still sending detailed:true gets a scores read instead of the
-    // unreliable one.
+    // FRAME IMPORT, BACK ON (Sep 2026, second pass).
     //
-    // WHY: it got the general shape of a game right but kept getting the
-    // PINS wrong -- and wrong pins saved into history quietly skew spare
-    // conversion and leave stats, which a "beta" label doesn't prevent.
-    // It was also only ever tuned against LaneTalk screenshots, which
-    // real users mostly won't have (why pay for two tracking apps?). The
-    // realistic source of frame data is the printout a bowling centre
-    // hands out, and that was never tested.
+    // It was switched off here because pins came back wrong often enough
+    // to skew spare and leave stats. It is back because a bowler can now
+    // SEE every frame as a scoresheet with a pin rack before anything is
+    // saved, so a misread pin is corrected in the review rather than
+    // filed silently.
     //
-    // TO TURN IT BACK ON:
-    //   1. Collect real centre printouts -- a dozen or so across Brunswick
-    //      (Sync/Vector) and QubicaAMF (BES X/Conqueror). Many printouts
-    //      show only marks, not pin diagrams; only ones WITH pin diagrams
-    //      are worth supporting.
-    //   2. Rewrite EXTRACTION_PROMPT (it still says LaneTalk) and, if
-    //      needed, give each scoring-system family its own prompt.
-    //   3. Restore the destructure above (put `detailed` back) and delete
-    //      the `const detailed = false` line below. The detailed model
-    //      chain, DETAILED_SCHEMA and fallbacks are all still intact.
-    //   4. Re-enable the "Frames" chip in src/ImportScorecard.jsx (see the
-    //      matching note there) and the teammate frame proposal.
-    //   5. Verify pins end to end against the collected printouts, not
-    //      just totals, before exposing it -- totals can match while the
-    //      leaves are wrong.
-    // ------------------------------------------------------------------
-    const detailed = false;
+    // The prompt was written against LaneTalk screenshots. Centre
+    // printouts (Brunswick Sync/Vector, QubicaAMF BES X) are the other
+    // realistic source and are still the weaker case; only printouts
+    // WITH pin diagrams can give pin-level data at all.
     // images: array of { base64: string, mimeType: string } -- one entry per uploaded screenshot
     if (!Array.isArray(images) || !images.length) {
       return new Response(JSON.stringify({ error: "No images provided" }), {
