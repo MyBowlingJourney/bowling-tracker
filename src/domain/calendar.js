@@ -23,7 +23,7 @@
 // shift it a day either side of UTC, which would put a Tuesday night in
 // Monday's box.
 
-import { isPracticeLeagueName, isCasualLeagueName, isTournamentLeagueName, tournamentBaseLeagueName } from "../constants.js";
+import { isPracticeLeagueName, isCasualLeagueName, isTournamentLeagueName, tournamentBaseLeagueName, tournamentLeagueEventName } from "../constants.js";
 import { cutMargin, cutMarginWithCarry, carryBefore } from "./tournaments.js";
 import { handicapPins, activeHandicapPerGame } from "./tournamentFormats.js";
 import { matchPlayTotals } from "./matchPlay.js";
@@ -275,6 +275,40 @@ export function tournamentNights(tournaments, bowler) {
     }
   }
   return out;
+}
+
+// Attach the tournament summary to nights that came from SESSIONS.
+//
+// A tournament that has been bowled and saved leaves two traces: the
+// tournament record, and a session row under the event's container
+// league carrying the frames' strike and spare counts. The session row
+// is the one the calendar shows -- it has more in it -- and it knows
+// nothing about cuts or ladders, so a tournament day was read back as
+// "781 series, 260 average, 289 high", which is a league Tuesday.
+//
+// This finds the tournament behind such a night and hands it the same
+// summary tournamentNights builds, so both routes render alike.
+export function withTournamentDetail(nights, tournaments) {
+  const list = rows(tournaments);
+  if (!list.length) return rows(nights);
+  return rows(nights).map(n => {
+    if (n.event) return n;
+    const league = String(n.league || "");
+    const name = isTournamentLeagueName(league)
+      ? tournamentLeagueEventName(league) || ""
+      : league;
+    if (!name) return n;
+    const t = list.find(x => x && String(x.name || "") === name
+      && (!n.bowler || !x.bowler || x.bowler === n.bowler)
+      && rows(x.days).some(d => String(d.date || "") === String(n.date || "")));
+    if (!t) return n;
+    const day = rows(t.days).find(d => String(d.date || "") === String(n.date || ""));
+    const played = rows(t.days).filter(d =>
+      /^\d{4}-\d{2}-\d{2}$/.test(String(d.date || ""))
+      && rows(d.games).some(g => num(g.score) !== null));
+    const lastDate = played.length ? String(played[played.length - 1].date) : String(day?.date || "");
+    return { ...n, mode: "tournament", event: tournamentNightSummary(t, day, String(n.date) === lastDate) };
+  });
 }
 
 // One tournament day, in the phases it was actually bowled in.
