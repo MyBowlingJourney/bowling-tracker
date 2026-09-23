@@ -1427,15 +1427,34 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
       // The block is dated, but nothing was logged under that date.
       //
       // The block's date and the date the frames were filed under are
-      // set separately, and a bowler who dated a block for the weekend
-      // and then bowled it today has frames under today. They are the
-      // only frames there are, and the block is the only block that
-      // wants them -- provided no OTHER block claims today.
-      if (!sessionDate) return null;
-      const claimedByAnother = (tournament.days || [])
-        .some(x => x && x !== d && String(x.date) === String(sessionDate));
-      if (claimedByAnother) return null;
-      return byDate[String(sessionDate)] || null;
+      // set separately: a bowler who dates a block for the weekend and
+      // then bowls it today has frames under today. An earlier version
+      // of this looked only at the session date, which works while the
+      // app is sitting on the day the frames were bowled and fails the
+      // moment you open the block from history -- opening it SETS the
+      // session date to the block's own date, so the fallback looked
+      // where it had just failed.
+      //
+      // So: frames filed under a date no block claims are unclaimed,
+      // and a block with none of its own is the one that wants them.
+      // Only when exactly one block is in that position -- two blocks
+      // and one loose set of frames is a guess, and a guess here shows
+      // one block's games under another's heading.
+      const days = tournament.days || [];
+      const claimed = new Set(days.map(x => String(x?.date || "")).filter(Boolean));
+      const unclaimed = Object.keys(byDate).filter(dt => !claimed.has(String(dt)));
+      if (!unclaimed.length) return null;
+      const blocksWanting = days.filter(x => {
+        const k = String(x?.date || "");
+        return k && !byDate[k];
+      });
+      if (blocksWanting.length !== 1) return null;
+      // The session's own date first, when it is one of the loose ones:
+      // that is the day being bowled right now.
+      if (sessionDate && unclaimed.includes(String(sessionDate))) {
+        return byDate[String(sessionDate)] || null;
+      }
+      return unclaimed.length === 1 ? byDate[unclaimed[0]] : null;
     }
     // An UNDATED block means "the night being bowled", which is the
     // session date -- not "whichever single date happens to be in the
