@@ -167,6 +167,15 @@ function countedList(items: unknown[], valueOf: (v: unknown) => string | null, c
 // numbers it needs are missing or out of range -- a fact that cannot be
 // rendered correctly is not rendered at all, because a sentence with a
 // hole in it is worse than one fewer fact.
+// 1st, 2nd, 3rd -- for seeds and finishing places.
+function ordinalWord(n: number): string {
+  const abs = Math.abs(Math.round(n));
+  const rem100 = abs % 100;
+  if (rem100 >= 11 && rem100 <= 13) return `${abs}th`;
+  const rem10 = abs % 10;
+  return `${abs}${rem10 === 1 ? "st" : rem10 === 2 ? "nd" : rem10 === 3 ? "rd" : "th"}`;
+}
+
 export type RenderOptions = { ballNames?: boolean; teamNames?: boolean; event?: string };
 
 // A league night and a tournament block are the same shape of data and
@@ -348,6 +357,80 @@ export const RENDERERS: Record<string, Renderer> = {
     const tp = pct(f.tonightPct), tn = count(f.tonightFirstBalls);
     if (sp === null || !sn || !nights || tp === null || !tn) return null;
     return `Season so far in this ${scopeWord(opts)}: ${sp}% strikes on ${sn} first balls across ${nights} ${blockWord(opts, nights)}. ${nowWord(opts)} was ${tp}% on ${tn}.`;
+  },
+
+  // ── The rest of the event ─────────────────────────────────────────────
+  //
+  // Same rules as everything above: numbers arrive, sentences are
+  // written here, and a figure that is not a plausible one drops the
+  // whole line rather than printing a question mark at a bowler.
+
+  eventCut(f) {
+    const margin = int(f.margin, -3000, 3000);
+    if (margin === null) return null;
+    if (margin === 0) return `Finished exactly on the cut line.`;
+    return margin > 0
+      ? `Made the cut by ${margin} pins.`
+      : `Missed the cut by ${Math.abs(margin)} pins.`;
+  },
+
+  eventMatchPlay(f) {
+    const played = int(f.played, 1, 40);
+    const wins = int(f.wins, 0, 40), losses = int(f.losses, 0, 40), ties = int(f.ties, 0, 40);
+    if (played === null || wins === null || losses === null) return null;
+    const record = ties ? `${wins}-${losses}-${ties}` : `${wins}-${losses}`;
+    const bonus = int(f.bonusPins, 0, 3000);
+    const total = int(f.total, 0, 20000);
+    const avg = int(f.average, 0, 300);
+    const diff = int(f.pinDiff, -3000, 3000);
+    const bits = [`Match play: ${record} over ${played} ${plural(played, "match", "matches")}`];
+    if (avg !== null) bits.push(`${avg} average`);
+    if (bonus !== null && bonus > 0) bits.push(`${bonus} bonus pins`);
+    if (total !== null) bits.push(`${total} with bonus`);
+    let line = `${bits.join(", ")}.`;
+    if (diff !== null && diff !== 0) {
+      line += ` ${diff > 0 ? "Outscored" : "Outscored by"} their opponents by ${Math.abs(diff)} pins across the block.`;
+    }
+    return line;
+  },
+
+  eventStepladder(f) {
+    const played = int(f.played, 1, 20);
+    const wins = int(f.wins, 0, 20), losses = int(f.losses, 0, 20);
+    if (played === null || wins === null || losses === null) return null;
+    const seed = int(f.seed, 1, 99);
+    const place = int(f.place, 1, 99);
+    const opened = seed === null ? "" : ` from the ${ordinalWord(seed)} seed`;
+    const climbed = `${wins} of ${played} ${plural(played, "step", "steps")} won`;
+    if (place === null) return `Stepladder${opened}: ${climbed}.`;
+    if (place === 1) return `Won the stepladder${opened}, ${climbed}.`;
+    return `Stepladder${opened}: ${climbed}, finishing ${ordinalWord(place)}.`;
+  },
+
+  eventSide(f) {
+    const entries = int(f.entries, 1, 99);
+    const cost = int(f.cost, 0, 100000);
+    const won = int(f.won, 0, 1000000);
+    const net = int(f.net, -100000, 1000000);
+    if (entries === null || cost === null || won === null || net === null) return null;
+    const side = `Brackets and side pots: ${entries} ${plural(entries, "entry", "entries")}, $${cost} in, $${won} back`;
+    if (net === 0) return `${side} — even.`;
+    return `${side} — ${net > 0 ? "up" : "down"} $${Math.abs(net)}.`;
+  },
+
+  eventFinish(f) {
+    // A closed set, matched exactly. The finish is the one fact here
+    // that is a word rather than a number, so it is the one that has to
+    // come from a list rather than from the wire.
+    const FINISHES: Record<string, string> = {
+      won: "Won the tournament.",
+      runnerUp: "Finished runner-up.",
+      topFive: "Finished in the top five.",
+      cashed: "Cashed.",
+      madeCut: "Made the cut.",
+    };
+    const id = typeof f.placement === "string" ? f.placement : "";
+    return Object.prototype.hasOwnProperty.call(FINISHES, id) ? FINISHES[id] : null;
   },
 
   seasonSpares(f, opts) {
