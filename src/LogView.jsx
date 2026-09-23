@@ -100,6 +100,16 @@ export default function LogView({
         bowler:activeBowler,date:sessionDate}).didNothing;
     }catch{ return false; }
   },[env,activeBowler,sessions,gameScores,drills,sessionDate]);
+  // practiceMode is component state that outlives a practice: ending one
+  // leaves it on "results", so the next practice started on the same
+  // screen opened with a Results chip and an empty recap behind it.
+  // Nothing to show means nothing to be on.
+  useEffect(()=>{
+    if(env==="practice"&&practiceMode==="results"&&!practiceHasResults){
+      setPracticeMode?.("games");
+    }
+  },[env,practiceMode,practiceHasResults]);
+
   // Extra game rows the bowler asked for beyond what's been entered.
   // Session-local: a practice where you added a 4th game shouldn't make
   // every future session start with four empty boxes.
@@ -1261,7 +1271,7 @@ export default function LogView({
                       neither had a place to see how it went -- the only
                       way to read a practice was to end it and hope the
                       recap covered it. */}
-                  {(practiceHasResults||practiceMode==="results")&&(
+                  {practiceHasResults&&(
                     <Chip label="Results" selected={practiceMode==="results"}
                       onToggle={()=>setPracticeMode("results")} />
                   )}
@@ -3410,7 +3420,35 @@ export default function LogView({
                 
                 alignItems:"start" so a short card does not stretch to
                 match a tall neighbour. */}
-            <div ref={detailsRef} style={{display:"grid",
+            {/* Everything below this line is optional.
+                
+                Line, Measurements, Shoes and Execution are the fields a
+                bowler CAN fill in, not ones they must -- but they looked
+                exactly like the result and pin questions above them, so
+                the form read as far longer than it is. The rule says
+                where the required part ends; the card lets a bowler who
+                only wants scores fold the rest away.
+                
+                detailsRef moved from the grid to this wrapper: the
+                autoscroll reveals the bottom of the optional card, which
+                is the last card that matters. Aimed at the grid it now
+                overshot, because Cancel Practice sits below it. */}
+            <div ref={detailsRef}>
+            <div style={{display:"flex",alignItems:"center",gap:"10px",
+              margin:"18px 2px 12px"}}>
+              <div style={{flex:1,borderTop:`1px dashed ${C.border}`}}/>
+              <div style={{...S.label,marginBottom:0,color:C.textMuted,
+                fontSize:"10px",whiteSpace:"nowrap"}}>
+                Optional below this line
+              </div>
+              <div style={{flex:1,borderTop:`1px dashed ${C.border}`}}/>
+            </div>
+            <CollapsibleCard
+              title="Accessory details"
+              summary={expandedSections.optional?"":"tap to open"}
+              expanded={!!expandedSections.optional}
+              onToggle={()=>toggleSection("optional")}>
+            <div style={{display:"grid",
               gridTemplateColumns:"repeat(2, minmax(0, 1fr))",
               gap:"10px",alignItems:"start"}}>
             {/* Line */}
@@ -3616,6 +3654,8 @@ export default function LogView({
                 </div>
               </div>
             )}
+            </div>
+            </CollapsibleCard>
             </div>
 
 

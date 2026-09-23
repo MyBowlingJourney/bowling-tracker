@@ -351,10 +351,12 @@ export default function SessionRecap({
             <ShareButton label="Share this practice" summary={{
               bowler, scores: recap.scores, date: formatDate(date), environment: "practice",
               earned: badgesEarnedOnNight?.(date, "practice") || [],
+              // Filtered: a night with no drills put a null in this list
+              // and the card drew the word "null" as a bullet.
               highlights: [
                 recap.vsAverage != null ? `${recap.vsAverage >= 0 ? "+" : ""}${recap.vsAverage} on my average` : null,
                 dRecap && dRecap.lines?.length ? `${dRecap.lines.length} drill${dRecap.lines.length === 1 ? "" : "s"}` : null,
-              ],
+              ].filter(Boolean),
             }} />
           </div>
         )}

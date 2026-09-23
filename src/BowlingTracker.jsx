@@ -1210,7 +1210,13 @@ export default function BowlingTracker(){
   const[confirmClear,setConfirmClear]=useState(false);
   const[showBackup,setShowBackup]=useState(false);
   const[expandedSections,setExpandedSections]=useState({releaseMiss:false,ballChange:false,notes:false,tonightSession:false,arsenal:false,surface:false,/* open by default: reaching this card means a league is chosen and the
-     bowler is here to enter scores */manualScores:true,ballPick:false,logGoals:false});
+     bowler is here to enter scores */manualScores:true,ballPick:false,logGoals:false,
+     /* open by default: the accessory fields are how most bowlers use
+        this app, so the card starts the way the form has always looked
+        and collapsing it is the bowler's choice. Initialized here rather
+        than inferred from undefined -- toggling an absent key flips it to
+        true, so the first tap on a card that was already showing did
+        nothing. */optional:true});
   function toggleSection(key){setExpandedSections(s=>({...s,[key]:!s[key]}));}
   const[importText,setImportText]=useState("");
   const[backupStatus,setBackupStatus]=useState("");
