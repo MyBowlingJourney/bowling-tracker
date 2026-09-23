@@ -2447,9 +2447,27 @@ export default function LogView({
                 scroll target serves both: you see WHICH shot you are
                 editing and the card it belongs to at the same time. */}
             {editingId&&(
-              <div style={{backgroundColor:C.spare+"22",border:`1px solid ${C.spare}44`,borderRadius:"10px",padding:"12px 16px",marginBottom:"12px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <div style={{fontSize:"13px",color:C.spare,fontWeight:600}}>✏️ Editing Shot</div>
-                <button style={{...S.btn(),padding:"6px 12px",fontSize:"12px"}} onClick={()=>cancelEdit?.()}>Cancel</button>
+              <div style={{backgroundColor:C.spare+"22",border:`1px solid ${C.spare}44`,borderRadius:"10px",padding:"12px 16px",marginBottom:"12px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:"8px"}}>
+                <div style={{fontSize:"13px",color:C.spare,fontWeight:600,minWidth:0}}>✏️ Editing Shot</div>
+                <div style={{display:"flex",gap:"8px",flexShrink:0}}>
+                  {/* Deleting a frame was only ever reachable by tapping
+                      the already-selected result chip, which nothing on
+                      screen said. The confirm below has always been
+                      there; this makes the door visible.
+
+                      Same handler, same wording, so the two routes cannot
+                      drift apart. */}
+                  {deleteShot&&(
+                    <button style={{...S.btn(),padding:"6px 12px",fontSize:"12px",color:C.miss,borderColor:C.miss+"66"}}
+                      onClick={()=>{
+                        const which=`frame ${form.frame}${form.ballNum?`, ball ${form.ballNum}`:""} of game ${form.game}`;
+                        if(!window.confirm(`Delete ${which}? This cannot be undone.`))return;
+                        deleteShot(editingId);
+                        cancelEdit?.({stayOnFrame:true});
+                      }}>Delete</button>
+                  )}
+                  <button style={{...S.btn(),padding:"6px 12px",fontSize:"12px"}} onClick={()=>cancelEdit?.()}>Cancel</button>
+                </div>
               </div>
             )}
 
