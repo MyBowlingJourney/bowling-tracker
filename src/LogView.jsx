@@ -73,7 +73,7 @@ export default function LogView({
   // Handed straight to the Nightcap, which is the only paid thing
   // on this screen.
   entitlement = null,
-  showSessionStart, goalsPanel, practiceMode, setPracticeMode, gameEquipment, updateGameEquipment, activeDrill, setActiveDrill, startDrill, startAnotherDrill, saveDrill, drillSaved, drills, leftHandedForBowler,
+  showSessionStart, goalsPanel, practiceMode, setPracticeMode, gameEquipment, updateGameEquipment, practiceManualSeq, practiceSeq, activeDrill, setActiveDrill, startDrill, startAnotherDrill, saveDrill, drillSaved, drills, leftHandedForBowler,
   ownerName, scoringForOthers, setScoringForOthers, scoreOptions, guests, newGuestName, setNewGuestName, addGuestBowler, removeGuestBowler,
   oilPatterns, submitOilPattern, leaguePatterns = {}, tournaments, practicePriorAverage,
   envBags, selectedBagId, setSelectedBagId, logBalls,
@@ -98,7 +98,7 @@ export default function LogView({
     if(env!=="practice"||!activeBowler)return false;
     try{
       return !practiceSummary({sessions,liveScores:gameScores,drills,
-        bowler:activeBowler,date:sessionDate}).didNothing;
+        bowler:activeBowler,date:sessionDate,seq:practiceSeq}).didNothing;
     }catch{ return false; }
   },[env,activeBowler,sessions,gameScores,drills,sessionDate]);
   // practiceMode is component state that outlives a practice: ending one
@@ -119,6 +119,32 @@ export default function LogView({
   // Local, not lifted: nothing outside this screen needs to know that a
   // confirm is half-open, and it should reset if the screen is left.
   const [cancelArmed,setCancelArmed]=useState(false);
+
+  // Which money games the bowler says they are in tonight.
+  //
+  // This used to be read back out of the COST: a non-zero cost meant
+  // "in". That works only once a buy-in rate has been saved for the
+  // league -- at a rate of $0 the tap computed a cost of 0, which read
+  // straight back as "not in", so the button could not be selected at
+  // all and there was nothing on screen saying why. Selecting a pot and
+  // entering its buy-in are two separate acts and the first has to stick
+  // on its own.
+  //
+  // An override per session+pot, seeded from the cost so an already-paid
+  // pot still shows as selected, and outlived by the cost once a real
+  // rate is entered.
+  const [potOverride,setPotOverride]=useState({});
+  const POT_COST_FIELD={pokerQuarter:"pokerQuarterCost",pokerDollar:"pokerDollarCost",
+                        highGame:"highGameCost",threeSixNine:"threeSixNineCost"};
+  const potIsIn=(cs,key)=>{
+    const k=`${cs?.id}|${key}`;
+    if(Object.prototype.hasOwnProperty.call(potOverride,k))return potOverride[k];
+    return key==="threeSixNine"
+      ?Number(cs?.threeSixNineCost||0)>0
+      :((cs?.[POT_COST_FIELD[key]]||[]).some(v=>Number(v)>0));
+  };
+  const setPotIn=(cs,key,value)=>
+    setPotOverride(prev=>({...prev,[`${cs?.id}|${key}`]:value}));
   // The cancel confirmation opens UNDER the fixed End Session bar.
   //
   // It expands in place, at the bottom of Set up, and the bar is pinned
@@ -924,11 +950,7 @@ export default function LogView({
                         // out silently charged you for it and net
                         // winnings drifted from reality with nothing on
                         // screen to explain why.
-                        const costField={pokerQuarter:"pokerQuarterCost",pokerDollar:"pokerDollarCost",
-                                         highGame:"highGameCost",threeSixNine:"threeSixNineCost"};
-                        const isIn=key=>key==="threeSixNine"
-                          ?Number(cs.threeSixNineCost||0)>0
-                          :((cs[costField[key]]||[]).some(v=>Number(v)>0));
+                        const isIn=key=>potIsIn(cs,key);
 
                         const applyCosts=(nextRates,playing)=>{
                           const arrays=costArraysFor(nextRates,games,playing);
@@ -948,9 +970,18 @@ export default function LogView({
                           // Entering a rate means you're in that pot --
                           // otherwise typing a number would do nothing
                           // visible, which reads as broken.
+                          setPotIn(cs,key,true);
                           applyCosts(next,{...playingNow(),[key]:true});
                         };
-                        const togglePot=key=>applyCosts(rates,{...playingNow(),[key]:!isIn(key)});
+                        const togglePot=key=>{
+                          const next=!isIn(key);
+                          // The selection is recorded FIRST and on its own,
+                          // so it holds at a $0 buy-in -- applyCosts can
+                          // only ever write zeroes in that case, and a zero
+                          // is indistinguishable from not playing.
+                          setPotIn(cs,key,next);
+                          applyCosts(rates,{...playingNow(),[key]:next});
+                        };
 
                         const label={pokerQuarter:"Quarter game",pokerDollar:"Dollar game",
                                      highGame:"High game",threeSixNine:"3-6-9 (whole night)"};
@@ -996,6 +1027,15 @@ export default function LogView({
                       })()}
 
 
+                      {/* Only the pots actually entered.
+                          
+                          Poker and High Game rendered for every league
+                          night whether or not the bowler was in them, so
+                          a night with no side action still asked what was
+                          won in two pots nobody played -- and reading the
+                          pots as already-on is exactly what "waiting to be
+                          selected" is not. */}
+                      {(potIsIn(cs,"pokerQuarter")||potIsIn(cs,"pokerDollar"))&&(
                       <div style={{marginBottom:"12px"}}>
                         <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"6px"}}>Poker Winnings ($)</div>
                         {[0,1,2].map(gameIdx=>{
@@ -1013,7 +1053,9 @@ export default function LogView({
                           );
                         })}
                       </div>
+                      )}
 
+                      {potIsIn(cs,"highGame")&&(
                       <div style={{marginBottom:"12px"}}>
                         <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"6px"}}>High Game Pot ($)</div>
                         <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"6px"}}>
@@ -1031,6 +1073,7 @@ export default function LogView({
                           );
                         })}
                       </div>
+                      )}
 
                       {(()=>{
                         // 3-6-9: a single, whole-session win (all 9 specific
@@ -1411,10 +1454,12 @@ export default function LogView({
                       const l=parseInt(startingLane),p=l%2===0?l-1:l+1;
                       return(
                         <div style={{flex:2,backgroundColor:C.surface,borderRadius:"8px",padding:"8px 12px",border:`1px solid ${C.border}`}}>
+                          {/* The pair, and nothing else. The G1F1-> / G1F10->
+                              / G2F1-> line under it was the app showing its
+                              own working: every bowler on a pair already
+                              knows they cross after the tenth, and the
+                              arrows read as codes rather than information. */}
                           <div style={{fontSize:"13px",fontWeight:600,color:C.accent}}>Lanes {Math.min(l,p)} & {Math.max(l,p)}</div>
-                          <div style={{fontSize:"10px",color:C.textMuted,marginTop:"2px"}}>
-                            G1F1→{startingLane} · G1F10→{calcLane(startingLane,1,10)||"?"} · G2F1→{calcLane(startingLane,2,1)||"?"}
-                          </div>
                         </div>
                       );
                     })()}
@@ -1659,7 +1704,7 @@ export default function LogView({
               // two taps.
               const standardGames=preferences.environment==="practice"||preferences.environment==="casual"?1:3;
               const highestEntered=[1,2,3,4,5,6,7,8,9,10].reduce((hi,g)=>
-                getManualScore(manualScores,activeBowler,effectiveSessionLeague,sessionDate,g)!=null?g:hi,0);
+                getManualScore(manualScores,activeBowler,effectiveSessionLeague,sessionDate,g,practiceManualSeq)!=null?g:hi,0);
               // Games bowled frame by frame count too.
               //
               // This card only ever looked at TYPED scores, so a fourth
@@ -1680,7 +1725,11 @@ export default function LogView({
               const gameCount=Math.min(12,
                 Math.max(standardGames,highestEntered,highestBowled,extraGames));
               const gameNums=Array.from({length:gameCount},(_,i)=>i+1);
-              const entered=gameNums.map(g=>getManualScore(manualScores,activeBowler,effectiveSessionLeague,sessionDate,g));
+              // practiceManualSeq: undefined everywhere except a second-or-
+              // later practice the same day, where it keeps this box from
+              // showing an earlier practice's typed score as if it were
+              // this one's.
+              const entered=gameNums.map(g=>getManualScore(manualScores,activeBowler,effectiveSessionLeague,sessionDate,g,practiceManualSeq));
 
               // The series counts what each game is WORTH, not what was
               // typed.
@@ -3343,6 +3392,8 @@ export default function LogView({
                 date={sessionDate}
                 priorAverage={practicePriorAverage}
                 drills={drills}
+                practiceManualSeq={practiceManualSeq}
+                practiceSeq={practiceSeq}
                 badgesEarnedOnNight={badgesEarnedOnNight}
                 leftHandedForBowler={leftHandedForBowler}/>
             )}
@@ -3793,7 +3844,7 @@ export default function LogView({
             {env==="practice"&&onTab("results")&&!editingId&&activeBowler&&(()=>{
               const ps=practiceSummary({
                 sessions, liveScores:gameScores, drills,
-                bowler:activeBowler, date:sessionDate,
+                bowler:activeBowler, date:sessionDate, seq:practiceSeq,
               });
               if(ps.didNothing) return (
                 <div style={{...S.card,fontSize:"13px",color:C.textMuted}}>

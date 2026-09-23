@@ -267,7 +267,7 @@ function AchievementsCard({ achievements = [], onShare }) {
 export default function SessionRecap({
   environment, manualScores, bowler, allBowlers, league, date, priorAverage,
   drills, leftHandedForBowler, profile, placementId, tournamentName,
-  howItWentRef, onEnd, badgesEarnedOnNight,
+  howItWentRef, onEnd, badgesEarnedOnNight, practiceManualSeq, practiceSeq,
 }) {
   // What's worth celebrating from this night. Computed here rather than
   // per-branch so league, practice, tournament and casual all get it.
@@ -334,7 +334,7 @@ export default function SessionRecap({
 
   if (environment === "practice") {
     const partners = (allBowlers || []).filter(b => b !== bowler);
-    const recap = practiceRecap(manualScores, bowler, league, date, priorAverage);
+    const recap = practiceRecap(manualScores, bowler, league, date, priorAverage, practiceManualSeq);
     const comparison = practiceComparison(manualScores, bowler, partners, league, date);
     // Drills and games are separate kinds of practice and a session can
     // contain both, so neither replaces the other.
