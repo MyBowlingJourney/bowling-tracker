@@ -1350,6 +1350,31 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
 
   const dayScores = d => pickForDay(shotScoresByDate, d);
 
+  // Which block the Scoring tab shows.
+  //
+  // The bowler's own choice wins while it still names a block that
+  // exists. Otherwise -- first arrival, or state lost on a remount --
+  // it falls to the block being BOWLED rather than to day one: editing
+  // a day two score and landing back on day one is the tab throwing
+  // away where you were.
+  //
+  // Dates are compared as strings because a dayNumber that has been
+  // through storage can come back as "2" rather than 2, and a strict
+  // === there is exactly how the selection silently reset.
+  const scoreDayResolved = (() => {
+    const days = tournament.days || [];
+    if (!days.length) return null;
+    const chosen = days.find(d => String(d.dayNumber) === String(scoreDay));
+    if (chosen) return chosen.dayNumber;
+    const today = days.find(d => sessionDate && String(d.date) === String(sessionDate));
+    if (today) return today.dayNumber;
+    // Nothing dated today: the last block with anything in it, which is
+    // the one most recently bowled.
+    const withGames = days.filter(d => dayGamesEntered(d, dayScores(d)) > 0);
+    if (withGames.length) return withGames[withGames.length - 1].dayNumber;
+    return days[0].dayNumber;
+  })();
+
   // Match play and the stepladder are bowled on one date -- the night
   // in progress -- and have no date field of their own, so they read
   // the same frame scores the session is filing under.
@@ -1895,8 +1920,8 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
       {(() => {
         const days = tournament.days || [];
         if (days.length < 2) return null;
-        const cur = days.some(d => d.dayNumber === scoreDay) ? scoreDay : days[0].dayNumber;
-        const d = days.find(x => x.dayNumber === cur);
+        const cur = scoreDayResolved;
+        const d = days.find(x => String(x.dayNumber) === String(cur));
         // Which block this is, in the words off the entry sheet: date,
         // start time, squad, block. Under the tabs rather than inside
         // the card, because it is what the tab selection MEANS.
@@ -1911,7 +1936,7 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
             <div style={{ ...S.chips, flexWrap: "wrap", gap: "4px", marginBottom: bits.length ? "8px" : 0 }}>
               {days.map(x => (
                 <Chip key={x.dayNumber} label={`Day ${x.dayNumber}`} dense
-                  selected={x.dayNumber === cur}
+                  selected={String(x.dayNumber) === String(cur)}
                   onToggle={() => setScoreDay(x.dayNumber)} />
               ))}
             </div>
@@ -1922,8 +1947,7 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
         );
       })()}
       {(tournament.days || [])
-        .filter((day, _i, all) => all.length < 2
-          || day.dayNumber === (all.some(d => d.dayNumber === scoreDay) ? scoreDay : all[0].dayNumber))
+        .filter((day, _i, all) => all.length < 2 || String(day.dayNumber) === String(scoreDayResolved))
         .map(day => (
         <DayScoring key={day.dayNumber}
           shotScores={dayScores(day)}
