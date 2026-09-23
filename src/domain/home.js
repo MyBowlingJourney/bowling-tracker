@@ -1,4 +1,4 @@
-import { isPracticeLeagueName, isCasualLeagueName, isTournamentLeagueName, isImportedLeagueName } from "../constants.js";
+import { isPracticeLeagueName, isCasualLeagueName, isTournamentLeagueName, isImportedLeagueName, tournamentBaseLeagueName } from "../constants.js";
 
 // What the home screen says, before anyone taps anything.
 //
@@ -53,7 +53,8 @@ export function sessionIsLive(shots, opts) {
 // Returns nulls rather than zeroes when there is nothing yet. A zero
 // average reads as terrible bowling; a blank reads as a new season.
 export function seasonFigures(sessions, opts) {
-  const { bowler, leagues, since, until } = (opts && typeof opts === "object") ? opts : {};
+  const { bowler, leagues, since, until, tournamentRecords } =
+    (opts && typeof opts === "object") ? opts : {};
   const who = clean(bowler);
   const inScope = rows(sessions).filter(s => {
     if (who && clean(s.bowler) !== who) return false;
@@ -87,26 +88,59 @@ export function seasonFigures(sessions, opts) {
     return scoresOf(s).length > 0;
   });
 
+  // Tournament scores that may stand as a RECORD, though not in the
+  // average. See scratchRecordLeagues: a bowler's best game is their
+  // best game, wherever it was shot, provided the format makes it
+  // theirs and comparable.
+  const recordSets = tournamentRecords && typeof tournamentRecords === "object"
+    ? tournamentRecords : null;
+  const eligible = (set, lg) => !!set && typeof set.has === "function"
+    && set.has(tournamentBaseLeagueName(clean(lg)));
+  const tournamentScope = recordSets
+    ? rows(sessions).filter(s => {
+        if (who && clean(s.bowler) !== who) return false;
+        if (!isTournamentLeagueName(clean(s.league))) return false;
+        if (since && clean(s.date) < clean(since)) return false;
+        if (until && clean(s.date) > clean(until)) return false;
+        return scoresOf(s).length > 0;
+      })
+    : [];
+
   const games = inScope.flatMap(scoresOf);
-  if (!games.length) {
+  // The pools the records are drawn from: league games always, plus the
+  // tournament games that qualify. The AVERAGE below still uses `games`
+  // alone -- a scratch block averaged into a house-shot season produces
+  // a number that describes neither.
+  const recordGames = [
+    ...games,
+    ...tournamentScope
+      .filter(s => eligible(recordSets?.forGame, s.league))
+      .flatMap(scoresOf),
+  ];
+  if (!recordGames.length) {
     return {
       average: null, highGame: null, highSeries: null, games: 0,
       highGameCount: 0, highSeriesCount: 0, nights: 0,
     };
   }
 
-  const seriesTotals = inScope
+  const seriesTotals = [...inScope, ...tournamentScope.filter(s => eligible(recordSets?.forSeries, s.league))]
     .map(s => scoresOf(s))
     // A series is a full night, not a partial one -- a two-game night
     // would otherwise look like a poor three-game series.
     .filter(g => g.length >= 3)
     .map(g => g.reduce((a, b) => a + b, 0));
 
-  const highGame = Math.max(...games);
+  const highGame = Math.max(...recordGames);
   const highSeries = seriesTotals.length ? Math.max(...seriesTotals) : null;
 
   return {
-    average: Math.floor((games.reduce((a, b) => a + b, 0) / games.length) * 10) / 10,
+    // League games only, and null when there are none: a bowler whose
+    // only scores are tournament scores has a record but no season
+    // average, and 0.0 would be a lie rather than an absence.
+    average: games.length
+      ? Math.floor((games.reduce((a, b) => a + b, 0) / games.length) * 10) / 10
+      : null,
     highGame,
     highSeries,
     games: games.length,
@@ -118,7 +152,7 @@ export function seasonFigures(sessions, opts) {
     // resets to 280 with no count, because the badge describes the
     // record standing right now. Counted from 2 up -- "x1" is just the
     // record, and saying it adds nothing.
-    highGameCount: games.filter(v => v === highGame).length,
+    highGameCount: recordGames.filter(v => v === highGame).length,
     // Series ties count the same way, over full nights only -- which is
     // already what highSeries itself means.
     highSeriesCount: highSeries == null

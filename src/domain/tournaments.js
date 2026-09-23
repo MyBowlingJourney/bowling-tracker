@@ -468,6 +468,40 @@ export function scratchExcludedLeagues(tournaments, userId) {
   return out;
 }
 
+// Which tournaments may put a score into a career record.
+//
+// A tournament is a different discipline on a different pattern, so its
+// scores stay out of a league AVERAGE -- averaging a scratch block into
+// a house-shot season describes neither. A record is a different
+// question: a bowler's best game is their best game, and a 289 shot at
+// the City Open belongs in it.
+//
+// Two answers, because the two records have different conditions:
+//
+//   forGame   -- any event whose scores are comparable at all, which is
+//                scoresJoinScratchFigures: standard play, ten pins. A
+//                Baker game is half a partner's and a no-tap game runs
+//                high; neither is the bowler's own game to claim.
+//                Handicap is fine -- the scratch pins underneath are
+//                entirely theirs.
+//
+//   forSeries -- the same, and the whole event must be exactly three
+//                games. A series is three games; a six-game block has a
+//                best three in it somewhere, but choosing which three
+//                is inventing a series nobody bowled.
+export function scratchRecordLeagues(tournaments, userId) {
+  const forGame = new Set();
+  const forSeries = new Set();
+  for (const t of (Array.isArray(tournaments) ? tournaments : [])) {
+    if (!t || !scoresJoinScratchFigures(t)) continue;
+    const base = t.name ? tournamentLeagueCloudName(t.name, userId || "") : TOURNAMENT_SESSION_KEY;
+    forGame.add(base);
+    const games = (t.days || []).reduce((a, d) => a + (d?.games || []).length, 0);
+    if (games === 3) forSeries.add(base);
+  }
+  return { forGame, forSeries };
+}
+
 // Which game number the frame tracker is on, for a phase that is not
 // qualifying.
 //
