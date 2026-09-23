@@ -1110,16 +1110,30 @@ export default function LogView({
                             produced this header with nothing at all
                             underneath it. The pot was entered and there
                             was no way to record winning it. */}
+                        {/* Each box appears only if that pot was entered.
+                            
+                            Both were drawn whenever EITHER was selected,
+                            so a bowler in the quarter game alone was
+                            asked what they won in a dollar game they
+                            never paid into -- and the two are one tap
+                            apart, so it is a real way to file a win under
+                            the wrong pot. */}
                         {[0,1,2].map(gameIdx=>{
                           const quarterVal=(cs.pokerQuarter||[0,0,0])[gameIdx]??0;
                           const dollarVal=(cs.pokerDollar||[0,0,0])[gameIdx]??0;
+                          const inQuarter=potIsIn(cs,"pokerQuarter");
+                          const inDollar=potIsIn(cs,"pokerDollar");
                           return(
                             <div key={gameIdx} style={{display:"flex",gap:"8px",alignItems:"center",marginBottom:"6px"}}>
                               <div style={{fontSize:"12px",color:C.textMuted,width:"28px"}}>G{gameIdx+1}</div>
-                              <input style={{...S.input,flex:1,fontSize:"13px",padding:"6px 10px"}} type="number" step="0.25" placeholder="Quarter $"
-                                value={quarterVal||""} onChange={e=>setPokerWinnings(cs.id,gameIdx,"quarter",e.target.value===""?0:parseFloat(e.target.value))}/>
-                              <input style={{...S.input,flex:1,fontSize:"13px",padding:"6px 10px"}} type="number" step="1" placeholder="Dollar $"
-                                value={dollarVal||""} onChange={e=>setPokerWinnings(cs.id,gameIdx,"dollar",e.target.value===""?0:parseFloat(e.target.value))}/>
+                              {inQuarter&&(
+                                <input style={{...S.input,flex:1,fontSize:"13px",padding:"6px 10px"}} type="number" step="0.25" placeholder="Quarter $"
+                                  value={quarterVal||""} onChange={e=>setPokerWinnings(cs.id,gameIdx,"quarter",e.target.value===""?0:parseFloat(e.target.value))}/>
+                              )}
+                              {inDollar&&(
+                                <input style={{...S.input,flex:1,fontSize:"13px",padding:"6px 10px"}} type="number" step="1" placeholder="Dollar $"
+                                  value={dollarVal||""} onChange={e=>setPokerWinnings(cs.id,gameIdx,"dollar",e.target.value===""?0:parseFloat(e.target.value))}/>
+                              )}
                             </div>
                           );
                         })}
