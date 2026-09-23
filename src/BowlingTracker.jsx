@@ -5212,6 +5212,34 @@ export default function BowlingTracker(){
     if(getManualScore(manualScoresRef.current,bowler,league,date,g)!=null){
       await updateManualScore(bowler,league,date,g,"");
     }
+
+    // If tonight was already filed (Save & Finish, then reopened to fix
+    // something), the session row still carries its own copy of every
+    // game score. Clearing the live shot and the typed box left that
+    // copy untouched, so a deleted game kept appearing in Results --
+    // read from the stale filed row the moment the live scores it used
+    // to prefer went empty -- and a night's only game, once "deleted",
+    // still counted as a saved night for the same reason.
+    const existing=sessions.find(s=>s.bowler===bowler&&s.league===league&&String(s.date)===String(date));
+    if(existing){
+      const idx=(existing.scores||[]).length-1;
+      // Games are NOT renumbered elsewhere in this file, but a session
+      // row's scores array has no game numbers of its own -- it is a
+      // plain list in bowled order. Position g-1 is only right when
+      // nothing before it was already missing; safe here because a
+      // filed row and an in-progress night cannot both have gaps.
+      const trimmed=(existing.scores||[]).filter((_,i)=>i!==g-1);
+      if(!trimmed.length){
+        await saveSessions(sessions.filter(s=>s.id!==existing.id));
+      }else{
+        const ss=shots.filter(sh=>sh.bowler===bowler&&sh.league===league&&sh.date===date);
+        const updated={...existing,scores:trimmed,
+          total:trimmed.reduce((a,b)=>a+b,0),
+          average:Math.round(trimmed.reduce((a,b)=>a+b,0)/trimmed.length),
+          ...computeSessionStats(ss)};
+        await saveSessions(sessions.map(s=>s.id===existing.id?updated:s));
+      }
+    }
   }
 
   // Abandon tonight and go home, taking the data with it.

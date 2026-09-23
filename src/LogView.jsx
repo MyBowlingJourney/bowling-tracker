@@ -1877,7 +1877,21 @@ export default function LogView({
                               value={manualScore!=null
                                 ? String(manualScore)
                                 : (frameScore==null?"":String(frameScore))}
-                              onChange={e=>updateManualScore(activeBowler,effectiveSessionLeague,sessionDate,g,e.target.value)}/>
+                              onChange={e=>updateManualScore(activeBowler,effectiveSessionLeague,sessionDate,g,e.target.value)}
+                              // A typed game total is a whole game at once,
+                              // same as finishing its last frame -- so it
+                              // moves frame tracking on to the next game,
+                              // the way completing ten frames would.
+                              // Scoped to the game the tracker is actually
+                              // ON: typing a score for some OTHER game
+                              // (fixing last week, entering game 3 while
+                              // still on game 1) has no business moving
+                              // the frame tracker anywhere.
+                              onBlur={e=>{
+                                if(e.target.value!==""&&String(form.game||1)===String(g)){
+                                  setForm(p=>({...p,game:String(Math.min(12,g+1)),frame:"1",ballNum:""}));
+                                }
+                              }}/>
                           );
                         })()}
                         {/* Delete this game -- the typed score AND the
