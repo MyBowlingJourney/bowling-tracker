@@ -24,6 +24,10 @@
 // Monday's box.
 
 import { isPracticeLeagueName, isCasualLeagueName, isTournamentLeagueName, tournamentBaseLeagueName } from "../constants.js";
+import { cutMargin, cutMarginWithCarry, carryBefore } from "./tournaments.js";
+import { handicapPins, activeHandicapPerGame } from "./tournamentFormats.js";
+import { matchPlayTotals } from "./matchPlay.js";
+import { stepladderResult } from "./stepladder.js";
 
 const rows = v => (Array.isArray(v) ? v : []).filter(x => x && typeof x === "object");
 
@@ -240,6 +244,15 @@ export function tournamentNights(tournaments, bowler) {
   const out = [];
   for (const t of rows(tournaments)) {
     if (bowler && t.bowler && t.bowler !== bowler) continue;
+    // Which day the event ENDED on. Match play, the stepladder and the
+    // finish belong to the event, not to a block, so they are reported
+    // once -- on the last day with scores -- rather than repeated under
+    // every block of a three-day event.
+    const played = rows(t.days).filter(d =>
+      /^\d{4}-\d{2}-\d{2}$/.test(String(d.date || ""))
+      && rows(d.games).some(g => num(g.score) !== null));
+    const lastDate = played.length ? String(played[played.length - 1].date) : "";
+
     for (const day of rows(t.days)) {
       const date = String(day.date || "");
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
@@ -253,9 +266,69 @@ export function tournamentNights(tournaments, bowler) {
         date,
         scores,
         mode: "tournament",
+        // A tournament day is not a league night and must not be read
+        // back as one: three games, a series and an average describes a
+        // Tuesday, not a day that had a cut, match play and a ladder in
+        // it. This is what the calendar shows instead.
+        event: tournamentNightSummary(t, day, date === lastDate),
       });
     }
   }
+  return out;
+}
+
+// One tournament day, in the phases it was actually bowled in.
+//
+// Everything is optional and nothing is invented: a block that ended at
+// qualifying carries qualifying alone, and the card shows one line.
+export function tournamentNightSummary(tournament, day, isFinalDay) {
+  const t = tournament || {};
+  const scores = rows(day?.games).map(g => num(g.score)).filter(v => v !== null);
+  const games = scores.length;
+  const scratch = scores.reduce((a, b) => a + b, 0);
+  const hcp = handicapPins(t, games);
+
+  const out = {
+    qualifying: games ? {
+      games,
+      scratch,
+      total: scratch + hcp,
+      handicap: hcp,
+      // Bowling averages truncate.
+      average: Math.floor(scratch / games),
+      high: Math.max(...scores),
+    } : null,
+    cutMargin: null,
+    matchPlay: null,
+    stepladder: null,
+    placement: "",
+    multiDay: rows(t.days).length > 1,
+  };
+
+  // The cut this block was measured against, in the event's own pins.
+  const carry = carryBefore(t, day?.dayNumber, null);
+  const margin = carry.games
+    ? cutMarginWithCarry(day, null, carry, t)
+    : cutMargin(day, null, t);
+  if (margin !== null) out.cutMargin = margin;
+
+  if (!isFinalDay) return out;
+
+  const mp = matchPlayTotals(t.matchPlay, activeHandicapPerGame(t));
+  if (mp.played) {
+    out.matchPlay = {
+      played: mp.played, wins: mp.wins, losses: mp.losses, ties: mp.ties,
+      total: mp.total, average: mp.average,
+    };
+  }
+  const sl = stepladderResult(t.stepladder);
+  if (sl.played) {
+    out.stepladder = {
+      played: sl.played, wins: sl.wins, losses: sl.losses,
+      seed: Number(t.stepladder?.yourSeed) || null, place: sl.place,
+    };
+  }
+  if (t.placement && t.placement !== "none") out.placement = t.placement;
   return out;
 }
 
