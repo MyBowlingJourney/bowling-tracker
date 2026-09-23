@@ -57,6 +57,7 @@ export default function LogView({
   shots, sessions, bowlers, footerHeight, footerRef, teams, leagues, startEdit, deleteShot,
   activeBowler, arsenals, form, setForm, editingId, saved, sessionSaved, sessionSaveMessage, tournamentSaveMessage,
   leagueTabChoice = "scoring", setLeagueTabChoice, tournamentTab = "setup", setTournamentTab,
+  tournamentPhase = "qualifying", setTournamentPhase = null,
   sessionLeague, setSessionLeague, effectiveSessionLeague, sessionDate, setSessionDate,
   startingLane, setStartingLane, expandedSections, badgesEarnedOnNight,
   ballNumLabel, curSession, currentLane, firstBallPins, gameScores = [], frameScores = [],
@@ -2320,6 +2321,10 @@ export default function LogView({
                 resultsSummary={!editingId&&curSession?renderNightSummary():null}
                 entitlement={entitlement}
                 tab={tournamentTab} onTabChange={setTournamentTab}
+                /* The phase lives outside this card because the shot
+                   context depends on it: each phase files its frames
+                   under its own container league. */
+                phase={tournamentPhase} onPhaseChange={setTournamentPhase}
 
                 onUseDate={setSessionDate}
 

@@ -5,7 +5,7 @@ import {
   addGame, removeGame, setGameField, addDay, removeDay, setDayField, updateDay,
   dayTotal, dayAverage, dayGamesEntered, cutMargin,
   tournamentTotal, tournamentTotalWithHandicap, tournamentAverage, tournamentMoney,
-  cutMarginWithCarry, carryBefore, tournamentGamesEntered, resolveTournamentGameScore, phaseGameOffsets,
+  cutMarginWithCarry, carryBefore, tournamentGamesEntered, resolveTournamentGameScore,
   SCORING_BASES, PIN_FORMATS, PLAY_STYLES,
   scoringBasis, pinFormat, playStyle, cutTarget, describeTournamentFormat} from "./domain/tournaments.js";
 import { patternDisplayName, searchPatterns, describePattern, patternStats } from "./domain/oilPatterns.js";
@@ -688,8 +688,6 @@ function MatchPlay({ tournament, onChange, onGoToPhase = null, shotScores = null
   const mp = tournament.matchPlay || {};
   const matches = mp.matches || [];
   const totals = matchPlayTotals(mp);
-  const diff = pinDifferential(mp);
-  const comp = competitiveness(mp);
 
   function update(next) { onChange({ ...tournament, matchPlay: next }); }
 
@@ -784,7 +782,7 @@ function MatchPlay({ tournament, onChange, onGoToPhase = null, shotScores = null
                 {onUseGame && (
                   <button style={{ background: "none", border: "none", color: C.accent, cursor: "pointer", fontSize: "11px", textDecoration: "underline", padding: 0 }}
                     onClick={() => onUseGame(gameFor(m))}>
-                    Track frames (G{gameFor(m)})
+                    Track frames
                   </button>
                 )}
                 <button style={{ background: "none", border: "none", color: C.textMuted, cursor: "pointer", fontSize: "11px", textDecoration: "underline", padding: 0 }}
@@ -839,71 +837,14 @@ function MatchPlay({ tournament, onChange, onGoToPhase = null, shotScores = null
         + Add Match
       </button>
 
-      {totals.played > 0 && (
-        <>
-          <div style={{ display: "flex", gap: "6px", marginBottom: "8px" }}>
-            <div style={S.statBox}>
-              <div style={{ ...S.statNum, fontSize: "16px" }}>{totals.wins}-{totals.losses}{totals.ties ? `-${totals.ties}` : ""}</div>
-              <div style={S.statLbl}>Record</div>
-            </div>
-            <div style={S.statBox}>
-              <div style={{ ...S.statNum, fontSize: "16px", color: C.textMuted }}>{totals.scratch}</div>
-              <div style={S.statLbl}>Scratch</div>
-            </div>
-            <div style={S.statBox}>
-              <div style={{ ...S.statNum, fontSize: "16px", color: C.spare }}>+{totals.bonusPins}</div>
-              <div style={S.statLbl}>Bonus</div>
-            </div>
-            <div style={{ ...S.statBox, border: `1px solid ${C.accent}44` }}>
-              <div style={{ ...S.statNum, fontSize: "16px", color: C.accent }}>{totals.total}</div>
-              <div style={S.statLbl}>Total</div>
-            </div>
-          </div>
-          <div style={{ fontSize: "11px", color: C.textMuted, textAlign: "center" }}>
-            {totals.average} average over {totals.played} match{totals.played === 1 ? "" : "es"}
-            {diff !== null && <> &middot; {diff >= 0 ? "+" : "\u2212"}{Math.abs(diff)} pins vs opponents</>}
-          </div>
+      {/* The review -- record, bonus, pin differential, how close the
+          matches were -- moved to Results.
 
-          {/* Record alone can't distinguish being outclassed from losing
-              three squeakers. This is the part a bowler actually wants
-              after a bad block. */}
-          {comp && (
-            <div style={{ marginTop: "10px", paddingTop: "10px", borderTop: `1px solid ${C.border}` }}>
-              <div style={{ fontSize: "12px", color: C.text, marginBottom: "8px" }}>
-                {describeCompetitiveness(tournament.matchPlay)}
-              </div>
-              <div style={{ display: "flex", gap: "6px" }}>
-                {comp.avgWinMargin != null && (
-                  <div style={S.statBox}>
-                    <div style={{ ...S.statNum, fontSize: "15px", color: C.strike }}>+{comp.avgWinMargin}</div>
-                    <div style={S.statLbl}>Avg Win</div>
-                  </div>
-                )}
-                {comp.avgLossMargin != null && (
-                  <div style={S.statBox}>
-                    <div style={{ ...S.statNum, fontSize: "15px", color: C.miss }}>&minus;{comp.avgLossMargin}</div>
-                    <div style={S.statLbl}>Avg Loss</div>
-                  </div>
-                )}
-                <div style={S.statBox}>
-                  <div style={{ ...S.statNum, fontSize: "15px", color: C.spare }}>{comp.closeCount}</div>
-                  <div style={S.statLbl}>Under {comp.closeThreshold}</div>
-                </div>
-              </div>
-              {(comp.biggestWin || comp.worstLoss) && (
-                <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "8px" }}>
-                  {comp.biggestWin && (
-                    <div>Best: match {comp.biggestWin.matchNumber} by {comp.biggestWin.margin}{comp.biggestWin.opponent ? ` vs ${comp.biggestWin.opponent}` : ""}</div>
-                  )}
-                  {comp.worstLoss && (
-                    <div>Worst: match {comp.worstLoss.matchNumber} by {comp.worstLoss.margin}{comp.worstLoss.opponent ? ` vs ${comp.worstLoss.opponent}` : ""}</div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </>
-      )}
+          This tab is for entering matches while they are being bowled;
+          a block of standings above the next opponent's name is reading
+          material in the middle of a task, and the same figures now sit
+          in the tournament recap with qualifying and the stepladder
+          beside them, which is where a bowler looks back. */}
 
       {/* Where match play led, asked the same way qualifying asks it. */}
       <div style={{ display: "flex", gap: "6px", alignItems: "center", marginTop: "12px", flexWrap: "wrap" }}>
@@ -1024,7 +965,7 @@ function Stepladder({ tournament, onChange, shotScores = null, gameStart = 0, on
                 {onUseGame && (
                   <button style={{ background: "none", border: "none", color: C.accent, cursor: "pointer", fontSize: "11px", textDecoration: "underline", padding: 0 }}
                     onClick={() => onUseGame(gameFor(s))}>
-                    Track frames (G{gameFor(s)})
+                    Track frames
                   </button>
                 )}
                 <button style={{ background: "none", border: "none", color: C.textMuted, cursor: "pointer", fontSize: "11px", textDecoration: "underline", padding: 0 }}
@@ -1117,6 +1058,8 @@ function TournamentRecap({ tournament, dayScores }) {
   const days = tournament?.days || [];
   const mp = tournament?.matchPlay || {};
   const mpTotals = matchPlayTotals(mp);
+  const mpDiff = pinDifferential(mp);
+  const mpComp = competitiveness(mp);
   const sl = tournament?.stepladder || {};
   const slResult = stepladderResult(sl);
 
@@ -1220,6 +1163,29 @@ function TournamentRecap({ tournament, dayScores }) {
             </div>
           );
         })}
+        {/* The review that used to sit on the Match tab. Here, where a
+            bowler looks back, with qualifying above it and the ladder
+            below. */}
+        <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "4px", lineHeight: 1.5 }}>
+          {mpTotals.average} average over {mpTotals.played} match{mpTotals.played === 1 ? "" : "es"}
+          {mpDiff !== null && <> &middot; {mpDiff >= 0 ? "+" : "\u2212"}{Math.abs(mpDiff)} pins vs opponents</>}
+          {mpTotals.scratch ? ` \u00b7 ${mpTotals.scratch} scratch` : ""}
+        </div>
+        {describeCompetitiveness(mp) && (
+          <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "2px", lineHeight: 1.5 }}>
+            {describeCompetitiveness(mp)}
+          </div>
+        )}
+        {mpComp && (mpComp.biggestWin || mpComp.worstLoss) && (
+          <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "2px" }}>
+            {mpComp.biggestWin && (
+              <div>Best: match {mpComp.biggestWin.matchNumber} by {mpComp.biggestWin.margin}{mpComp.biggestWin.opponent ? ` vs ${mpComp.biggestWin.opponent}` : ""}</div>
+            )}
+            {mpComp.worstLoss && (
+              <div>Worst: match {mpComp.worstLoss.matchNumber} by {mpComp.worstLoss.margin}{mpComp.worstLoss.opponent ? ` vs ${mpComp.worstLoss.opponent}` : ""}</div>
+            )}
+          </div>
+        )}
         {tournament.matchPlayNextRound && phaseLabel[tournament.matchPlayNextRound] && (
           <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "4px" }}>
             On to {phaseLabel[tournament.matchPlayNextRound]}.
@@ -1250,7 +1216,7 @@ function TournamentRecap({ tournament, dayScores }) {
   );
 }
 
-export default function TournamentSession({ onCancelTournament = null, resultsSummary = null, entitlement = null, tournament, onChange, onSave, saved, oilPatterns, submitOilPattern, tournaments, shotScoresByDate = null, tab: controlledTab, onTabChange, saveMessage = "", onUseDate, onUseGameNumber = null, onCloseTournament, sessionDate = "" }) {
+export default function TournamentSession({ onCancelTournament = null, resultsSummary = null, entitlement = null, tournament, onChange, onSave, saved, oilPatterns, submitOilPattern, tournaments, shotScoresByDate = null, tab: controlledTab, onTabChange, saveMessage = "", onUseDate, onUseGameNumber = null, onCloseTournament, sessionDate = "", phase: controlledPhase, onPhaseChange }) {
   // The tab is owned by the caller.
   //
   // LogView renders Shot Context alongside this card, and it only makes
@@ -1277,7 +1243,9 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
   // match play or the stepladder. A tournament is bowled in that order
   // and each phase is scored differently, so they are sub-tabs of
   // Scoring rather than peers of Set up and Results.
-  const [phase, setPhase] = useState("qualifying");
+  const [ownPhase, setOwnPhase] = useState("qualifying");
+  const phase = controlledPhase ?? ownPhase;
+  const setPhase = onPhaseChange ?? setOwnPhase;
 
   // The review sticks around; `saved` does not.
   //
@@ -1412,7 +1380,6 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
   // the same frame scores the session is filing under.
   const phaseDate = sessionDate || (tournament.days || []).map(d => d.date).filter(Boolean).pop() || "";
   const phaseScores = (shotScoresByDate && phaseDate) ? (shotScoresByDate[String(phaseDate)] || null) : null;
-  const phaseOffsets = phaseGameOffsets(tournament, phaseDate);
 
   // Point the shot context at a particular game and start it at frame
   // 1. Advancing a round has to move the tracker with it, or the next
@@ -1939,12 +1906,12 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
 
       {phase === "match" && (
         <MatchPlay tournament={tournament} onChange={onChange} onGoToPhase={setPhase}
-          shotScores={phaseScores} gameStart={phaseOffsets.matchStart}
+          shotScores={phaseScores} gameStart={0}
           onUseGame={useGameNumber} />
       )}
       {phase === "stepladder" && (
         <Stepladder tournament={tournament} onChange={onChange}
-          shotScores={phaseScores} gameStart={phaseOffsets.stepStart}
+          shotScores={phaseScores} gameStart={0}
           onUseGame={useGameNumber} />
       )}
 

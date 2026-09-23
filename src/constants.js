@@ -166,6 +166,46 @@ export function tournamentLeagueCloudName(eventName, userId) {
   return `${TOURNAMENT_SESSION_KEY}\u00b7${clean}\u00b7${userId}`;
 }
 
+// A tournament's later phases bowl their OWN games.
+//
+// Match play game 1 is not qualifying game 1 continued -- it is a
+// different competition, scored differently, and its first game is
+// game 1. But frames are filed under (bowler, league, date, game), so
+// numbering both from 1 on the same day would file match play's frames
+// on top of qualifying's.
+//
+// So each phase gets its own container league, one segment further
+// down the same name. isTournamentLeagueName still recognises it (it
+// tests the prefix), everything that groups by league keeps them
+// apart, and stripping the suffix gives back the event.
+export const TOURNAMENT_PHASE_NAMES = { match: "Match Play", stepladder: "Stepladder" };
+
+export function tournamentPhaseLeagueName(baseName, phase) {
+  const suffix = TOURNAMENT_PHASE_NAMES[phase];
+  if (!suffix || !baseName) return baseName;
+  return `${baseName}\u00b7${suffix}`;
+}
+
+// The event's own league name, with any phase suffix removed.
+export function tournamentBaseLeagueName(name) {
+  const raw = typeof name === "string" ? name : "";
+  for (const suffix of Object.values(TOURNAMENT_PHASE_NAMES)) {
+    const tail = `\u00b7${suffix}`;
+    if (raw.endsWith(tail)) return raw.slice(0, -tail.length);
+  }
+  return raw;
+}
+
+// Which phase a league name belongs to: "match", "stepladder", or ""
+// for the event itself.
+export function tournamentPhaseOf(name) {
+  const raw = typeof name === "string" ? name : "";
+  for (const [phase, suffix] of Object.entries(TOURNAMENT_PHASE_NAMES)) {
+    if (raw.endsWith(`\u00b7${suffix}`)) return phase;
+  }
+  return "";
+}
+
 export function isTournamentLeagueName(name) {
   // The bare key counts too, not just the per-user form.
   //

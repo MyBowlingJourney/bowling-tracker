@@ -107,7 +107,7 @@ import { casualNightsFrom, setGameEquipment as setGameEquipmentIn, gameEquipment
 import { bowlerHighGame, bowlerHighSeries, hangAssistCounts, teamDateGroups, teamHighGame, teamHighSeries, seasonRecord, weeklyPointsData, gameAvg, teamGameTotalAvg, teamGameTotalAvgAt, rAvg, cAvg, avgProgress, cumulativeAvgBeforeDate, hungCounts, beatHighBowlerStats, scoreValues, scoreConsistency, histogramBuckets } from "./domain/stats.js";
 import { lineupSort, renameLeagueInRecords } from "./domain/leagues.js";
 import { C, S, F, Chip, applyTheme } from "./ui.jsx";
-import { PLASTIC_BALL, DEFAULT_ARSENAL, MISSES, DEFAULT_LEAGUES, localDateString, APP_NAME, PRACTICE_SESSION_KEY, CASUAL_SESSION_KEY, practiceLeagueCloudName, casualLeagueCloudName, practiceLeagueDisplayName, isPracticeLeagueName, isCasualLeagueName, isTournamentLeagueName, TOURNAMENT_SESSION_KEY, tournamentLeagueCloudName, IMPORTED_SESSION_KEY } from "./constants.js";
+import { PLASTIC_BALL, DEFAULT_ARSENAL, MISSES, DEFAULT_LEAGUES, localDateString, APP_NAME, PRACTICE_SESSION_KEY, CASUAL_SESSION_KEY, practiceLeagueCloudName, casualLeagueCloudName, practiceLeagueDisplayName, isPracticeLeagueName, isCasualLeagueName, isTournamentLeagueName, TOURNAMENT_SESSION_KEY, tournamentLeagueCloudName, tournamentPhaseLeagueName, tournamentBaseLeagueName, IMPORTED_SESSION_KEY } from "./constants.js";
 import { validTeamId,
   shotToSupabaseRow, shotFromSupabaseRow, sessionToSupabaseRow, sessionFromSupabaseRow,
   matchToSupabaseRow, matchFromSupabaseRow, lanePatternToSupabaseRow, lanePatternFromSupabaseRow,
@@ -1101,6 +1101,12 @@ export default function BowlingTracker(){
   // this makes the DEFAULT agree with that rather than fighting it.
   const[leagueTabChoice,setLeagueTabChoice]=useState("setup");
   const[tournamentTab,setTournamentTab]=useState("setup");
+  // Which phase of the event the Scoring tab is on: qualifying, match
+  // play or the stepladder. Held here rather than inside the tournament
+  // card because the shot context depends on it -- each phase files its
+  // frames under its own container league, so match play game 1 does
+  // not land on top of qualifying game 1.
+  const[tournamentPhase,setTournamentPhase]=useState("qualifying");
   const setLeagueTab=setLeagueTabChoice;
   const[sessionSaveMessage,setSessionSaveMessage]=useState(null);
   const[winningsSaved,setWinningsSaved]=useState(false);
@@ -3792,7 +3798,11 @@ export default function BowlingTracker(){
     const bowler=t.bowler||activeBowler;
     const league=t.name?tournamentLeagueCloudName(t.name,user?.id||""):TOURNAMENT_SESSION_KEY;
     const dates=new Set((t.days||[]).map(d=>String(d?.date||"")).filter(Boolean));
-    const ofThisEvent=(lg,date)=>lg===league||(lg===TOURNAMENT_SESSION_KEY&&dates.has(String(date)));
+    // Phase leagues sit one segment below the event's own name, so
+    // stripping the suffix is what makes cancelling take match play and
+    // the stepladder with it rather than orphaning their frames.
+    const ofThisEvent=(lg,date)=>tournamentBaseLeagueName(lg)===league
+      ||(tournamentBaseLeagueName(lg)===TOURNAMENT_SESSION_KEY&&dates.has(String(date)));
 
     const keep=(shots||[]).filter(sh=>!(sh&&sh.bowler===bowler&&ofThisEvent(sh.league,sh.date)));
     if(keep.length!==(shots||[]).length)await saveShots(keep);
@@ -4437,9 +4447,14 @@ export default function BowlingTracker(){
     // Falls back to the plain key until the tournament has a name, so a
     // shot logged before the bowler types one is not lost.
     preferences.environment==="tournament"
-      ?(activeTournament?.name
-          ?tournamentLeagueCloudName(activeTournament.name,user?.id||"")
-          :TOURNAMENT_SESSION_KEY)
+      // Match play and the stepladder bowl their own games from 1, so
+      // they file under their own container league -- see
+      // tournamentPhaseLeagueName.
+      ?tournamentPhaseLeagueName(
+          activeTournament?.name
+            ?tournamentLeagueCloudName(activeTournament.name,user?.id||"")
+            :TOURNAMENT_SESSION_KEY,
+          tournamentPhase)
       :sessionLeague;
 
   // Who and when the CURRENT night belongs to.
@@ -6103,8 +6118,11 @@ export default function BowlingTracker(){
         return t?.bakerStarter||"me";
       };
       return own.filter(s=>{
-        if(!bakerLeagues.has(s.league))return true;
-        return bakerBowlerFor(s.game,parseInt(s.frame,10),starterFor(s.league))==="me";
+        // Through the phase suffix: match play frames belong to the
+        // same Baker event as qualifying's.
+        const lg=tournamentBaseLeagueName(s.league);
+        if(!bakerLeagues.has(lg))return true;
+        return bakerBowlerFor(s.game,parseInt(s.frame,10),starterFor(lg))==="me";
       });
     })();
     const bd=shotBreakdown(myShots,{
@@ -6193,7 +6211,7 @@ export default function BowlingTracker(){
           for(const p of (lanePatterns||[]))if(p?.patternName)patternByNight.set(`${p.league}|${p.date}`,p.patternName);
           const tournamentPattern=(lg,date)=>{
             for(const t of (tournaments||[])){
-              if(tournamentLeagueCloudName(t?.name,user?.id)!==lg)continue;
+              if(tournamentLeagueCloudName(t?.name,user?.id)!==tournamentBaseLeagueName(lg))continue;
               const d=(Array.isArray(t.days)?t.days:[]).find(x=>x&&x.date===date);
               if(d?.oilPattern)return String(d.oilPattern).trim();
             }
@@ -8829,6 +8847,7 @@ export default function BowlingTracker(){
 
             leagueTabChoice={leagueTabChoice} setLeagueTabChoice={setLeagueTabChoice}
             tournamentTab={tournamentTab} setTournamentTab={setTournamentTab}
+            tournamentPhase={tournamentPhase} setTournamentPhase={setTournamentPhase}
 
             deleteNight={deleteNight}
             activeTournament={activeTournament} updateTournament={updateTournament} saveTournament={saveTournament} cancelTournament={cancelTournament} closeTournament={closeTournament} tournamentSaved={tournamentSaved}
