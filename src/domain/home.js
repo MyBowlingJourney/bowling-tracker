@@ -53,7 +53,7 @@ export function sessionIsLive(shots, opts) {
 // Returns nulls rather than zeroes when there is nothing yet. A zero
 // average reads as terrible bowling; a blank reads as a new season.
 export function seasonFigures(sessions, opts) {
-  const { bowler, leagues, since } = (opts && typeof opts === "object") ? opts : {};
+  const { bowler, leagues, since, until } = (opts && typeof opts === "object") ? opts : {};
   const who = clean(bowler);
   const inScope = rows(sessions).filter(s => {
     if (who && clean(s.bowler) !== who) return false;
@@ -80,12 +80,19 @@ export function seasonFigures(sessions, opts) {
     if (Array.isArray(leagues) && leagues.length
       && !leagues.map(clean).includes(clean(s.league))) return false;
     if (since && clean(s.date) < clean(since)) return false;
+    // `until` closes the window at the other end, so a finished season
+    // stays finished -- without it, "this season" quietly grew to mean
+    // every league night ever bowled.
+    if (until && clean(s.date) > clean(until)) return false;
     return scoresOf(s).length > 0;
   });
 
   const games = inScope.flatMap(scoresOf);
   if (!games.length) {
-    return { average: null, highGame: null, highSeries: null, games: 0 };
+    return {
+      average: null, highGame: null, highSeries: null, games: 0,
+      highGameCount: 0, highSeriesCount: 0, nights: 0,
+    };
   }
 
   const seriesTotals = inScope
@@ -95,11 +102,64 @@ export function seasonFigures(sessions, opts) {
     .filter(g => g.length >= 3)
     .map(g => g.reduce((a, b) => a + b, 0));
 
+  const highGame = Math.max(...games);
+  const highSeries = seriesTotals.length ? Math.max(...seriesTotals) : null;
+
   return {
     average: Math.floor((games.reduce((a, b) => a + b, 0) / games.length) * 10) / 10,
-    highGame: Math.max(...games),
-    highSeries: seriesTotals.length ? Math.max(...seriesTotals) : null,
+    highGame,
+    highSeries,
     games: games.length,
+    nights: inScope.length,
+    // How many times the CURRENT record has been matched.
+    //
+    // A tally of the top score only, not of good games: shoot a 279
+    // three times and it reads 279 x3, but shoot a 280 afterwards and it
+    // resets to 280 with no count, because the badge describes the
+    // record standing right now. Counted from 2 up -- "x1" is just the
+    // record, and saying it adds nothing.
+    highGameCount: games.filter(v => v === highGame).length,
+    // Series ties count the same way, over full nights only -- which is
+    // already what highSeries itself means.
+    highSeriesCount: highSeries == null
+      ? 0
+      : seriesTotals.filter(v => v === highSeries).length,
+  };
+}
+
+// Which season window today falls in, across the leagues a bowler plays.
+//
+// leagueDates is { leagueName: { startDate, endDate } } -- the open season
+// per league. A bowler can be in two leagues with different windows, so
+// "in season" means today sits inside ANY of them, and the scope runs from
+// the earliest of those starts.
+//
+// No dates configured anywhere means the app genuinely does not know when
+// the season runs. Rather than label lifetime numbers "this season" -- the
+// thing this whole change exists to stop -- that reads as career, and
+// setting dates on a league upgrades it to a real season card.
+export function activeSeasonWindow(leagueDates, opts) {
+  const { leagues, today } = (opts && typeof opts === "object") ? opts : {};
+  const now = clean(today);
+  const dates = (leagueDates && typeof leagueDates === "object") ? leagueDates : {};
+  const mine = Object.entries(dates)
+    .filter(([name]) => !Array.isArray(leagues) || !leagues.length
+      || leagues.map(clean).includes(clean(name)))
+    .map(([name, v]) => ({ name, start: clean(v?.startDate), end: clean(v?.endDate) }))
+    .filter(d => d.start);
+
+  if (!mine.length) return { inSeason: false, configured: false, since: null, until: null, label: "" };
+
+  const open = mine.filter(d => (!now || d.start <= now) && (!d.end || !now || now <= d.end));
+  if (!open.length) return { inSeason: false, configured: true, since: null, until: null, label: "" };
+
+  const since = open.map(d => d.start).sort()[0];
+  return {
+    inSeason: true,
+    configured: true,
+    since,
+    until: null,
+    label: open.length === 1 ? open[0].name : `${open.length} leagues`,
   };
 }
 

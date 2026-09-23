@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sessionIsLive, seasonFigures, journeyRecap, latestNight } from './home.js';
+import { sessionIsLive, seasonFigures, journeyRecap, latestNight, activeSeasonWindow } from './home.js';
 
 const night = (date, scores) => ({ bowler: 'R', league: 'Tuesday', date, scores });
 
@@ -180,5 +180,106 @@ describe('latestNight', () => {
   it("ignores other bowlers' nights", () => {
     const n = latestNight([s('Tuesday', '2026-09-20', [200], 'Guest'), s('Tuesday', '2026-09-10')], [], { bowler: 'R' });
     expect(n.date).toBe('2026-09-10');
+  });
+});
+
+// ── Season window and record ties ───────────────────────────────────────
+describe('seasonFigures: season window', () => {
+  const S = (date, scores) => ({ bowler: 'Ryan', league: 'Thursday', date, scores });
+  const sessions = [
+    S('2025-10-02', [200, 210, 190]),   // last season
+    S('2026-09-10', [279, 180, 170]),   // this season
+    S('2026-09-17', [279, 190, 200]),
+  ];
+
+  it('without a window, counts every night -- the behaviour that made "this season" a lie', () => {
+    expect(seasonFigures(sessions, { bowler: 'Ryan' }).games).toBe(9);
+  });
+
+  it('since and until scope the figures to one season', () => {
+    const f = seasonFigures(sessions, { bowler: 'Ryan', since: '2026-09-01', until: '2026-12-31' });
+    expect(f.games).toBe(6);
+    expect(f.nights).toBe(2);
+  });
+
+  it('until alone closes a finished season', () => {
+    const f = seasonFigures(sessions, { bowler: 'Ryan', until: '2025-12-31' });
+    expect(f.games).toBe(3);
+    expect(f.highGame).toBe(210);
+  });
+});
+
+describe('seasonFigures: record ties', () => {
+  const S = (date, scores) => ({ bowler: 'Ryan', league: 'Thursday', date, scores });
+
+  it('counts how many times the top game has been matched', () => {
+    const f = seasonFigures([S('2026-09-10', [279, 180, 170]), S('2026-09-17', [279, 190, 200])], { bowler: 'Ryan' });
+    expect(f.highGame).toBe(279);
+    expect(f.highGameCount).toBe(2);
+  });
+
+  it('a new record resets the count rather than adding to it', () => {
+    const f = seasonFigures([S('2026-09-10', [279, 279, 170]), S('2026-09-17', [280, 190, 200])], { bowler: 'Ryan' });
+    expect(f.highGame).toBe(280);
+    expect(f.highGameCount).toBe(1);
+  });
+
+  it('counts series ties over full nights only', () => {
+    const f = seasonFigures([
+      S('2026-09-10', [240, 240, 240]),
+      S('2026-09-17', [240, 240, 240]),
+      S('2026-09-24', [300, 300]),        // two games: not a series
+    ], { bowler: 'Ryan' });
+    expect(f.highSeries).toBe(720);
+    expect(f.highSeriesCount).toBe(2);
+  });
+
+  it('reports zero counts when there is nothing logged', () => {
+    const f = seasonFigures([], { bowler: 'Ryan' });
+    expect(f.highGameCount).toBe(0);
+    expect(f.highSeriesCount).toBe(0);
+  });
+});
+
+describe('activeSeasonWindow', () => {
+  const dates = { Thursday: { startDate: '2026-09-01', endDate: '2027-04-30' } };
+
+  it('is in season inside the window', () => {
+    const w = activeSeasonWindow(dates, { today: '2026-09-23' });
+    expect(w.inSeason).toBe(true);
+    expect(w.since).toBe('2026-09-01');
+  });
+
+  it('is out of season after the end date', () => {
+    expect(activeSeasonWindow(dates, { today: '2026-06-15' }).inSeason).toBe(false);
+  });
+
+  it('is out of season before it starts', () => {
+    expect(activeSeasonWindow(dates, { today: '2026-08-15' }).inSeason).toBe(false);
+  });
+
+  it('reports "not configured" when no league has dates, so the card can say career rather than lie', () => {
+    const w = activeSeasonWindow({}, { today: '2026-09-23' });
+    expect(w.inSeason).toBe(false);
+    expect(w.configured).toBe(false);
+  });
+
+  it('takes the earliest start when two leagues are both running', () => {
+    const w = activeSeasonWindow({
+      Thursday: { startDate: '2026-09-01', endDate: '2027-04-30' },
+      Sunday: { startDate: '2026-08-15', endDate: '2027-03-30' },
+    }, { today: '2026-09-23' });
+    expect(w.inSeason).toBe(true);
+    expect(w.since).toBe('2026-08-15');
+    expect(w.label).toBe('2 leagues');
+  });
+
+  it('ignores leagues this bowler does not play', () => {
+    const w = activeSeasonWindow({
+      Thursday: { startDate: '2026-09-01', endDate: '2027-04-30' },
+      Other: { startDate: '2026-08-01', endDate: '2027-03-30' },
+    }, { today: '2026-09-23', leagues: ['Thursday'] });
+    expect(w.since).toBe('2026-09-01');
+    expect(w.label).toBe('Thursday');
   });
 });
