@@ -225,7 +225,13 @@ export function isTournamentLeagueName(name) {
 // "Tournament\u00b7City Open\u00b7abc123" -> "City Open"
 export function tournamentLeagueEventName(name) {
   if (!isTournamentLeagueName(name)) return "";
-  const parts = String(name).split("\u00b7");
+  // The phase suffix comes off FIRST.
+  //
+  // This reads the event name as "everything between the prefix and the
+  // user id", so a phase league -- Tournament.Event.userId.Match Play --
+  // left the user id inside the slice and the calendar showed the
+  // bowler "Standard.ac03a7d4-58d8-...".
+  const parts = tournamentBaseLeagueName(String(name)).split("\u00b7");
   return parts.length >= 3 ? parts.slice(1, -1).join("\u00b7") : "";
 }
 
