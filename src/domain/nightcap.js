@@ -227,7 +227,17 @@ export function nightcapFacts(shots, {
     .sort((a, b) => Number(a) - Number(b));
 
   const out = { enough: false, firstBalls: firsts.length, games: games.length, facts: [] };
-  if (firsts.length < MIN_FIRST_BALLS) return out;
+  // Frames are what a league night has to offer, and without enough of
+  // them there is nothing to read back.
+  //
+  // A tournament is different. The cut, the match play record, the
+  // ladder and the finish are facts about the day that owe nothing to
+  // frame tracking, and a bowler who typed their game totals and won
+  // the thing was being told to go and log frame data to hear about
+  // it. So an event with any of those pours on its own.
+  const hasEventFacts = !!tournament && typeof tournament === "object"
+    && Object.keys(tournament).some(k => tournament[k] !== null && tournament[k] !== undefined && tournament[k] !== "");
+  if (firsts.length < MIN_FIRST_BALLS && !hasEventFacts) return out;
   out.enough = true;
 
   const hand = leftHanded ? "left" : "right";

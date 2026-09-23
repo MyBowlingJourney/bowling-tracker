@@ -303,8 +303,16 @@ export function withTournamentDetail(nights, tournaments) {
     // A block's date is optional and plenty are logged without one, so
     // requiring a dated day to match meant an undated event never found
     // itself and the night kept its league shape.
-    const sameName = list.filter(x => x && String(x.name || "") === name
-      && (!n.bowler || !x.bowler || x.bowler === n.bowler));
+    // Matched on the EVENT NAME alone.
+    //
+    // The bowler was part of this test and should not have been: a
+    // tournament saved before display names existed carries the sign-in
+    // handle (reverett290) while the session row carries the chosen
+    // name, so the two never matched and the night kept its league
+    // shape. The calendar is already showing one bowler's nights, and
+    // two bowlers' events of the same name on the same day is not a
+    // thing that happens on one phone.
+    const sameName = list.filter(x => x && String(x.name || "") === name);
     if (!sameName.length) return n;
     const t = sameName.find(x => rows(x.days).some(d => String(d.date || "") === String(n.date || "")))
       || sameName[0];
@@ -313,15 +321,17 @@ export function withTournamentDetail(nights, tournaments) {
     const dated = rows(t.days).find(d => String(d.date || "") === String(n.date || ""));
     const undated = rows(t.days).filter(d => !String(d.date || ""));
     const day = dated || (undated.length === 1 ? undated[0] : rows(t.days)[0]);
-    const played = rows(t.days).filter(d =>
-      /^\d{4}-\d{2}-\d{2}$/.test(String(d.date || ""))
-      && rows(d.games).some(g => num(g.score) !== null));
-    const lastDate = played.length ? String(played[played.length - 1].date) : "";
-    // Nothing dated at all: this night IS the event's last day, so the
-    // finish and the phases after qualifying belong on it. Without this
-    // an undated event reported its qualifying block and silently
-    // dropped the match play, the ladder and the result.
-    const isFinal = lastDate ? String(n.date) === lastDate : true;
+    // Is this the block the event ENDED on?
+    //
+    // Asked of the block, not of the date. A block's date and the date
+    // its frames were filed under are set separately and drift apart,
+    // so comparing date strings decided "not the last day" for a night
+    // that plainly was -- and the finish, the match play and the ladder
+    // were dropped from the only card that could carry them.
+    const played = rows(t.days).filter(d => rows(d.games).some(g => num(g.score) !== null));
+    const lastPlayed = played.length ? played[played.length - 1] : null;
+    const isFinal = !lastPlayed || !day || day === lastPlayed
+      || String(day.dayNumber ?? "") === String(lastPlayed.dayNumber ?? "");
     return { ...n, mode: "tournament", event: tournamentNightSummary(t, day, isFinal) };
   });
 }

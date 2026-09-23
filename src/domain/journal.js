@@ -137,20 +137,40 @@ function fromTournaments(tournaments, bowler) {
   return out;
 }
 
+// Lane pattern notes: what the lanes did, on a night.
+//
+// A pattern record is per league and date and carries its own note.
+// There is no box for it on the Bowl screen today, but records imported
+// or written by an older version still hold them, and a note a bowler
+// wrote is a note the journal owes them.
+function fromPatterns(patterns, bowler) {
+  return rows(patterns)
+    .filter(p => mine(p, bowler) && clean(p.notes))
+    .map(p => ({
+      kind: "pattern",
+      date: clean(p.date),
+      league: clean(p.league),
+      text: clean(p.notes),
+      detail: [clean(p.patternName), clean(p.lane) ? `lane ${clean(p.lane)}` : ""]
+        .filter(Boolean).join(" \u00b7 "),
+    }));
+}
+
 // Everything, newest first.
 //
 // Ties break session, then drill, then shot: on one night the session note
 // is the summary and belongs at the top of that day's entries.
-const KIND_ORDER = { session: 0, tournament: 1, drill: 2, shot: 3 };
+const KIND_ORDER = { session: 0, tournament: 1, pattern: 2, drill: 3, shot: 4 };
 
 export function journalEntries(opts) {
   // A default parameter only covers undefined, not null. Fourth domain
   // module to hit this; the pattern is always the same.
-  const { sessions, shots, drills, tournaments, bowler, labelFor } =
+  const { sessions, shots, drills, tournaments, patterns, bowler, labelFor } =
     (opts && typeof opts === "object") ? opts : {};
   const all = [
     ...fromSessions(sessions, bowler),
     ...fromTournaments(tournaments, bowler),
+    ...fromPatterns(patterns, bowler),
     ...fromDrills(drills, bowler, labelFor),
     ...fromShots(shots, bowler),
   ];
