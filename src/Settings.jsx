@@ -382,6 +382,7 @@ export default function Settings({
               sessions={sessions || []}
               shots={shots || []}
               drills={drills || []}
+              tournaments={tournaments || []}
               bowler={statsBowler || activeBowler} />
             </div>
           )}

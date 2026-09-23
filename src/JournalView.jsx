@@ -12,16 +12,17 @@ import { formatDate } from "./constants.js";
 
 const KIND = {
   session: { label: "Night", color: "accent" },
+  tournament: { label: "Tournament", color: "strike" },
   drill: { label: "Drill", color: "spare" },
   shot: { label: "Shot", color: "textMuted" },
 };
 
 export default function JournalView({
-  sessions = [], shots = [], drills = [], bowler = "",
+  sessions = [], shots = [], drills = [], tournaments = [], bowler = "",
 }) {
   const [query, setQuery] = useState("");
 
-  const all = journalEntries({ sessions, shots, drills, bowler, labelFor: targetLabel });
+  const all = journalEntries({ sessions, shots, drills, tournaments, bowler, labelFor: targetLabel });
   const days = journalByDate(searchJournal(all, query));
 
   if (!all.length) {
