@@ -58,6 +58,75 @@ const MODE_LABELS = {
   casual: "Open bowling",
 };
 
+// A tournament day, phase by phase.
+const FINISH_LABEL = {
+  won: "\u{1F3C6} Won it",
+  runnerUp: "\u{1F948} Runner-up",
+  topFive: "\u{1F3C5} Top five",
+  cashed: "\u{1F4B0} Cashed",
+  madeCut: "\u2705 Made the cut",
+};
+
+function ordinalPlace(n) {
+  const v = Math.abs(Math.round(Number(n)));
+  if (!Number.isFinite(v)) return "";
+  const r100 = v % 100;
+  if (r100 >= 11 && r100 <= 13) return `${v}th`;
+  const r10 = v % 10;
+  return `${v}${r10 === 1 ? "st" : r10 === 2 ? "nd" : r10 === 3 ? "rd" : "th"}`;
+}
+
+function TournamentNightLines({ event, scores }) {
+  const e = event || {};
+  const q = e.qualifying;
+  const finish = FINISH_LABEL[e.placement] || "";
+  const line = { fontSize: "11px", color: C.textMuted, marginTop: "2px" };
+  const heading = { fontSize: "10px", color: C.textMuted, letterSpacing: "0.06em", marginTop: "6px" };
+  return (
+    <>
+      {/* The finish leads: it is what the day amounted to. */}
+      {finish && (
+        <div style={{ fontSize: "13px", fontWeight: 700, color: C.strike, marginBottom: "4px" }}>
+          {finish}
+        </div>
+      )}
+
+      {q && (<>
+        <div style={heading}>QUALIFYING</div>
+        <div style={{ fontSize: "13px", color: C.text }}>{(scores || []).join(" \u00b7 ")}</div>
+        <div style={line}>
+          {q.total} total \u00b7 {q.average} average \u00b7 {q.high} high
+          {q.handicap > 0 ? ` (${q.scratch} scratch + ${q.handicap} hcp)` : ""}
+          {e.cutMargin !== null && e.cutMargin !== undefined && (
+            <span style={{ color: e.cutMargin >= 0 ? C.strike : C.miss, fontWeight: 600 }}>
+              {" \u00b7 "}{e.cutMargin >= 0 ? `+${e.cutMargin}` : e.cutMargin} vs the cut
+            </span>
+          )}
+        </div>
+      </>)}
+
+      {e.matchPlay && (<>
+        <div style={heading}>MATCH PLAY</div>
+        <div style={line}>
+          {e.matchPlay.wins}-{e.matchPlay.losses}{e.matchPlay.ties ? `-${e.matchPlay.ties}` : ""}
+          {" over "}{e.matchPlay.played} match{e.matchPlay.played === 1 ? "" : "es"}
+          {e.matchPlay.average !== null ? ` \u00b7 ${e.matchPlay.average} average` : ""}
+          {" \u00b7 "}{e.matchPlay.total} with bonus
+        </div>
+      </>)}
+
+      {e.stepladder && (<>
+        <div style={heading}>STEPLADDER</div>
+        <div style={line}>
+          {e.stepladder.seed ? `${ordinalPlace(e.stepladder.seed)} seed \u00b7 ` : ""}
+          {e.stepladder.wins} of {e.stepladder.played} step{e.stepladder.played === 1 ? "" : "s"} won
+          {e.stepladder.place ? ` \u00b7 finished ${ordinalPlace(e.stepladder.place)}` : ""}
+        </div>
+      </>)}
+    </>
+  );
+}
+
 export default function CalendarView({
   sessions = [], shots = [], drills = [], tournaments = [], bowler = "", league = "", weekStart = 0,
   onDeleteNight, onOpenNight,
@@ -247,12 +316,22 @@ export default function CalendarView({
             </div>
             <div style={{ fontSize: "12px", color: C.textMuted }}>{night.date}{onOpenNight ? " ›" : ""}</div>
           </div>
-          <div style={{ fontSize: "13px", color: C.text, marginBottom: "4px" }}>
-            {night.scores.join(" · ")}
-          </div>
-          <div style={{ fontSize: "11px", color: C.textMuted }}>
-            {night.series} series · {night.average} average · {night.high} high
-          </div>
+          {/* A tournament day is not a league night.
+              
+              "781 series, 260 average, 289 high" describes a Tuesday.
+              A tournament day had a cut, and maybe match play and a
+              ladder after it, and the finish is the part a bowler came
+              back to see. Each phase appears only if it was bowled. */}
+          {night.event ? (
+            <TournamentNightLines event={night.event} scores={night.scores} />
+          ) : (<>
+            <div style={{ fontSize: "13px", color: C.text, marginBottom: "4px" }}>
+              {night.scores.join(" · ")}
+            </div>
+            <div style={{ fontSize: "11px", color: C.textMuted }}>
+              {night.series} series · {night.average} average · {night.high} high
+            </div>
+          </>)}
           {/* How the night was bowled, when the frames were logged.
               
               The calendar showed what you scored and nothing about how --
