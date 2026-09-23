@@ -838,6 +838,47 @@ export default function LogView({
                     entitlement={entitlement}/>
                 )}
 
+                {/* Points Won lives on RESULTS, not Set up.
+                    
+                    Set up runs before the first ball, and how many points
+                    were won is not knowable then -- it is the last thing
+                    a bowler marks, once the games are bowled and the
+                    pinfall is settled. Asking for it on the checklist
+                    meant either filling in a guess or going back to a tab
+                    already finished with.
+                    
+                    Keyed off cs -- the night this card is describing --
+                    rather than the session fields, so it can never mark
+                    points against a different night than the one on
+                    screen. */}
+                {env==="league"&&onTab("results")&&cs.league&&(()=>{
+                  const matchKey=form.teamId||cs.league;
+                  const m=getMatch(matchKey,cs.date,cs.league)||{games:[null,null,null],series:null};
+                  const pointsWon=m.games.filter(v=>v===true).length+(m.series===true?1:0);
+                  const pointsMarked=m.games.filter(v=>v!==null).length+(m.series!==null?1:0);
+                  const resultChip=(val,onTap,label)=>(
+                    <button key={label} onClick={onTap} style={{
+                      padding:"6px 10px",borderRadius:"8px",border:`1px solid ${val===true?C.strike:val===false?C.miss:C.border}`,
+                      backgroundColor:val===true?C.strike+"22":val===false?C.miss+"22":"transparent",
+                      color:val===true?C.strike:val===false?C.miss:C.textMuted,
+                      fontSize:"12px",fontWeight:600,cursor:"pointer",WebkitTapHighlightColor:"transparent",
+                    }}>{label}{val===true?" \u2713":val===false?" \u2717":""}</button>
+                  );
+                  return(
+                    <div style={{...S.card}}>
+                      <div style={S.label}>Points Won</div>
+                      <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"8px"}}>4 points per night — 1 per game, 1 for total pinfall. Tap to cycle: not marked → won → lost.</div>
+                      <div style={{display:"flex",gap:"6px",flexWrap:"wrap",marginBottom:"6px"}}>
+                        {[0,1,2].map(idx=>resultChip(m.games[idx]??null,()=>cycleGameResult(matchKey,cs.league,cs.date,idx),`G${idx+1}`))}
+                        {resultChip(m.series??null,()=>cycleSeriesResult(matchKey,cs.league,cs.date),"Pinfall")}
+                      </div>
+                      {pointsMarked>0&&(
+                        <div style={{fontSize:"12px",fontWeight:600,color:C.accent}}>{pointsWon} of 4 points</div>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 <div style={{...S.card,border:`1px solid ${C.accent}44`}}>
                   {/* Results only, like the scores below it. On Side
                       games the bowler already knows whose night it is and
@@ -1593,36 +1634,6 @@ export default function LogView({
 
                 {sessionLeague&&(
                   <>
-                    {/* Points won — moved here from Stats' Log Match Results,
-                        since you naturally mark these as the night wraps up. */}
-                    {sessionLeague&&(()=>{
-                      const matchKey=form.teamId||sessionLeague;
-                      const m=getMatch(matchKey,sessionDate,sessionLeague)||{games:[null,null,null],series:null};
-                      const pointsWon=m.games.filter(v=>v===true).length+(m.series===true?1:0);
-                      const pointsMarked=m.games.filter(v=>v!==null).length+(m.series!==null?1:0);
-                      const resultChip=(val,onTap,label)=>(
-                        <button key={label} onClick={onTap} style={{
-                          padding:"6px 10px",borderRadius:"8px",border:`1px solid ${val===true?C.strike:val===false?C.miss:C.border}`,
-                          backgroundColor:val===true?C.strike+"22":val===false?C.miss+"22":"transparent",
-                          color:val===true?C.strike:val===false?C.miss:C.textMuted,
-                          fontSize:"12px",fontWeight:600,cursor:"pointer",WebkitTapHighlightColor:"transparent",
-                        }}>{label}{val===true?" ✓":val===false?" ✗":""}</button>
-                      );
-                      return(
-                        <div style={{marginBottom:"10px"}}>
-                          <div style={S.label}>Points Won</div>
-                          <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"8px"}}>4 points per night — 1 per game, 1 for total pinfall. Tap to cycle: not marked → won → lost.</div>
-                          <div style={{display:"flex",gap:"6px",flexWrap:"wrap",marginBottom:"6px"}}>
-                            {[0,1,2].map(idx=>resultChip(m.games[idx]??null,()=>cycleGameResult(matchKey,sessionLeague,sessionDate,idx),`G${idx+1}`))}
-                            {resultChip(m.series??null,()=>cycleSeriesResult(matchKey,sessionLeague,sessionDate),"Pinfall")}
-                          </div>
-                          {pointsMarked>0&&(
-                            <div style={{fontSize:"12px",fontWeight:600,color:C.accent}}>{pointsWon} of 4 points</div>
-                          )}
-                        </div>
-                      );
-                    })()}
-
                     {/* Into Scoring, from where the setting-up ends.
                       
                         Set up is a checklist -- league, date, lane,
