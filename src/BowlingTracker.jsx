@@ -107,7 +107,7 @@ import { casualNightsFrom, setGameEquipment as setGameEquipmentIn, gameEquipment
 import { bowlerHighGame, bowlerHighSeries, hangAssistCounts, teamDateGroups, teamHighGame, teamHighSeries, seasonRecord, weeklyPointsData, gameAvg, teamGameTotalAvg, teamGameTotalAvgAt, rAvg, cAvg, avgProgress, cumulativeAvgBeforeDate, hungCounts, beatHighBowlerStats, scoreValues, scoreConsistency, histogramBuckets } from "./domain/stats.js";
 import { lineupSort, renameLeagueInRecords } from "./domain/leagues.js";
 import { C, S, F, Chip, applyTheme } from "./ui.jsx";
-import { PLASTIC_BALL, DEFAULT_ARSENAL, MISSES, DEFAULT_LEAGUES, localDateString, APP_NAME, PRACTICE_SESSION_KEY, CASUAL_SESSION_KEY, practiceLeagueCloudName, casualLeagueCloudName, practiceLeagueDisplayName, isPracticeLeagueName, isCasualLeagueName, isTournamentLeagueName, TOURNAMENT_SESSION_KEY, tournamentLeagueCloudName, tournamentPhaseLeagueName, tournamentBaseLeagueName, IMPORTED_SESSION_KEY } from "./constants.js";
+import { PLASTIC_BALL, DEFAULT_ARSENAL, MISSES, DEFAULT_LEAGUES, localDateString, APP_NAME, PRACTICE_SESSION_KEY, CASUAL_SESSION_KEY, practiceLeagueCloudName, casualLeagueCloudName, practiceLeagueDisplayName, isPracticeLeagueName, isCasualLeagueName, isTournamentLeagueName, TOURNAMENT_SESSION_KEY, tournamentLeagueCloudName, tournamentPhaseLeagueName, tournamentBaseLeagueName, tournamentLeagueEventName, IMPORTED_SESSION_KEY } from "./constants.js";
 import { validTeamId,
   shotToSupabaseRow, shotFromSupabaseRow, sessionToSupabaseRow, sessionFromSupabaseRow,
   matchToSupabaseRow, matchFromSupabaseRow, lanePatternToSupabaseRow, lanePatternFromSupabaseRow,
@@ -4488,7 +4488,19 @@ export default function BowlingTracker(){
   // Blank is the correct answer here. It means "no night selected", and
   // every lookup keyed on it should find nothing rather than find
   // somebody else's night.
-  const nightLeague=effectiveSessionLeague;
+  // THE NIGHT is the event, not the phase.
+  //
+  // Match play and the stepladder file their frames under their own
+  // container leagues so their game numbering cannot collide with
+  // qualifying's. That is a detail of where shots are WRITTEN; the
+  // night itself -- its session row, its money, its recap, its Nightcap
+  // -- belongs to the event. Keying the night on the phase league meant
+  // that leaving the Scoring tab on Stepladder and coming back to
+  // Results found no session at all, and the recap and Nightcap simply
+  // vanished.
+  const nightLeague=preferences.environment==="tournament"
+    ?tournamentBaseLeagueName(effectiveSessionLeague)
+    :effectiveSessionLeague;
   const nightDate=sessionDate;
 
 
@@ -5476,8 +5488,22 @@ export default function BowlingTracker(){
       return;
     }
     if(s.mode==="tournament"||isTournamentLeagueName(lg)){
-      const t=(tournaments||[]).find(t=>(Array.isArray(t?.days)?t.days:[]).some(d=>d&&d.date===s.date));
-      if(t)openImportedNight({kind:"tournament",league:lg,date:s.date,tournament:t});
+      // By date OR by name.
+      //
+      // The date is optional on a block and plenty of events are logged
+      // without one, so a date-only lookup found nothing and the row
+      // silently did nothing when tapped -- the one outcome worse than
+      // opening the wrong thing.
+      const wanted=isTournamentLeagueName(lg)?tournamentLeagueEventName(lg):lg;
+      const byDate=(tournaments||[]).find(t=>(Array.isArray(t?.days)?t.days:[]).some(d=>d&&d.date===s.date));
+      const byName=wanted
+        ?(tournaments||[]).find(t=>String(t?.name||"")===String(wanted))
+        :null;
+      const t=byDate||byName;
+      if(t){ openImportedNight({kind:"tournament",league:lg,date:s.date,tournament:t}); return; }
+      // Nothing matched: still open the tournament screen on Results
+      // rather than swallowing the tap.
+      openImportedNight({kind:"tournament",league:lg,date:s.date,tournament:null});
       return;
     }
     openImportedNight({kind:isPracticeLeagueName(lg)?"practice":"league",league:s.league,date:s.date});
@@ -5502,6 +5528,10 @@ export default function BowlingTracker(){
       const safe=!cur.name||cur.id===tournament?.id||(tournaments||[]).some(t=>t.id===cur.id);
       if(tournament&&safe&&cur.id!==tournament.id)updateTournament(tournament);
       setTournamentTab("results");
+      // Back to qualifying: the phase decides which container league the
+      // shot form writes to, and reopening a finished event on the
+      // stepladder points it at a phase the bowler is not bowling.
+      setTournamentPhase("qualifying");
     }
     if(date)changeSessionDate(date);
     setView("log");
