@@ -2290,6 +2290,18 @@ export default function LogView({
 
                 onUseDate={setSessionDate}
 
+                /* Advancing a round moves the frame tracker with it:
+                   the match's own game number, frame 1, ball cleared.
+                   Without this the shot context stayed wherever
+                   qualifying left it and the next match's frames
+                   landed on a game already bowled. */
+                onUseGameNumber={g=>{
+                  set("game",String(g));
+                  set("frame","1");
+                  set("ballNum","");
+                  try{window.scrollTo({top:0});}catch{}
+                }}
+
                 saveMessage={tournamentSaveMessage}
 
                 onCloseTournament={closeTournament}

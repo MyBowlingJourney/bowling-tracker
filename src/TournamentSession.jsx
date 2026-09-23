@@ -5,7 +5,7 @@ import {
   addGame, removeGame, setGameField, addDay, removeDay, setDayField, updateDay,
   dayTotal, dayAverage, dayGamesEntered, cutMargin,
   tournamentTotal, tournamentTotalWithHandicap, tournamentAverage, tournamentMoney,
-  cutMarginWithCarry, carryBefore, tournamentGamesEntered, resolveTournamentGameScore,
+  cutMarginWithCarry, carryBefore, tournamentGamesEntered, resolveTournamentGameScore, phaseGameOffsets,
   SCORING_BASES, PIN_FORMATS, PLAY_STYLES,
   scoringBasis, pinFormat, playStyle, cutTarget, describeTournamentFormat} from "./domain/tournaments.js";
 import { patternDisplayName, searchPatterns, describePattern, patternStats } from "./domain/oilPatterns.js";
@@ -651,7 +651,7 @@ function SidePots({ tournament, onChange }) {
 }
 
 // Match play: the head-to-head block after the cut.
-function MatchPlay({ tournament, onChange, onGoToPhase = null }) {
+function MatchPlay({ tournament, onChange, onGoToPhase = null, shotScores = null, gameStart = 0, onUseGame = null }) {
   const [open, setOpen] = useState(true);
   const mp = tournament.matchPlay || {};
   const matches = mp.matches || [];
@@ -660,6 +660,37 @@ function MatchPlay({ tournament, onChange, onGoToPhase = null }) {
   const comp = competitiveness(mp);
 
   function update(next) { onChange({ ...tournament, matchPlay: next }); }
+
+  // Which game of the day each match is. Qualifying already used games
+  // 1..n on this date, so match 1 is the game after those -- see
+  // phaseGameOffsets.
+  const gameFor = m => gameStart + Number(m?.matchNumber || 0);
+
+  // The same fill qualifying does, for a match: a bowler tracking
+  // frames should never have to copy their own score across. Only once
+  // the game is FINISHED (a running total in the box reads as a final
+  // score), only while the app put it there (scoreAuto), and never over
+  // something typed.
+  useEffect(() => {
+    if (!shotScores) return;
+    let next = mp;
+    let changed = false;
+    for (const m of matches) {
+      const e = shotScores[String(gameFor(m))];
+      if (e === null || e === undefined) continue;
+      const entry = typeof e === "number" ? { score: e, complete: true } : e;
+      const v = Number(entry?.score);
+      if (!Number.isFinite(v)) continue;
+      if (!entry?.complete) continue;
+      const typedOver = m.yourScore !== "" && !m.scoreAuto;
+      if (typedOver) continue;
+      if (String(m.yourScore) === String(v) && m.scoreAuto) continue;
+      next = setMatchField(next, m.matchNumber, "yourScore", String(v));
+      next = setMatchField(next, m.matchNumber, "scoreAuto", true);
+      changed = true;
+    }
+    if (changed) update(next);
+  }, [shotScores, mp]);
 
   return (
     <div style={S.card}>
@@ -702,10 +733,22 @@ function MatchPlay({ tournament, onChange, onGoToPhase = null }) {
                   </span>
                 )}
               </div>
-              <button style={{ background: "none", border: "none", color: C.textMuted, cursor: "pointer", fontSize: "11px", textDecoration: "underline", padding: 0 }}
-                onClick={() => update(removeMatch(mp, m.matchNumber))}>
-                Remove
-              </button>
+              <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                {/* Points the frame tracker at THIS match: its game
+                    number for the day, frame 1. Without it the shot
+                    context stayed on whatever qualifying left it at,
+                    and the frames landed on a qualifying game. */}
+                {onUseGame && (
+                  <button style={{ background: "none", border: "none", color: C.accent, cursor: "pointer", fontSize: "11px", textDecoration: "underline", padding: 0 }}
+                    onClick={() => onUseGame(gameFor(m))}>
+                    Track frames (G{gameFor(m)})
+                  </button>
+                )}
+                <button style={{ background: "none", border: "none", color: C.textMuted, cursor: "pointer", fontSize: "11px", textDecoration: "underline", padding: 0 }}
+                  onClick={() => update(removeMatch(mp, m.matchNumber))}>
+                  Remove
+                </button>
+              </div>
             </div>
             <div style={{ display: "flex", gap: "6px", marginBottom: "6px" }}>
               <input style={{ ...S.input, flex: 2, fontSize: "12px" }} placeholder="Opponent"
@@ -715,7 +758,10 @@ function MatchPlay({ tournament, onChange, onGoToPhase = null }) {
             </div>
             <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
               <input style={{ ...S.input, flex: 1, fontSize: "14px", textAlign: "center" }} type="number" inputMode="numeric" placeholder="You"
-                value={m.yourScore} onChange={e => update(setMatchField(mp, m.matchNumber, "yourScore", e.target.value))} />
+                value={m.yourScore}
+                onChange={e => update(setMatchField(
+                  setMatchField(mp, m.matchNumber, "scoreAuto", false),
+                  m.matchNumber, "yourScore", e.target.value))} />
               <span style={{ fontSize: "11px", color: C.textMuted }}>vs</span>
               <input style={{ ...S.input, flex: 1, fontSize: "14px", textAlign: "center" }} type="number" inputMode="numeric" placeholder="Them"
                 value={m.opponentScore} onChange={e => update(setMatchField(mp, m.matchNumber, "opponentScore", e.target.value))} />
@@ -824,13 +870,40 @@ function MatchPlay({ tournament, onChange, onGoToPhase = null }) {
 // (a step is sudden death), and seeds, which are what decide where a
 // bowler finished -- so the app works the finish out rather than asking
 // for it. See domain/stepladder.js for the placement rule.
-function Stepladder({ tournament, onChange }) {
+function Stepladder({ tournament, onChange, shotScores = null, gameStart = 0, onUseGame = null }) {
   const [open, setOpen] = useState(true);
   const sl = tournament.stepladder || {};
   const steps = sl.steps || [];
   const result = stepladderResult(sl);
 
   function update(next) { onChange({ ...tournament, stepladder: next }); }
+
+  // Game numbers carry on from qualifying AND match play, since all of
+  // it is the same day's frames -- see phaseGameOffsets.
+  const gameFor = st => gameStart + Number(st?.stepNumber || 0);
+
+  // Same fill as qualifying and match play: finished games only, never
+  // over a typed score.
+  useEffect(() => {
+    if (!shotScores) return;
+    let next = sl;
+    let changed = false;
+    for (const st of steps) {
+      const e = shotScores[String(gameFor(st))];
+      if (e === null || e === undefined) continue;
+      const entry = typeof e === "number" ? { score: e, complete: true } : e;
+      const v = Number(entry?.score);
+      if (!Number.isFinite(v)) continue;
+      if (!entry?.complete) continue;
+      const typedOver = st.yourScore !== "" && !st.scoreAuto;
+      if (typedOver) continue;
+      if (String(st.yourScore) === String(v) && st.scoreAuto) continue;
+      next = setStepField(next, st.stepNumber, "yourScore", String(v));
+      next = setStepField(next, st.stepNumber, "scoreAuto", true);
+      changed = true;
+    }
+    if (changed) update(next);
+  }, [shotScores, sl]);
 
   return (
     <div style={S.card}>
@@ -875,10 +948,18 @@ function Stepladder({ tournament, onChange }) {
                   </span>
                 )}
               </div>
-              <button style={{ background: "none", border: "none", color: C.textMuted, cursor: "pointer", fontSize: "11px", textDecoration: "underline", padding: 0 }}
-                onClick={() => update(removeStep(sl, s.stepNumber))}>
-                Remove
-              </button>
+              <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                {onUseGame && (
+                  <button style={{ background: "none", border: "none", color: C.accent, cursor: "pointer", fontSize: "11px", textDecoration: "underline", padding: 0 }}
+                    onClick={() => onUseGame(gameFor(s))}>
+                    Track frames (G{gameFor(s)})
+                  </button>
+                )}
+                <button style={{ background: "none", border: "none", color: C.textMuted, cursor: "pointer", fontSize: "11px", textDecoration: "underline", padding: 0 }}
+                  onClick={() => update(removeStep(sl, s.stepNumber))}>
+                  Remove
+                </button>
+              </div>
             </div>
             <div style={{ display: "flex", gap: "6px", marginBottom: "6px" }}>
               <input style={{ ...S.input, flex: 2, fontSize: "12px" }} placeholder="Opponent"
@@ -890,7 +971,10 @@ function Stepladder({ tournament, onChange }) {
             </div>
             <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
               <input style={{ ...S.input, flex: 1, fontSize: "14px", textAlign: "center" }} type="number" inputMode="numeric" placeholder="You"
-                value={s.yourScore} onChange={e => update(setStepField(sl, s.stepNumber, "yourScore", e.target.value))} />
+                value={s.yourScore}
+                onChange={e => update(setStepField(
+                  setStepField(sl, s.stepNumber, "scoreAuto", false),
+                  s.stepNumber, "yourScore", e.target.value))} />
               <span style={{ fontSize: "11px", color: C.textMuted }}>vs</span>
               <input style={{ ...S.input, flex: 1, fontSize: "14px", textAlign: "center" }} type="number" inputMode="numeric" placeholder="Them"
                 value={s.opponentScore} onChange={e => update(setStepField(sl, s.stepNumber, "opponentScore", e.target.value))} />
@@ -1076,7 +1160,7 @@ function TournamentRecap({ tournament, dayScores }) {
   );
 }
 
-export default function TournamentSession({ onCancelTournament = null, resultsSummary = null, entitlement = null, tournament, onChange, onSave, saved, oilPatterns, submitOilPattern, tournaments, shotScoresByDate = null, tab: controlledTab, onTabChange, saveMessage = "", onUseDate, onCloseTournament, sessionDate = "" }) {
+export default function TournamentSession({ onCancelTournament = null, resultsSummary = null, entitlement = null, tournament, onChange, onSave, saved, oilPatterns, submitOilPattern, tournaments, shotScoresByDate = null, tab: controlledTab, onTabChange, saveMessage = "", onUseDate, onUseGameNumber = null, onCloseTournament, sessionDate = "" }) {
   // The tab is owned by the caller.
   //
   // LogView renders Shot Context alongside this card, and it only makes
@@ -1195,6 +1279,20 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
   };
 
   const dayScores = d => pickForDay(shotScoresByDate, d);
+
+  // Match play and the stepladder are bowled on one date -- the night
+  // in progress -- and have no date field of their own, so they read
+  // the same frame scores the session is filing under.
+  const phaseDate = sessionDate || (tournament.days || []).map(d => d.date).filter(Boolean).pop() || "";
+  const phaseScores = (shotScoresByDate && phaseDate) ? (shotScoresByDate[String(phaseDate)] || null) : null;
+  const phaseOffsets = phaseGameOffsets(tournament, phaseDate);
+
+  // Point the shot context at a particular game and start it at frame
+  // 1. Advancing a round has to move the tracker with it, or the next
+  // match's frames land on the last one.
+  const useGameNumber = onUseGameNumber
+    ? g => { if (phaseDate && onUseDate) onUseDate(phaseDate); onUseGameNumber(g); }
+    : null;
 
   const scratchTotal = (tournament.days || []).reduce((a, d) => {
     const v = dayTotal(d, dayScores(d));
@@ -1713,10 +1811,14 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
       </div>
 
       {phase === "match" && (
-        <MatchPlay tournament={tournament} onChange={onChange} onGoToPhase={setPhase} />
+        <MatchPlay tournament={tournament} onChange={onChange} onGoToPhase={setPhase}
+          shotScores={phaseScores} gameStart={phaseOffsets.matchStart}
+          onUseGame={useGameNumber} />
       )}
       {phase === "stepladder" && (
-        <Stepladder tournament={tournament} onChange={onChange} />
+        <Stepladder tournament={tournament} onChange={onChange}
+          shotScores={phaseScores} gameStart={phaseOffsets.stepStart}
+          onUseGame={useGameNumber} />
       )}
 
       {phase === "qualifying" && (<>
