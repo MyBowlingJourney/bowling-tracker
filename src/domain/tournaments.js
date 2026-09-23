@@ -1,5 +1,5 @@
 import { leagueFormat } from "./leagueSeasons.js";
-import { handicapPins, scoringBasis, pinFormat, playStyle } from "./tournamentFormats.js";
+import { handicapPins, activeHandicapPerGame, scoringBasis, pinFormat, playStyle } from "./tournamentFormats.js";
 // Tournament sessions.
 //
 // A tournament night is shaped differently enough from a league night that
@@ -23,6 +23,10 @@ import { handicapPins, scoringBasis, pinFormat, playStyle } from "./tournamentFo
 import { normalizeSidePots, sidePotTotals } from "./sidePots.js";
 import { normalizeMatchPlay, emptyMatchPlay, matchPlayTotals } from "./matchPlay.js";
 import { normalizeStepladder, emptyStepladder, stepladderResult } from "./stepladder.js";
+import {
+  tournamentLeagueCloudName, tournamentPhaseLeagueName, TOURNAMENT_PHASE_NAMES,
+  TOURNAMENT_SESSION_KEY,
+} from "../constants.js";
 
 export function emptyTournamentGame(gameNumber = 1) {
   // scoreAuto: this score came from frame tracking and should keep
@@ -376,8 +380,25 @@ export function cutTarget(day, shotScores) {
   return (PACE_PER_GAME * games) + (day?.cutSign === "-" ? -pace : pace);
 }
 
-export function cutMargin(day, shotScores) {
+// The cut is measured in the event's OWN pins.
+//
+// A scratch event posts a scratch cut and a handicap event posts a
+// handicap one -- the sheet on the wall is the handicap sheet, and that
+// is the number a bowler checks themselves against. This compared
+// scratch pins to it either way, so a bowler 60 clear of the cut with
+// 40 a game of handicap was told they missed by 60.
+//
+// The tournament is optional: a day alone still answers the scratch
+// question, which is what every caller that has no tournament in scope
+// was already asking.
+function cutPins(day, shotScores, tournament) {
   const total = dayTotal(day, shotScores);
+  if (total === null) return null;
+  return total + handicapPins(tournament, dayGamesEntered(day, shotScores));
+}
+
+export function cutMargin(day, shotScores, tournament = null) {
+  const total = cutPins(day, shotScores, tournament);
   const target = cutTarget(day, shotScores);
   if (total === null || target === null) return null;
   return total - target;
@@ -389,7 +410,7 @@ export function cutMargin(day, shotScores) {
 // against day two alone -- a bowler 90 pins up after day one and 40
 // down on day two is still 50 to the good, and the day-only margin said
 // they had missed. carry is { total, games } from the earlier blocks.
-export function cutMarginWithCarry(day, shotScores, carry) {
+export function cutMarginWithCarry(day, shotScores, carry, tournament = null) {
   const dayScore = dayTotal(day, shotScores);
   const pace = num(day?.cutLine);
   if (pace === null) return null;
@@ -398,8 +419,10 @@ export function cutMarginWithCarry(day, shotScores, carry) {
   const games = dayGamesEntered(day, shotScores) + carryGames;
   if (!games) return null;
   // The cut is quoted for the whole block set, so a day with nothing in
-  // it yet still counts what came before.
-  const total = (dayScore ?? 0) + carryTotal;
+  // it yet still counts what came before. Handicap is added across ALL
+  // those games, earlier blocks included -- it is earned per game, and
+  // counting only today's would under-report by a block.
+  const total = (dayScore ?? 0) + carryTotal + handicapPins(tournament, games);
   const target = (PACE_PER_GAME * games) + (day?.cutSign === "-" ? -pace : pace);
   return total - target;
 }
@@ -416,6 +439,33 @@ export function carryBefore(tournament, dayNumber, scoresFor) {
     games += dayGamesEntered(d, s);
   }
   return { total, games };
+}
+
+// The container leagues whose scores must stay OUT of scratch figures.
+//
+// scoresJoinScratchFigures says whether one event's scores belong in a
+// bowler's scratch record: Baker is half a partner's pins, and no-tap
+// runs high enough that pooling it inflates an average. It was written,
+// tested, and then never called -- the only exclusion that ever ran was
+// a regex looking for the word "baker" in the league NAME, which caught
+// an event somebody happened to call "Baker Doubles" and missed every
+// Baker squad with an ordinary name. A no-tap 300 went straight into
+// high game.
+//
+// Sessions carry a league name, not a format, so the lookup has to
+// happen where the tournaments are: this turns them into the set of
+// names to skip, phase leagues included.
+export function scratchExcludedLeagues(tournaments, userId) {
+  const out = new Set();
+  for (const t of (Array.isArray(tournaments) ? tournaments : [])) {
+    if (!t || scoresJoinScratchFigures(t)) continue;
+    const base = t.name ? tournamentLeagueCloudName(t.name, userId || "") : TOURNAMENT_SESSION_KEY;
+    out.add(base);
+    for (const phase of Object.keys(TOURNAMENT_PHASE_NAMES)) {
+      out.add(tournamentPhaseLeagueName(base, phase));
+    }
+  }
+  return out;
 }
 
 // Which game number the frame tracker is on, for a phase that is not
@@ -471,8 +521,10 @@ export function derivedPlacement(tournament) {
 
 // Did this block make its cut? Derived from the margin rather than
 // asked. null when there is no cut line or nothing bowled yet.
-export function dayMadeCut(day, shotScores, carry) {
-  const margin = carry ? cutMarginWithCarry(day, shotScores, carry) : cutMargin(day, shotScores);
+export function dayMadeCut(day, shotScores, carry, tournament = null) {
+  const margin = carry
+    ? cutMarginWithCarry(day, shotScores, carry, tournament)
+    : cutMargin(day, shotScores, tournament);
   return margin === null ? null : margin >= 0;
 }
 
@@ -534,7 +586,7 @@ export function tournamentMoney(tournament) {
 // decides a finish at events that have one.
 export function tournamentFinalTotal(tournament) {
   const qualifying = tournamentTotal(tournament);
-  const mp = matchPlayTotals(tournament?.matchPlay);
+  const mp = matchPlayTotals(tournament?.matchPlay, activeHandicapPerGame(tournament));
   if (!mp.played) return { qualifying, matchPlay: null, total: qualifying };
   return { qualifying, matchPlay: mp, total: qualifying + mp.total };
 }

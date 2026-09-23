@@ -6,6 +6,7 @@ import {
   tournamentTotal, tournamentAverage,
   tournamentTotalWithHandicap,
   SCORING_BASES, PIN_FORMATS, PLAY_STYLES, scoresJoinScratchFigures, describeTournamentFormat, cutTarget, cutMargin,
+  cutMarginWithCarry, scratchExcludedLeagues,
 } from './tournaments.js';
 describe('four independent settings', () => {
   // Not one dropdown with six values: a Baker squad can be handicapped,
@@ -195,5 +196,56 @@ describe('the cut line is pace over or under a 200 average', () => {
       expect(() => cutTarget(j, j)).not.toThrow();
       expect(() => cutMargin(j, j)).not.toThrow();
     }
+  });
+});
+
+
+describe('the cut in the event\'s own pins', () => {
+  const games = [{ gameNumber: 1, score: '180' }, { gameNumber: 2, score: '180' }, { gameNumber: 3, score: '180' }];
+  const day = { dayNumber: 1, cutLine: '0', cutSign: '+', games };
+
+  it('measures a scratch event against scratch pins', () => {
+    expect(cutMargin(day, null, { scoringBasis: 'scratch', days: [day] })).toBe(-60);
+  });
+
+  it('measures a handicap event against handicap pins', () => {
+    // 540 scratch + 120 handicap = 660, against a 600 cut.
+    expect(cutMargin(day, null, { scoringBasis: 'handicap', handicap: '40', days: [day] })).toBe(60);
+  });
+
+  it('ignores a handicap left on a scratch event', () => {
+    // The figure stays on the record so switching back does not lose it.
+    expect(cutMargin(day, null, { scoringBasis: 'scratch', handicap: '40', days: [day] })).toBe(-60);
+  });
+
+  it('answers the scratch question when no tournament is given', () => {
+    expect(cutMargin(day, null)).toBe(-60);
+  });
+
+  it('carries handicap across every block the cut covers', () => {
+    const t = { scoringBasis: 'handicap', handicap: '40', days: [day] };
+    // Six games bowled: 1080 scratch + 240 handicap = 1320 against 1200.
+    expect(cutMarginWithCarry(day, null, { total: 540, games: 3 }, t)).toBe(120);
+  });
+});
+
+describe('keeping formats out of scratch figures', () => {
+  it('names the container leagues for Baker and no-tap events', () => {
+    const set = scratchExcludedLeagues([
+      { name: 'City Open', playStyle: 'baker' },
+      { name: 'Turkey Shoot', pinFormat: 'notap9' },
+      { name: 'Scratch Classic' },
+    ], 'u1');
+    expect(set.has('Tournament\u00b7City Open\u00b7u1')).toBe(true);
+    expect(set.has('Tournament\u00b7Turkey Shoot\u00b7u1')).toBe(true);
+    // Its phases too -- match play frames are the same event.
+    expect(set.has('Tournament\u00b7Turkey Shoot\u00b7u1\u00b7Match Play')).toBe(true);
+    // A standard scratch 10-pin event counts like any other night.
+    expect(set.has('Tournament\u00b7Scratch Classic\u00b7u1')).toBe(false);
+  });
+
+  it('is empty when nothing is excluded', () => {
+    expect(scratchExcludedLeagues([{ name: 'Scratch Classic' }], 'u1').size).toBe(0);
+    expect(scratchExcludedLeagues(null, 'u1').size).toBe(0);
   });
 });

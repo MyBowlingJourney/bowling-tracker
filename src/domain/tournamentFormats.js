@@ -99,6 +99,17 @@ export function appliesHandicap(tournament) {
   return scoringBasis(tournament) === "handicap" && handicapPerGame(tournament) > 0;
 }
 
+// The handicap that is actually IN FORCE, per game.
+//
+// handicapPerGame reads the stored number and nothing else -- it stays
+// on the record when a bowler switches an event to scratch, so that
+// switching back does not lose what they typed. Anything adding pins
+// must ask this instead, or a scratch event with a leftover figure
+// silently awards them.
+export function activeHandicapPerGame(tournament) {
+  return appliesHandicap(tournament) ? handicapPerGame(tournament) : 0;
+}
+
 // Handicap pins across however many games were actually bowled.
 //
 // Games ENTERED, not games scheduled: a block abandoned after two games

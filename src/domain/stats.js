@@ -60,8 +60,25 @@ function isBakerSession(s) {
     && /baker/i.test(String(s?.league || ""));
 }
 
-export function bowlerHighGame(sessions,bowler){
-  sessions=(Array.isArray(sessions)?sessions:[]).filter(x=>!isBakerSession(x));
+// Leagues whose scores do not belong in a scratch record.
+//
+// The regex above is a guess at the event's NAME and catches a Baker
+// squad only if somebody called it "Baker Doubles". The real answer is
+// on the tournament record -- scoresJoinScratchFigures -- and reaches
+// here as a set of league names built by scratchExcludedLeagues, which
+// the caller passes in because sessions carry a name and no format.
+//
+// Optional on purpose: every caller that has the tournaments should
+// pass it, and one that does not still gets the old behaviour rather
+// than an exception.
+function excluded(s, set) {
+  if (isBakerSession(s)) return true;
+  if (!set || typeof set.has !== "function") return false;
+  return set.has(String(s?.league || ""));
+}
+
+export function bowlerHighGame(sessions,bowler,excludeLeagues=null){
+  sessions=(Array.isArray(sessions)?sessions:[]).filter(x=>!excluded(x,excludeLeagues));
 
   let best=null;
   // A null session, or one whose scores never arrived, throws on
@@ -76,8 +93,8 @@ export function bowlerHighGame(sessions,bowler){
 }
 
 // The single highest 3-game series total this bowler has ever bowled.
-export function bowlerHighSeries(sessions,bowler){
-  sessions=(Array.isArray(sessions)?sessions:[]).filter(x=>!isBakerSession(x));
+export function bowlerHighSeries(sessions,bowler,excludeLeagues=null){
+  sessions=(Array.isArray(sessions)?sessions:[]).filter(x=>!excluded(x,excludeLeagues));
 
   let best=null;
   arr(sessions).filter(s=>s&&typeof s==="object"&&s.bowler===bowler).forEach(s=>{

@@ -282,7 +282,7 @@ export function patternDays(tournaments, patternName) {
         // sign of the margin against the posted cut line, so it is
         // derived from what was bowled instead.
         madeCut: day.madeCut === true || day.madeCut === false ? day.madeCut
-          : dayMadeCut(day, null, carryBefore(t, day.dayNumber, null)),
+          : dayMadeCut(day, null, carryBefore(t, day.dayNumber, null), t),
       });
     }
   }

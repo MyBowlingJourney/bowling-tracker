@@ -136,8 +136,16 @@ export function matchResult(match) {
 
 // Standings for the block: scratch pins, bonus earned, and the total that
 // actually decides position.
-export function matchPlayTotals(mp) {
+// handicapPerGame: pins the event adds to every game.
+//
+// A handicap event's match play standings are handicap standings -- the
+// sheet adds the pins before anyone compares totals -- so leaving them
+// out under-reported a handicapped bowler's block by the handicap times
+// the number of matches. Zero for a scratch event, which is every event
+// that does not pass it.
+export function matchPlayTotals(mp, handicapPerGame = 0) {
   const base = normalizeMatchPlay(mp);
+  const hcp = Math.max(0, Math.round(num(handicapPerGame) ?? 0));
   const perWin = bonus(base.bonusPerWin, DEFAULT_BONUS_PER_WIN);
   const perTie = bonus(base.bonusPerTie, DEFAULT_BONUS_PER_TIE);
 
@@ -153,15 +161,21 @@ export function matchPlayTotals(mp) {
   }
 
   const bonusPins = wins * perWin + ties * perTie;
+  // Handicap earned across the matches actually bowled -- per game, like
+  // everywhere else, not once for the block.
+  const handicapPins = hcp * played;
   return {
     played,
     wins,
     losses,
     ties,
     scratch,
+    handicapPins,
     bonusPins,
-    total: scratch + bonusPins,
-    // Average is over matches actually played, not matches listed.
+    total: scratch + handicapPins + bonusPins,
+    // Average is over matches actually played, not matches listed, and
+    // on scratch pins: an average with handicap folded in is not a
+    // bowling average.
     average: played ? Math.floor(scratch / played) : null,
     winPct: played ? Math.round((wins / played) * 100) : null,
     perWin,
