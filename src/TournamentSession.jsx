@@ -1216,7 +1216,7 @@ function TournamentRecap({ tournament, dayScores }) {
   );
 }
 
-export default function TournamentSession({ onCancelTournament = null, resultsSummary = null, entitlement = null, tournament, onChange, onSave, saved, oilPatterns, submitOilPattern, tournaments, shotScoresByDate = null, tab: controlledTab, onTabChange, saveMessage = "", onUseDate, onUseGameNumber = null, onCloseTournament, sessionDate = "", phase: controlledPhase, onPhaseChange }) {
+export default function TournamentSession({ onCancelTournament = null, resultsSummary = null, entitlement = null, tournament, onChange, onSave, saved, oilPatterns, submitOilPattern, tournaments, shotScoresByDate = null, tab: controlledTab, onTabChange, saveMessage = "", onUseDate, onUseGameNumber = null, onCloseTournament, sessionDate = "", phase: controlledPhase, onPhaseChange, nightcap = null }) {
   // The tab is owned by the caller.
   //
   // LogView renders Shot Context alongside this card, and it only makes
@@ -1746,6 +1746,11 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
           "how did tonight go" with one average over one set of games,
           which describes a qualifying block and says nothing at all
           about match play or a stepladder. */}
+      {/* The Nightcap, above the phase-by-phase recap. It is the read
+          back of how the frames went, which is the first thing a bowler
+          wants after a block -- the numbers keep. */}
+      {nightcap}
+
       <TournamentRecap tournament={tournament} dayScores={dayScores} />
 
       <CollapsibleCard title="Tournament Notes" expanded={isOpen("notes")} onToggle={() => toggle("notes")}>

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo, lazy, Suspense} from "react";
 import { C, S, F, Chip, PinDeck, CollapsibleCard, StatLead } from "./ui.jsx";
-import { PLASTIC_BALL, formatDate, localDateString, RESULTS, SURFACES, RELEASES, MISSES, BALL_CHANGE_REASONS, resultsForHandedness, storedResultFor, strikeDescriptionsForHand, storedStrikeDescriptionFor, practiceLeagueDisplayName } from "./constants.js";
+import { PLASTIC_BALL, formatDate, localDateString, RESULTS, SURFACES, RELEASES, MISSES, BALL_CHANGE_REASONS, resultsForHandedness, storedResultFor, strikeDescriptionsForHand, storedStrikeDescriptionFor, practiceLeagueDisplayName, tournamentBaseLeagueName } from "./constants.js";
 import { rAvg, cAvg, threeSixNineResults, cumulativeAvgBeforeDate } from "./domain/stats.js";
 import { buyInsForLeague, costArraysFor, sessionMoney } from "./domain/money.js";
 import { anyMoneyGameShown, visibleMoneyGames } from "./domain/preferences.js";
@@ -712,6 +712,61 @@ export default function LogView({
     return who==="me"?me:partner;
   })();
 
+
+  // The Nightcap, on its own.
+  //
+  // It used to reach the tournament Results tab inside the league night
+  // summary. That summary is gone from tournaments -- a league recap
+  // describes one set of games and a tournament is three phases scored
+  // three ways -- and the Nightcap went with it, which was not the
+  // intention: the read-back of how the frames actually went is exactly
+  // as true of a tournament block.
+  //
+  // Same inputs as the league copy, computed here so there is one
+  // derivation of each.
+  const renderNightcap=()=>{
+    const cs=curSession;
+    if(!cs)return null;
+    if(bakerTeamName){
+      return(
+        <div style={{...S.card,fontSize:"12px",color:C.textMuted,lineHeight:1.5}}>
+          <span style={{fontWeight:600,color:C.text}}>Nightcap</span> isn't poured on a Baker night — the frames belong to the pair, not to one bowler.
+        </div>
+      );
+    }
+    // The EVENT's league, not the phase's.
+    //
+    // Match play and the stepladder file their frames under their own
+    // container leagues, so reading cs.league here would pour a
+    // Nightcap for whichever phase tab happened to be selected -- three
+    // different read-backs of one event depending on where you had
+    // just been. The block is the qualifying block.
+    const nightLeague=env==="tournament"?tournamentBaseLeagueName(cs.league):cs.league;
+    const scores=Array.isArray(cs.scores)?cs.scores:[];
+    const theoreticalScores=scores
+      .map((_,idx)=>idx+1)
+      .map(g=>theoreticalScoreForGame(cs.bowler,nightLeague,cs.date,g));
+    const anyTheoretical=theoreticalScores.some(v=>v!=null);
+    const played=scores
+      .map((real,i)=>({real,theory:theoreticalScores[i]}))
+      .filter(x=>typeof x.real==="number");
+    const theoryTotal=played.reduce((a,x)=>a+(x.theory??x.real),0);
+    const realTotal=played.reduce((a,x)=>a+x.real,0);
+    return(
+      <Nightcap
+        event={env}
+        shots={shots}
+        bowler={cs.bowler}
+        league={nightLeague}
+        date={cs.date}
+        leftHanded={leftHandedForBowler?leftHandedForBowler(cs.bowler):false}
+        scores={cs.scores}
+        priorAverage={cumulativeAvgBeforeDate(sessions,cs.bowler,nightLeague,cs.date)}
+        pinsLeftOnLane={anyTheoretical&&played.length?(theoryTotal-realTotal):null}
+        sessionEnded={(sessions||[]).some(s=>s&&s.bowler===cs.bowler&&s.league===nightLeague&&s.date===cs.date)}
+        entitlement={entitlement}/>
+    );
+  };
 
   // The night summary: achievements, the Nightcap, the scores and the
   // running averages, and "Share tonight".
@@ -2325,6 +2380,7 @@ export default function LogView({
                    context depends on it: each phase files its frames
                    under its own container league. */
                 phase={tournamentPhase} onPhaseChange={setTournamentPhase}
+                nightcap={!editingId&&curSession?renderNightcap():null}
 
                 onUseDate={setSessionDate}
 
