@@ -194,7 +194,8 @@ CREATE TABLE IF NOT EXISTS public.drills (
   missed integer DEFAULT 0 NOT NULL,
   notes text,
   created_at timestamp with time zone DEFAULT now() NOT NULL,
-  custom_pins jsonb
+  custom_pins jsonb,
+  session_seq integer DEFAULT 1 NOT NULL
 );
 CREATE TABLE IF NOT EXISTS public.entitlements (
   user_id uuid NOT NULL,
@@ -296,7 +297,8 @@ CREATE TABLE IF NOT EXISTS public.manual_scores (
   created_at timestamp with time zone DEFAULT now() NOT NULL,
   updated_at timestamp with time zone DEFAULT now() NOT NULL,
   ball text,
-  surface text
+  surface text,
+  session_seq integer DEFAULT 1 NOT NULL
 );
 CREATE TABLE IF NOT EXISTS public.matches (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -382,7 +384,8 @@ CREATE TABLE IF NOT EXISTS public.sessions (
   poker_dollar_cost numeric[] DEFAULT '{0,0,0}'::numeric[] NOT NULL,
   three_six_nine_cost numeric DEFAULT 0 NOT NULL,
   prebowled_on date,
-  notes text
+  notes text,
+  session_seq integer DEFAULT 1 NOT NULL
 );
 CREATE TABLE IF NOT EXISTS public.shots (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -424,7 +427,8 @@ CREATE TABLE IF NOT EXISTS public.shots (
   axis_tilt numeric,
   breakpoint_board text,
   breakpoint_distance text,
-  second_leave jsonb
+  second_leave jsonb,
+  session_seq integer DEFAULT 1 NOT NULL
 );
 CREATE TABLE IF NOT EXISTS public.subscription_events (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -585,8 +589,7 @@ ALTER TABLE public.leagues ADD CONSTRAINT leagues_pkey PRIMARY KEY (id);
 ALTER TABLE public.leagues ADD CONSTRAINT leagues_center_id_fkey FOREIGN KEY (center_id) REFERENCES bowling_centers(id) ON DELETE SET NULL;
 ALTER TABLE public.leagues ADD CONSTRAINT leagues_created_by_fkey FOREIGN KEY (created_by) REFERENCES profiles(id) ON DELETE SET NULL;
 ALTER TABLE public.manual_scores ADD CONSTRAINT manual_scores_pkey PRIMARY KEY (id);
-ALTER TABLE public.manual_scores ADD CONSTRAINT manual_scores_slot_key UNIQUE (user_id, bowler_name, league_id, date, game);
-ALTER TABLE public.manual_scores ADD CONSTRAINT manual_scores_user_id_bowler_name_league_id_date_game_key UNIQUE (user_id, bowler_name, league_id, date, game);
+ALTER TABLE public.manual_scores ADD CONSTRAINT manual_scores_slot_key UNIQUE (user_id, bowler_name, league_id, date, game, session_seq);
 ALTER TABLE public.manual_scores ADD CONSTRAINT manual_scores_league_id_fkey FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE;
 ALTER TABLE public.manual_scores ADD CONSTRAINT manual_scores_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.matches ADD CONSTRAINT matches_pkey PRIMARY KEY (id);
@@ -604,7 +607,7 @@ ALTER TABLE public.pending_invites ADD CONSTRAINT pending_invites_team_id_fkey F
 ALTER TABLE public.profiles ADD CONSTRAINT profiles_pkey PRIMARY KEY (id);
 ALTER TABLE public.profiles ADD CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.sessions ADD CONSTRAINT sessions_pkey PRIMARY KEY (id);
-ALTER TABLE public.sessions ADD CONSTRAINT sessions_user_id_bowler_name_league_id_date_key UNIQUE (user_id, bowler_name, league_id, date);
+ALTER TABLE public.sessions ADD CONSTRAINT sessions_user_id_bowler_name_league_id_date_seq_key UNIQUE (user_id, bowler_name, league_id, date, session_seq);
 ALTER TABLE public.sessions ADD CONSTRAINT sessions_league_id_fkey FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE SET NULL;
 ALTER TABLE public.sessions ADD CONSTRAINT sessions_team_id_fkey FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE SET NULL;
 ALTER TABLE public.sessions ADD CONSTRAINT sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE;
@@ -652,7 +655,7 @@ CREATE INDEX imported_scores_team_idx ON public.imported_scores USING btree (tea
 CREATE INDEX lane_patterns_league_id_idx ON public.lane_patterns USING btree (league_id);
 CREATE INDEX lane_patterns_team_id_idx ON public.lane_patterns USING btree (team_id);
 CREATE UNIQUE INDEX leagues_name_per_user_idx ON public.leagues USING btree (created_by, name);
-CREATE INDEX manual_scores_lookup_idx ON public.manual_scores USING btree (user_id, bowler_name, date);
+CREATE INDEX manual_scores_lookup_idx ON public.manual_scores USING btree (user_id, bowler_name, date, session_seq);
 CREATE INDEX matches_league_id_idx ON public.matches USING btree (league_id);
 CREATE INDEX matches_team_id_idx ON public.matches USING btree (team_id);
 CREATE INDEX oil_patterns_name_idx ON public.oil_patterns USING btree (lower(name));
@@ -660,12 +663,12 @@ CREATE INDEX pending_invites_email_idx ON public.pending_invites USING btree (in
 CREATE UNIQUE INDEX pending_invites_signup_code_open_idx ON public.pending_invites USING btree (signup_code) WHERE ((signup_code IS NOT NULL) AND (accepted_at IS NULL));
 CREATE INDEX pending_invites_team_id_idx ON public.pending_invites USING btree (team_id);
 CREATE INDEX sessions_bowler_name_idx ON public.sessions USING btree (bowler_name);
-CREATE UNIQUE INDEX sessions_no_league_uniq ON public.sessions USING btree (user_id, bowler_name, date) WHERE (league_id IS NULL);
+CREATE UNIQUE INDEX sessions_no_league_uniq ON public.sessions USING btree (user_id, bowler_name, date, session_seq) WHERE (league_id IS NULL);
 CREATE INDEX sessions_team_id_idx ON public.sessions USING btree (team_id);
 CREATE INDEX sessions_user_id_idx ON public.sessions USING btree (user_id);
 CREATE INDEX sessions_user_updated_idx ON public.sessions USING btree (user_id, updated_at);
 CREATE INDEX shots_bowler_name_idx ON public.shots USING btree (bowler_name);
-CREATE UNIQUE INDEX shots_identity_uniq ON public.shots USING btree (user_id, bowler_name, COALESCE(league_id, '00000000-0000-0000-0000-000000000000'::uuid), COALESCE(league_name, ''::text), date, game, frame, COALESCE(ball_num, 1));
+CREATE UNIQUE INDEX shots_identity_uniq ON public.shots USING btree (user_id, bowler_name, COALESCE(league_id, '00000000-0000-0000-0000-000000000000'::uuid), COALESCE(league_name, ''::text), date, game, frame, COALESCE(ball_num, 1), session_seq);
 CREATE INDEX shots_team_id_idx ON public.shots USING btree (team_id);
 CREATE INDEX shots_user_date_idx ON public.shots USING btree (user_id, date);
 CREATE INDEX shots_user_id_idx ON public.shots USING btree (user_id);
@@ -1027,8 +1030,6 @@ CREATE POLICY 'you can only add yourself to a roster' ON public.team_members FOR
    FROM pending_invites
   WHERE ((pending_invites.team_id = team_members.team_id) AND (lower(pending_invites.invited_email) = lower((auth.jwt() ->> 'email'::text))) AND (pending_invites.accepted_at IS NULL)))))));
 CREATE POLICY 'only the team creator can delete the team' ON public.teams FOR DELETE TO authenticated
-  USING ((created_by = auth.uid()));
-CREATE POLICY 'team creators can delete their team' ON public.teams FOR DELETE TO authenticated
   USING ((created_by = auth.uid()));
 CREATE POLICY 'team creators can rename their team' ON public.teams FOR UPDATE TO authenticated
   USING ((created_by = auth.uid()))
