@@ -474,10 +474,13 @@ const SCREENS = {
       <div style={{ ...card, marginTop: "8px" }}>
         <div style={label}>Result</div>
         <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
+          {/* The labels the app actually shows. "Other Leave" is the
+              STORED value; the chip reads "Other", and a lefty sees
+              Weak 7 / Ringing 7 rather than 10s. */}
           <span style={chip(false)}>Strike</span>
           <span style={chip(false)}>Weak 10</span>
           <span style={chip(false)}>Ringing 10</span>
-          <span style={chip(false)}>Other Leave</span>
+          <span style={chip(false)}>Other</span>
         </div>
       </div>
       <Nav active={0} />
@@ -587,7 +590,10 @@ const SCREENS = {
 
   "look-calendar": () => (
     <Phone title="History">
-      <Chips items={["Sessions", "Season", "Calendar", "Journey", "Journal"]} sel={2} />
+      {/* Four chips. Journey was one of these and is its own screen now,
+          reached from Home -- drawing it here sent a bowler looking for
+          a chip that is not on the row. */}
+      <Chips items={["Sessions", "Season", "Calendar", "Journal"]} sel={2} />
       <Spot style={{ marginTop: "8px" }}>
         <div style={card}>
           <div style={label}>September</div>
@@ -603,13 +609,25 @@ const SCREENS = {
         </div>
         <div style={card}>
           <div style={label}>Journal</div>
-          {/* The real screen's only input is this search box -- notes are
-              written on the shot or the session and gathered here, never
-              typed into the journal itself. */}
+          {/* Nothing is TYPED here: notes are written on the shot, the
+              drill, the pattern or the session and gathered into this
+              screen. What this screen adds is finding them again --
+              search, plus the kind chips and the date range behind
+              Filter. */}
           <div style={{
             border: `1px solid ${C.border}`, borderRadius: "6px", padding: "4px 8px",
             fontSize: "10px", color: C.textMuted, fontFamily: F.body, marginBottom: "6px",
           }}>Search your notes…</div>
+          <div style={{
+            fontSize: "9px", color: C.accent, fontFamily: F.body,
+            textDecoration: "underline", marginBottom: "5px",
+          }}>Filters</div>
+          <div style={{ display: "flex", gap: "3px", flexWrap: "wrap", marginBottom: "6px" }}>
+            <span style={chip(false)}>Night</span>
+            <span style={chip(true)}>Tournament</span>
+            <span style={chip(false)}>Drill</span>
+            <span style={chip(false)}>Shot</span>
+          </div>
           <div style={{ fontSize: "9px", color: C.textMuted, fontFamily: F.body }}>10 Sep</div>
           <div style={muted}>Lanes broke down early. Moved left 3 and it came back.</div>
         </div>
@@ -749,6 +767,206 @@ const SCREENS = {
   // team, the date, then the file picker. The previous version drew a
   // dashed "photograph the monitor" placeholder and a score table, which
   // is not a screen this app has ever shown.
+  // ── Tournaments ───────────────────────────────────────────────────────
+  //
+  // These stand on the Bowl tab, because that is where a tournament is
+  // bowled -- the event's four tabs (Set up, Scoring, Brackets, Results)
+  // sit INSIDE it rather than in the nav. Drawing them on a nav tab of
+  // their own would send a bowler looking for a sixth row entry.
+  "tourn-setup": () => (
+    <Phone title="Tournament">
+      <Chips items={["Set up", "Scoring", "Brackets", "Results"]} sel={0} />
+      <div style={{ ...card, marginTop: "8px" }}>
+        <div style={label}>Tournament</div>
+        <Select value="Spring Masters" />
+        <div style={{ ...label, marginTop: "8px" }}>Center</div>
+        <Select value="Bowlero Pittsburgh" />
+      </div>
+      {/* Three independent questions, which is the thing worth teaching:
+          they are not one setting with six values. */}
+      <Spot>
+        <div style={card}>
+          <div style={{ display: "flex", gap: "6px" }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={label}>Style</div>
+              <div style={{ display: "flex", gap: "3px" }}>
+                <span style={chip(true)}>Standard</span>
+                <span style={chip(false)}>Baker</span>
+              </div>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={label}>Scoring</div>
+              <div style={{ display: "flex", gap: "3px" }}>
+                <span style={chip(true)}>Scratch</span>
+                <span style={chip(false)}>Handicap</span>
+              </div>
+            </div>
+          </div>
+          <div style={{ marginTop: "8px" }}>
+            <div style={label}>Format</div>
+            <div style={{ display: "flex", gap: "3px" }}>
+              <span style={chip(true)}>10 pin</span>
+              <span style={chip(false)}>9 pin no-tap</span>
+            </div>
+          </div>
+        </div>
+      </Spot>
+      <Note>Mix them however the event runs</Note>
+      <Nav active={0} />
+    </Phone>
+  ),
+
+  "tourn-qualifying": () => (
+    <Phone title="Tournament">
+      <Chips items={["Set up", "Scoring", "Brackets", "Results"]} sel={1} />
+      <div style={{ marginTop: "8px" }}>
+        <Chips items={["Qualifying", "Match Play", "Stepladder"]} sel={0} />
+      </div>
+      <div style={{ marginTop: "6px" }}>
+        <Chips items={["Day 1", "Day 2"]} sel={1} />
+      </div>
+      <Spot style={{ marginTop: "6px" }}>
+        <div style={card}>
+          <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+            <span style={{ ...label, marginBottom: 0 }}>Cut</span>
+            <span style={chip(true)}>+</span>
+            <span style={chip(false)}>−</span>
+            <div style={{
+              flex: 1, border: `1px solid ${C.border}`, borderRadius: "6px",
+              padding: "3px 6px", fontSize: "10px", color: C.text, fontFamily: F.body,
+            }}>150</div>
+            <span style={{ fontSize: "11px", fontWeight: 700, color: C.strike }}>{"▲"} +62</span>
+          </div>
+          <div style={{ ...muted, marginTop: "4px" }}>
+            1812 of 1750 across 8 games (all blocks so far).
+          </div>
+        </div>
+      </Spot>
+      <Note>Where you stand, updated every game</Note>
+      <Nav active={0} />
+    </Phone>
+  ),
+
+  "tourn-cut": () => (
+    <Phone title="Tournament">
+      <div style={card}>
+        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+          <span style={{ ...label, marginBottom: 0 }}>Cut</span>
+          <span style={{ ...muted, flex: 1 }}>+150</span>
+          <span style={{ fontSize: "11px", fontWeight: 700, color: C.strike }}>{"▲"} +62</span>
+        </div>
+      </div>
+      <Spot>
+        <div style={card}>
+          <div style={label}>Qualified for</div>
+          <div style={{ display: "flex", gap: "3px", flexWrap: "wrap" }}>
+            <span style={chip(true, C.strike)}>Match play</span>
+            <span style={chip(false)}>Stepladder</span>
+            <span style={chip(false)}>N/A</span>
+          </div>
+          <div style={{
+            marginTop: "8px", borderRadius: "8px", padding: "6px",
+            background: C.accent, color: "#FFFFFF", textAlign: "center",
+            fontSize: "10px", fontWeight: 700, fontFamily: F.body,
+          }}>Go to match play {"→"}</div>
+        </div>
+      </Spot>
+      <Note>The margin already said you made it</Note>
+      <Nav active={0} />
+    </Phone>
+  ),
+
+  "tourn-match": () => (
+    <Phone title="Tournament">
+      <div style={{ marginBottom: "8px" }}>
+        <Chips items={["Qualifying", "Match Play", "Stepladder"]} sel={1} />
+      </div>
+      <Spot>
+        <div style={card}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "5px" }}>
+            <span style={{ fontSize: "10px", fontWeight: 700, color: C.text, fontFamily: F.body }}>
+              Match 1 <span style={{ color: C.strike }}>WIN</span>
+              <span style={{ color: C.textMuted, fontWeight: 400 }}> by 23</span>
+            </span>
+            <span style={{ fontSize: "9px", color: C.accent, fontFamily: F.body, textDecoration: "underline" }}>
+              Track frames (G1)
+            </span>
+          </div>
+          <div style={{ display: "flex", gap: "4px" }}>
+            <Field head="Opponent" value="D. Rowe" />
+            <Field head="You" value="223" lit />
+            <Field head="Them" value="200" />
+          </div>
+        </div>
+      </Spot>
+      <Note>Game 1 again — qualifying doesn't follow you here</Note>
+      <div style={card}>
+        <Row left="Record" right="2–1" />
+        <Row left="Bonus pins" right="+60" colour={C.strike} />
+        <Row left="Total" right="705" />
+      </div>
+      <Nav active={0} />
+    </Phone>
+  ),
+
+  "tourn-stepladder": () => (
+    <Phone title="Tournament">
+      <div style={{ marginBottom: "8px" }}>
+        <Chips items={["Qualifying", "Match Play", "Stepladder"]} sel={2} />
+      </div>
+      <div style={card}>
+        <div style={{ display: "flex", gap: "4px" }}>
+          <Field head="Your seed" value="4" lit />
+          <Field head="Date" value="22 Mar" />
+        </div>
+      </div>
+      <Spot>
+        <div style={card}>
+          <div style={{ fontSize: "10px", fontWeight: 700, color: C.text, fontFamily: F.body, marginBottom: "5px" }}>
+            Step 2 <span style={{ color: C.miss }}>LOSS</span>
+            <span style={{ color: C.textMuted, fontWeight: 400 }}> by 11</span>
+          </div>
+          <div style={{ display: "flex", gap: "4px" }}>
+            <Field head="Opponent" value="K. Vance" />
+            <Field head="Seed" value="2" />
+            <Field head="You" value="201" />
+            <Field head="Them" value="212" />
+          </div>
+        </div>
+      </Spot>
+      <div style={{ ...card, textAlign: "center" }}>
+        <div style={{ fontSize: "18px", fontWeight: 700, color: C.accent, fontFamily: F.body }}>2nd</div>
+        <div style={label}>Finished</div>
+        <div style={muted}>Won one step, then out to the 2 seed.</div>
+      </div>
+      <Note up={false}>Worked out from your seed — never asked</Note>
+      <Nav active={0} />
+    </Phone>
+  ),
+
+  "tourn-results": () => (
+    <Phone title="Tournament">
+      <Chips items={["Set up", "Scoring", "Brackets", "Results"]} sel={3} />
+      <Spot style={{ marginTop: "8px" }}>
+        <div style={card}>
+          <div style={label}>Qualifying</div>
+          <Row left="8 games" right="1812" />
+          <Row left="Average" right="226" />
+          <div style={{ ...label, marginTop: "8px" }}>Match play</div>
+          <Row left="Record" right="2–1" colour={C.strike} />
+          <div style={{ ...label, marginTop: "8px" }}>Stepladder</div>
+          <Row left="Finished" right="2nd" colour={C.accent} />
+        </div>
+      </Spot>
+      <div style={card}>
+        <Row left="Brackets" right="+$45" colour={C.strike} />
+        <Row left="Net" right="+$20" colour={C.strike} />
+      </div>
+      <Note up={false}>Every phase, and what it paid</Note>
+      <Nav active={0} />
+    </Phone>
+  ),
+
   "ai-import-shot": () => (
     <Phone title="Import scorecard" headerIcon="import">
       <div style={card}>
@@ -843,6 +1061,138 @@ const SCREENS = {
   ),
 
   // ── Stats ─────────────────────────────────────────────────────────────
+  // ── Coaching ──────────────────────────────────────────────────────────
+  //
+  // On the Improve tab, because that is where the Coach button lives --
+  // it is not a nav entry of its own, and the tab stays lit while the
+  // Coach screen is open.
+  "coach-connect": () => (
+    <Phone title="Coach">
+      <Spot>
+        <div style={card}>
+          <div style={label}>Connect with someone</div>
+          <div style={{ display: "flex", gap: "3px", marginBottom: "6px" }}>
+            <span style={chip(false)}>They coach me</span>
+            <span style={chip(true)}>I coach them</span>
+          </div>
+          <div style={{
+            border: `1px solid ${C.border}`, borderRadius: "6px", padding: "4px 8px",
+            fontSize: "10px", color: C.textMuted, fontFamily: F.body, marginBottom: "6px",
+          }}>Search by name…</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: "11px", color: C.text, fontFamily: F.body }}>Dana Reyes</span>
+            <span style={{
+              border: `1px solid ${C.border}`, borderRadius: "6px", padding: "3px 8px",
+              fontSize: "10px", color: C.text, fontFamily: F.body, background: C.surface,
+            }}>Request</span>
+          </div>
+        </div>
+      </Spot>
+      <Note up={false}>Which way round it goes is the whole setup</Note>
+      <Nav active={3} />
+    </Phone>
+  ),
+
+  "coach-switch": () => (
+    <Phone title="Coach">
+      <Spot>
+        <div style={card}>
+          <div style={label}>View</div>
+          <div style={{ display: "flex", gap: "3px" }}>
+            <span style={chip(false)}>I{"’"}m bowling</span>
+            <span style={chip(true, C.spare)}>I{"’"}m coaching</span>
+          </div>
+        </div>
+      </Spot>
+      <div style={card}>
+        <div style={label}>Your bowlers</div>
+        <div style={{ display: "flex", gap: "3px", flexWrap: "wrap" }}>
+          <span style={chip(true, C.accent)}>Dana Reyes</span>
+          <span style={chip(false)}>{"•"} Sam Ortiz</span>
+        </div>
+      </div>
+      <Note>A dot means they answered something</Note>
+      <Nav active={3} />
+    </Phone>
+  ),
+
+  "coach-bowler": () => (
+    <Phone title="Coach">
+      <div style={card}>
+        <div style={{ display: "flex", gap: "3px" }}>
+          <span style={chip(true, C.accent)}>Dana Reyes</span>
+          <span style={chip(false)}>Sam Ortiz</span>
+        </div>
+      </div>
+      <Spot>
+        <div style={card}>
+          <div style={label}>From 412 shots</div>
+          <div style={{ display: "flex", gap: "4px", marginBottom: "8px" }}>
+            <StatBox value="184" label="Average" />
+            <StatBox value="41%" label="Strike" colour={C.strike} />
+            <StatBox value="58%" label="Spare" colour={C.spare} />
+          </div>
+          <div style={label}>Recent</div>
+          <Row left="18 Mar · Tuesday Classic" right="201 · 178 · 195" />
+          <Row left="11 Mar · Tuesday Classic" right="166 · 212 · 180" />
+        </div>
+      </Spot>
+      <Note up={false}>How much data it{"’"}s built on, beside it</Note>
+      <Nav active={3} />
+    </Phone>
+  ),
+
+  "coach-task": () => (
+    <Phone title="Coach">
+      <Spot>
+        <div style={card}>
+          <div style={label}>New task</div>
+          <Select value="Clean up the single-pin spares" />
+          <div style={{ ...label, marginTop: "8px" }}>Measurable target (optional)</div>
+          <div style={{ display: "flex", gap: "4px" }}>
+            <Field head="Metric" value="Spare %" />
+            <Field head="Target" value="60" lit />
+            <Field head="Due" value="1 Apr" />
+          </div>
+        </div>
+      </Spot>
+      <Note up={false}>Leave the target off if it isn{"’"}t a number</Note>
+      <div style={card}>
+        <Row left="Open" right="2" />
+        <Row left="Done &amp; Attempted" right="5" dim />
+      </div>
+      <Nav active={3} />
+    </Phone>
+  ),
+
+  "coach-respond": () => (
+    <Phone title="Coach">
+      <div style={card}>
+        <div style={label}>View</div>
+        <div style={{ display: "flex", gap: "3px" }}>
+          <span style={chip(true)}>I{"’"}m bowling</span>
+          <span style={chip(false, C.spare)}>I{"’"}m coaching</span>
+        </div>
+      </div>
+      <Spot>
+        <div style={card}>
+          <div style={{ fontSize: "10px", fontWeight: 700, color: C.text, fontFamily: F.body, marginBottom: "4px" }}>
+            Clean up the single-pin spares
+          </div>
+          <div style={{ ...muted, marginBottom: "6px" }}>Target 60% {"·"} due 1 Apr</div>
+          <Bar pct={72} colour={C.spare} />
+          <div style={{ ...muted, marginTop: "4px", marginBottom: "6px" }}>Reached 58% so far</div>
+          <div style={{ display: "flex", gap: "4px" }}>
+            <span style={chip(true, C.strike)}>Mark done</span>
+            <span style={chip(false)}>Record attempt</span>
+          </div>
+        </div>
+      </Spot>
+      <Note up={false}>What came back, not just what was asked</Note>
+      <Nav active={3} />
+    </Phone>
+  ),
+
   "stats-breakdown": () => (
     <Phone title="Stats">
       <Spot>

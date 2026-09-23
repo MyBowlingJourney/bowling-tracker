@@ -1349,7 +1349,7 @@ function TournamentRecap({ tournament, dayScores }) {
           );
         })}
         <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "4px" }}>
-          {sl.yourSeed ? `Seeded ${ordinal(sl.yourSeed)}. ` : ""}{describeStepladder(sl, recapHcp)}
+          {sl.yourSeed ? `Seeded ${ordinal(sl.yourSeed)}. ` : ""}{describeStepladder(sl, recapHcp, recapEvtHcp)}
         </div>
       </>)}
 
@@ -1950,7 +1950,7 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
         </div>
         {derivedFinish && tournament.placement && tournament.placement !== derivedFinish && (
           <div style={{ fontSize: "11px", color: C.miss, marginTop: "6px", lineHeight: 1.5 }}>
-            The stepladder says {placementLabel(derivedFinish)} — {describeStepladder(tournament.stepladder)}
+            The stepladder says {placementLabel(derivedFinish)} — {describeStepladder(tournament.stepladder, activeHandicapPerGame(tournament), isHandicapEvent(tournament))}
           </div>
         )}
         {tournament.placement && tournament.placement !== "none" && (
