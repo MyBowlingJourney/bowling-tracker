@@ -191,13 +191,6 @@ function OilPatternField({ value, onChange, patterns, onSubmitPattern, tournamen
 function DayDetails({ tournament, day, onChange, canRemoveDay, onRemoveDay, multiDay, oilPatterns, submitOilPattern, tournaments, expanded = true, onToggleExpanded, onUseDate, onGoToScoring }) {
   function update(next) { onChange(next); }
 
-  // The cut line lives here, with the block details, so the margin has
-  // to be worked out here too -- it moved over from DayScoring with the
-  // rest of the card. No shot scores: this is the posted cut against
-  // what is entered, and a half-finished frame-tracked game should not
-  // move the margin around while the bowler is still bowling it.
-  const margin = cutMargin(day);
-
   // Block details only -- date, time, squad, block number.
   //
   // Games moved out to the Scoring tab, and Starting Lanes went
@@ -248,21 +241,24 @@ function DayDetails({ tournament, day, onChange, canRemoveDay, onRemoveDay, mult
         </div>
       </div>
 
+      {/* Squad and block sit together: they are read together off the
+          sheet ("A, block 2") and separating them made the block number
+          look like it belonged to the oil pattern beside it. */}
       <div style={{ ...S.row, marginTop: "8px" }}>
         <div style={{ flex: 1 }}>
           {fieldLabel("Squad")}
-          <input style={S.input} placeholder="e.g. A, 2, Sat AM" value={day.squad}
+          <input style={S.input} placeholder="e.g. A" value={day.squad}
             onChange={e => update({ ...day, squad: e.target.value })} />
         </div>
-      </div>
-
-      <div style={{ ...S.row, marginTop: "8px" }}>
         <div style={{ flex: 1 }}>
           {fieldLabel("Block #")}
           <input style={S.input} placeholder="e.g. 2" value={day.blockNumber}
             onChange={e => update({ ...day, blockNumber: e.target.value })} />
         </div>
-        <div style={{ flex: 2 }}>
+      </div>
+
+      <div style={{ ...S.row, marginTop: "8px" }}>
+        <div style={{ flex: 1 }}>
           <OilPatternField
             value={day.oilPattern}
             onChange={v => update({ ...day, oilPattern: v })}
@@ -273,56 +269,11 @@ function DayDetails({ tournament, day, onChange, canRemoveDay, onRemoveDay, mult
         </div>
       </div>
 
-      <div style={S.divider} />
+      {/* The cut moved to Scoring, at the top of this block's games:
+          it is posted while the block is being bowled, not while it is
+          being set up, and the margin only means anything next to the
+          scores it is measured against. */}
 
-      <div style={S.label}>Cut Line</div>
-      <div style={{ fontSize: "11px", color: C.textMuted, marginBottom: "8px" }}>
-        {/* Focus group Finding 5: 9 of 50 stalled here because the cut
-            is usually not announced until after qualifying. Leaving it
-            blank already worked -- nothing said so, and an empty
-            numeric field on a setup screen reads as something you are
-            required to know. Not labelled "optional", which implies it
-            does not matter; it does, just not yet. */}
-        Pins over or under a 200 average. A cut posted as +150 after eight games means 1750.
-      </div>
-      <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-        {/* The sign, before the number, because that is how a cut is
-            read out: "plus one fifty", not "one fifty, over". */}
-        <div style={S.chips}>
-          {["+", "-"].map(sign => (
-            <Chip key={sign} label={sign} dense
-              selected={(day.cutSign || "+") === sign}
-              onToggle={() => update({ ...day, cutSign: sign })} />
-          ))}
-        </div>
-        <input style={{ ...S.input, flex: 1 }} type="number" inputMode="numeric"
-          placeholder="Add it when it's posted"
-          value={day.cutLine} onChange={e => update({ ...day, cutLine: e.target.value })} />
-      </div>
-      {day.cutLine !== "" && cutTarget(day) !== null && (
-        <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "4px" }}>
-          That's {cutTarget(day)} across {dayGamesEntered(day)} game{dayGamesEntered(day) === 1 ? "" : "s"}.
-        </div>
-      )}
-
-      {margin !== null && (
-        <div style={{ textAlign: "center", marginTop: "8px", fontSize: "13px", fontWeight: 700, color: margin >= 0 ? C.strike : C.miss }}>
-          {margin >= 0 ? `▲ +${margin} above the cut` : `▼ ${margin} below the cut`}
-        </div>
-      )}
-
-      <div style={{ ...S.label, marginTop: "10px" }}>Made the Cut?</div>
-      <div style={S.chips}>
-        <Chip label="Yes" selected={day.madeCut === true} color={C.strike}
-          onToggle={() => update({ ...day, madeCut: day.madeCut === true ? null : true })} />
-        <Chip label="No" selected={day.madeCut === false} color={C.miss}
-          onToggle={() => update({ ...day, madeCut: day.madeCut === false ? null : false })} />
-      </div>
-      {day.madeCut === null && (
-        <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "4px" }}>
-          Usually not known until the squad finishes — leave blank until then.
-        </div>
-      )}
       {/* Straight to this squad's games.
           
           Without it the bowler sets a squad up, switches to Scoring, and
@@ -426,6 +377,56 @@ function DayScoring({ tournament, day, onChange, multiDay, shotScores, shotScore
         {expanded ? "\u25be" : "\u25b8"} {multiDay ? `Day ${day.dayNumber}` : "Games"}
       </div>
       {expanded && (<>
+
+      {/* The cut, first: it is the target every game below is bowled
+          against, and it is posted during the block rather than before
+          it. Set up carries what the block IS; this carries how it is
+          going. */}
+      <div style={S.label}>Cut Line</div>
+      <div style={{ fontSize: "11px", color: C.textMuted, marginBottom: "8px" }}>
+        Pins over or under a 200 average. A cut posted as +150 after eight games means 1750.
+      </div>
+      <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+        {/* The sign, before the number, because that is how a cut is
+            read out: "plus one fifty", not "one fifty, over". */}
+        <div style={S.chips}>
+          {["+", "-"].map(sign => (
+            <Chip key={sign} label={sign} dense
+              selected={(day.cutSign || "+") === sign}
+              onToggle={() => update({ ...day, cutSign: sign })} />
+          ))}
+        </div>
+        <input style={{ ...S.input, flex: 1 }} type="number" inputMode="numeric"
+          placeholder="Add it when it's posted"
+          value={day.cutLine} onChange={e => update({ ...day, cutLine: e.target.value })} />
+      </div>
+      {day.cutLine !== "" && cutTarget(day) !== null && (
+        <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "4px" }}>
+          That's {cutTarget(day)} across {dayGamesEntered(day, shotScores)} game{dayGamesEntered(day, shotScores) === 1 ? "" : "s"}.
+        </div>
+      )}
+      {margin !== null && (
+        <div style={{ textAlign: "center", marginTop: "8px", fontSize: "13px", fontWeight: 700, color: margin >= 0 ? C.strike : C.miss }}>
+          {margin >= 0 ? `▲ +${margin} above the cut` : `▼ ${margin} below the cut`}
+        </div>
+      )}
+
+      <div style={{ ...S.label, marginTop: "10px" }}>
+        Made {multiDay ? `day ${day.dayNumber}'s` : "this day's"} cut?
+      </div>
+      <div style={S.chips}>
+        <Chip label="Yes" selected={day.madeCut === true} color={C.strike}
+          onToggle={() => update({ ...day, madeCut: day.madeCut === true ? null : true })} />
+        <Chip label="No" selected={day.madeCut === false} color={C.miss}
+          onToggle={() => update({ ...day, madeCut: day.madeCut === false ? null : false })} />
+        {/* For a block with no cut to make. Left blank it reads as "not
+            posted yet", which is a different thing and keeps prompting. */}
+        <Chip label="N/A" selected={day.madeCut === "na"}
+          onToggle={() => update({ ...day, madeCut: day.madeCut === "na" ? null : "na" })} />
+      </div>
+
+      <div style={S.divider} />
+
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
         <div style={S.label}>Games</div>
         <button style={{ ...S.btn(), padding: "4px 12px", fontSize: "12px" }} onClick={() => update(addGame(day))}>
@@ -786,6 +787,13 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
   // out of the way afterwards, not for hiding them on arrival.
   const [open, setOpen] = useState({});
 
+  // Which block the Scoring tab is showing. A multi-day event stacked
+  // every block's games on one scroll, so the one being bowled was
+  // somewhere in the middle of the others. Null means "the first one",
+  // resolved at render so adding a day cannot leave this pointing at a
+  // block that no longer exists.
+  const [scoreDay, setScoreDay] = useState(null);
+
   // The review sticks around; `saved` does not.
   //
   // `saved` is the button's "✓ Saved" flash and clears itself after a
@@ -1039,6 +1047,7 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
             // the bowler lands on the games they asked for rather than on
             // whichever squad happened to be expanded.
             setOpen(o => ({ ...o, [`score${d.dayNumber}`]: true }));
+            setScoreDay(d.dayNumber);
             if (d.date && onUseDate) onUseDate(d.date);
             setTab("scoring");
           }}
@@ -1053,7 +1062,7 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
           scores. A new squad is something you set up -- give it a date
           and a squad number -- before there is anything to score. */}
       <button style={{ ...S.btn(), width: "100%", marginBottom: "12px" }} onClick={() => onChange(addDay(tournament))}>
-        + Add Another Day
+        + Add Another Day or Block
       </button>
 
       {/* Start Scoring: the one way forward from Set up, the same button
@@ -1067,6 +1076,7 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
             || days[days.length - 1];
           if (next) {
             setOpen(o => ({ ...o, [`score${next.dayNumber}`]: true }));
+            setScoreDay(next.dayNumber);
             if (next.date && onUseDate) onUseDate(next.date);
           }
           setTab("scoring");
@@ -1378,7 +1388,39 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
       </>)}
 
       {tab === "scoring" && (<>
-      {(tournament.days || []).map(day => (
+      {(() => {
+        const days = tournament.days || [];
+        if (days.length < 2) return null;
+        const cur = days.some(d => d.dayNumber === scoreDay) ? scoreDay : days[0].dayNumber;
+        const d = days.find(x => x.dayNumber === cur);
+        // Which block this is, in the words off the entry sheet: date,
+        // start time, squad, block. Under the tabs rather than inside
+        // the card, because it is what the tab selection MEANS.
+        const bits = [
+          d?.date || "",
+          d?.startTime || "",
+          d?.squad ? `Squad ${d.squad}` : "",
+          d?.blockNumber ? `Block ${d.blockNumber}` : "",
+        ].filter(Boolean);
+        return (
+          <div style={{ ...S.card, padding: "10px 12px" }}>
+            <div style={{ ...S.chips, flexWrap: "wrap", gap: "4px", marginBottom: bits.length ? "8px" : 0 }}>
+              {days.map(x => (
+                <Chip key={x.dayNumber} label={`Day ${x.dayNumber}`} dense
+                  selected={x.dayNumber === cur}
+                  onToggle={() => setScoreDay(x.dayNumber)} />
+              ))}
+            </div>
+            {bits.length > 0 && (
+              <div style={{ fontSize: "12px", color: C.textMuted }}>{bits.join(" · ")}</div>
+            )}
+          </div>
+        );
+      })()}
+      {(tournament.days || [])
+        .filter((day, _i, all) => all.length < 2
+          || day.dayNumber === (all.some(d => d.dayNumber === scoreDay) ? scoreDay : all[0].dayNumber))
+        .map(day => (
         <DayScoring key={day.dayNumber}
           shotScores={dayScores(day)}
           shotScoresByDate={shotScoresByDate}
