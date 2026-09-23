@@ -3239,57 +3239,6 @@ export default function LogView({
             </div>
             )}
 
-            {/* Ball and surface, below the result.
-
-                These sat between the scoresheet and the result, on the
-                argument that the ball is the one thing changed DURING a
-                game so it belonged beside the frames. That held while the
-                scoresheet was a thin strip; with pin racks it is roughly
-                twice as tall, and two dropdowns wedged between the frames
-                and the result pushed the thing you actually came here to
-                tap below the fold.
-
-                Result first, then equipment: you record WHAT happened
-                before you record what you threw it with. The choice still
-                carries forward shot to shot and game to game, and still
-                resets only for a new session. */}
-            {onTab("scoring")&&showShotContext&&logBalls.length>0&&(
-              <div style={{...S.card,padding:"10px 12px",marginBottom:"8px",
-                display:"grid",gridTemplateColumns:"repeat(2, minmax(0, 1fr))",gap:"10px"}}>
-                {/* Ball and surface, side by side.
-                    
-                    They are one decision -- which ball, in what state --
-                    and surface was a whole collapsible card of chips two
-                    screens further down. A dropdown costs one row and the
-                    pair now reads as the equipment line it always was.
-                    
-                    minmax(0, 1fr) rather than 1fr: a long ball name has a
-                    min-content width that pushes an even split sideways
-                    off a phone. */}
-                <div style={{minWidth:0}}>
-                  <div style={{...S.label,marginBottom:"4px"}}>Ball</div>
-                  <select style={{...S.sel,width:"100%",padding:"8px 10px",fontSize:"14px"}}
-                    value={form.ball||""}
-                    onChange={e=>editingId?toggle("ball",e.target.value):handleBallChange(e.target.value)}>
-                    <option value="">— pick a ball —</option>
-                    {logBalls.map(b=>{
-                      const layout=formatLayout(ballLayouts?.[`${form.bowler}|${b}`]);
-                      return <option key={b} value={b}>{layout?`${b} · ${layout}`:b}</option>;
-                    })}
-                  </select>
-                </div>
-                <div style={{minWidth:0}}>
-                  <div style={{...S.label,marginBottom:"4px"}}>Surface</div>
-                  <select style={{...S.sel,width:"100%",padding:"8px 10px",fontSize:"14px"}}
-                    value={form.surface||""}
-                    onChange={e=>set("surface",e.target.value)}>
-                    <option value="">—</option>
-                    {SURFACES.map(s=><option key={s} value={s}>{s}</option>)}
-                  </select>
-                </div>
-              </div>
-            )}
-
             {/* Save Shot, with the shot.
                 
                 This was a bar fixed to the bottom of the screen. Moving
@@ -3681,6 +3630,63 @@ export default function LogView({
               summary={expandedSections.optional?"":"tap to open"}
               expanded={!!expandedSections.optional}
               onToggle={()=>toggleSection("optional")}>
+            {/* Ball and surface.
+
+                Below the optional line now. Recording which ball threw
+                which shot is something a bowler CAN do, not something
+                the shot needs -- and above the line it sat between the
+                result and Save Shot, in the path of every single
+                delivery.
+
+                These sat between the scoresheet and the result, on the
+                argument that the ball is the one thing changed DURING a
+                game so it belonged beside the frames. That held while the
+                scoresheet was a thin strip; with pin racks it is roughly
+                twice as tall, and two dropdowns wedged between the frames
+                and the result pushed the thing you actually came here to
+                tap below the fold.
+
+                Result first, then equipment: you record WHAT happened
+                before you record what you threw it with. The choice still
+                carries forward shot to shot and game to game, and still
+                resets only for a new session. */}
+            {onTab("scoring")&&showShotContext&&logBalls.length>0&&(
+              <div style={{...S.card,padding:"10px 12px",marginBottom:"8px",
+                display:"grid",gridTemplateColumns:"repeat(2, minmax(0, 1fr))",gap:"10px"}}>
+                {/* Ball and surface, side by side.
+                    
+                    They are one decision -- which ball, in what state --
+                    and surface was a whole collapsible card of chips two
+                    screens further down. A dropdown costs one row and the
+                    pair now reads as the equipment line it always was.
+                    
+                    minmax(0, 1fr) rather than 1fr: a long ball name has a
+                    min-content width that pushes an even split sideways
+                    off a phone. */}
+                <div style={{minWidth:0}}>
+                  <div style={{...S.label,marginBottom:"4px"}}>Ball</div>
+                  <select style={{...S.sel,width:"100%",padding:"8px 10px",fontSize:"14px"}}
+                    value={form.ball||""}
+                    onChange={e=>editingId?toggle("ball",e.target.value):handleBallChange(e.target.value)}>
+                    <option value="">— pick a ball —</option>
+                    {logBalls.map(b=>{
+                      const layout=formatLayout(ballLayouts?.[`${form.bowler}|${b}`]);
+                      return <option key={b} value={b}>{layout?`${b} · ${layout}`:b}</option>;
+                    })}
+                  </select>
+                </div>
+                <div style={{minWidth:0}}>
+                  <div style={{...S.label,marginBottom:"4px"}}>Surface</div>
+                  <select style={{...S.sel,width:"100%",padding:"8px 10px",fontSize:"14px"}}
+                    value={form.surface||""}
+                    onChange={e=>set("surface",e.target.value)}>
+                    <option value="">—</option>
+                    {SURFACES.map(s=><option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              </div>
+            )}
+
             <div style={{display:"grid",
               gridTemplateColumns:"repeat(2, minmax(0, 1fr))",
               gap:"10px",alignItems:"start"}}>

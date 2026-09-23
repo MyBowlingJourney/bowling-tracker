@@ -488,7 +488,18 @@ function DayScoring({ tournament, day, onChange, multiDay, shotScores, shotScore
               color: C.text }}
             type="number" inputMode="numeric"
             placeholder="Score"
-            value={g.score}
+            // Blank box, frames bowled: show what the frames say --
+            // the same rule league follows.
+            //
+            // The written-in score below only lands once the game is
+            // FINISHED, which is right for a saved value and wrong for
+            // the display: a game the app cannot yet call finished (a
+            // tenth frame it reads as unresolved) left the box empty
+            // with a perfectly good score sitting behind it, and
+            // nothing said why. Typing still wins the moment anything
+            // is typed.
+            value={g.score !== "" ? g.score
+              : (derived(g) === null ? "" : String(derived(g)))}
             onChange={e => update(setGameField(
               setGameField(day, g.gameNumber, "scoreAuto", false),
               g.gameNumber, "score", e.target.value))} />
@@ -687,6 +698,17 @@ function MatchPlay({ tournament, onChange, onGoToPhase = null, shotScores = null
   // phaseGameOffsets.
   const gameFor = m => gameStart + Number(m?.matchNumber || 0);
 
+  // The frame-tracked score for a game number, whether or not the app
+  // can call the game finished yet. Filling the field in is gated on
+  // finished; SHOWING it is not, or a tenth frame the app reads as
+  // unresolved hides a score it already knows.
+  const frameScoreFor = n => {
+    const e = shotScores ? shotScores[String(n)] : null;
+    if (e === null || e === undefined) return null;
+    const v = Number(typeof e === "number" ? e : e?.score);
+    return Number.isFinite(v) ? String(v) : null;
+  };
+
   // The same fill qualifying does, for a match: a bowler tracking
   // frames should never have to copy their own score across. Only once
   // the game is FINISHED (a running total in the box reads as a final
@@ -779,7 +801,9 @@ function MatchPlay({ tournament, onChange, onGoToPhase = null, shotScores = null
             </div>
             <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
               <input style={{ ...S.input, flex: 1, fontSize: "14px", textAlign: "center" }} type="number" inputMode="numeric" placeholder="You"
-                value={m.yourScore}
+                // Blank, with frames bowled for this match's game:
+                // show what the frames say, same as qualifying.
+                value={m.yourScore !== "" ? m.yourScore : (frameScoreFor(gameFor(m)) ?? "")}
                 onChange={e => update(setMatchField(
                   setMatchField(mp, m.matchNumber, "scoreAuto", false),
                   m.matchNumber, "yourScore", e.target.value))} />
@@ -922,6 +946,14 @@ function Stepladder({ tournament, onChange, shotScores = null, gameStart = 0, on
   // it is the same day's frames -- see phaseGameOffsets.
   const gameFor = st => gameStart + Number(st?.stepNumber || 0);
 
+  // See MatchPlay: shown whether or not the game reads as finished.
+  const frameScoreFor = n => {
+    const e = shotScores ? shotScores[String(n)] : null;
+    if (e === null || e === undefined) return null;
+    const v = Number(typeof e === "number" ? e : e?.score);
+    return Number.isFinite(v) ? String(v) : null;
+  };
+
   // Same fill as qualifying and match play: finished games only, never
   // over a typed score.
   useEffect(() => {
@@ -1011,7 +1043,7 @@ function Stepladder({ tournament, onChange, shotScores = null, gameStart = 0, on
             </div>
             <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
               <input style={{ ...S.input, flex: 1, fontSize: "14px", textAlign: "center" }} type="number" inputMode="numeric" placeholder="You"
-                value={s.yourScore}
+                value={s.yourScore !== "" ? s.yourScore : (frameScoreFor(gameFor(s)) ?? "")}
                 onChange={e => update(setStepField(
                   setStepField(sl, s.stepNumber, "scoreAuto", false),
                   s.stepNumber, "yourScore", e.target.value))} />
