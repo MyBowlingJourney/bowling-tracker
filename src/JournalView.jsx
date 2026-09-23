@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { C, S } from "./ui.jsx";
-import { journalEntries, searchJournal, journalByDate } from "./domain/journal.js";
+import { C, S, Chip } from "./ui.jsx";
+import { journalEntries, searchJournal, journalByDate, filterJournal, journalKinds } from "./domain/journal.js";
 import { targetLabel } from "./domain/drills.js";
 import { formatDate } from "./constants.js";
 
@@ -22,9 +22,22 @@ export default function JournalView({
   sessions = [], shots = [], drills = [], tournaments = [], patterns = [], bowler = "",
 }) {
   const [query, setQuery] = useState("");
+  // Which kinds are on. Empty is "all of them" rather than "none",
+  // which keeps the common case free of taps.
+  const [kinds, setKinds] = useState([]);
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
 
   const all = journalEntries({ sessions, shots, drills, tournaments, patterns, bowler, labelFor: targetLabel });
-  const days = journalByDate(searchJournal(all, query));
+  const available = journalKinds(all);
+  const narrowed = filterJournal(searchJournal(all, query), { kinds, from, to });
+  const days = journalByDate(narrowed);
+  const filtered = kinds.length > 0 || !!from || !!to;
+
+  const toggleKind = k => setKinds(cur =>
+    cur.includes(k) ? cur.filter(x => x !== k) : [...cur, k]);
+  const clearFilters = () => { setKinds([]); setFrom(""); setTo(""); };
 
   if (!all.length) {
     return (
@@ -40,13 +53,64 @@ export default function JournalView({
     <>
       {/* Search first, because the journal is worth having only once it
           is too long to scroll -- and by then finding is the whole job. */}
-      <input style={{ ...S.input, marginBottom: "12px" }}
+      <input style={{ ...S.input, marginBottom: "8px" }}
         placeholder="Search your notes…"
         value={query} onChange={e => setQuery(e.target.value)} />
 
+      {/* Filters, folded away until asked for.
+      
+          A journal of six notes needs none of this, and a row of
+          controls above six notes is the screen telling a bowler their
+          journal is complicated. It opens when there is something to
+          narrow -- and stays open while a filter is on, so a screen
+          showing a subset always says why. */}
+      <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
+        <button
+          onClick={() => setShowFilters(v => !v)}
+          style={{ background: "none", border: "none", padding: 0, cursor: "pointer",
+            color: filtered ? C.accent : C.textMuted, fontSize: "12px", textDecoration: "underline" }}>
+          {showFilters || filtered ? "Filters" : "Filter"}
+          {filtered ? ` · ${narrowed.length} of ${all.length}` : ""}
+        </button>
+        {filtered && (
+          <button onClick={clearFilters}
+            style={{ background: "none", border: "none", padding: 0, cursor: "pointer",
+              color: C.textMuted, fontSize: "12px", textDecoration: "underline" }}>
+            Clear
+          </button>
+        )}
+      </div>
+
+      {(showFilters || filtered) && (
+        <div style={{ ...S.card, padding: "12px 14px", marginBottom: "12px" }}>
+          {available.length > 1 && (<>
+            <div style={{ ...S.label, marginBottom: "6px" }}>Kind</div>
+            <div style={{ ...S.chips, marginBottom: "10px" }}>
+              {available.map(k => (
+                <Chip key={k} label={KIND[k].label} dense
+                  selected={kinds.includes(k)}
+                  onToggle={() => toggleKind(k)} />
+              ))}
+            </div>
+          </>)}
+          <div style={{ ...S.label, marginBottom: "6px" }}>Dates</div>
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            <input style={{ ...S.input, flex: 1, fontSize: "13px" }} type="date"
+              aria-label="From date"
+              value={from} onChange={e => setFrom(e.target.value)} />
+            <span style={{ fontSize: "12px", color: C.textMuted }}>to</span>
+            <input style={{ ...S.input, flex: 1, fontSize: "13px" }} type="date"
+              aria-label="To date"
+              value={to} onChange={e => setTo(e.target.value)} />
+          </div>
+        </div>
+      )}
+
       {!days.length && (
         <div style={{ ...S.card, fontSize: "13px", color: C.textMuted }}>
-          Nothing matches {`“${query}”`}.
+          {query
+            ? `Nothing matches “${query}”${filtered ? " in that range" : ""}.`
+            : "Nothing written in that range."}
         </div>
       )}
 
