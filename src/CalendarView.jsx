@@ -13,6 +13,7 @@ import {
   shotNights,
   drillNights,
   nightNotes,
+  withTournamentDetail,
 } from "./domain/calendar.js";
 
 // A month of bowling nights.
@@ -140,12 +141,16 @@ export default function CalendarView({
   const allNights = league
     ? (() => {
         const base = [...sessions, ...shotNights(shots, sessions)];
-        return [...base, ...drillNights(drills, base)];
+        return withTournamentDetail([...base, ...drillNights(drills, base)], tournaments);
       })()
     : (() => {
         const base = [...sessions, ...shotNights(shots, sessions)];
-        return [...base, ...drillNights(drills, base),
-                ...tournamentNights(tournaments, bowler)];
+        // withTournamentDetail, not just the tournamentNights below: a
+        // saved tournament also leaves a session row, and that is the
+        // one the calendar shows. Without this the phases appear only
+        // for an event with no session behind it.
+        return withTournamentDetail([...base, ...drillNights(drills, base),
+                ...tournamentNights(tournaments, bowler)], tournaments);
       })();
 
   const months = monthsWithSessions(allNights, bowler, league);
