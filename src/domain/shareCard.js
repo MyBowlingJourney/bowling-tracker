@@ -637,8 +637,16 @@ export function tournamentLines(t) {
 
   const total = num(o.total), games = num(o.games);
   if (total !== null && games) {
-    const avg = Math.floor(total / games);
-    out.push(`Qualifying: ${total} across ${games} game${games === 1 ? "" : "s"} (${avg} average)`);
+    // The average is SCRATCH pins over games, always. total includes
+    // handicap in a handicap event -- it is the number on the sheet --
+    // and dividing that by games gave a handicapped bowler an average
+    // twenty pins better than the one they bowl.
+    const scratch = num(o.scratch);
+    const avg = Math.floor((scratch ?? total) / games);
+    const hcp = scratch !== null && total > scratch ? total - scratch : 0;
+    out.push(`Qualifying: ${total} across ${games} game${games === 1 ? "" : "s"}`
+      + (hcp ? ` (${scratch} scratch + ${hcp} hcp)` : "")
+      + ` \u00b7 ${avg} average`);
   }
   const cut = num(o.cutMargin);
   if (cut !== null) {
@@ -714,7 +722,9 @@ export function drawTournamentCard(ctx, { bowler, event, center, date, tournamen
   ctx.fillStyle = c.textMuted || "#9A8F80";
   ctx.font = `500 34px ${fonts?.body || "system-ui, sans-serif"}`;
   if (total !== null && games) {
-    ctx.fillText(`${games} game${games === 1 ? "" : "s"} \u00b7 ${Math.floor(total / games)} average`, 84, y);
+    // Scratch average, for the same reason as tournamentLines.
+    const scratch = Number.isFinite(Number(t.scratch)) ? Number(t.scratch) : total;
+    ctx.fillText(`${games} game${games === 1 ? "" : "s"} \u00b7 ${Math.floor(scratch / games)} average`, 84, y);
   }
   y += 62;
 
