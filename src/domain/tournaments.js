@@ -418,6 +418,33 @@ export function carryBefore(tournament, dayNumber, scoresFor) {
   return { total, games };
 }
 
+// Which game number the frame tracker is on, for a phase that is not
+// qualifying.
+//
+// Frames are filed under (bowler, league, DATE, game). Qualifying games
+// already claim game 1..n for the date they are bowled on, so a match
+// bowled the same afternoon is game n+1 -- not game 1 again, which
+// would file its frames on top of the first qualifying game and read
+// back as that game's score.
+//
+// Counted per DATE rather than across the event: a Sunday match play
+// block after a Saturday qualifying block starts at game 1, because
+// nothing else was bowled on Sunday.
+//
+// Returns { matchStart, stepStart }: the game number BEFORE the first
+// match and before the first step, so match m is matchStart + m.
+export function phaseGameOffsets(tournament, date) {
+  const key = String(date || "");
+  let qualifying = 0;
+  for (const d of tournament?.days || []) {
+    // An undated block is the one being bowled, which is this date.
+    if (key && d?.date && String(d.date) !== key) continue;
+    qualifying += (d?.games || []).length;
+  }
+  const matches = (tournament?.matchPlay?.matches || []).length;
+  return { matchStart: qualifying, stepStart: qualifying + matches };
+}
+
 // Did this block make its cut? Derived from the margin rather than
 // asked. null when there is no cut line or nothing bowled yet.
 export function dayMadeCut(day, shotScores, carry) {

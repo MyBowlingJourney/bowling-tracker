@@ -26,6 +26,10 @@ export function emptyMatch(matchNumber = 1) {
     // Lane pair matters in match play more than qualifying -- you're on
     // one pair with one opponent, and which pair often explains a result.
     lanePair: "",
+    // Your score was filled in from the frames rather than typed. While
+    // it is set the tracker keeps the field current; the moment the
+    // bowler types over it, it clears and the app stops touching it.
+    scoreAuto: false,
   };
 }
 
@@ -72,6 +76,7 @@ export function normalizeMatch(raw, matchNumber = 1) {
     yourScore: you === null ? "" : String(you),
     opponentScore: them === null ? "" : String(them),
     lanePair: (raw.lanePair || "").toString().trim(),
+    scoreAuto: raw.scoreAuto === true,
   };
 }
 

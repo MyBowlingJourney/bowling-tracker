@@ -37,6 +37,8 @@ export function emptyStep(stepNumber = 1) {
     yourScore: "",
     opponentScore: "",
     lanePair: "",
+    // Filled in from the frames rather than typed -- see matchPlay.js.
+    scoreAuto: false,
   };
 }
 
@@ -86,6 +88,7 @@ export function normalizeStep(raw, stepNumber = 1) {
     yourScore: you === null ? "" : String(you),
     opponentScore: them === null ? "" : String(them),
     lanePair: (raw.lanePair || "").toString().trim(),
+    scoreAuto: raw.scoreAuto === true,
   };
 }
 
