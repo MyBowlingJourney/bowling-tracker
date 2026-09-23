@@ -1289,6 +1289,37 @@ body {
   grid-template-rows: repeat(2, minmax(56px, 1fr));
 }
 .mbj-home-fit .mbj-mode-copy { padding-top: 6px; }
+
+/* Density steps, applied by HomeView when the content will not fit.
+   
+   Home is one screen: the header above it and the nav below it are both
+   fixed, so anything that does not fit between them is unreachable
+   without scrolling a screen that is not meant to scroll. Rather than
+   pick one size and hope, HomeView measures the room it has and steps
+   through these, tightening the padding and the display type until the
+   content fits. Nothing is hidden -- every section survives at every
+   step -- so the only thing a squeeze costs is breathing room. */
+.mbj-home-fit--d1 .mbj-mode-grid { min-height: 104px; }
+.mbj-home-fit--d1 .mbj-home-card { padding: 10px 13px 9px !important; }
+.mbj-home-fit--d1 .mbj-home-foot { padding: 6px 13px !important; }
+.mbj-home-fit--d1 .mbj-home-num { font-size: 22px !important; }
+
+.mbj-home-fit--d2 .mbj-mode-grid { min-height: 92px; }
+.mbj-home-fit--d2 .mbj-home-card { padding: 7px 11px 6px !important; }
+.mbj-home-fit--d2 .mbj-home-foot { padding: 4px 11px !important; }
+.mbj-home-fit--d2 .mbj-home-num { font-size: 19px !important; }
+/* What goes at the tightest step, and only there -- a viewport around
+   360x640, where six sections cannot all be full size between a fixed
+   header and a fixed nav. Each of these repeats something reachable one
+   tap away, so the screen loses no route, only its commentary:
+     - the card footers, which restate where the card already leads;
+     - "What are you doing today?", a prompt above four obvious cards;
+     - the Latest row, which History opens.
+   Everything that DOES something -- the season figures, the journey
+   card, all four mode cards -- survives at every step. */
+.mbj-home-fit--d2 .mbj-home-foot { display: none !important; }
+.mbj-home-fit--d2 .mbj-home-prompt { display: none !important; }
+.mbj-home-fit--d2 .mbj-home-latest { display: none !important; }
 /* One line of description on Home; a wrapped second line had no room. */
 .mbj-home-fit .mbj-mode-detail {
   max-width: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
