@@ -16,6 +16,37 @@ import { renderFacts, RENDERERS, KNOWN_IDS, safeBallName }
 
 const render = (...facts) => renderFacts(facts);
 const one = (...facts) => render(...facts)[0];
+// The same facts, worded for a tournament block.
+const oneEvent = (...facts) => renderFacts(facts, { event: 'tournament' })[0];
+
+describe('wording a tournament block', () => {
+  it('calls the scores a block, not a night', () => {
+    expect(oneEvent({ id: 'series', scores: [212, 224, 201], total: 637, avg: 212, games: 3 }))
+      .toBe('Scores this block: 212, 224, 201 — 637 series, 212 average over 3 games.');
+  });
+
+  it('compares against the event average, not a league average', () => {
+    expect(oneEvent({ id: 'vsAverage', avg: 212, seasonAvg: 196, diff: 16 }))
+      .toBe('That is 16 above their event average of 196.');
+  });
+
+  it('counts earlier blocks rather than earlier nights', () => {
+    expect(oneEvent({
+      id: 'seasonStrikes', seasonPct: 52, seasonFirstBalls: 300, seasonNights: 6,
+      tonightPct: 60, tonightFirstBalls: 35,
+    })).toBe('Season so far in this event: 52% strikes on 300 first balls across 6 blocks. This block was 60% on 35.');
+  });
+
+  it('says "this block" where a league night says "tonight"', () => {
+    expect(oneEvent({ id: 'seasonSpares', seasonPct: 61, seasonAttempts: 120, tonightPct: 70, tonightAttempts: 10 }))
+      .toBe('Season spare conversion: 61% on 120 attempts. This block was 70% on 10.');
+  });
+
+  it('leaves league wording alone when no event is given', () => {
+    expect(one({ id: 'vsAverage', avg: 212, seasonAvg: 196, diff: 16 }))
+      .toBe('That is 16 above their league average of 196.');
+  });
+});
 
 describe('rendering a well-formed fact', () => {
   it('writes the night in scores', () => {
