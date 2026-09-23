@@ -593,6 +593,161 @@ export function standingsShareText(arg) {
   return ["Standings", ...lines, "", `Tracked with ${APP_NAME} — ${APP_URL}`].join("\n");
 }
 
+// ── A whole tournament, on one card ─────────────────────────────────────
+//
+// A league night is one number: the series. A tournament is a day with
+// phases -- qualifying against a cut, then match play, then a ladder --
+// and the thing a bowler wants to post is how it FINISHED, with the
+// bowling that got them there underneath it.
+//
+// So the big number is the qualifying total, the headline above it is
+// the finish where there is one, and each phase gets a line of its own.
+// Everything is optional: most tournaments end at qualifying, and a card
+// that prints "Match play: —" says the bowler failed at something they
+// never entered.
+
+// What to call each finish, on a card.
+const FINISH_LABEL = {
+  won: "WON IT",
+  runnerUp: "RUNNER-UP",
+  topFive: "TOP FIVE",
+  cashed: "CASHED",
+  madeCut: "MADE THE CUT",
+};
+
+function finishLabel(id) {
+  return Object.prototype.hasOwnProperty.call(FINISH_LABEL, id) ? FINISH_LABEL[id] : "";
+}
+
+function ord(n) {
+  const v = Math.abs(Math.round(Number(n)));
+  if (!Number.isFinite(v)) return "";
+  const r100 = v % 100;
+  if (r100 >= 11 && r100 <= 13) return `${v}th`;
+  const r10 = v % 10;
+  return `${v}${r10 === 1 ? "st" : r10 === 2 ? "nd" : r10 === 3 ? "rd" : "th"}`;
+}
+
+// The phase lines, in the order they were bowled. Shared by the card and
+// the text so the two cannot describe different days.
+export function tournamentLines(t) {
+  const o = (t && typeof t === "object") ? t : {};
+  const out = [];
+  const num = v => (Number.isFinite(Number(v)) ? Number(v) : null);
+
+  const total = num(o.total), games = num(o.games);
+  if (total !== null && games) {
+    const avg = Math.floor(total / games);
+    out.push(`Qualifying: ${total} across ${games} game${games === 1 ? "" : "s"} (${avg} average)`);
+  }
+  const cut = num(o.cutMargin);
+  if (cut !== null) {
+    out.push(cut >= 0 ? `Made the cut by ${cut}` : `Missed the cut by ${Math.abs(cut)}`);
+  }
+  const mp = o.matchPlay;
+  if (mp && num(mp.played)) {
+    const rec = mp.ties ? `${mp.wins}-${mp.losses}-${mp.ties}` : `${mp.wins}-${mp.losses}`;
+    const bonus = num(mp.total) !== null ? `, ${mp.total} with bonus` : "";
+    out.push(`Match play: ${rec}${bonus}`);
+  }
+  const sl = o.stepladder;
+  if (sl && num(sl.played)) {
+    const seed = num(sl.seed) ? ` from the ${ord(sl.seed)} seed` : "";
+    const place = num(sl.place);
+    out.push(place === 1
+      ? `Won the stepladder${seed}`
+      : place
+        ? `Stepladder: ${ord(place)}${seed}`
+        : `Stepladder: ${sl.wins} of ${sl.played} steps won${seed}`);
+  }
+  const net = num(o.net);
+  if (net !== null && net !== 0) {
+    out.push(net > 0 ? `Up $${Math.abs(net).toFixed(2)} on the day` : `Down $${Math.abs(net).toFixed(2)} on the day`);
+  }
+  return out;
+}
+
+export function drawTournamentCard(ctx, { bowler, event, center, date, tournament, colors, fonts, logo } = {}) {
+  if (!ctx || typeof ctx.fillRect !== "function") return null;
+  const W = 1080, H = 1080;
+  const c = colors || {};
+  const t = (tournament && typeof tournament === "object") ? tournament : {};
+
+  ctx.fillStyle = c.bg || "#14110E";
+  ctx.fillRect(0, 0, W, H);
+  ctx.textBaseline = "top";
+
+  // Who, what and when.
+  ctx.fillStyle = c.textMuted || "#9A8F80";
+  ctx.font = `500 34px ${fonts?.body || "system-ui, sans-serif"}`;
+  ctx.fillText([bowler, date].filter(Boolean).join("   "), 80, 84);
+
+  ctx.fillStyle = c.text || "#F4F0E6";
+  ctx.font = `700 52px ${fonts?.body || "system-ui, sans-serif"}`;
+  ctx.fillText(String(event || "Tournament").slice(0, 34), 80, 132);
+
+  if (center) {
+    ctx.fillStyle = c.textMuted || "#9A8F80";
+    ctx.font = `500 30px ${fonts?.body || "system-ui, sans-serif"}`;
+    ctx.fillText(String(center).slice(0, 44), 80, 196);
+  }
+
+  // The finish, where the event settled it. In the accent colour and
+  // above the number, because it is the headline and the pins are the
+  // evidence.
+  const finish = finishLabel(t.placement);
+  let y = 250;
+  if (finish) {
+    ctx.fillStyle = c.accent || "#E8A33D";
+    ctx.font = `700 76px ${fonts?.body || "system-ui, sans-serif"}`;
+    ctx.fillText(finish, 78, y);
+    y += 96;
+  }
+
+  // The pins.
+  const total = Number.isFinite(Number(t.total)) ? Number(t.total) : null;
+  const games = Number.isFinite(Number(t.games)) ? Number(t.games) : 0;
+  ctx.fillStyle = c.text || "#F4F0E6";
+  ctx.font = `700 210px ${fonts?.num || "system-ui, sans-serif"}`;
+  ctx.fillText(total === null ? "\u2014" : String(total), 72, y);
+  y += 220;
+  ctx.fillStyle = c.textMuted || "#9A8F80";
+  ctx.font = `500 34px ${fonts?.body || "system-ui, sans-serif"}`;
+  if (total !== null && games) {
+    ctx.fillText(`${games} game${games === 1 ? "" : "s"} \u00b7 ${Math.floor(total / games)} average`, 84, y);
+  }
+  y += 62;
+
+  // Every phase, one line each. Capped so a long day cannot run into
+  // the attribution at the bottom.
+  const lines = tournamentLines(t).slice(1, 6);
+  ctx.font = `500 34px ${fonts?.body || "system-ui, sans-serif"}`;
+  lines.forEach((line, i) => {
+    ctx.fillStyle = c.accent || "#E8A33D";
+    ctx.fillText("\u2022", 84, y + i * 52);
+    ctx.fillStyle = c.text || "#F4F0E6";
+    ctx.fillText(String(line), 116, y + i * 52);
+  });
+
+  drawBrand(ctx, { x: 80, y: 948, size: 84, logo, colors: c, fonts, nameSize: 40, urlSize: 30 });
+  return true;
+}
+
+export function tournamentShareText(arg) {
+  const { bowler, event, center, date, tournament } = (arg && typeof arg === "object") ? arg : {};
+  const t = (tournament && typeof tournament === "object") ? tournament : {};
+  const who = bowler ? `${bowler} bowled` : "Bowled";
+  const what = event ? ` ${event}` : " a tournament";
+  const where = center ? ` at ${center}` : "";
+  const when = date ? ` on ${date}` : "";
+  const finish = finishLabel(t.placement);
+  const head = finish
+    ? `${who}${what}${where}${when} \u2014 ${finish.toLowerCase()}.`
+    : `${who}${what}${where}${when}.`;
+  const lines = tournamentLines(t);
+  return [head, ...(lines.length ? ["", ...lines.map(l => `\u2022 ${l}`)] : []), "", `Tracked with ${APP_NAME} \u2014 ${APP_URL}`].join("\n");
+}
+
 // ── QR code, for a card that gets printed or just looked at ─────────────
 //
 // The url text works when the card is viewed on a phone -- someone can
