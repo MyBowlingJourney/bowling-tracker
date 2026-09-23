@@ -136,15 +136,24 @@ export default function LogView({
   const [potOverride,setPotOverride]=useState({});
   const POT_COST_FIELD={pokerQuarter:"pokerQuarterCost",pokerDollar:"pokerDollarCost",
                         highGame:"highGameCost",threeSixNine:"threeSixNineCost"};
+  // Keyed by the NIGHT, not by cs.id.
+  //
+  // A night with no session row yet has a derived cs whose id is "" --
+  // and the moment money is entered a real row is created and cs.id
+  // becomes that row's id. Keyed by id, the selection was filed under ""
+  // and then looked up under the new id, so ticking a pot appeared to
+  // untick itself the instant it took effect. The night is the thing
+  // that does not change.
+  const potKeyFor=(cs,key)=>`${cs?.bowler}|${cs?.league}|${cs?.date}|${key}`;
   const potIsIn=(cs,key)=>{
-    const k=`${cs?.id}|${key}`;
+    const k=potKeyFor(cs,key);
     if(Object.prototype.hasOwnProperty.call(potOverride,k))return potOverride[k];
     return key==="threeSixNine"
       ?Number(cs?.threeSixNineCost||0)>0
       :((cs?.[POT_COST_FIELD[key]]||[]).some(v=>Number(v)>0));
   };
   const setPotIn=(cs,key,value)=>
-    setPotOverride(prev=>({...prev,[`${cs?.id}|${key}`]:value}));
+    setPotOverride(prev=>({...prev,[potKeyFor(cs,key)]:value}));
   // The cancel confirmation opens UNDER the fixed End Session bar.
   //
   // It expands in place, at the bottom of Set up, and the bar is pinned
@@ -999,6 +1008,19 @@ export default function LogView({
                             <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"8px"}}>
                               Tap the ones you're in. Buy-ins are saved for {String(cs.league||"this league").replace(" House Shot","")} — you won't need to enter them again.
                             </div>
+                            {/* A header over the right-hand column. The
+                                field was an unlabelled money box beside a
+                                pot name: nothing said whether it wanted
+                                the buy-in for one game or for the night,
+                                which are different numbers for every pot
+                                but 3-6-9. */}
+                            <div style={{display:"flex",gap:"8px",alignItems:"flex-end",marginBottom:"4px"}}>
+                              <div style={{flex:1}}/>
+                              <div style={{...S.label,marginBottom:0,width:"90px",flexShrink:0,
+                                textAlign:"right",fontSize:"9px",lineHeight:1.3}}>
+                                Buy-in per game
+                              </div>
+                            </div>
                             {pots.map(key=>{
                               const inIt=isIn(key);
                               return(
@@ -1038,8 +1060,16 @@ export default function LogView({
                       {(potIsIn(cs,"pokerQuarter")||potIsIn(cs,"pokerDollar"))&&(
                       <div style={{marginBottom:"12px"}}>
                         <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"6px"}}>Poker Winnings ($)</div>
+                        {/* A row per game of the NIGHT, not per game that
+                            already has a score.
+                            
+                            Gating each row on cs.scores[i] meant that
+                            selecting a pot before typing any scores --
+                            which is when a bowler picks their pots --
+                            produced this header with nothing at all
+                            underneath it. The pot was entered and there
+                            was no way to record winning it. */}
                         {[0,1,2].map(gameIdx=>{
-                          if(cs.scores[gameIdx]==null)return null;
                           const quarterVal=(cs.pokerQuarter||[0,0,0])[gameIdx]??0;
                           const dollarVal=(cs.pokerDollar||[0,0,0])[gameIdx]??0;
                           return(
@@ -1062,11 +1092,11 @@ export default function LogView({
                           Highest game in the league takes it — enter what you won, if anything.
                         </div>
                         {[0,1,2].map(gameIdx=>{
-                          if(cs.scores[gameIdx]==null)return null;
                           const val=(cs.highGameWinnings||[0,0,0])[gameIdx]??0;
+                          const sc=(cs.scores||[])[gameIdx];
                           return(
                             <div key={gameIdx} style={{display:"flex",gap:"8px",alignItems:"center",marginBottom:"6px"}}>
-                              <div style={{fontSize:"12px",color:C.textMuted,width:"64px"}}>G{gameIdx+1} · {cs.scores[gameIdx]}</div>
+                              <div style={{fontSize:"12px",color:C.textMuted,width:"64px"}}>G{gameIdx+1}{sc!=null?` · ${sc}`:""}</div>
                               <input style={{...S.input,flex:1,fontSize:"13px",padding:"6px 10px"}} type="number" step="1" placeholder="Won $"
                                 value={val||""} onChange={e=>setSessionMoneyArray(cs.id,"highGameWinnings",gameIdx,e.target.value===""?0:parseFloat(e.target.value))}/>
                             </div>
