@@ -750,6 +750,21 @@ function MatchPlay({ tournament, onChange, onGoToPhase = null, shotScores = null
         The head-to-head block after the cut. Bonus pins vary by tournament — set them to whatever this event uses.
       </div>
 
+      {/* The day it was bowled.
+      
+          A tournament's phases can fall on different days, and without
+          this the block had no date of its own -- so its result was
+          reported against whichever day was on screen. It is also half
+          the address the frames are filed under. */}
+      <div style={{ display: "flex", gap: "6px", marginBottom: "12px" }}>
+        <div style={{ flex: 1 }}>
+          {fieldLabel("Date bowled")}
+          <input style={{ ...S.input, fontSize: "12px" }} type="date"
+            value={mp.date || ""}
+            onChange={e => update(setBonus(mp, "date", e.target.value))} />
+        </div>
+      </div>
+
       <div style={{ display: "flex", gap: "6px", marginBottom: "12px" }}>
         <div style={{ flex: 1 }}>
           {fieldLabel("Bonus per win")}
@@ -933,6 +948,15 @@ function Stepladder({ tournament, onChange, shotScores = null, gameStart = 0, on
       {open && (<>
       <div style={{ fontSize: "11px", color: C.textMuted, margin: "6px 0 10px", lineHeight: 1.5 }}>
         Sudden death, no bonus pins. Enter the seeds and the app works out where you finished.
+      </div>
+
+      <div style={{ display: "flex", gap: "6px", marginBottom: "10px" }}>
+        <div style={{ flex: 1 }}>
+          {fieldLabel("Date bowled")}
+          <input style={{ ...S.input, fontSize: "12px" }} type="date"
+            value={sl.date || ""}
+            onChange={e => update(setStepladderField(sl, "date", e.target.value))} />
+        </div>
       </div>
 
       <div style={{ display: "flex", gap: "6px", alignItems: "center", marginBottom: "10px" }}>
@@ -1479,7 +1503,20 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
   // Match play and the stepladder are bowled on one date -- the night
   // in progress -- and have no date field of their own, so they read
   // the same frame scores the session is filing under.
-  const phaseDate = sessionDate || (tournament.days || []).map(d => d.date).filter(Boolean).pop() || "";
+  // A phase reads the frames filed under ITS day.
+  //
+  // Match play bowled on Sunday and qualifying on Saturday are two
+  // different days of frames; before the phases carried a date the
+  // tracker read whatever day the app was showing.
+  const phaseOwnDate = phase === "match"
+    ? String(tournament.matchPlay?.date || "")
+    : phase === "stepladder"
+      ? String(tournament.stepladder?.date || "")
+      : "";
+  const phaseDate = phaseOwnDate
+    || sessionDate
+    || (tournament.days || []).map(d => d.date).filter(Boolean).pop()
+    || "";
   const phaseScores = (shotScoresByDate && phaseDate) ? (shotScoresByDate[String(phaseDate)] || null) : null;
 
   // Point the shot context at a particular game and start it at frame

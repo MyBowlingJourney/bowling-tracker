@@ -96,7 +96,7 @@ function TournamentNightLines({ event, scores }) {
         <div style={heading}>QUALIFYING</div>
         <div style={{ fontSize: "13px", color: C.text }}>{(scores || []).join(" \u00b7 ")}</div>
         <div style={line}>
-          {q.total} total \u00b7 {q.average} average \u00b7 {q.high} high
+          {q.total} total · {q.average} average · {q.high} high
           {q.handicap > 0 ? ` (${q.scratch} scratch + ${q.handicap} hcp)` : ""}
           {e.cutMargin !== null && e.cutMargin !== undefined && (
             <span style={{ color: e.cutMargin >= 0 ? C.strike : C.miss, fontWeight: 600 }}>
