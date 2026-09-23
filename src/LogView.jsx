@@ -1978,7 +1978,16 @@ export default function LogView({
                             <button style={{...S.btn("sm"),flex:1,fontSize:"13px"}}
                               onClick={()=>setGameToDelete(null)}>Keep it</button>
                             <button style={{...S.btn("warn"),flex:1,fontSize:"13px",padding:"8px 14px"}}
-                              onClick={()=>{ setGameToDelete(null); deleteGame(g); }}>
+                              onClick={()=>{
+                                setGameToDelete(null);
+                                deleteGame(g);
+                                // The tracker follows the deleted game, not
+                                // wherever it happened to be -- deleting
+                                // game 2 means game 2 is what needs
+                                // rebowling, whether the bowler was ahead
+                                // on game 4 or hadn't started yet.
+                                setForm(p=>({...p,game:String(g),frame:"1",ballNum:""}));
+                              }}>
                               Delete game {g}
                             </button>
                           </div>
@@ -4068,6 +4077,15 @@ export default function LogView({
                   // thing that happened.
                   const att=Number(activeDrill?.made||0)+Number(activeDrill?.missed||0);
                   if(att>0&&typeof saveDrill==="function"){ try{ saveDrill(); }catch{} }
+                  // Nothing to show even after that save -- no live games,
+                  // no drill work, not even the one just saved -- so there
+                  // is no Results screen to send the bowler to. Ending
+                  // practice here still has to mean something: it goes
+                  // straight to Save & Finish, which is also where a
+                  // session filed earlier today with data since deleted
+                  // gets cleaned up rather than left behind as a stale
+                  // "256" nobody entered this time.
+                  if(!practiceHasResults&&att===0){ submitSession(); return; }
                   setPracticeMode("results");
                 }
                 else if(env==="tournament")setTournamentTab("results");

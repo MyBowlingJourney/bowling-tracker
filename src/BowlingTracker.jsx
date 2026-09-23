@@ -5441,6 +5441,23 @@ export default function BowlingTracker(){
       &&(drills||[]).some(d=>d&&d.bowler===activeBowler&&d.date===sessionDate
         &&(Number(d.made||0)+Number(d.missed||0))>0);
     if(!scores.length&&!hasDrillWork){
+      // Nothing is entered right now -- but a session row from EARLIER
+      // today (games since deleted one by one, rather than through
+      // Cancel Practice) can still be sitting in storage. Leaving it
+      // there is how a bowler saw a 256 in Results with every game box
+      // empty: the boxes reflect right now, that row does not.
+      //
+      // Scoped to practice only. A real league night reaching here with
+      // an empty box is very likely mid-entry, not abandoned, and
+      // deleting an already-filed league session because the boxes are
+      // momentarily blank would erase real standings data on a false
+      // read.
+      const stale=preferences.environment==="practice"
+        &&sessions.find(s=>s.bowler===activeBowler&&s.league===effectiveSessionLeague&&s.date===sessionDate);
+      if(stale){
+        await saveSessions(sessions.filter(s=>s.id!==stale.id));
+        return true;
+      }
       // Previously silently did nothing here — no feedback at all, even
       // though this is a common, valid state (e.g. only the match points
       // have been entered so far, no shots logged yet for this night).
