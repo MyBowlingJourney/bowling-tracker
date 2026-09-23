@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { C, S, F } from "./ui.jsx";
-import { shareText, shareTitle, drawShareCard, drawTrendCard, trendShareText, drawStandingsCard, standingsShareText, drawBadgeCard, badgeShareText, drawShareQr } from "./domain/shareCard.js";
+import { shareText, shareTitle, drawShareCard, drawTrendCard, trendShareText, drawStandingsCard, standingsShareText, drawBadgeCard, badgeShareText, drawTournamentCard, tournamentShareText, drawShareQr } from "./domain/shareCard.js";
 import logoUrl from "../mbj-logo-512.png";
 
 // The app icon, for the corner of every share card. It ships inside the
@@ -43,7 +43,11 @@ async function renderCardBlob(summary) {
     const logo = await loadLogo();
     // A trend is a shape over time, not a scoreline -- it gets the graph
     // card instead of the score card.
-    if (summary?.trend) drawTrendCard(ctx, { ...summary, colors: C, fonts: F, logo });
+    // A tournament is a day of phases rather than one scoreline, so it
+    // gets its own card: the finish on top, the pins under it, and a
+    // line for each phase that was actually bowled.
+    if (summary?.tournament) drawTournamentCard(ctx, { ...summary, colors: C, fonts: F, logo });
+    else if (summary?.trend) drawTrendCard(ctx, { ...summary, colors: C, fonts: F, logo });
     // A running table is neither a scoreline nor a shape over time, so it
     // gets its own card rather than being forced into either.
     else if (summary?.standings) drawStandingsCard(ctx, { ...summary, colors: C, fonts: F, logo });
@@ -121,11 +125,13 @@ export default function ShareButton({ summary, label = "Share", compact = false 
 
   async function share() {
     setState("working");
-    const text = summary?.trend ? trendShareText(summary)
+    const text = summary?.tournament ? tournamentShareText(summary)
+      : summary?.trend ? trendShareText(summary)
       : summary?.standings ? standingsShareText(summary)
       : summary?.badges ? badgeShareText(summary.bowler, summary.badges, summary.link, { collection: !!summary.collection, total: summary.total })
       : shareText(summary);
-    const title = summary?.trend ? (summary.label || "Trend")
+    const title = summary?.tournament ? (summary.event || "Tournament")
+      : summary?.trend ? (summary.label || "Trend")
       : summary?.standings ? "Standings"
       : summary?.badges ? "Badges"
       : shareTitle(summary);
@@ -211,7 +217,7 @@ export default function ShareButton({ summary, label = "Share", compact = false 
       style={compact
         ? { ...S.btn(), padding: "8px 12px", fontSize: "13px", display: "inline-flex", alignItems: "center", gap: "6px" }
         : { ...S.btn(), width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}
-      aria-label={`Share ${shareTitle(summary)}`}>
+      aria-label={`Share ${summary?.tournament ? (summary.event || "tournament") : shareTitle(summary)}`}>
       <span aria-hidden="true">↗</span>
       {caption}
     </button>

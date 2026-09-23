@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { PLACEMENTS } from "./domain/achievements.js";
+import ShareButton from "./ShareButton.jsx";
 import { C, S, Chip, CollapsibleCard, LockedNote, StatLead } from "./ui.jsx";
 import {
   addGame, removeGame, setGameField, addDay, removeDay, setDayField, updateDay,
@@ -1059,6 +1060,48 @@ function Stepladder({ tournament, onChange, shotScores = null, gameStart = 0, on
 // death -- and blending them into one average describes none of them.
 // So each phase reports itself, round by round, and only the phases
 // actually bowled appear.
+// Everything the share card needs, from the same helpers the recap
+// renders -- so a shared card cannot claim a different day from the
+// screen it was shared off.
+export function tournamentShareSummary(tournament, dayScores) {
+  const t = tournament || {};
+  const days = t.days || [];
+  const scoresFor = d => (typeof dayScores === "function" ? dayScores(d) : null);
+  const total = tournamentTotalWithHandicap(t, null);
+  const games = days.reduce((a, d) => a + dayGamesEntered(d, scoresFor(d)), 0);
+
+  // The last block with anything in it: its margin is the one that
+  // decided whether the bowler went on.
+  const lastDay = [...days].reverse().find(d => dayGamesEntered(d, scoresFor(d)) > 0) || days[days.length - 1];
+  let cutMarginValue = null;
+  if (lastDay) {
+    const carry = carryBefore(t, lastDay.dayNumber, scoresFor);
+    const m = carry.games
+      ? cutMarginWithCarry(lastDay, scoresFor(lastDay), carry)
+      : cutMargin(lastDay, scoresFor(lastDay));
+    if (m !== null) cutMarginValue = m;
+  }
+
+  const mp = matchPlayTotals(t.matchPlay);
+  const sl = stepladderResult(t.stepladder);
+  const money = tournamentMoney(t);
+
+  return {
+    total: total === null ? null : total,
+    games,
+    cutMargin: cutMarginValue,
+    matchPlay: mp.played ? {
+      played: mp.played, wins: mp.wins, losses: mp.losses, ties: mp.ties, total: mp.total,
+    } : null,
+    stepladder: sl.played ? {
+      played: sl.played, wins: sl.wins, losses: sl.losses,
+      seed: Number(t.stepladder?.yourSeed) || null, place: sl.place,
+    } : null,
+    net: money.net,
+    placement: t.placement || "",
+  };
+}
+
 function TournamentRecap({ tournament, dayScores }) {
   const days = tournament?.days || [];
   const mp = tournament?.matchPlay || {};
@@ -1217,6 +1260,18 @@ function TournamentRecap({ tournament, dayScores }) {
           {sl.yourSeed ? `Seeded ${ordinal(sl.yourSeed)}. ` : ""}{describeStepladder(sl)}
         </div>
       </>)}
+
+      {/* Share sits with the recap, because that is the moment somebody
+          wants to send it -- the same place league keeps it. */}
+      <div style={{ marginTop: "14px" }}>
+        <ShareButton label="Share this tournament" summary={{
+          bowler: tournament.bowler || "",
+          event: tournament.name || "",
+          center: tournament.center || "",
+          date: (tournament.days || []).map(d => d.date).filter(Boolean).pop() || "",
+          tournament: tournamentShareSummary(tournament, dayScores),
+        }} />
+      </div>
     </div>
   );
 }
