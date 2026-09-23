@@ -6,6 +6,7 @@ import openBowlingIcon from "./assets/home-icons/open-bowling.png";
 import { C, S, ActionRow } from "./ui.jsx";
 import { useLayoutEffect, useRef, useState } from "react";
 import { seasonFigures, journeyRecap, latestNight, activeSeasonWindow } from "./domain/home.js";
+import { scratchRecordLeagues } from "./domain/tournaments.js";
 import { journeyMilestones, upcomingMilestones, describeUpcoming } from "./domain/journey.js";
 import { formatDate } from "./constants.js";
 import { progressPercent } from "./domain/progressPercent.js";
@@ -40,7 +41,7 @@ function ModeIcon({ mode }) {
 export default function HomeView({
   sessions = [], shots = [], tournaments = [], bowler = "",
   leagues = [], onOpenJourney, onOpenStats, onPickMode, badgeCount = 0,
-  today = "", onOpenNight, leagueDates = {},
+  today = "", onOpenNight, leagueDates = {}, userId = "",
 }) {
   // Home fits between the header and the bottom nav, with no scrolling.
   //
@@ -102,6 +103,11 @@ export default function HomeView({
   const figures = seasonFigures(sessions, {
     bowler, leagues,
     since: seasonWindow.inSeason ? seasonWindow.since : null,
+    // A best game is a best game wherever it was shot. Tournament
+    // scores stay out of the average -- a different pattern and a
+    // different discipline -- but a scratch ten-pin event can hold the
+    // record, and a three-game one can hold the series too.
+    tournamentRecords: scratchRecordLeagues(tournaments, userId),
   });
   // Distinct seasons behind a career figure, for "96 games - 4 seasons".
   const careerSeasons = seasonWindow.inSeason ? 0 : (() => {

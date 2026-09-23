@@ -8763,6 +8763,9 @@ export default function BowlingTracker(){
             <JourneyScreen
               sessions={visibleSessions} shots={visibleShots} tournaments={tournaments}
               bowler={displayName||activeBowler}
+              // For the container-league names a tournament's scores are
+              // filed under, when deciding which may hold a record.
+              userId={user?.id||""}
               onOpenBadges={()=>{ setBadgeSet(null); setView("badges"); }} />
           </Suspense>
         )}
