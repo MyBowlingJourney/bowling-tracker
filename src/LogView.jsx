@@ -75,7 +75,7 @@ export default function LogView({
   leagueBuyIns, onSaveLeagueBuyIns, onReplayTour, casualExtraGames = 2, setCasualExtraGames,
   showSparePins, sparePinsStanding, spareKnocked, toggleSparePin, spareWillConvert, strictPartial, submitSession, cancelSession, deleteGame, submitShot, theoreticalScoreForGame, maxScoreThisGame, toggle, toggleMulti, toggleSection,
   preferences, setSessionMoneyArray, setSessionMoneyValue, activeBowlerLeftHanded,
-  saveCasualResults, endCasual, ballLayouts, activeTournament, updateTournament, saveTournament, closeTournament, cancelTournament, tournamentSaved,
+  saveCasualResults, endCasual, ballLayouts, activeTournament, updateTournament, saveTournament, moveTournamentFrames, closeTournament, cancelTournament, tournamentSaved,
   manualScores, updateManualScore,
   // Handed straight to the Nightcap, which is the only paid thing
   // on this screen.
@@ -2494,6 +2494,7 @@ export default function LogView({
                    Without this the shot context stayed wherever
                    qualifying left it and the next match's frames
                    landed on a game already bowled. */
+                onMoveFrames={moveTournamentFrames}
                 onUseGameNumber={g=>{
                   set("game",String(g));
                   set("frame","1");
@@ -4475,7 +4476,16 @@ export default function LogView({
                   if(!practiceHasResults&&att===0){ submitSession(); return; }
                   setPracticeMode("results");
                 }
-                else if(env==="tournament")setTournamentTab("results");
+                // A tournament FILES the block on the way to Results.
+                //
+                // Every other mode's "End & View Results" is a
+                // navigation step with the save still to come, because
+                // their save button is on the Results tab. A tournament
+                // has one too -- but its data is a tournament row, not
+                // a session, and a bowler who ended the block and then
+                // closed the app had bowled an event the app never
+                // wrote down.
+                else if(env==="tournament"){ saveTournament?.({finish:false}); return; }
                 else setLeagueTabChoice("results");
                 try{window.scrollTo({top:0});}catch{}
               };

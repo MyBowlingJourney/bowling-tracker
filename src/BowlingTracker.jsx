@@ -1553,7 +1553,7 @@ export default function BowlingTracker(){
           cloudRead("bowling_centers",q=>q.select("id,here_id,name,address,city,state,postal_code,country,lat,lng,rack_type,freefall_lanes,created_by")),
           cloudRead("oil_patterns",q=>q.select("id,name,series,length_feet,ratio,volume_ml,forward_ml,reverse_ml,verified,source_note,year")),
           cloudRead("bowler_goals",q=>q.select("bowler_name,goals")),
-          cloudRead("tournaments",q=>q.select("id,bowler_name,name,center,days,buy_in,winnings,side_pots,match_play,stepladder,match_play_next_round,notes,handicap,baker_partner,baker_starter,scoring_basis,pin_format,play_style")),
+          cloudRead("tournaments",q=>q.select("id,bowler_name,name,center,days,buy_in,winnings,side_pots,match_play,stepladder,match_play_next_round,placement,placement_note,notes,handicap,baker_partner,baker_starter,scoring_basis,pin_format,play_style")),
           cloudRead("leagues",q=>q.select("name,center_id,start_date,end_date,format,pattern_name")),
           cloudRead("ball_submissions",q=>q.select("id,submitted_by,ball_key,ball_name,brand,coverstock,core_type,weight,rg,diff,int_diff,created_at,official,source_note,weight_specs")),
           cloudRead("ball_confirmations",q=>q.select("submission_id,confirmed_by,vote")),
@@ -3796,6 +3796,44 @@ export default function BowlingTracker(){
     ()=>scratchExcludedLeagues(tournaments,user?.id||""),
     [tournaments,user?.id]);
 
+  // Move a block's frames onto the block's own date.
+  //
+  // The two dates are set separately -- the shot form files under the
+  // session date, the block carries its own -- so bowling first and
+  // dating the block afterwards leaves the frames behind on the day
+  // they were thrown. The reading side tolerates that (see pickForDay),
+  // but tolerating a mismatch forever is not the same as not having
+  // one: every screen that keys on a date has to know about it.
+  //
+  // Only the frames of THIS event, only from a date the bowler
+  // confirmed, and the night's session row travels with them so the
+  // calendar does not keep a night whose games have left.
+  async function moveTournamentFrames(from,to){
+    const a=String(from||""),b=String(to||"");
+    if(!a||!b||a===b)return;
+    const who=form.bowler||activeBowler;
+    const base=tournamentBaseLeagueName(effectiveSessionLeague);
+    const isMine=lg=>tournamentBaseLeagueName(String(lg||""))===base;
+
+    const nextShots=(shots||[]).map(sh=>
+      (sh&&sh.bowler===who&&isMine(sh.league)&&String(sh.date)===a)
+        ?{...sh,date:b}:sh);
+    if(nextShots.some((sh,i)=>sh!==(shots||[])[i]))await saveShots(nextShots);
+
+    // The session row too. If the destination already has one, the old
+    // row is dropped rather than duplicated -- two rows for one night
+    // is what every lookup here is keyed to avoid.
+    const rows=sessions||[];
+    const old=rows.find(x=>x&&x.bowler===who&&isMine(x.league)&&String(x.date)===a);
+    if(old){
+      const already=rows.find(x=>x&&x!==old&&x.bowler===who&&isMine(x.league)&&String(x.date)===b);
+      const nextSessions=already
+        ?rows.filter(x=>x!==old)
+        :rows.map(x=>x===old?{...x,date:b}:x);
+      await saveSessions(nextSessions);
+    }
+  }
+
   function updateTournament(next){
     const normalized=normalizeTournament(next);
     setActiveTournament(normalized);
@@ -3847,6 +3885,11 @@ export default function BowlingTracker(){
       cloudDelete("tournaments",t.id);
     }
 
+    if(!finish){
+      setTournamentTab("results");
+      try{window.scrollTo({top:0});}catch{}
+      return;
+    }
     closeTournament();
     setTournamentTab("setup");
     setView("home");
@@ -3860,7 +3903,12 @@ export default function BowlingTracker(){
     setTournamentSaveMessage("");
   }
 
-  async function saveTournament(){
+  // finish: the bowler is done with the event.
+  //
+  // "End Tournament & View Results" saves and stays -- it is the step
+  // before the results are read, and losing the block on the way to
+  // looking at it would be absurd. "Save & Finish" saves and closes.
+  async function saveTournament({finish=true}={}){
     // A silent return: tapping Save Tournament with no name did
     // nothing at all -- no save, no error, no clue which field was
     // missing, on a different tab from the button. A refusal the
@@ -3907,8 +3955,20 @@ export default function BowlingTracker(){
     await fileNight({quiet:true});
     setTournamentSaved(true);
     setTimeout(()=>setTournamentSaved(false),1500);
-    // "Save Tournament & Return Home" -- so, home. The event stays loaded:
-    // picking Tournament again reopens it on Set up for the next block.
+    // FINISHED means finished.
+    //
+    // The card used to stay loaded, so that a two-day event could be
+    // saved at the end of day one and carried on the next morning. But
+    // the button that gets here says "Save & Finish Tournament" and
+    // then sends the bowler home -- so the next time they chose
+    // Tournament they found last week's squads, dates and times sitting
+    // there, and had to work out whether the app had failed to save or
+    // was waiting for something.
+    //
+    // The event is in history and one tap away on the calendar, which
+    // is where another block of it is added from. Nothing is lost by
+    // clearing the card, and the next event starts clean.
+    closeTournament();
     setTournamentTab("setup");
     setView("home");
     try{window.scrollTo({top:0,behavior:"smooth"});}catch{}
@@ -8964,7 +9024,7 @@ export default function BowlingTracker(){
             tournamentPhase={tournamentPhase} setTournamentPhase={setTournamentPhase}
 
             deleteNight={deleteNight}
-            activeTournament={activeTournament} updateTournament={updateTournament} saveTournament={saveTournament} cancelTournament={cancelTournament} closeTournament={closeTournament} tournamentSaved={tournamentSaved}
+            activeTournament={activeTournament} updateTournament={updateTournament} saveTournament={saveTournament} moveTournamentFrames={moveTournamentFrames} cancelTournament={cancelTournament} closeTournament={closeTournament} tournamentSaved={tournamentSaved}
             manualScores={manualScores} updateManualScore={updateManualScore}
             ownerName={ownerName} scoringForOthers={scoringForOthers} setScoringForOthers={setScoringForOthers}
             oilPatterns={pickerPatterns} submitOilPattern={submitOilPattern} leaguePatterns={leaguePatterns} tournaments={tournaments} practicePriorAverage={practicePriorAverage}
