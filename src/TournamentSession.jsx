@@ -5,7 +5,7 @@ import {
   addGame, removeGame, setGameField, addDay, removeDay, setDayField, updateDay,
   dayTotal, dayAverage, dayGamesEntered, cutMargin,
   tournamentTotal, tournamentTotalWithHandicap, tournamentAverage, tournamentMoney,
-  cutMarginWithCarry, carryBefore, tournamentGamesEntered, resolveTournamentGameScore,
+  cutMarginWithCarry, carryBefore, tournamentGamesEntered, resolveTournamentGameScore, derivedPlacement,
   SCORING_BASES, PIN_FORMATS, PLAY_STYLES,
   scoringBasis, pinFormat, playStyle, cutTarget, describeTournamentFormat} from "./domain/tournaments.js";
 import { patternDisplayName, searchPatterns, describePattern, patternStats } from "./domain/oilPatterns.js";
@@ -25,6 +25,11 @@ import {
   addStep, removeStep, setStepField, setStepladderField, stepResult,
   stepladderResult, describeStepladder, ordinal,
 } from "./domain/stepladder.js";
+
+function placementLabel(id) {
+  const p = PLACEMENTS.find(x => x.id === id);
+  return p ? p.label.toLowerCase() : id;
+}
 
 function fieldLabel(text) {
   return (
@@ -1350,6 +1355,18 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
 
   const dayScores = d => pickForDay(shotScoresByDate, d);
 
+  // Where the stepladder says they finished, if it says anything.
+  const derivedFinish = derivedPlacement(tournament);
+  // Fill a BLANK finish in, once, and never overwrite an answer the
+  // bowler gave: the disagreement is shown instead, because the app
+  // knowing the ladder does not mean it knows the event.
+  useEffect(() => {
+    if (!derivedFinish) return;
+    if (tournament.placement) return;
+    onChange({ ...tournament, placement: derivedFinish });
+  }, [derivedFinish, tournament.placement]);
+
+
   // Which block the Scoring tab shows.
   //
   // The bowler's own choice wins while it still names a block that
@@ -1645,6 +1662,17 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
       {tab === "results" && (<>
       <CollapsibleCard title="How did it finish?" expanded={isOpen("finish")} onToggle={() => toggle("finish")}>
 
+        {/* Filled in from the stepladder when the ladder settles it.
+            Beat the top seed and you won it; lose the final and you
+            were runner-up. Asking a bowler to tell the app something it
+            worked out two cards ago is how the two end up disagreeing.
+
+            Only ever pre-selects a BLANK answer -- a bowler who chose
+            something else keeps it, and the note below says the two
+            differ rather than overwriting the choice. Qualifying
+            position and match play standings depend on every other
+            bowler's scores, which the app never sees, so those still
+            have to be told. */}
         <div style={S.chips}>
           {PLACEMENTS.map(p => (
             <Chip key={p.id} label={p.emoji ? `${p.emoji} ${p.label}` : p.label}
@@ -1656,6 +1684,11 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
               })} />
           ))}
         </div>
+        {derivedFinish && tournament.placement && tournament.placement !== derivedFinish && (
+          <div style={{ fontSize: "11px", color: C.miss, marginTop: "6px", lineHeight: 1.5 }}>
+            The stepladder says {placementLabel(derivedFinish)} — {describeStepladder(tournament.stepladder)}
+          </div>
+        )}
         {tournament.placement && tournament.placement !== "none" && (
           <input style={{ ...S.input, marginTop: "8px" }}
             placeholder="Anything worth remembering about it?"
