@@ -9012,7 +9012,7 @@ export default function BowlingTracker(){
             selectBowler={selectBowler} set={set} setLanePattern={setLanePattern} setMatchHandicap={setMatchHandicap} setMatchOpponent={setMatchOpponent} setPokerWinnings={setPokerWinnings} setThreeSixNineWinnings={setThreeSixNineWinnings} winningsSaved={winningsSaved} confirmWinningsSaved={confirmWinningsSaved} setView={setView}
             leagueBuyIns={leagueBuyIns} onSaveLeagueBuyIns={saveLeagueBuyIns} onReplayTour={replayTour}
             casualExtraGames={casualExtraGames} setCasualExtraGames={setCasualExtraGames}
-            strictPartial={strictPartial} submitSession={submitSession} saveCasualResults={saveCasualResults} endCasual={endCasual} cancelSession={cancelSession} deleteGame={deleteGame} submitShot={submitShot} theoreticalScoreForGame={theoreticalScoreForGame} maxScoreThisGame={maxScoreThisGame} toggle={toggle} toggleMulti={toggleMulti} toggleSection={toggleSection}
+            strictPartial={strictPartial} submitSession={submitSession} fileNightQuietly={()=>fileNight({quiet:true})} saveCasualResults={saveCasualResults} endCasual={endCasual} cancelSession={cancelSession} deleteGame={deleteGame} submitShot={submitShot} theoreticalScoreForGame={theoreticalScoreForGame} maxScoreThisGame={maxScoreThisGame} toggle={toggle} toggleMulti={toggleMulti} toggleSection={toggleSection}
             preferences={logPreferences}
             setSessionMoneyArray={setSessionMoneyArray} setSessionMoneyValue={setSessionMoneyValue}
             activeBowlerLeftHanded={activeBowlerLeftHanded}

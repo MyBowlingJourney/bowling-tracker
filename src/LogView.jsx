@@ -75,7 +75,7 @@ export default function LogView({
   leagueBuyIns, onSaveLeagueBuyIns, onReplayTour, casualExtraGames = 2, setCasualExtraGames,
   showSparePins, sparePinsStanding, spareKnocked, toggleSparePin, spareWillConvert, strictPartial, submitSession, cancelSession, deleteGame, submitShot, theoreticalScoreForGame, maxScoreThisGame, toggle, toggleMulti, toggleSection,
   preferences, setSessionMoneyArray, setSessionMoneyValue, activeBowlerLeftHanded,
-  saveCasualResults, endCasual, ballLayouts, activeTournament, updateTournament, saveTournament, moveTournamentFrames, closeTournament, cancelTournament, tournamentSaved,
+  fileNightQuietly, saveCasualResults, endCasual, ballLayouts, activeTournament, updateTournament, saveTournament, moveTournamentFrames, closeTournament, cancelTournament, tournamentSaved,
   manualScores, updateManualScore,
   // Handed straight to the Nightcap, which is the only paid thing
   // on this screen.
@@ -4444,6 +4444,23 @@ export default function LogView({
               const onResults=env==="tournament"?tournamentTab==="results"
                 :env==="practice"?practiceMode==="results"
                 :env==="league"?leagueTab==="results":casualTab==="results";
+              // Ending a block FILES it, in every mode.
+              //
+              // "End & View Results" was pure navigation: the night was
+              // only written when the bowler came back and tapped Save
+              // on the Results tab. Close the app in between -- or put
+              // the phone down and let it die -- and three games were
+              // gone. The button says the block is over, so the block
+              // is written down.
+              //
+              // Quietly: nothing to file is not a mistake, and this is
+              // not the moment to say so. The Save button on Results
+              // still exists and still matters, because the money, the
+              // points and the notes are entered THERE and cannot be
+              // saved by a button pressed before they were typed.
+              const fileBeforeResults=()=>{
+                try{ fileNightQuietly?.(); }catch{ /* never block the move */ }
+              };
               const toResults=()=>{
                 if(env==="casual"){
                   const people=scoreOptions.length?scoreOptions:[ownerName].filter(Boolean);
@@ -4452,6 +4469,7 @@ export default function LogView({
                     setTimeout(()=>setCasualMsg(""),2000);
                     return;
                   }
+                  fileBeforeResults();
                   setCasualResultsShown(true);
                   setCasualTab("results");
                 }
@@ -4474,19 +4492,14 @@ export default function LogView({
                   // gets cleaned up rather than left behind as a stale
                   // "256" nobody entered this time.
                   if(!practiceHasResults&&att===0){ submitSession(); return; }
+                  fileBeforeResults();
                   setPracticeMode("results");
                 }
-                // A tournament FILES the block on the way to Results.
-                //
-                // Every other mode's "End & View Results" is a
-                // navigation step with the save still to come, because
-                // their save button is on the Results tab. A tournament
-                // has one too -- but its data is a tournament row, not
-                // a session, and a bowler who ended the block and then
-                // closed the app had bowled an event the app never
-                // wrote down.
+                // A tournament writes its own row as well as the night,
+                // so it saves through saveTournament rather than the
+                // quiet file above.
                 else if(env==="tournament"){ saveTournament?.({finish:false}); return; }
-                else setLeagueTabChoice("results");
+                else { fileBeforeResults(); setLeagueTabChoice("results"); }
                 try{window.scrollTo({top:0});}catch{}
               };
               const saveAndFinish=env==="casual"
