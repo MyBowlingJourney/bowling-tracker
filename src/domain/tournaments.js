@@ -445,6 +445,30 @@ export function phaseGameOffsets(tournament, date) {
   return { matchStart: qualifying, stepStart: qualifying + matches };
 }
 
+// Where the event left them, when the app can tell.
+//
+// The stepladder settles it outright: beat the top seed and you won it,
+// lose the final and you were runner-up, and any decided place inside
+// the top five is a top-five finish. Nothing else in the record says
+// where a bowler finished -- qualifying position and match play
+// standings depend on every other bowler's scores, which this app never
+// sees -- so those return null and the question stays asked.
+//
+// Returns a PLACEMENTS id or null.
+export function derivedPlacement(tournament) {
+  const r = stepladderResult(tournament?.stepladder);
+  if (!r.decided || r.place === null) return null;
+  if (r.place === 1) return "won";
+  if (r.place === 2) return "runnerUp";
+  if (r.place <= 5) return "topFive";
+  // Cashed is NOT derived. Where the money stops is the tournament's
+  // choice and varies from one to the next -- some pay the top three,
+  // some pay a third of the field -- so making the ladder proves a
+  // finishing position and nothing about a payout. The bowler enters
+  // that.
+  return null;
+}
+
 // Did this block make its cut? Derived from the margin rather than
 // asked. null when there is no cut line or nothing bowled yet.
 export function dayMadeCut(day, shotScores, carry) {
