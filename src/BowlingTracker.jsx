@@ -5526,7 +5526,27 @@ export default function BowlingTracker(){
       // lost, and the import is still filed under the right event.
       const cur=activeTournament||{};
       const safe=!cur.name||cur.id===tournament?.id||(tournaments||[]).some(t=>t.id===cur.id);
-      if(tournament&&safe&&cur.id!==tournament.id)updateTournament(tournament);
+      const loaded=!!(tournament&&safe);
+      // Load it even when the ids already match.
+      //
+      // The old guard skipped the load whenever cur.id===tournament.id,
+      // on the assumption that the card in memory IS that event. After a
+      // save the card is cleared for the next event but keeps nothing to
+      // say so, so opening the event you just filed found an id match
+      // against an empty card and loaded nothing: Results with no
+      // scores, no recap and no Nightcap. Loading the stored copy is
+      // cheap and is the only version that is certainly complete.
+      if(loaded)updateTournament(tournament);
+      // Why the screen is empty, when it is -- rather than leaving the
+      // bowler to guess. Recorded, not shown: it belongs in Diagnostics
+      // beside whatever else went wrong that session.
+      if(!loaded){
+        recordError({
+          kind:"state",where:"openTournament",
+          message:tournament?"Tournament found but another unsaved event is open":"No saved tournament matched this night",
+          detail:`league=${league||""} date=${date||""} current=${cur.name||"(empty)"}`,
+        });
+      }
       setTournamentTab("results");
       // Back to qualifying: the phase decides which container league the
       // shot form writes to, and reopening a finished event on the
@@ -5610,15 +5630,35 @@ export default function BowlingTracker(){
     // live in their own table, not in sessions -- but the night still
     // ended, so say so.
     if(!scores.length&&hasDrillWork)return true;
-    const ss=shots.filter(s=>s.bowler===activeBowler&&s.league===effectiveSessionLeague&&s.date===sessionDate);
+    // The row is filed under the EVENT, not the phase.
+    //
+    // A tournament's phases write their frames to their own container
+    // leagues so their game numbers cannot collide. Filing the night's
+    // session under whichever phase happened to be selected when Save
+    // was tapped produced a session row nothing else looks for -- the
+    // recap, the Nightcap and the money all key on the event -- so a
+    // tournament saved from the Stepladder tab came back empty.
+    //
+    // Frames still come from every phase league of this event, because
+    // they are all the same night's bowling.
+    const fileLeague=nightLeague;
+    const ss=shots.filter(s=>s.bowler===activeBowler
+      &&(preferences.environment==="tournament"
+        ?tournamentBaseLeagueName(s.league)===fileLeague
+        :s.league===fileLeague)
+      &&s.date===sessionDate);
     // A session is uniquely identified by bowler+league+date. If one already
     // exists (e.g. a double-tap on Save), update it in place rather than
     // adding a duplicate — a duplicate would silently double-count this
     // night in every average, the leaderboard, and the season record.
-    const existing=sessions.find(s=>s.bowler===activeBowler&&s.league===effectiveSessionLeague&&s.date===sessionDate
+    const existing=sessions.find(s=>s.bowler===activeBowler
+      &&(preferences.environment==="tournament"
+        ?tournamentBaseLeagueName(s.league)===fileLeague
+        :s.league===fileLeague)
+      &&s.date===sessionDate
       &&(Number(s.sessionSeq)||1)===fileSeq);
     const session={
-      id:existing?existing.id:crypto.randomUUID(),bowler:activeBowler,teamId:ss[0]?.teamId||"",league:effectiveSessionLeague,date:sessionDate,scores,
+      id:existing?existing.id:crypto.randomUUID(),bowler:activeBowler,teamId:ss[0]?.teamId||"",league:fileLeague,date:sessionDate,scores,
       sessionSeq:fileSeq,
       notes:sessionNotes||existing?.notes||"",
       total:scores.reduce((a,b)=>a+b,0),
@@ -6461,11 +6501,22 @@ export default function BowlingTracker(){
   },[nightBowler,nightLeague,nightDate,sessions]);
 
   const curSession=(()=>{
+    // Tournament rows and frames are matched through the phase suffix.
+    //
+    // The night is the event; its frames are spread across qualifying,
+    // match play and the stepladder, and a session row filed from any
+    // of those tabs before this was fixed still names a phase. Reading
+    // them all back as one night is what makes a saved tournament open
+    // with its scores, its recap and its Nightcap intact.
+    const sameNight=lg=>preferences.environment==="tournament"
+      ?tournamentBaseLeagueName(String(lg||""))===nightLeague
+      :lg===nightLeague;
+
     const saved=[...sessions].reverse().find(s=>s.bowler===nightBowler
-      &&s.league===nightLeague&&s.date===nightDate);
+      &&sameNight(s.league)&&s.date===nightDate);
 
     const ss=shots.filter(s=>s&&s.bowler===nightBowler
-      &&s.league===nightLeague&&String(s.date)===String(nightDate));
+      &&sameNight(s.league)&&String(s.date)===String(nightDate));
 
     // NOT gated on having bowled yet.
     //
