@@ -27,6 +27,10 @@ export function shotToSupabaseRow(shot,userId,leagueIdsMap){
     // rather than as result "Strike", so strike statistics stay clean
     // while carry statistics still see how the ball drove.
     no_tap:shot.noTap===true?true:null,
+    // Which session of that day. Part of the shot's logical identity --
+    // shots_identity_uniq includes it -- so two sessions on one day can
+    // each hold their own game 1, frame 1.
+    session_seq:Number(shot.sessionSeq)||1,
     // The league by NAME as well as by id.
     //
     // Practice, open bowling and tournaments bowl under container
@@ -92,6 +96,7 @@ export function shotFromSupabaseRow(row,leagueNameById){
     // stat on any device that loaded it from the cloud.
     league:leagueNameById[row.league_id]||row.league_name||"",
     date:row.date,
+    sessionSeq:Number(row.session_seq)||1,
     importedFrom:row.imported_from||null,
 
     noTap:row.no_tap===true?true:undefined,
@@ -136,6 +141,7 @@ export function sessionToSupabaseRow(session,userId,leagueIdsMap){
     league_id:leagueIdsMap[session.league]||null,
     bowler_name:session.bowler||"",
     date:session.date,
+    session_seq:Number(session.sessionSeq)||1,
     scores:session.scores||[],
     // The night's own note. Shot notes ride on shots; this one is about
     // the session, so it belongs on the session row rather than being
@@ -176,6 +182,7 @@ export function sessionFromSupabaseRow(row,leagueNameById){
     teamId:row.team_id||"",
     league:leagueNameById[row.league_id]||"",
     date:row.date,
+    sessionSeq:Number(row.session_seq)||1,
     scores:row.scores||[],
     notes:row.notes||"",
     total:row.total,

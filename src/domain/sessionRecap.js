@@ -64,9 +64,9 @@ export function bowlerLine(manualScores, bowler, league, date, seq) {
 }
 
 // Everyone who bowled, best series first.
-export function sessionLines(manualScores, bowlers, league, date) {
+export function sessionLines(manualScores, bowlers, league, date, seq = 1) {
   return (Array.isArray(bowlers) ? bowlers : [])
-    .map(b => bowlerLine(manualScores, b, league, date))
+    .map(b => bowlerLine(manualScores, b, league, date, seq))
     .filter(Boolean)
     .sort((a, b) => b.total - a.total);
 }
@@ -163,8 +163,8 @@ export function awards(lines) {
 }
 
 // The casual recap.
-export function casualRecap(manualScores, bowlers, league, date) {
-  const lines = sessionLines(manualScores, bowlers, league, date);
+export function casualRecap(manualScores, bowlers, league, date, seq = 1) {
+  const lines = sessionLines(manualScores, bowlers, league, date, seq);
   if (!lines.length) return null;
   const totalPins = lines.reduce((a, l) => a + l.total, 0);
   return {
@@ -204,12 +204,12 @@ export function practiceRecap(manualScores, bowler, league, date, priorAverage =
 }
 
 // Head-to-head when someone practised alongside you.
-export function practiceComparison(manualScores, bowler, partners, league, date) {
-  const mine = bowlerLine(manualScores, bowler, league, date);
+export function practiceComparison(manualScores, bowler, partners, league, date, seq = 1) {
+  const mine = bowlerLine(manualScores, bowler, league, date, seq);
   if (!mine) return null;
   const others = (Array.isArray(partners) ? partners : [])
     .filter(p => p && p !== bowler)
-    .map(p => bowlerLine(manualScores, p, league, date))
+    .map(p => bowlerLine(manualScores, p, league, date, seq))
     .filter(Boolean);
   if (!others.length) return null;
 

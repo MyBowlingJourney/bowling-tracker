@@ -12,19 +12,20 @@
 
 const KEY_SEP = "|";
 
-// seq is an OPTIONAL 5th segment -- a same-day practice's own counter,
-// appended only when the caller passes one. Every existing call site
-// omits it, so every existing key is byte-for-byte identical to before;
-// this is purely additive. A cloud round-trip also never supplies one
-// (the manual_scores table has no such column yet), so a synced row
-// always lands back in the no-seq key -- the seq split holds for a
-// same-day second practice within one continuous session, but a full
-// reload during it can re-merge its typed totals until that table gets
-// its own seq column. Shot-tracked games do not have this gap.
-export function scoreKey(bowler, league, date, game, seq) {
-  const parts = [bowler, league, date, String(game)];
-  if (seq != null) parts.push(String(seq));
-  return parts.join(KEY_SEP);
+// Which session of that day this score belongs to is part of the key.
+//
+// A day can hold more than one session of the same kind -- two practices,
+// two open-bowling outings -- and keying a typed total by day alone made
+// the second overwrite the first. The segment is ALWAYS present, defaulted
+// to 1, rather than appended only sometimes: a key that changes shape
+// depending on its value is a key two code paths can disagree about, and
+// the whole point of this is that they cannot.
+//
+// manual_scores.session_seq is NOT NULL DEFAULT 1, so a row written before
+// this existed comes back as session 1 and lands on the same key it would
+// have had anyway.
+export function scoreKey(bowler, league, date, game, seq = 1) {
+  return [bowler, league, date, String(game), String(seq || 1)].join(KEY_SEP);
 }
 
 export function normalizeManualScores(raw) {
@@ -39,7 +40,7 @@ export function normalizeManualScores(raw) {
   return out;
 }
 
-export function setManualScore(scores, bowler, league, date, game, value, seq) {
+export function setManualScore(scores, bowler, league, date, game, value, seq = 1) {
   const key = scoreKey(bowler, league, date, game, seq);
   const next = { ...scores };
   const raw = value === null || value === undefined ? "" : String(value).trim();
@@ -57,14 +58,14 @@ export function setManualScore(scores, bowler, league, date, game, value, seq) {
   return next;
 }
 
-export function getManualScore(scores, bowler, league, date, game, seq) {
+export function getManualScore(scores, bowler, league, date, game, seq = 1) {
   const v = scores?.[scoreKey(bowler, league, date, game, seq)];
   return v === undefined ? null : v;
 }
 
 // The score to actually use: manual if present, otherwise whatever the
 // shots computed to (which may itself be null for an incomplete game).
-export function resolveGameScore(manualScores, bowler, league, date, game, shotDerived, seq) {
+export function resolveGameScore(manualScores, bowler, league, date, game, shotDerived, seq = 1) {
   const manual = getManualScore(manualScores, bowler, league, date, game, seq);
   return manual !== null ? manual : shotDerived;
 }
@@ -88,21 +89,22 @@ export function seriesAverage(gameScores) {
 // True when this night's scores came from manual entry rather than shots.
 // The UI uses this to explain why per-shot stats are unavailable, instead
 // of showing empty charts with no reason given.
-export function isManualNight(manualScores, bowler, league, date, gameCount = 3) {
+export function isManualNight(manualScores, bowler, league, date, gameCount = 3, seq = 1) {
   for (let g = 1; g <= gameCount; g++) {
-    if (getManualScore(manualScores, bowler, league, date, g) !== null) return true;
+    if (getManualScore(manualScores, bowler, league, date, g, seq) !== null) return true;
   }
   return false;
 }
 
 // ── Supabase mapping ────────────────────────────────────────────────────
-export function manualScoreToRow(bowler, leagueId, date, game, score, userId, equipment = null) {
+export function manualScoreToRow(bowler, leagueId, date, game, score, userId, equipment = null, seq = 1) {
   return {
     user_id: userId,
     bowler_name: bowler,
     league_id: leagueId,
     date,
     game,
+    session_seq: Number(seq) || 1,
     score,
     // Null rather than "" so a league score row stays clean and an
     // equipment-less practice game doesn't write two empty strings.
@@ -116,7 +118,7 @@ export function manualScoresFromRows(rows, leagueNameById) {
   const out = {};
   for (const row of rows || []) {
     const leagueName = leagueNameById?.[row.league_id] || "";
-    out[scoreKey(row.bowler_name, leagueName, row.date, row.game)] = row.score;
+    out[scoreKey(row.bowler_name, leagueName, row.date, row.game, row.session_seq)] = row.score;
   }
   return out;
 }
@@ -129,7 +131,7 @@ export function gameEquipmentFromRows(rows, leagueNameById) {
   for (const row of rows || []) {
     if (!row.ball && !row.surface) continue;
     const leagueName = leagueNameById?.[row.league_id] || "";
-    out[scoreKey(row.bowler_name, leagueName, row.date, row.game)] = { ball: row.ball || "", surface: row.surface || "" };
+    out[scoreKey(row.bowler_name, leagueName, row.date, row.game, row.session_seq)] = { ball: row.ball || "", surface: row.surface || "" };
   }
   return out;
 }
@@ -145,15 +147,15 @@ export function gameEquipmentFromRows(rows, leagueNameById) {
 // Kept in a separate map from the scores so getManualScore keeps
 // returning a number and nothing that reads scores has to learn about
 // equipment.
-export function getGameEquipment(equipment, bowler, league, date, game) {
-  const e = equipment?.[scoreKey(bowler, league, date, game)];
+export function getGameEquipment(equipment, bowler, league, date, game, seq = 1) {
+  const e = equipment?.[scoreKey(bowler, league, date, game, seq)];
   return { ball: e?.ball || "", surface: e?.surface || "" };
 }
 
-export function setGameEquipment(equipment, bowler, league, date, game, patch) {
-  const key = scoreKey(bowler, league, date, game);
+export function setGameEquipment(equipment, bowler, league, date, game, patch, seq = 1) {
+  const key = scoreKey(bowler, league, date, game, seq);
   const next = { ...(equipment || {}) };
-  const merged = { ...getGameEquipment(equipment, bowler, league, date, game), ...patch };
+  const merged = { ...getGameEquipment(equipment, bowler, league, date, game, seq), ...patch };
   if (!merged.ball && !merged.surface) delete next[key];
   else next[key] = merged;
   return next;
@@ -178,16 +180,25 @@ export function defaultPracticeBall(arsenal, plasticName = "Plastic") {
 // more in them, and mixing the two would rank a league bowler's serious
 // average against a Friday night with friends.
 export function casualNightsFrom(scores, casualLeagueKey) {
-  const byDate = {};
+  const byOuting = {};
   for (const [key, value] of Object.entries(scores || {})) {
-    const [bowler, league, date, game] = key.split(KEY_SEP);
+    const [bowler, league, date, game, seq] = key.split(KEY_SEP);
     if (league !== casualLeagueKey) continue;
     if (value == null) continue;
-    const night = byDate[date] || (byDate[date] = { date, scoresByBowler: {} });
+    // Grouped by date AND session, not date alone. Two open-bowling
+    // outings in one day are two nights: grouping them together put both
+    // outings' game 1 in the same slot, so the second silently replaced
+    // the first on the leaderboard. The night still reports its calendar
+    // date -- the session number is how they are told apart, not
+    // something anyone needs to see.
+    const outingKey = `${date}${KEY_SEP}${seq || 1}`;
+    const night = byOuting[outingKey] || (byOuting[outingKey] = { date, session: Number(seq) || 1, scoresByBowler: {} });
     const list = night.scoresByBowler[bowler] || (night.scoresByBowler[bowler] = []);
     list[Number(game) - 1] = Number(value);
   }
   // Oldest first: several badges look at how a bowler changed over time,
-  // which needs chronological order.
-  return Object.values(byDate).sort((a, b) => a.date.localeCompare(b.date));
+  // which needs chronological order. Two outings on one date keep their
+  // own order within it.
+  return Object.values(byOuting).sort((a, b) =>
+    a.date.localeCompare(b.date) || a.session - b.session);
 }

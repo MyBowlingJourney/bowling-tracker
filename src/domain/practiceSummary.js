@@ -39,12 +39,11 @@ export function practiceGames(sessions, liveScores, opts) {
   const empty = { games: [], total: null, best: null, average: null };
   if (!who || !when) return empty;
 
-  // seq: which practice of that day. A day can hold more than one, and a
+  // seq: which session of that day. A day can hold more than one, and a
   // filed row from the morning is not this afternoon's night -- reading
   // it as one is how a 256 nobody bowled today turned up in Results. A
-  // row with no seq of its own predates the idea and reads as 1, so a
-  // single-practice day is untouched.
-  const sameRun = s => seq == null || (Number(s?.practiceSeq) || 1) === seq;
+  // row with no seq of its own predates the idea and reads as 1.
+  const sameRun = s => seq == null || (Number(s?.sessionSeq) || 1) === seq;
   const fromSessions = rows(sessions)
     .filter(s => sameNight(s, who, when) && sameRun(s))
     .flatMap(scoresOf);
@@ -114,7 +113,7 @@ export function practiceDrills(drills, opts) {
   const byTarget = new Map();
   for (const d of rows(drills)) {
     if (!sameNight(d, who, when)) continue;
-    if (seq != null && (Number(d?.practiceSeq) || 1) !== seq) continue;
+    if (seq != null && (Number(d?.sessionSeq) || 1) !== seq) continue;
     const key = clean(d.customTarget) || clean(d.target) || "drill";
     const made = Number(d.made) || 0;
     const missed = Number(d.missed) || 0;

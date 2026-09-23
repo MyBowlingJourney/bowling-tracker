@@ -113,9 +113,8 @@ export function emptyDrill(bowler = "", date = "", leftHanded = false) {
     made: 0,
     missed: 0,
     notes: "",
-    // Which practice of that day this drill belongs to. Undefined on
-    // every drill worked before the idea existed, which reads as 1.
-    practiceSeq: undefined,
+    // Which session of that day this drill belongs to.
+    sessionSeq: 1,
   };
 }
 
@@ -137,8 +136,7 @@ export function normalizeDrill(raw) {
     // Preserved rather than rebuilt: this function returns a fresh object
     // field by field, so anything not named here is dropped -- and a
     // dropped seq would put every drill back in one same-day bucket.
-    practiceSeq: Number.isFinite(Number(raw.practiceSeq)) && Number(raw.practiceSeq) > 0
-      ? Number(raw.practiceSeq) : undefined,
+    sessionSeq: Number(raw.sessionSeq) > 0 ? Number(raw.sessionSeq) : 1,
   };
 }
 
@@ -201,6 +199,7 @@ export function drillToRow(drill, userId) {
     made: drill.made || 0,
     missed: drill.missed || 0,
     notes: drill.notes || null,
+    session_seq: Number(drill.sessionSeq) || 1,
   };
 }
 
@@ -217,6 +216,7 @@ export function drillFromRow(row) {
     made: row.made,
     missed: row.missed,
     notes: row.notes,
+    sessionSeq: row.session_seq,
   });
 }
 
