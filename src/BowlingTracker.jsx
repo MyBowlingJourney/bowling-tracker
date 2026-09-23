@@ -1202,7 +1202,19 @@ export default function BowlingTracker(){
   //
   // The bowler is always at the start of a night they have just dated.
   // If they are genuinely resuming one, the frame stepper moves.
-  function changeSessionDate(next){
+  // keepTournament: the caller is OPENING a tournament, so the
+  // fresh-start rule below must not run.
+  //
+  // openImportedNight loads the event and then moves the date, both in
+  // one tick. React has not re-rendered in between, so `activeTournament`
+  // read here is still the PREVIOUS card -- and if that card's squads
+  // carry different dates, the rule below decides this date belongs to
+  // no event and replaces the card with a blank one. The load is undone
+  // a line after it happened, and the bowler lands on Results with an
+  // empty tournament: the first day of an event opening with no details
+  // while a later day opens fine, depending only on which dates the
+  // previous card happened to hold.
+  function changeSessionDate(next,{keepTournament=false}={}){
     setSessionDate(next);
 
     // Resume where that date left off, if it has shots.
@@ -1240,6 +1252,7 @@ export default function BowlingTracker(){
     //   DATED -- at least one squad has a date. With none there is no way
     //     to tell whether this date belongs to it.
     //   NOT THIS DATE -- no squad carries the date being moved to.
+    if(keepTournament)return;
     if(preferences.environment!=="tournament")return;
     const t=activeTournament;
     if(!t||!t.id)return;
@@ -5553,7 +5566,8 @@ export default function BowlingTracker(){
       // stepladder points it at a phase the bowler is not bowling.
       setTournamentPhase("qualifying");
     }
-    if(date)changeSessionDate(date);
+    // keepTournament: this call IS the open. See changeSessionDate.
+    if(date)changeSessionDate(date,{keepTournament:env==="tournament"});
     setView("log");
     try{window.scrollTo({top:0});}catch{}
   }

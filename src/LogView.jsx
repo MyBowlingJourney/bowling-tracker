@@ -2481,7 +2481,13 @@ export default function LogView({
                 phase={tournamentPhase} onPhaseChange={setTournamentPhase}
                 nightcap={!editingId&&curSession?renderNightcap():null}
 
-                onUseDate={setSessionDate}
+                /* Any date this card asks for is a date about THIS
+                   event -- a squad being dated, a phase being opened --
+                   so it must never trip the rule that starts a fresh
+                   tournament when the date belongs to no saved event.
+                   That rule reads state this call is in the middle of
+                   changing. */
+                onUseDate={d=>setSessionDate(d,{keepTournament:true})}
 
                 /* Advancing a round moves the frame tracker with it:
                    the match's own game number, frame 1, ball cleared.
