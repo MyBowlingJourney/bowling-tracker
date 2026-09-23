@@ -73,7 +73,7 @@ export default function LogView({
   // Handed straight to the Nightcap, which is the only paid thing
   // on this screen.
   entitlement = null,
-  showSessionStart, goalsPanel, practiceMode, setPracticeMode, gameEquipment, updateGameEquipment, practiceManualSeq, practiceSeq, activeDrill, setActiveDrill, startDrill, startAnotherDrill, saveDrill, drillSaved, drills, leftHandedForBowler,
+  showSessionStart, goalsPanel, practiceMode, setPracticeMode, gameEquipment, updateGameEquipment, sessionSeq, activeDrill, setActiveDrill, startDrill, startAnotherDrill, saveDrill, drillSaved, drills, leftHandedForBowler,
   ownerName, scoringForOthers, setScoringForOthers, scoreOptions, guests, newGuestName, setNewGuestName, addGuestBowler, removeGuestBowler,
   oilPatterns, submitOilPattern, leaguePatterns = {}, tournaments, practicePriorAverage,
   envBags, selectedBagId, setSelectedBagId, logBalls,
@@ -98,7 +98,7 @@ export default function LogView({
     if(env!=="practice"||!activeBowler)return false;
     try{
       return !practiceSummary({sessions,liveScores:gameScores,drills,
-        bowler:activeBowler,date:sessionDate,seq:practiceSeq}).didNothing;
+        bowler:activeBowler,date:sessionDate,seq:sessionSeq}).didNothing;
     }catch{ return false; }
   },[env,activeBowler,sessions,gameScores,drills,sessionDate]);
   // practiceMode is component state that outlives a practice: ending one
@@ -1704,7 +1704,7 @@ export default function LogView({
               // two taps.
               const standardGames=preferences.environment==="practice"||preferences.environment==="casual"?1:3;
               const highestEntered=[1,2,3,4,5,6,7,8,9,10].reduce((hi,g)=>
-                getManualScore(manualScores,activeBowler,effectiveSessionLeague,sessionDate,g,practiceManualSeq)!=null?g:hi,0);
+                getManualScore(manualScores,activeBowler,effectiveSessionLeague,sessionDate,g,sessionSeq)!=null?g:hi,0);
               // Games bowled frame by frame count too.
               //
               // This card only ever looked at TYPED scores, so a fourth
@@ -1725,11 +1725,10 @@ export default function LogView({
               const gameCount=Math.min(12,
                 Math.max(standardGames,highestEntered,highestBowled,extraGames));
               const gameNums=Array.from({length:gameCount},(_,i)=>i+1);
-              // practiceManualSeq: undefined everywhere except a second-or-
-              // later practice the same day, where it keeps this box from
-              // showing an earlier practice's typed score as if it were
-              // this one's.
-              const entered=gameNums.map(g=>getManualScore(manualScores,activeBowler,effectiveSessionLeague,sessionDate,g,practiceManualSeq));
+              // sessionSeq keeps this box from showing an earlier
+              // session's typed score as if it were this one's, on a day
+              // that holds more than one.
+              const entered=gameNums.map(g=>getManualScore(manualScores,activeBowler,effectiveSessionLeague,sessionDate,g,sessionSeq));
 
               // The series counts what each game is WORTH, not what was
               // typed.
@@ -3177,7 +3176,7 @@ export default function LogView({
             {!editingId&&preferences.environment==="casual"&&effectiveSessionLeague&&casualTab!=="results"&&(()=>{
               const people=scoreOptions.length?scoreOptions:[ownerName].filter(Boolean);
               const highest=[1,2,3,4,5,6,7,8,9,10].reduce((hi,g)=>
-                people.some(p=>getManualScore(manualScores,p,effectiveSessionLeague,sessionDate,g)!=null)?g:hi,0);
+                people.some(p=>getManualScore(manualScores,p,effectiveSessionLeague,sessionDate,g,sessionSeq)!=null)?g:hi,0);
               // Starts at two games, grows on request.
               //
               // Auto-growing by one every time someone filled a column
@@ -3191,7 +3190,7 @@ export default function LogView({
               // starts at 2).
               const cols=Math.min(10,Math.max(1,highest,casualExtraGames));
               const gameNums=Array.from({length:cols},(_,i)=>i+1);
-              const getScore=(who,g)=>getManualScore(manualScores,who,effectiveSessionLeague,sessionDate,g);
+              const getScore=(who,g)=>getManualScore(manualScores,who,effectiveSessionLeague,sessionDate,g,sessionSeq);
               // The x beside each game. G2 onwards: the column goes, for
               // everyone, and later games move down. G1 stays -- its x
               // clears the scores. Asks first when there is anything in
@@ -3255,7 +3254,7 @@ export default function LogView({
                       {people.map(p=>(
                         <div key={p} style={{display:"flex",height:"42px",borderBottom:`1px solid ${C.border}`}}>
                           {gameNums.map(g=>{
-                            const v=getManualScore(manualScores,p,effectiveSessionLeague,sessionDate,g);
+                            const v=getManualScore(manualScores,p,effectiveSessionLeague,sessionDate,g,sessionSeq);
                             return(
                               <div key={g} style={{width:`${CELL_W}px`,flexShrink:0,borderRight:`1px solid ${C.border}`}}>
                                 <input
@@ -3287,7 +3286,7 @@ export default function LogView({
                         <span style={{fontSize:"10px",fontWeight:700,color:C.textMuted}}>TOTAL</span>
                       </div>
                       {people.map(p=>{
-                        const t=seriesTotal(gameNums.map(g=>getManualScore(manualScores,p,effectiveSessionLeague,sessionDate,g)));
+                        const t=seriesTotal(gameNums.map(g=>getManualScore(manualScores,p,effectiveSessionLeague,sessionDate,g,sessionSeq)));
                         return(
                           <div key={p} style={{height:"42px",display:"flex",alignItems:"center",justifyContent:"center",
                                                borderBottom:`1px solid ${C.border}`}}>
@@ -3392,8 +3391,7 @@ export default function LogView({
                 date={sessionDate}
                 priorAverage={practicePriorAverage}
                 drills={drills}
-                practiceManualSeq={practiceManualSeq}
-                practiceSeq={practiceSeq}
+                sessionSeq={sessionSeq}
                 badgesEarnedOnNight={badgesEarnedOnNight}
                 leftHandedForBowler={leftHandedForBowler}/>
             )}
@@ -3844,7 +3842,7 @@ export default function LogView({
             {env==="practice"&&onTab("results")&&!editingId&&activeBowler&&(()=>{
               const ps=practiceSummary({
                 sessions, liveScores:gameScores, drills,
-                bowler:activeBowler, date:sessionDate, seq:practiceSeq,
+                bowler:activeBowler, date:sessionDate, seq:sessionSeq,
               });
               if(ps.didNothing) return (
                 <div style={{...S.card,fontSize:"13px",color:C.textMuted}}>
@@ -4110,7 +4108,7 @@ export default function LogView({
               const toResults=()=>{
                 if(env==="casual"){
                   const people=scoreOptions.length?scoreOptions:[ownerName].filter(Boolean);
-                  if(!casualRecap(manualScores,people,effectiveSessionLeague,sessionDate)){
+                  if(!casualRecap(manualScores,people,effectiveSessionLeague,sessionDate,sessionSeq)){
                     setCasualMsg("Enter a score first");
                     setTimeout(()=>setCasualMsg(""),2000);
                     return;

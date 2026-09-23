@@ -469,40 +469,37 @@ export default function BowlingTracker(){
   const footerRef=useRef(null);
   const[footerHeight,setFooterHeight]=useState(80);
 
-  // Practice session identity -- a plain counter per bowler+date, local
-  // to this device.
+  // Session identity -- a plain counter per bowler+league+date.
   //
-  // Practice was keyed only by bowler+date everywhere: shots, the filed
-  // session row, drills. A second practice the same day had no way to
-  // say "this is a NEW one" -- it just kept counting from wherever the
-  // first one left off (game 4 after a 3-game morning session), and its
-  // own filed row overwrote the first's. This counter gives every
-  // practice its own bucket from the moment it starts, bumped once the
-  // previous one ends (Save & Finish or Cancel Practice) rather than the
-  // moment a new one begins, so the practice already in progress when
-  // this shipped keeps its current bucket instead of splitting mid-way.
+  // A night used to be identified by (bowler, league, date). That is one
+  // night per league per day, which is right for a league and wrong for
+  // everything else: two practices in a day merged into one, the second
+  // continuing the first's game numbering, and its filed row overwriting
+  // the first's. Open bowling has the same problem (two outings in a day
+  // is ordinary) and a tournament could in principle.
   //
-  // Local only, not synced to the cloud: existing practice data (shots,
-  // manual scores, drills) has no seq of its own and is treated as
-  // bucket 1 wherever it is read, so nothing already bowled moves or
-  // disappears -- only a NEW same-day practice gets its own identity
-  // going forward.
-  const[practiceSeqMap,setPracticeSeqMap]=useState(()=>{
+  // Durable, not device-local: session_seq is a real NOT NULL DEFAULT 1
+  // column on shots, sessions, manual_scores and drills, and it is part
+  // of every uniqueness key that used to say "one per day". The
+  // localStorage copy here is just the current counter, so a session
+  // survives a reload mid-night; the records themselves carry their own.
+  const[sessionSeqMap,setSessionSeqMap]=useState(()=>{
     try{
-      const raw=window.localStorage.getItem("bowling-practice-seq-v1");
+      const raw=window.localStorage.getItem("bowling-session-seq-v1");
       const parsed=raw?JSON.parse(raw):{};
       return (parsed&&typeof parsed==="object")?parsed:{};
     }catch{ return {}; }
   });
-  const practiceSeqKey=(bowler,date)=>`${bowler}||${date}`;
-  function bumpPracticeSeq(bowler,date){
-    setPracticeSeqMap(prev=>{
-      const key=practiceSeqKey(bowler,date);
+  const sessionSeqKey=(bowler,league,date)=>`${bowler}||${league}||${date}`;
+  function bumpSessionSeq(bowler,league,date){
+    setSessionSeqMap(prev=>{
+      const key=sessionSeqKey(bowler,league,date);
       const next={...prev,[key]:(prev[key]||1)+1};
-      try{window.localStorage.setItem("bowling-practice-seq-v1",JSON.stringify(next));}catch{}
+      try{window.localStorage.setItem("bowling-session-seq-v1",JSON.stringify(next));}catch{}
       return next;
     });
   }
+
   const[teams,setTeams]=useState(()=>{
   try{
     const raw=window.localStorage.getItem("bowling-teams-v1");
@@ -1178,11 +1175,17 @@ export default function BowlingTracker(){
   const[sessionLeague,setSessionLeague]=useState(
     isContainerLeague(savedContext?.league)?"":(savedContext?.league||""));
   const[sessionDate,setSessionDate]=useState(savedContext?.date||localDateString());
-  // Moved below activeBowler/sessionDate: both are declared further
-  // down in this component, and a const reference to either one before
-  // its own declaration throws "Cannot access before initialization" --
-  // not a lint nitpick, a hard crash on every page load.
-  const currentPracticeSeq=practiceSeqMap[practiceSeqKey(activeBowler,sessionDate)]||1;
+  // Declared below activeBowler/sessionDate: both are consts further down
+  // in this component, and referencing either before its own declaration
+  // throws "Cannot access before initialization" -- not a lint nitpick, a
+  // hard crash on every page load.
+  //
+  // effectiveSessionLeague is declared later still, so the league part is
+  // resolved the same way it is: this must not run before it exists.
+  const currentSessionSeq=sessionSeqMap[sessionSeqKey(activeBowler,
+    preferences.environment==="practice"?PRACTICE_SESSION_KEY:
+    preferences.environment==="casual"?CASUAL_SESSION_KEY:
+    (sessionLeague||""),sessionDate)]||1;
 
   // Changing the date starts a new night at game 1, frame 1.
   //
@@ -1508,7 +1511,7 @@ export default function BowlingTracker(){
           cloudRead("arsenals",q=>q.select("bowler_name,ball,layout_system,layout_values,group_id,coverstock,core_type,weight,rg,diff,int_diff")),
           cloudRead("bowler_profiles",q=>q.select("bowler_name,left_handed,backup_ball,two_handed,is_coach,aliases,home_centers,notes,book_average,book_games,book_season,book_average_as_of,all_time_high_game,all_time_high_series,drift_boards,lateral_offset")),
           cloudRead("ball_bags",q=>q.select("bowler_name,ball,bag_id")),
-          cloudRead("drills",q=>q.select("id,bowler_name,date,target,custom_target,custom_pins,ball,made,missed,notes")),
+          cloudRead("drills",q=>q.select("id,bowler_name,date,target,custom_target,custom_pins,ball,made,missed,notes,session_seq")),
           cloudRead("hidden_leagues",q=>q.select("league_id")),
           // rack_type and created_by are BOTH read here, and both were
           // missing.
@@ -1537,7 +1540,7 @@ export default function BowlingTracker(){
           cloudRead("ball_confirmations",q=>q.select("submission_id,confirmed_by,vote")),
           cloudRead("ball_groups",q=>q.select("id,bowler_name,name,sort_order")),
           cloudRead("bags",q=>q.select("id,bowler_name,name,bag_type,ball_limit,includes_plastic")),
-          cloudRead("manual_scores",q=>q.select("bowler_name,league_id,date,game,score,ball,surface")),
+          cloudRead("manual_scores",q=>q.select("bowler_name,league_id,date,game,score,ball,surface,session_seq")),
           cloudRead("matches",q=>q.select("*")),
           cloudRead("lane_patterns",q=>q.select("*")),
           // Teams, so a team's NAME is known from first paint. Without
@@ -2728,13 +2731,13 @@ export default function BowlingTracker(){
     if(practiceMode!=="drill")return;
     if(activeDrill)return;
     if(!activeBowler)return;
-    setActiveDrill({...emptyDrill(activeBowler,sessionDate),practiceSeq:currentPracticeSeq});
+    setActiveDrill({...emptyDrill(activeBowler,sessionDate),sessionSeq:currentSessionSeq});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   },[preferences.environment,practiceMode,activeDrill,activeBowler,sessionDate]);
 
   // ── Practice drills ─────────────────────────────────────────────────
   function startDrill(){
-    setActiveDrill({...emptyDrill(activeBowler,sessionDate),practiceSeq:currentPracticeSeq});
+    setActiveDrill({...emptyDrill(activeBowler,sessionDate),sessionSeq:currentSessionSeq});
     setDrillSaved(false);
   }
 
@@ -2746,7 +2749,7 @@ export default function BowlingTracker(){
   // new one -- the first drill was silently overwritten and never reached
   // the recap. Starting fresh gives the next drill its own id.
   function startAnotherDrill(){
-    setActiveDrill({...emptyDrill(activeBowler,sessionDate),practiceSeq:currentPracticeSeq});
+    setActiveDrill({...emptyDrill(activeBowler,sessionDate),sessionSeq:currentSessionSeq});
     setDrillSaved(false);
   }
   function saveDrill(){
@@ -2757,9 +2760,9 @@ export default function BowlingTracker(){
     // anyway would corrupt that bowler's drill history.
     if(activeDrill.bowler&&activeDrill.bowler!==activeBowler)return;
     const withId={...normalizeDrill(activeDrill),id:activeDrill.id||crypto.randomUUID(),bowler:activeDrill.bowler||activeBowler,
-      // The drill keeps the practice it was STARTED in, not whichever one
+      // The drill keeps the session it was STARTED in, not whichever one
       // happens to be current when it is saved.
-      practiceSeq:activeDrill.practiceSeq||currentPracticeSeq};
+      sessionSeq:activeDrill.sessionSeq||currentSessionSeq};
     const updated=[...drills.filter(d=>d.id!==withId.id),withId];
     setDrills(updated);
     try{window.storage.set(DRILLS_KEY,JSON.stringify(updated));}catch{}
@@ -4906,11 +4909,11 @@ export default function BowlingTracker(){
         _displayResult:form.result,
         _displayLeave:[...(form.otherLeave||[])],
         lane:autoLane?String(autoLane):form.lane,
-        // Which practice, on a day that might hold more than one. Unset
-        // (undefined) for every other environment and for a shot that
-        // already existed before this concept did -- both read as
-        // bucket 1 everywhere this is checked.
-        practiceSeq:preferences.environment==="practice"?currentPracticeSeq:undefined,
+        // Which session of that day. Every environment has one: two
+        // practices, two open-bowling outings and (rarely) two
+        // tournaments in a day are all real, and a league night is
+        // simply always session 1.
+        sessionSeq:currentSessionSeq,
       };
       const updated=existingSlot?shots.map(s=>s.id===existingSlot.id?toSave:s):[...shots,toSave];
       await saveShots(updated);
@@ -5132,10 +5135,10 @@ export default function BowlingTracker(){
 
   // Strict running score: only frames with fully resolved bonus balls
 
-  // seq, when given, additionally requires a shot's practiceSeq to match
-  // -- untagged shots (practiceSeq undefined, meaning bucket 1) still
-  // match a seq of 1. Every non-practice caller omits it and behaves
-  // exactly as before.
+  // seq, when given, additionally requires a shot's sessionSeq to match
+  // -- a shot with none predates the idea and reads as session 1. A
+  // caller that omits it gets every session of that day, which is what
+  // history and season stats want.
   function getGameStrict(bowler,league,date,game,seq=null){
     // String() on BOTH sides of every comparison.
     //
@@ -5145,19 +5148,12 @@ export default function BowlingTracker(){
     // the series summary blank next to a scoresheet showing 211.
     const gs=shots.filter(s=>s.bowler===bowler&&s.league===league
       &&String(s.date)===String(date)&&String(s.game)===String(game)
-      &&(seq==null||(s.practiceSeq||1)===seq));
+      &&(seq==null||(Number(s.sessionSeq)||1)===seq));
     // A manually-entered score wins over the shot-derived one. Every score
     // path in the app funnels through here, so overriding at this single
     // point covers live scores, session totals, averages, and stats alike.
     //
-    // manualSeq is null for practice #1 (seq===1), on purpose: a manual
-    // score's key has NO seq segment at all when none is passed, so
-    // every game ever typed before this concept existed -- and every
-    // FIRST practice of a day from now on -- keeps reading and writing
-    // the exact same key it always has. Only a real second-or-later
-    // practice (seq>1) gets a distinct key.
-    const manualSeq=(seq!=null&&seq>1)?seq:undefined;
-    return resolveGameScore(manualScores,bowler,league,date,game,strictPartial(gs),manualSeq);
+    return resolveGameScore(manualScores,bowler,league,date,game,strictPartial(gs),seq??1);
   }
 
   // The FRAME-derived score only -- no manual override.
@@ -5173,7 +5169,7 @@ export default function BowlingTracker(){
   function getGameFrames(bowler,league,date,game,seq=null){
     const gs=shots.filter(s=>s.bowler===bowler&&s.league===league
       &&String(s.date)===String(date)&&String(s.game)===String(game)
-      &&(seq==null||(s.practiceSeq||1)===seq));
+      &&(seq==null||(Number(s.sessionSeq)||1)===seq));
     return strictPartial(gs);
   }
 
@@ -5183,7 +5179,7 @@ export default function BowlingTracker(){
   // number for practice #2-or-later; undefined (meaning "the plain key")
   // for practice #1 and for every non-practice call.
   function updateManualScore(bowler,league,date,game,value){
-    const seq=(preferences.environment==="practice"&&currentPracticeSeq>1)?currentPracticeSeq:undefined;
+    const seq=currentSessionSeq;
     // Built from a ref, not from the `manualScores` closure value.
     //
     // The scorecard import writes three games in one tick. Reading the
@@ -5203,11 +5199,6 @@ export default function BowlingTracker(){
 
     const leagueId=leagueIdsRef.current[league];
     if(!leagueId)return;
-    // A seq>1 practice's typed score is device-local only for now (see
-    // scoreKey's comment) -- manual_scores has no seq column, so there
-    // is nothing sound to write to the cloud for it yet. Practice #1
-    // keeps syncing exactly as before.
-    if(seq!=null)return;
     clearTimeout(pokerSaveTimers.current[`manual|${bowler}|${date}|${game}`]);
     pokerSaveTimers.current[`manual|${bowler}|${date}|${game}`]=setTimeout(()=>{
       // Only delete a score that WAS there.
@@ -5216,15 +5207,19 @@ export default function BowlingTracker(){
       // rows -- a "write-noop, matched 0 rows" in diagnostics for every
       // empty box touched, three at a time on an import. Harmless, and it
       // buries the noops that mean something.
-      const had=getManualScore(manualScores,bowler,league,date,game);
-      const score=getManualScore(updated,bowler,league,date,game);
+      const had=getManualScore(manualScores,bowler,league,date,game,seq);
+      const score=getManualScore(updated,bowler,league,date,game,seq);
       if(score===null&&had!==null){
-        cloudDelete("manual_scores",{bowler_name:bowler,league_id:leagueId,date,game});
+        cloudDelete("manual_scores",{bowler_name:bowler,league_id:leagueId,date,game,session_seq:seq});
       }
-      // Same: keyed by the natural (user, bowler, league, date, game)
-      // tuple, so correcting a typed score updates instead of colliding.
+      // Keyed by the natural (user, bowler, league, date, game, session)
+      // tuple, so correcting a typed score updates instead of colliding
+      // -- and so the SECOND session of a day gets its own row rather
+      // than overwriting the first's. The column list has to match
+      // manual_scores_slot_key exactly or the upsert has no arbiter.
       else cloudWrite("manual_scores",manualScoreToRow(bowler,leagueId,date,game,score,user?.id||null,
-        getGameEquipment(gameEquipmentRef.current,bowler,league,date,game)),{onConflict:"user_id,bowler_name,league_id,date,game"});
+        getGameEquipment(gameEquipmentRef.current,bowler,league,date,game,seq),seq),
+        {onConflict:"user_id,bowler_name,league_id,date,game,session_seq"});
     },600);
   }
 
@@ -5232,15 +5227,17 @@ export default function BowlingTracker(){
   // manual_scores row; if there's no score yet the row is created with
   // the equipment and a null score, and the score fills in later.
   function updateGameEquipment(bowler,league,date,game,patch){
-    const updated=setGameEquipmentIn(gameEquipmentRef.current,bowler,league,date,game,patch);
+    const seq=currentSessionSeq;
+    const updated=setGameEquipmentIn(gameEquipmentRef.current,bowler,league,date,game,patch,seq);
     gameEquipmentRef.current=updated;
     setGameEquipment(updated);
     try{window.storage.set(GAME_EQUIPMENT_KEY,JSON.stringify(updated));}catch{}
     const leagueId=leagueIdsRef.current[league];
     if(!leagueId)return;
-    const score=getManualScore(manualScoresRef.current,bowler,league,date,game);
+    const score=getManualScore(manualScoresRef.current,bowler,league,date,game,seq);
     cloudWrite("manual_scores",manualScoreToRow(bowler,leagueId,date,game,score,user?.id||null,
-      getGameEquipment(updated,bowler,league,date,game)),{onConflict:"user_id,bowler_name,league_id,date,game"});
+      getGameEquipment(updated,bowler,league,date,game,seq),seq),
+      {onConflict:"user_id,bowler_name,league_id,date,game,session_seq"});
   }
 
   function getSessionTotal(){
@@ -5276,17 +5273,15 @@ export default function BowlingTracker(){
     const bowler=nightBowler, league=nightLeague, date=nightDate;
     const g=parseInt(game);
     if(!league||!bowler||!Number.isFinite(g))return;
-    const isPractice=preferences.environment==="practice";
-    const seq=isPractice?currentPracticeSeq:null;
+    const seq=currentSessionSeq;
 
     const keep=(shots||[]).filter(sh=>!(sh
       &&sh.bowler===bowler&&sh.league===league
       &&String(sh.date)===String(date)&&String(sh.game)===String(g)
-      &&(seq==null||(sh.practiceSeq||1)===seq)));
+      &&(Number(sh.sessionSeq)||1)===seq));
     if(keep.length!==(shots||[]).length)await saveShots(keep);
 
-    const manualSeq=(seq!=null&&seq>1)?seq:undefined;
-    if(getManualScore(manualScoresRef.current,bowler,league,date,g,manualSeq)!=null){
+    if(getManualScore(manualScoresRef.current,bowler,league,date,g,seq)!=null){
       await updateManualScore(bowler,league,date,g,"");
     }
 
@@ -5298,7 +5293,7 @@ export default function BowlingTracker(){
     // to prefer went empty -- and a night's only game, once "deleted",
     // still counted as a saved night for the same reason.
     const existing=sessions.find(s=>s.bowler===bowler&&s.league===league&&String(s.date)===String(date)
-      &&(seq==null||(s.practiceSeq||1)===seq));
+      &&(Number(s.sessionSeq)||1)===seq);
     if(existing){
       const idx=(existing.scores||[]).length-1;
       // Games are NOT renumbered elsewhere in this file, but a session
@@ -5338,19 +5333,17 @@ export default function BowlingTracker(){
   async function cancelSession(){
     const bowler=nightBowler, league=nightLeague, date=nightDate;
     if(!league||!bowler)return;
-    // A cancelled PRACTICE only cancels the one open right now -- not an
-    // earlier practice the same day, which cancelSession's plain
-    // bowler+league+date filters could not otherwise tell apart from
-    // this one.
-    const isPractice=preferences.environment==="practice";
-    const cancelSeq=isPractice?currentPracticeSeq:null;
+    // Cancelling cancels the session open right now -- not an earlier
+    // one the same day, which cancelSession's plain bowler+league+date
+    // filters could not otherwise tell apart from this one.
+    const cancelSeq=currentSessionSeq;
 
     // Shots first. saveShots diffs against the previous list and issues a
     // cloudDelete for every id that disappeared, so this removes them
     // from the cloud as well as the device.
     const keep=(shots||[]).filter(sh=>!(sh
       &&sh.bowler===bowler&&sh.league===league&&String(sh.date)===String(date)
-      &&(cancelSeq==null||(sh.practiceSeq||1)===cancelSeq)));
+      &&(Number(sh.sessionSeq)||1)===cancelSeq));
     if(keep.length!==(shots||[]).length)await saveShots(keep);
 
     // Typed scores, through the normal path so each one's cloud row is
@@ -5362,8 +5355,7 @@ export default function BowlingTracker(){
       :[bowler];
     for(const who of scoreHolders){
       for(let g=1;g<=12;g++){
-        const manualSeq=(cancelSeq!=null&&cancelSeq>1)?cancelSeq:undefined;
-        if(getManualScore(manualScoresRef.current,who,league,date,g,manualSeq)!=null){
+        if(getManualScore(manualScoresRef.current,who,league,date,g,cancelSeq)!=null){
           await updateManualScore(who,league,date,g,"");
         }
       }
@@ -5407,14 +5399,14 @@ export default function BowlingTracker(){
     // Otherwise its scores stay in every average after the shots are gone.
     const sessionsKept=(sessions||[]).filter(x=>!(x
       &&x.bowler===bowler&&x.league===league&&String(x.date)===String(date)
-      &&(cancelSeq==null||(x.practiceSeq||1)===cancelSeq)));
+      &&(Number(x.sessionSeq)||1)===cancelSeq));
     if(sessionsKept.length!==(sessions||[]).length){
       await saveSessions(sessionsKept);
     }
 
-    // This cancelled practice is done with too -- the next one opened
+    // This cancelled session is done with too -- the next one opened
     // today is a new one, same as after Save & Finish.
-    if(isPractice)bumpPracticeSeq(bowler,date);
+    bumpSessionSeq(bowler,league,date);
 
     // Back to a clean slate: no league chosen, no lane, today's date, an
     // empty note and frame one -- then home. The league used to stay
@@ -5524,7 +5516,7 @@ export default function BowlingTracker(){
     // gameScores is already sized to the night. Practice passes its own
     // seq, so filing a night only picks up THIS practice's games, not an
     // earlier one bowled the same day.
-    const fileSeq=preferences.environment==="practice"?currentPracticeSeq:null;
+    const fileSeq=currentSessionSeq;
     const scores=gameScores.map((_,idx)=>idx+1).map(g=>getGameStrict(nightBowler,nightLeague,nightDate,g,fileSeq)).filter(s=>s!=null);
     // A drill-only practice has no games at all -- that is not a failure
     // to file, it is the whole night. Requiring a game here blocked
@@ -5572,11 +5564,10 @@ export default function BowlingTracker(){
     // adding a duplicate — a duplicate would silently double-count this
     // night in every average, the leaderboard, and the season record.
     const existing=sessions.find(s=>s.bowler===activeBowler&&s.league===effectiveSessionLeague&&s.date===sessionDate
-      &&(fileSeq==null||(s.practiceSeq||1)===fileSeq));
+      &&(Number(s.sessionSeq)||1)===fileSeq);
     const session={
       id:existing?existing.id:crypto.randomUUID(),bowler:activeBowler,teamId:ss[0]?.teamId||"",league:effectiveSessionLeague,date:sessionDate,scores,
-      // undefined for every non-practice night, same as an untagged shot.
-      practiceSeq:fileSeq==null?existing?.practiceSeq:fileSeq,
+      sessionSeq:fileSeq,
       notes:sessionNotes||existing?.notes||"",
       total:scores.reduce((a,b)=>a+b,0),
       average:Math.round(scores.reduce((a,b)=>a+b,0)/scores.length),
@@ -5597,11 +5588,11 @@ export default function BowlingTracker(){
   }
 
   function finishNight(){
-    // This practice is DONE -- the next one opened for this bowler on
-    // this date is a new one, not a continuation. Bumped here rather
-    // than when a new practice starts, so the practice already open when
-    // this shipped keeps its current bucket instead of splitting mid-way.
-    if(preferences.environment==="practice")bumpPracticeSeq(activeBowler,sessionDate);
+    // This session is DONE -- the next one opened for this bowler, in
+    // this league, on this date is a new one, not a continuation.
+    // Bumped on finish rather than on start, so a session already open
+    // keeps its own bucket instead of splitting mid-way.
+    bumpSessionSeq(nightBowler,nightLeague,nightDate);
     // Saved -- now HOME. The button reads "Save League & Return Home".
     //
     // It used to jump to Results and stay there. Results is now where the
@@ -7447,14 +7438,12 @@ export default function BowlingTracker(){
     // moment one is bowled. Tournaments keep the floor of three because a
     // block is at least that.
     let highest=preferences.environment==="practice"?1:3;
-    // A shot with no practiceSeq at all predates this concept and reads
-    // as bucket 1, same as an explicit 1 -- so nothing already bowled
-    // moves when this ships. A DIFFERENT bucket number is a shot from
-    // another practice the same day, and belongs to that one, not this.
-    const isPractice=preferences.environment==="practice";
+    // A shot with no sessionSeq predates this concept and reads as
+    // session 1, same as an explicit 1. A DIFFERENT number is a shot
+    // from another session the same day and belongs to that one.
     for(const sh of shots||[]){
       if(sh&&sh.bowler===activeBowler&&sh.league===league&&sh.date===sessionDate
-        &&(!isPractice||(sh.practiceSeq||1)===currentPracticeSeq)){
+        &&(Number(sh.sessionSeq)||1)===currentSessionSeq){
         const n=parseInt(sh.game);
         if(Number.isFinite(n)&&n>highest)highest=n;
       }
@@ -7463,11 +7452,11 @@ export default function BowlingTracker(){
     // practice (floor of one) typed or imported games 2 and 3 were left
     // out -- an imported 201/188/222 practice summarised as one 201.
     for(let n=2;n<=12;n++){
-      if(getGameStrict(nightBowler,nightLeague,nightDate,n,isPractice?currentPracticeSeq:null)!=null)highest=Math.max(highest,n);
+      if(getGameStrict(nightBowler,nightLeague,nightDate,n,currentSessionSeq)!=null)highest=Math.max(highest,n);
     }
     highest=Math.min(12,highest);
     return Array.from({length:highest},(_,i)=>
-      getGameStrict(nightBowler,nightLeague,nightDate,i+1,isPractice?currentPracticeSeq:null));
+      getGameStrict(nightBowler,nightLeague,nightDate,i+1,currentSessionSeq));
   })();
 
   // Same length as gameScores, frames only. Passed to LogView so the
@@ -8789,8 +8778,7 @@ export default function BowlingTracker(){
             scoreOptions={scoreOptions} guests={guests} newGuestName={newGuestName} setNewGuestName={setNewGuestName}
             addGuestBowler={addGuestBowler} removeGuestBowler={removeGuestBowler}
             gameEquipment={gameEquipment} updateGameEquipment={updateGameEquipment}
-            practiceManualSeq={(preferences.environment==="practice"&&currentPracticeSeq>1)?currentPracticeSeq:undefined}
-            practiceSeq={preferences.environment==="practice"?currentPracticeSeq:undefined}
+            sessionSeq={currentSessionSeq}
             badgesEarnedOnNight={badgesEarnedOnNight}
             practiceMode={practiceMode} setPracticeMode={setPracticeMode} activeDrill={activeDrill} setActiveDrill={setActiveDrill} startDrill={startDrill} startAnotherDrill={startAnotherDrill} saveDrill={saveDrill} drillSaved={drillSaved} drills={drills} leftHandedForBowler={leftHandedForBowler}
             envBags={envBags} selectedBagId={effectiveBagId} setSelectedBagId={setSelectedBagId} logBalls={logBalls}
