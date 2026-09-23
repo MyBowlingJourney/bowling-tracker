@@ -1139,6 +1139,7 @@ ALTER TABLE public.teams ADD CONSTRAINT teams_created_by_fkey FOREIGN KEY (creat
 ALTER TABLE public.teams ADD CONSTRAINT teams_league_id_fkey FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE;
 ALTER TABLE public.tournaments ADD CONSTRAINT tournaments_pkey PRIMARY KEY (id);
 ALTER TABLE public.tournaments ADD CONSTRAINT tournaments_match_play_next_round_check CHECK (((match_play_next_round IS NULL) OR (match_play_next_round = ANY (ARRAY['match'::text, 'stepladder'::text, 'na'::text]))));
+ALTER TABLE public.tournaments ADD CONSTRAINT tournaments_placement_check CHECK (((placement IS NULL) OR (placement = ANY (ARRAY['won'::text, 'runnerUp'::text, 'topFive'::text, 'cashed'::text, 'madeCut'::text, 'none'::text]))));
 ALTER TABLE public.tournaments ADD CONSTRAINT tournaments_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.user_preferences ADD CONSTRAINT user_preferences_pkey PRIMARY KEY (user_id);
 ALTER TABLE public.user_preferences ADD CONSTRAINT user_preferences_user_id_key UNIQUE (user_id);

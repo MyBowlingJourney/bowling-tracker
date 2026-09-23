@@ -554,6 +554,7 @@ constraint,teams,teams_league_id_fkey,FOREIGN KEY (league_id) REFERENCES leagues
 constraint,teams,teams_pkey,PRIMARY KEY (id)
 constraint,tournaments,tournaments_match_play_next_round_check,"CHECK (((match_play_next_round IS NULL) OR (match_play_next_round = ANY (ARRAY['match'::text, 'stepladder'::text, 'na'::text]))))"
 constraint,tournaments,tournaments_pkey,PRIMARY KEY (id)
+constraint,tournaments,tournaments_placement_check,"CHECK (((placement IS NULL) OR (placement = ANY (ARRAY['won'::text, 'runnerUp'::text, 'topFive'::text, 'cashed'::text, 'madeCut'::text, 'none'::text]))))"
 constraint,tournaments,tournaments_user_id_fkey,FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
 constraint,user_preferences,user_preferences_pkey,PRIMARY KEY (user_id)
 constraint,user_preferences,user_preferences_user_id_fkey,FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
