@@ -37,6 +37,10 @@ export function emptyStep(stepNumber = 1) {
     yourScore: "",
     opponentScore: "",
     lanePair: "",
+    // The opponent's handicap, per game -- see matchPlay.js. A ladder
+    // step is one game, sudden death, and in a handicap event it is
+    // decided on handicap totals like any other match.
+    opponentHandicap: "",
     // Filled in from the frames rather than typed -- see matchPlay.js.
     scoreAuto: false,
   };
@@ -73,6 +77,14 @@ function gameScore(v) {
   return r < 0 || r > 300 ? null : r;
 }
 
+// A handicap is whole pins, never negative. Blank means none.
+function handicapOf(v) {
+  const n = num(v);
+  if (n === null) return null;
+  const r = Math.round(n);
+  return r < 0 ? null : r;
+}
+
 // A seed is a whole position, 1 or better. Zero and negatives are not
 // seeds, and a fractional one is a typo.
 function seed(v) {
@@ -95,6 +107,8 @@ export function normalizeStep(raw, stepNumber = 1) {
     yourScore: you === null ? "" : String(you),
     opponentScore: them === null ? "" : String(them),
     lanePair: (raw.lanePair || "").toString().trim(),
+    opponentHandicap: raw.opponentHandicap === "" || raw.opponentHandicap == null
+      ? "" : String(handicapOf(raw.opponentHandicap) ?? ""),
     scoreAuto: raw.scoreAuto === true,
   };
 }
@@ -144,13 +158,29 @@ export function setStepladderField(sl, field, value) {
 // step is not a loss. A tie is possible on the lanes and is resolved by
 // a roll-off the app does not model, so it is reported as a tie and
 // stops the ladder from claiming a finish either way.
-export function stepResult(step) {
+// eventHandicapped: see matchPlay.js -- the event decides, not the size
+// of this bowler's own handicap.
+export function stepResult(step, myHandicapPerGame = 0, eventHandicapped = true) {
   const you = gameScore(step?.yourScore);
   const them = gameScore(step?.opponentScore);
   if (you === null || them === null) return null;
-  if (you > them) return "win";
-  if (you < them) return "loss";
+  // Handicap totals, as the sheet compares them. Both default to zero,
+  // so a scratch ladder is unchanged.
+  const mine = you + (handicapOf(myHandicapPerGame) ?? 0);
+  const theirs = them + (eventHandicapped ? (handicapOf(step?.opponentHandicap) ?? 0) : 0);
+  if (mine > theirs) return "win";
+  if (mine < theirs) return "loss";
   return "tie";
+}
+
+// How many pins the step was won or lost by, on handicap totals.
+// Positive when you won. Null when the step is unbowled.
+export function stepMargin(step, myHandicapPerGame = 0, eventHandicapped = true) {
+  const you = gameScore(step?.yourScore);
+  const them = gameScore(step?.opponentScore);
+  if (you === null || them === null) return null;
+  return (you + (handicapOf(myHandicapPerGame) ?? 0))
+    - (them + (eventHandicapped ? (handicapOf(step?.opponentHandicap) ?? 0) : 0));
 }
 
 // Where the ladder left you.
@@ -161,7 +191,7 @@ export function stepResult(step) {
 // number one seed not yet beaten), and place is null then: a bowler two
 // steps up with three to go has no finishing position, and showing one
 // would be a guess.
-export function stepladderResult(sl) {
+export function stepladderResult(sl, myHandicapPerGame = 0, eventHandicapped = true) {
   const base = normalizeStepladder(sl);
   const mySeed = seed(base.yourSeed);
 
@@ -173,7 +203,7 @@ export function stepladderResult(sl) {
   let maxOpponentSeed = null;
 
   for (const step of base.steps) {
-    const r = stepResult(step);
+    const r = stepResult(step, myHandicapPerGame, eventHandicapped);
     if (r === null) continue;
     played += 1;
     scratch += gameScore(step.yourScore) ?? 0;
@@ -219,8 +249,8 @@ export function stepladderResult(sl) {
 }
 
 // One plain line for the recap. Empty while nothing is decided.
-export function describeStepladder(sl) {
-  const r = stepladderResult(sl);
+export function describeStepladder(sl, myHandicapPerGame = 0, eventHandicapped = true) {
+  const r = stepladderResult(sl, myHandicapPerGame, eventHandicapped);
   if (!r.played) return "";
   if (!r.decided) {
     return r.wins

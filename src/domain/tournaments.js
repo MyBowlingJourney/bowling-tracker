@@ -1,5 +1,5 @@
 import { leagueFormat } from "./leagueSeasons.js";
-import { handicapPins, activeHandicapPerGame, scoringBasis, pinFormat, playStyle } from "./tournamentFormats.js";
+import { handicapPins, activeHandicapPerGame, isHandicapEvent, scoringBasis, pinFormat, playStyle } from "./tournamentFormats.js";
 // Tournament sessions.
 //
 // A tournament night is shaped differently enough from a league night that
@@ -135,6 +135,8 @@ export function emptyTournament() {
     // Baker: who you are bowling with, and who throws frame 1.
     bakerPartner: "",
     bakerStarter: "me",
+    // Most Baker squads swap who leads off each game.
+    bakerAlternate: true,
     days: [emptyTournamentDay(1)],
     buyIn: "",
     winnings: "",
@@ -194,6 +196,7 @@ export function normalizeTournament(raw) {
     handicap: raw.handicap ?? "",
     bakerPartner: raw.bakerPartner || "",
     bakerStarter: raw.bakerStarter === "partner" ? "partner" : "me",
+    bakerAlternate: raw.bakerAlternate !== false,
     // Listed here as well as in emptyTournament: this function rebuilds
     // the object field by field, so anything missing HERE is dropped on
     // every save.
@@ -540,7 +543,7 @@ export function phaseGameOffsets(tournament, date) {
 //
 // Returns a PLACEMENTS id or null.
 export function derivedPlacement(tournament) {
-  const r = stepladderResult(tournament?.stepladder);
+  const r = stepladderResult(tournament?.stepladder, activeHandicapPerGame(tournament), isHandicapEvent(tournament));
   if (!r.decided || r.place === null) return null;
   if (r.place === 1) return "won";
   if (r.place === 2) return "runnerUp";
@@ -639,6 +642,7 @@ export function tournamentToRow(t, userId) {
     handicap: num(t.handicap),
     baker_partner: t.bakerPartner || null,
     baker_starter: t.bakerStarter === "partner" ? "partner" : "me",
+    baker_alternate: t.bakerAlternate !== false,
     days: t.days || [],
     buy_in: num(t.buyIn),
     winnings: num(t.winnings),
@@ -672,6 +676,7 @@ export function tournamentFromRow(row) {
     handicap: row.handicap == null ? "" : String(row.handicap),
     bakerPartner: row.baker_partner || "",
     bakerStarter: row.baker_starter === "partner" ? "partner" : "me",
+    bakerAlternate: row.baker_alternate !== false,
     days: row.days || [],
     buyIn: row.buy_in == null ? "" : String(row.buy_in),
     winnings: row.winnings == null ? "" : String(row.winnings),

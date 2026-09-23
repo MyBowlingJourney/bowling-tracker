@@ -25,7 +25,7 @@
 
 import { isPracticeLeagueName, isCasualLeagueName, isTournamentLeagueName, tournamentBaseLeagueName, tournamentLeagueEventName } from "../constants.js";
 import { cutMargin, cutMarginWithCarry, carryBefore } from "./tournaments.js";
-import { handicapPins, activeHandicapPerGame } from "./tournamentFormats.js";
+import { handicapPins, activeHandicapPerGame, isHandicapEvent } from "./tournamentFormats.js";
 import { matchPlayTotals } from "./matchPlay.js";
 import { stepladderResult } from "./stepladder.js";
 
@@ -396,14 +396,14 @@ export function tournamentNightSummary(tournament, day, isFinalDay, nightDate = 
     return !night || d === night;
   };
 
-  const mp = matchPlayTotals(t.matchPlay, activeHandicapPerGame(t));
+  const mp = matchPlayTotals(t.matchPlay, activeHandicapPerGame(t), isHandicapEvent(t));
   if (mp.played && phaseOnThisDay(t.matchPlay?.date)) {
     out.matchPlay = {
       played: mp.played, wins: mp.wins, losses: mp.losses, ties: mp.ties,
       total: mp.total, average: mp.average,
     };
   }
-  const sl = stepladderResult(t.stepladder);
+  const sl = stepladderResult(t.stepladder, activeHandicapPerGame(t), isHandicapEvent(t));
   if (sl.played && phaseOnThisDay(t.stepladder?.date)) {
     out.stepladder = {
       played: sl.played, wins: sl.wins, losses: sl.losses,

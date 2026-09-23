@@ -26,6 +26,16 @@ export function emptyMatch(matchNumber = 1) {
     // Lane pair matters in match play more than qualifying -- you're on
     // one pair with one opponent, and which pair often explains a result.
     lanePair: "",
+    // The opponent's handicap, per game.
+    //
+    // A handicap match is decided on handicap totals, and the two
+    // bowlers rarely carry the same figure. Without this the app could
+    // only compare what was typed: a bowler who wrote scratch scores
+    // saw a match they won by handicap recorded as a loss, and one who
+    // wrote sheet scores had their own average inflated by their
+    // handicap. Now the scratch scores are typed, the handicaps are
+    // named, and the app does the arithmetic.
+    opponentHandicap: "",
     // Your score was filled in from the frames rather than typed. While
     // it is set the tracker keeps the field current; the moment the
     // bowler types over it, it clears and the app stops touching it.
@@ -73,6 +83,14 @@ function gameScore(v) {
   return r < 0 || r > 300 ? null : r;
 }
 
+// A handicap is whole pins, never negative. Blank means none.
+function handicapOf(v) {
+  const n = num(v);
+  if (n === null) return null;
+  const r = Math.round(n);
+  return r < 0 ? null : r;
+}
+
 function bonus(v, fallback) {
   const n = num(v);
   if (n === null) return fallback;
@@ -91,6 +109,8 @@ export function normalizeMatch(raw, matchNumber = 1) {
     yourScore: you === null ? "" : String(you),
     opponentScore: them === null ? "" : String(them),
     lanePair: (raw.lanePair || "").toString().trim(),
+    opponentHandicap: raw.opponentHandicap === "" || raw.opponentHandicap == null
+      ? "" : String(handicapOf(raw.opponentHandicap) ?? ""),
     scoreAuto: raw.scoreAuto === true,
   };
 }
@@ -141,12 +161,22 @@ export function setBonus(mp, field, value) {
 // Result of one match. Returns null when either score is missing -- an
 // unplayed or half-entered match is not a loss, and scoring it as one
 // would understate a bowler mid-block.
-export function matchResult(match) {
+// eventHandicapped: whether the TOURNAMENT adds pins at all. It is not
+// the same question as "is my handicap above zero" -- a bowler carrying
+// a high average has a zero handicap in a handicap event and still
+// concedes their opponent's. Defaults to true so a stored opponent
+// handicap counts unless the event says otherwise.
+export function matchResult(match, myHandicapPerGame = 0, eventHandicapped = true) {
   const you = gameScore(match?.yourScore);
   const them = gameScore(match?.opponentScore);
   if (you === null || them === null) return null;
-  if (you > them) return "win";
-  if (you < them) return "loss";
+  // Decided on the totals the sheet compares, which in a handicap
+  // event means each bowler's scratch game plus their own handicap.
+  // Both default to zero, so a scratch event is unchanged.
+  const mine = you + (handicapOf(myHandicapPerGame) ?? 0);
+  const theirs = them + (eventHandicapped ? (handicapOf(match?.opponentHandicap) ?? 0) : 0);
+  if (mine > theirs) return "win";
+  if (mine < theirs) return "loss";
   return "tie";
 }
 
@@ -159,7 +189,7 @@ export function matchResult(match) {
 // out under-reported a handicapped bowler's block by the handicap times
 // the number of matches. Zero for a scratch event, which is every event
 // that does not pass it.
-export function matchPlayTotals(mp, handicapPerGame = 0) {
+export function matchPlayTotals(mp, handicapPerGame = 0, eventHandicapped = true) {
   const base = normalizeMatchPlay(mp);
   const hcp = Math.max(0, Math.round(num(handicapPerGame) ?? 0));
   const perWin = bonus(base.bonusPerWin, DEFAULT_BONUS_PER_WIN);
@@ -167,7 +197,7 @@ export function matchPlayTotals(mp, handicapPerGame = 0) {
 
   let scratch = 0, wins = 0, losses = 0, ties = 0, played = 0;
   for (const m of base.matches) {
-    const result = matchResult(m);
+    const result = matchResult(m, hcp, eventHandicapped);
     if (result === null) continue;
     played += 1;
     scratch += gameScore(m.yourScore) ?? 0;
@@ -203,12 +233,13 @@ export function matchPlayTotals(mp, handicapPerGame = 0) {
 // opponents by, which says something win/loss alone doesn't. Losing five
 // matches by two pins each is a very different block from losing five by
 // forty.
-export function pinDifferential(mp) {
+export function pinDifferential(mp, myHandicapPerGame = 0, eventHandicapped = true) {
   const base = normalizeMatchPlay(mp);
   let diff = 0, counted = 0;
   for (const m of base.matches) {
-    if (matchResult(m) === null) continue;
-    diff += (gameScore(m.yourScore) ?? 0) - (gameScore(m.opponentScore) ?? 0);
+    const margin = matchMargin(m, myHandicapPerGame, eventHandicapped);
+    if (margin === null) continue;
+    diff += margin;
     counted += 1;
   }
   return counted ? diff : null;
@@ -235,9 +266,13 @@ export const CLOSE_MATCH_MARGIN = 10;
 
 // Signed margin for one match: positive means you won by that much.
 // Null when the match isn't fully entered.
-export function matchMargin(match) {
-  if (matchResult(match) === null) return null;
-  return (gameScore(match.yourScore) ?? 0) - (gameScore(match.opponentScore) ?? 0);
+export function matchMargin(match, myHandicapPerGame = 0, eventHandicapped = true) {
+  if (matchResult(match, myHandicapPerGame, eventHandicapped) === null) return null;
+  // The margin is the gap that decided it, so it carries the same
+  // handicaps the result did.
+  const mine = (gameScore(match.yourScore) ?? 0) + (handicapOf(myHandicapPerGame) ?? 0);
+  const theirs = (gameScore(match.opponentScore) ?? 0) + (handicapOf(match.opponentHandicap) ?? 0);
+  return mine - theirs;
 }
 
 function mean(values) {
@@ -245,10 +280,10 @@ function mean(values) {
   return Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 10) / 10;
 }
 
-export function competitiveness(mp) {
+export function competitiveness(mp, myHandicapPerGame = 0, eventHandicapped = true) {
   const base = normalizeMatchPlay(mp);
   const played = base.matches
-    .map(m => ({ match: m, margin: matchMargin(m) }))
+    .map(m => ({ match: m, margin: matchMargin(m, myHandicapPerGame, eventHandicapped) }))
     .filter(x => x.margin !== null);
 
   if (!played.length) return null;
@@ -279,17 +314,17 @@ export function competitiveness(mp) {
     closeLosses: played.filter(x => x.margin < 0 && Math.abs(x.margin) < CLOSE_MATCH_MARGIN).length,
     biggestWin: best.margin > 0 ? { margin: best.margin, opponent: best.match.opponent, matchNumber: best.match.matchNumber } : null,
     worstLoss: worst.margin < 0 ? { margin: Math.abs(worst.margin), opponent: worst.match.opponent, matchNumber: worst.match.matchNumber } : null,
-    closest: { margin: Math.abs(closest.margin), result: matchResult(closest.match), matchNumber: closest.match.matchNumber },
+    closest: { margin: Math.abs(closest.margin), result: matchResult(closest.match, myHandicapPerGame, eventHandicapped), matchNumber: closest.match.matchNumber },
   };
 }
 
 // One plain sentence for the block. Deliberately descriptive rather than
 // consoling -- "you were close" when someone lost by 40 a match is worse
 // than useless.
-export function describeCompetitiveness(mp) {
-  const c = competitiveness(mp);
+export function describeCompetitiveness(mp, myHandicapPerGame = 0, eventHandicapped = true) {
+  const c = competitiveness(mp, myHandicapPerGame, eventHandicapped);
   if (!c) return "";
-  const t = matchPlayTotals(mp);
+  const t = matchPlayTotals(mp, myHandicapPerGame, eventHandicapped);
 
   if (t.losses === 0 && t.wins > 0) {
     return c.avgWinMargin != null

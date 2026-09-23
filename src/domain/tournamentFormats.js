@@ -99,6 +99,17 @@ export function appliesHandicap(tournament) {
   return scoringBasis(tournament) === "handicap" && handicapPerGame(tournament) > 0;
 }
 
+// Does this event add pins at ALL, regardless of how big this bowler's
+// own handicap is?
+//
+// Distinct from appliesHandicap, which also requires the bowler's own
+// figure to be above zero. A scratch-average bowler in a handicap
+// tournament has a zero handicap and still bowls against opponents who
+// carry one, so anything reading an OPPONENT's handicap asks this.
+export function isHandicapEvent(tournament) {
+  return scoringBasis(tournament) === "handicap";
+}
+
 // The handicap that is actually IN FORCE, per game.
 //
 // handicapPerGame reads the stored number and nothing else -- it stays
@@ -168,11 +179,19 @@ export function bakerFrameOwner(frameNumber, starter) {
 // started with the same bowler, which quietly gave one of them every odd
 // frame all block and made "who is up" wrong from game 2 onwards.
 //
+// Not every house alternates the leadoff, though. Some squads keep the
+// same bowler leading off every game of the block, and in those the
+// swap below would hand each frame to the wrong person from game 2 on
+// -- the exact bug alternation was added to fix, just pointed the other
+// way. So it is a setting, defaulting to alternating because that is
+// what most Baker squads do.
+//
 // gameNumber is 1-based. Anything unreadable falls back to the block's
 // starter, because a wrong name is worse than the default one.
-export function bakerStarterForGame(gameNumber, blockStarter) {
+export function bakerStarterForGame(gameNumber, blockStarter, alternate = true) {
   const g = Number(gameNumber);
   const start = blockStarter === "partner" ? "partner" : "me";
+  if (alternate === false) return start;
   if (!Number.isFinite(g) || g < 1) return start;
   // Odd games keep the block's starter; even games swap.
   const swap = (Math.floor(g) - 1) % 2 === 1;
@@ -180,12 +199,19 @@ export function bakerStarterForGame(gameNumber, blockStarter) {
   return start === "me" ? "partner" : "me";
 }
 
+// Does this tournament alternate who leads off between games?
+// Absent means yes -- an event recorded before this setting existed
+// alternated, and must keep doing so.
+export function bakerAlternates(tournament) {
+  return tournament?.bakerAlternate !== false;
+}
+
 // Who is bowling a given frame of a given game.
 //
 // The one function the scoring screen and the shot context should both
 // ask, so they cannot disagree about whose turn it is.
-export function bakerBowlerFor(gameNumber, frameNumber, blockStarter) {
-  return bakerFrameOwner(frameNumber, bakerStarterForGame(gameNumber, blockStarter));
+export function bakerBowlerFor(gameNumber, frameNumber, blockStarter, alternate = true) {
+  return bakerFrameOwner(frameNumber, bakerStarterForGame(gameNumber, blockStarter, alternate));
 }
 
 export function bakerFramesFor(who, starter) {
@@ -220,10 +246,10 @@ export function isMyBakerFrame(frameNumber, starter) {
 // appearing, how each ball carries. Crediting a partner's frames does not
 // just inflate a number, it teaches the coaching the wrong thing about
 // how someone bowls.
-export function myBakerShots(shots, starter) {
+export function myBakerShots(shots, starter, alternate = true) {
   return (Array.isArray(shots) ? shots : [])
     .filter(s => s && typeof s === "object")
-    .filter(s => bakerBowlerFor(s.game, parseInt(s.frame, 10), starter) === "me");
+    .filter(s => bakerBowlerFor(s.game, parseInt(s.frame, 10), starter, alternate) === "me");
 }
 
 // Does this session's SCORE belong in the bowler's average?
