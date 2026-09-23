@@ -2079,7 +2079,7 @@ export default function LogView({
                               typed scores gave a 600 series an average of
                               600 the moment one game was frame-tracked --
                               or a divide by zero when none were typed. */}
-                          {scoredGames?Math.round(total/scoredGames):"—"}
+                          {scoredGames?Math.floor(total/scoredGames):"—"}
                         </div>
                         <div style={S.statLbl}>Average</div>
                       </div>

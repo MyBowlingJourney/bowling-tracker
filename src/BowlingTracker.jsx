@@ -4110,7 +4110,7 @@ export default function BowlingTracker(){
         date:r.date,
         scores,
         total,
-        average:scores.length?Math.round(total/scores.length):null,
+        average:scores.length?Math.floor(total/scores.length):null,
         notes:"",
       };
     });
@@ -5308,7 +5308,7 @@ export default function BowlingTracker(){
         const ss=shots.filter(sh=>sh.bowler===bowler&&sh.league===league&&sh.date===date);
         const updated={...existing,scores:trimmed,
           total:trimmed.reduce((a,b)=>a+b,0),
-          average:Math.round(trimmed.reduce((a,b)=>a+b,0)/trimmed.length),
+          average:Math.floor(trimmed.reduce((a,b)=>a+b,0)/trimmed.length),
           ...computeSessionStats(ss)};
         await saveSessions(sessions.map(s=>s.id===existing.id?updated:s));
       }
@@ -5570,7 +5570,7 @@ export default function BowlingTracker(){
       sessionSeq:fileSeq,
       notes:sessionNotes||existing?.notes||"",
       total:scores.reduce((a,b)=>a+b,0),
-      average:Math.round(scores.reduce((a,b)=>a+b,0)/scores.length),
+      average:Math.floor(scores.reduce((a,b)=>a+b,0)/scores.length),
       pokerQuarter:existing?.pokerQuarter||[0,0,0],
       pokerDollar:existing?.pokerDollar||[0,0,0],
       threeSixNineWinnings:existing?.threeSixNineWinnings||0,
@@ -6096,7 +6096,7 @@ export default function BowlingTracker(){
           &&t.members.some(m=>m&&(m.name===activeBowler||(user?.id&&m.userId===user.id))));
         return mineTeams.map(t=>t.name).filter(Boolean).join(", ")||null;
       })(),
-      average:scores.length?Math.round(scores.reduce((a,b)=>a+b,0)/scores.length):null,
+      average:scores.length?Math.floor(scores.reduce((a,b)=>a+b,0)/scores.length):null,
 
       highGame:hg?.value??null,
       highSeries:hs?.value??null,
@@ -6190,7 +6190,7 @@ export default function BowlingTracker(){
       // sent. See domain/genie.js for why that line is drawn here.
       teamHighGame:teamHighGame(sessions,"")?.value??null,
       teamHighSeries:teamHighSeries(sessions,"")?.value??null,
-      teamGameAvg:(()=>{const v=teamGameTotalAvg(sessions,"");return v?Math.round(v):null;})(),
+      teamGameAvg:(()=>{const v=teamGameTotalAvg(sessions,"");return v?Math.floor(v):null;})(),
       teamPoints:(()=>{
         const w=weeklyPointsData(matches,"");
         if(!Array.isArray(w)||!w.length)return null;
@@ -6393,7 +6393,7 @@ export default function BowlingTracker(){
       bowler:nightBowler,league:nightLeague,date:nightDate,
       scores,
       total:scores.reduce((a,b)=>a+b,0),
-      average:scores.length?Math.round(scores.reduce((a,b)=>a+b,0)/scores.length):0,
+      average:scores.length?Math.floor(scores.reduce((a,b)=>a+b,0)/scores.length):0,
       pokerQuarter:[0,0,0],pokerDollar:[0,0,0],
       threeSixNineWinnings:0,jackpotWinnings:0,
       highGameWinnings:[0,0,0],
@@ -6435,7 +6435,7 @@ export default function BowlingTracker(){
     const draft={
       id:crypto.randomUUID(),bowler:activeBowler,league:effectiveSessionLeague,date:sessionDate,
       scores,total:scores.reduce((a,b)=>a+b,0),
-      average:scores.length?Math.round(scores.reduce((a,b)=>a+b,0)/scores.length):0,
+      average:scores.length?Math.floor(scores.reduce((a,b)=>a+b,0)/scores.length):0,
       pokerQuarter:[0,0,0],pokerDollar:[0,0,0],threeSixNineWinnings:0,jackpotWinnings:0,
       highGameWinnings:[0,0,0],
       // Costs pre-filled from this league's saved buy-ins, so they never
