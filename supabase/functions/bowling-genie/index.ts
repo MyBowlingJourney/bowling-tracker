@@ -364,28 +364,20 @@ Deno.serve(async (req: Request) => {
 
     if (!res.ok) {
       const detail = await res.text();
-      // Logged, not returned: upstream errors can name models, quotas and
-      // keys, and none of that belongs in a client response.
-      console.error("gemini call failed:", res.status, detail.slice(0, 500));
-      // Pass the CAUSE through, not just the shrug.
+      // The CAUSE goes to the log, and a handle goes to the bowler.
       //
-      // The real Gemini message went to console.error, which nobody
-      // reads, and the bowler got "the lamp went quiet" whether the
-      // model name was wrong, a config field was rejected, or the quota
-      // was gone. Three different fixes, one message.
-      //
-      // Trimmed and prefixed rather than dumped: enough to act on,
-      // without putting raw upstream text in front of a bowler.
-      const why = (() => {
-        try {
-          const parsed = JSON.parse(detail);
-          return String(parsed?.error?.message || "").slice(0, 200);
-        } catch { return ""; }
-      })();
+      // This used to lift error.message out of Google's response and put
+      // it on screen: "the lamp went quiet: <upstream text>". Those
+      // messages name model ids, project numbers and quota metrics --
+      // internal detail a bowler cannot act on and an attacker can learn
+      // from. It was there so a failure could be diagnosed without
+      // reading logs, which is a real need; a request id serves it
+      // without publishing the internals. Same pattern as
+      // import-scorecard.
+      const requestId = crypto.randomUUID().slice(0, 8);
+      console.error(`gemini call failed [${requestId}]:`, res.status, detail.slice(0, 500));
       return json({
-        error: why
-          ? `The lamp went quiet: ${why}`
-          : "The lamp went quiet. Try again in a moment.",
+        error: `The lamp went quiet. Try again in a moment. (ref ${requestId})`,
       }, cors, 502);
     }
 

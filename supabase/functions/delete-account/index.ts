@@ -45,15 +45,28 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { fetchPurchase, cancelSubscription, configured as playConfigured } from "../_shared/playApi.ts";
 import { cancelSubscriptionNow, stripeConfigured } from "../_shared/stripeApi.ts";
 
-// Allowed origins from the ALLOWED_ORIGINS secret, exactly as the other
-// functions do. Falls back to "*" when unset so an unconfigured deploy
-// keeps working rather than locking every request out.
+// Allowed origins from the ALLOWED_ORIGINS secret.
+//
+// NO "*" FALLBACK HERE, unlike the other functions.
+//
+// They fall back to "*" when the secret is unset so an unconfigured
+// deploy keeps working. That trade is fine for reading stats; it is not
+// fine for the one endpoint that erases a bowler's account and cancels
+// their subscription, and cannot be undone. An unset secret is a
+// misconfiguration, and this refuses rather than serving every origin on
+// the internet.
+//
+// The session token is still the thing that authorises the delete -- CORS
+// was never the lock -- but a destructive endpoint should not also be
+// advertising itself to any page that asks.
+function allowedOrigins(): string[] {
+  return (Deno.env.get("ALLOWED_ORIGINS") || "").split(",").map(s => s.trim()).filter(Boolean);
+}
+
 function corsFor(req: Request): Record<string, string> {
-  const configured = (Deno.env.get("ALLOWED_ORIGINS") || "").split(",").map(s => s.trim()).filter(Boolean);
+  const configured = allowedOrigins();
   const origin = req.headers.get("Origin") || "";
-  const allow = configured.length === 0
-    ? "*"
-    : (configured.includes(origin) ? origin : configured[0]);
+  const allow = configured.includes(origin) ? origin : (configured[0] || "");
   return {
     "Access-Control-Allow-Origin": allow,
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -71,6 +84,17 @@ function json(body: unknown, cors: Record<string, string>, status = 200) {
 
 Deno.serve(async (req: Request) => {
   const CORS = corsFor(req);
+
+  // Unconfigured is a refusal, not a free-for-all. Loud in the log,
+  // because nothing else about this failure says why.
+  if (allowedOrigins().length === 0) {
+    console.error("delete-account refused: ALLOWED_ORIGINS is not set");
+    return new Response(
+      JSON.stringify({ error: "Account deletion isn't configured on the server." }),
+      { status: 503, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
   // POST only. A deletion behind a GET is one crawler, one prefetch, or
