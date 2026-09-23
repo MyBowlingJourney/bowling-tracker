@@ -36,8 +36,8 @@
                  autoVerify is what triggers that check, at install
                  time. If assetlinks.json is missing, malformed, or
                  lists the wrong fingerprint, verification fails quietly
-                 and links open in the browser instead -- the old
-                 behaviour, not a broken one.
+                 and links open in the browser instead, which is the
+                 old behaviour rather than a broken one.
 
                  Scoped to /app because the domain root is the public
                  welcome page, which should stay in the browser: someone
