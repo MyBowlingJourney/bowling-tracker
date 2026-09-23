@@ -212,6 +212,14 @@ export function nightShots(shots, { bowler, league, date }) {
 export function nightcapFacts(shots, {
   bowler, league, date, leftHanded = false,
   scores = [], priorAverage = null, pinsLeftOnLane = null,
+  // What else happened at this event: the cut, match play, the
+  // stepladder, side action, and where it finished. Null for a league
+  // night, which has none of them.
+  //
+  // Handed in already computed rather than derived here: every one of
+  // these lives in the tournament record, not in the shots, and this
+  // file only ever sees shots.
+  tournament = null,
 } = {}) {
   const mine = nightShots(shots, { bowler, league, date });
   const firsts = mine.filter(isFirstBall);
@@ -426,6 +434,52 @@ export function nightcapFacts(shots, {
   // per-statistic threshold Insights uses. A bowler four weeks into a
   // season gets tonight and nothing else, which is correct -- there is no
   // season yet to compare against.
+  // ── The rest of the event ─────────────────────────────────────────────
+  //
+  // A tournament block is not the whole story: a bowler who shot 1230,
+  // made the cut by 40, went 4-2 in match play and lost the ladder's
+  // first step has had a day, and a read-back covering only the first of
+  // those describes the least interesting part of it.
+  //
+  // Numbers only. Opponent names never reach the payload -- they are
+  // somebody else's name in a prompt, for no gain.
+  if (tournament && typeof tournament === "object") {
+    const n = v => (typeof v === "number" && Number.isFinite(v) ? Math.round(v) : null);
+
+    const cut = n(tournament.cutMargin);
+    if (cut !== null) add("eventCut", { margin: cut, made: cut >= 0 });
+
+    const mp = tournament.matchPlay;
+    if (mp && n(mp.played) > 0) {
+      add("eventMatchPlay", {
+        played: n(mp.played), wins: n(mp.wins) ?? 0, losses: n(mp.losses) ?? 0,
+        ties: n(mp.ties) ?? 0, bonusPins: n(mp.bonusPins) ?? 0,
+        total: n(mp.total), average: n(mp.average),
+        pinDiff: n(mp.pinDiff),
+      });
+    }
+
+    const sl = tournament.stepladder;
+    if (sl && n(sl.played) > 0) {
+      add("eventStepladder", {
+        played: n(sl.played), wins: n(sl.wins) ?? 0, losses: n(sl.losses) ?? 0,
+        seed: n(sl.seed), place: n(sl.place),
+      });
+    }
+
+    const side = tournament.sidePots;
+    if (side && n(side.count) > 0) {
+      add("eventSide", {
+        entries: n(side.count), cost: n(side.cost) ?? 0,
+        won: n(side.won) ?? 0, net: n(side.net) ?? 0,
+      });
+    }
+
+    if (typeof tournament.placement === "string" && tournament.placement) {
+      add("eventFinish", { placement: tournament.placement });
+    }
+  }
+
   const prior = rateSet(seasonShots(shots, { bowler, league, date }), leftHanded);
   out.seasonNights = prior.nights;
   out.hasSeason = prior.nights >= MIN_NIGHTS_FOR_SEASON;
@@ -530,8 +584,12 @@ export function nightcapPayload(shots, opts = {}) {
   // bowler with the most history, whose night produces the most other
   // facts too. That is exactly backwards: a season figure took months to
   // earn and is the only thing here that a single night cannot say.
-  const season = computed.facts.filter(f => f.id.startsWith("season"));
-  const tonight = computed.facts.filter(f => !f.id.startsWith("season"));
+  // Event facts are kept for the same reason season facts are: they say
+  // what the day WAS. A block's spare percentage is worth less than the
+  // fact that the bowler won the thing.
+  const keep = f => f.id.startsWith("season") || f.id.startsWith("event");
+  const season = computed.facts.filter(keep);
+  const tonight = computed.facts.filter(f => !keep(f));
   const room = Math.max(0, MAX_FACTS - season.length);
 
   const payload = {
@@ -543,7 +601,7 @@ export function nightcapPayload(shots, opts = {}) {
     // Whether any fact below carries a season figure. The prompt reads
     // this to know whether comparison language is available at all -- it
     // is not allowed to reach for it on a night that has none.
-    hasSeason: season.length > 0,
+    hasSeason: season.some(f => f.id.startsWith("season")),
     seasonNights: computed.seasonNights ?? 0,
     facts: [...tonight.slice(0, room), ...season],
   };
