@@ -884,7 +884,7 @@ export default function LogView({
                   const pointsCard=(
                     <div style={{...S.card,flex:1,marginBottom:0,minWidth:0}}>
                       <div style={S.label}>Points Won</div>
-                      <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"8px"}}>4 points per night — 1 per game, 1 for total pinfall. Tap to cycle: not marked → won → lost.</div>
+                      <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"8px"}}>Tap to cycle: not marked → won → lost.</div>
                       <div style={{display:"flex",gap:"6px",flexWrap:"wrap",marginBottom:"6px"}}>
                         {[0,1,2].map(idx=>resultChip(m.games[idx]??null,()=>cycleGameResult(matchKey,cs.league,cs.date,idx),`G${idx+1}`))}
                         {resultChip(m.series??null,()=>cycleSeriesResult(matchKey,cs.league,cs.date),"Pinfall")}
@@ -900,20 +900,26 @@ export default function LogView({
                     <div style={{display:"flex",gap:"8px",alignItems:"stretch",
                       marginBottom:"12px",flexWrap:"wrap"}}>
                       {pointsCard}
-                      <div style={{...S.card,flex:1,marginBottom:0,minWidth:"140px",
+                      {/* A fixed, narrow column. Sharing the row evenly
+                          squeezed the points chips into a stack and made
+                          that card tall enough to dwarf the one number
+                          beside it. The money side needs room for
+                          "-$123.45" and nothing more. */}
+                      <div style={{...S.card,flex:"0 0 134px",marginBottom:0,
                         display:"flex",flexDirection:"column",justifyContent:"center"}}>
-                        <div style={S.label}>Side Games</div>
+                        <div style={{...S.label,whiteSpace:"nowrap"}}>Side Games</div>
                         {/* The sign is carried by the number itself, not
                             only by colour -- "up $12" and "down $12" are
                             different amounts of money, and colour alone
                             does not survive a screenshot or a bowler who
                             cannot tell the two greens apart. */}
-                        <div style={{fontSize:"22px",fontWeight:700,marginTop:"4px",
-                          color:up?C.strike:C.miss,fontVariantNumeric:"tabular-nums"}}>
+                        <div style={{fontSize:"19px",fontWeight:700,marginTop:"4px",
+                          color:up?C.strike:C.miss,fontVariantNumeric:"tabular-nums",
+                          whiteSpace:"nowrap"}}>
                           {up?"+":"−"}${Math.abs(money.net).toFixed(2)}
                         </div>
-                        <div style={{fontSize:"11px",color:C.textMuted,marginTop:"2px",lineHeight:1.4}}>
-                          ${money.gross.toFixed(2)} won · ${money.cost.toFixed(2)} in
+                        <div style={{fontSize:"10px",color:C.textMuted,marginTop:"2px",lineHeight:1.4}}>
+                          ${money.gross.toFixed(2)} won<br/>${money.cost.toFixed(2)} in
                         </div>
                       </div>
                     </div>
