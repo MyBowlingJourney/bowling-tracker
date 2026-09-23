@@ -6408,7 +6408,6 @@ export default function BowlingTracker(){
   const curSession=(()=>{
     const saved=[...sessions].reverse().find(s=>s.bowler===nightBowler
       &&s.league===nightLeague&&s.date===nightDate);
-    if(saved)return saved;
 
     const ss=shots.filter(s=>s&&s.bowler===nightBowler
       &&s.league===nightLeague&&String(s.date)===String(nightDate));
@@ -6421,26 +6420,42 @@ export default function BowlingTracker(){
     //
     // A night needs only a bowler, a league and a date to exist. Without
     // those there is no night to describe, and returning null is right.
-    if(!nightBowler||!nightLeague||!nightDate)return null;
+    if(!nightBowler||!nightLeague||!nightDate)return saved||null;
 
     const scores=[1,2,3].map(g=>getGameStrict(nightBowler,nightLeague,nightDate,g))
       .filter(v=>v!=null);
+
+    // A stored row keeps its id, its money and its note; the SCORING half
+    // is always derived live.
+    //
+    // Entering a buy-in creates a session row before a ball is thrown --
+    // scores:[] and none of the shot stats. Returning that row as-is
+    // shadowed the derived night, so the recap read "0 series" and,
+    // because tenPinLeaves and weakTens were simply absent, "NaN" 10
+    // pins. Overlaying also keeps a filed night honest: its shots and
+    // typed scores still exist, so re-deriving reproduces them, and a
+    // game deleted afterwards drops out instead of lingering.
+    const live={
+      scores,
+      total:scores.reduce((a,b)=>a+b,0),
+      average:scores.length?Math.floor(scores.reduce((a,b)=>a+b,0)/scores.length):0,
+      ...computeSessionStats(ss),
+    };
+    if(saved)return {...saved,...live};
+
     return {
       // No id: this is NOT a row and must never be saved as one. Anything
       // that writes reads the real session or creates it through
       // endSession.
       id:"",
       bowler:nightBowler,league:nightLeague,date:nightDate,
-      scores,
-      total:scores.reduce((a,b)=>a+b,0),
-      average:scores.length?Math.floor(scores.reduce((a,b)=>a+b,0)/scores.length):0,
       pokerQuarter:[0,0,0],pokerDollar:[0,0,0],
       threeSixNineWinnings:0,jackpotWinnings:0,
       highGameWinnings:[0,0,0],
       pokerQuarterCost:[0,0,0],pokerDollarCost:[0,0,0],
       highGameCost:[0,0,0],threeSixNineCost:0,
       inProgress:true,
-      ...computeSessionStats(ss),
+      ...live,
     };
   })();
 

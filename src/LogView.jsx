@@ -864,8 +864,25 @@ export default function LogView({
                       fontSize:"12px",fontWeight:600,cursor:"pointer",WebkitTapHighlightColor:"transparent",
                     }}>{label}{val===true?" \u2713":val===false?" \u2717":""}</button>
                   );
-                  return(
-                    <div style={{...S.card}}>
+                  // Side games sit BESIDE the points, when there were any.
+                  //
+                  // Points and money are the two things a bowler reports
+                  // on the drive home, and they are one glance apart on
+                  // the same night -- so they are one row. A bowler who
+                  // entered no pots gets the points card at full width
+                  // rather than a "$0.00" tile that answers a question
+                  // nobody asked.
+                  //
+                  // Participation is read from the pots AND from what is
+                  // stored, so a night reopened later -- when the tap
+                  // state is long gone but the buy-ins are on the row --
+                  // still shows its money.
+                  const money=sessionMoney(cs);
+                  const inAnyPot=["pokerQuarter","pokerDollar","highGame","threeSixNine"]
+                    .some(k=>potIsIn(cs,k));
+                  const playedMoney=inAnyPot||!!(money&&(money.gross>0||money.cost>0));
+                  const pointsCard=(
+                    <div style={{...S.card,flex:1,marginBottom:0,minWidth:0}}>
                       <div style={S.label}>Points Won</div>
                       <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"8px"}}>4 points per night — 1 per game, 1 for total pinfall. Tap to cycle: not marked → won → lost.</div>
                       <div style={{display:"flex",gap:"6px",flexWrap:"wrap",marginBottom:"6px"}}>
@@ -875,6 +892,30 @@ export default function LogView({
                       {pointsMarked>0&&(
                         <div style={{fontSize:"12px",fontWeight:600,color:C.accent}}>{pointsWon} of 4 points</div>
                       )}
+                    </div>
+                  );
+                  if(!playedMoney)return <div style={{marginBottom:"12px"}}>{pointsCard}</div>;
+                  const up=money.net>=0;
+                  return(
+                    <div style={{display:"flex",gap:"8px",alignItems:"stretch",
+                      marginBottom:"12px",flexWrap:"wrap"}}>
+                      {pointsCard}
+                      <div style={{...S.card,flex:1,marginBottom:0,minWidth:"140px",
+                        display:"flex",flexDirection:"column",justifyContent:"center"}}>
+                        <div style={S.label}>Side Games</div>
+                        {/* The sign is carried by the number itself, not
+                            only by colour -- "up $12" and "down $12" are
+                            different amounts of money, and colour alone
+                            does not survive a screenshot or a bowler who
+                            cannot tell the two greens apart. */}
+                        <div style={{fontSize:"22px",fontWeight:700,marginTop:"4px",
+                          color:up?C.strike:C.miss,fontVariantNumeric:"tabular-nums"}}>
+                          {up?"+":"−"}${Math.abs(money.net).toFixed(2)}
+                        </div>
+                        <div style={{fontSize:"11px",color:C.textMuted,marginTop:"2px",lineHeight:1.4}}>
+                          ${money.gross.toFixed(2)} won · ${money.cost.toFixed(2)} in
+                        </div>
+                      </div>
                     </div>
                   );
                 })()}
