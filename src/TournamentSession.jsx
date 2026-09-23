@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { PLACEMENTS } from "./domain/achievements.js";
-import { C, S, Chip, CollapsibleCard, LockedNote } from "./ui.jsx";
+import { C, S, Chip, CollapsibleCard, LockedNote, StatLead } from "./ui.jsx";
 import {
   addGame, removeGame, setGameField, addDay, removeDay, setDayField, updateDay,
   dayTotal, dayAverage, dayGamesEntered, cutMargin,
@@ -500,6 +500,11 @@ function DayScoring({ tournament, day, onChange, multiDay, shotScores, shotScore
 // is one row with entries=4, not four rows.
 function SidePots({ tournament, onChange }) {
   const [open, setOpen] = useState(true);
+  // Confirmation flash only, matching league > Side games: the value is
+  // already written on every keystroke through onChange. The button
+  // exists because a bowler who types a figure and walks away has no
+  // other signal that it landed.
+  const [wSaved, setWSaved] = useState(false);
   const pots = tournament.sidePots || [];
   const totals = sidePotTotals(pots);
 
@@ -593,6 +598,24 @@ function SidePots({ tournament, onChange }) {
           </button>
         ))}
       </div>
+
+      {/* The total, read the way league > Side games reads it: won
+          leads, paid-in and net are its detail. The small figure beside
+          the card header was easy to miss and easy to misread as one
+          row's net. */}
+      {totals.count > 0 && (
+        <div style={{ marginTop: "12px", paddingTop: "10px", borderTop: `1px solid ${C.border}` }}>
+          <StatLead
+            value={`$${totals.won.toFixed(2)}`}
+            caption="won in brackets" color={C.strike}
+            detail={`$${totals.cost.toFixed(2)} paid in — ${totals.net >= 0 ? "up" : "down"} $${Math.abs(totals.net).toFixed(2)} on side action.`} />
+        </div>
+      )}
+
+      <button style={{ ...S.btn("primary"), marginTop: "4px" }}
+        onClick={() => { setWSaved(true); setTimeout(() => setWSaved(false), 1500); }}>
+        {wSaved ? "✓ Winnings Saved" : "Save Winnings"}
+      </button>
       </>)}
     </div>
   );
@@ -1134,7 +1157,7 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
       <CollapsibleCard title="Entry &amp; Winnings" expanded={isOpen("money")} onToggle={() => toggle("money")}>
         <div style={S.row}>
           <div style={{ flex: 1 }}>
-            {fieldLabel("Buy-in $")}
+            {fieldLabel("Tournament buy in $")}
             <input style={S.input} type="number" inputMode="decimal" placeholder="0"
               value={tournament.buyIn} onChange={e => onChange({ ...tournament, buyIn: e.target.value })} />
           </div>
@@ -1164,27 +1187,37 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
                 the rest of the app uses for a miss and a strike. */}
             <div style={{ fontSize: "12px", marginBottom: "6px" }}>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: C.textMuted }}>Buy-in</span>
+                <span style={{ color: C.textMuted }}>Tournament buy in</span>
                 <span style={{ color: C.miss, fontWeight: 600 }}>
                   −${Math.abs(money.buyIn || 0).toFixed(2)}
                 </span>
               </div>
+              {/* Winnings show even at zero once there was a buy-in:
+                  a blank line reads as "not entered yet", and "I paid
+                  and cashed nothing" is the answer most nights. */}
               <div style={{ display: "flex", justifyContent: "space-between", marginTop: "2px" }}>
-                <span style={{ color: C.textMuted }}>Winnings</span>
+                <span style={{ color: C.textMuted }}>Tournament winnings</span>
                 <span style={{ color: C.strike, fontWeight: 600 }}>
                   +${Math.abs(money.winnings || 0).toFixed(2)}
                 </span>
               </div>
-              {/* Side action stays on its own line -- it is a different
-                  pot, and the Brackets tab is where it is entered. */}
-              {money.side.count > 0 && (
+              {/* Side action on its own two lines, for the same reason
+                  the entry is split: one blended net hides what it
+                  cost. Entered on the Brackets tab. */}
+              {(money.side.count > 0 || money.side.cost !== 0) && (<>
                 <div style={{ display: "flex", justifyContent: "space-between", marginTop: "2px" }}>
-                  <span style={{ color: C.textMuted }}>Brackets &amp; side pots</span>
-                  <span style={{ color: money.side.net >= 0 ? C.strike : C.miss }}>
-                    {money.side.net < 0 ? "−" : "+"}${Math.abs(money.side.net).toFixed(2)}
+                  <span style={{ color: C.textMuted }}>Brackets buy in</span>
+                  <span style={{ color: C.miss, fontWeight: 600 }}>
+                    −${Math.abs(money.side.cost || 0).toFixed(2)}
                   </span>
                 </div>
-              )}
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: "2px" }}>
+                  <span style={{ color: C.textMuted }}>Brackets winnings</span>
+                  <span style={{ color: C.strike, fontWeight: 600 }}>
+                    +${Math.abs(money.side.won || 0).toFixed(2)}
+                  </span>
+                </div>
+              </>)}
             </div>
             <div style={{ textAlign: "center", fontSize: "13px", fontWeight: 700,
               color: money.net >= 0 ? C.strike : C.miss,
