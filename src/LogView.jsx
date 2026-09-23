@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, lazy, Suspense} from "react";
+import { useState, useRef, useEffect, useMemo, lazy, Suspense} from "react";
 import { C, S, F, Chip, PinDeck, CollapsibleCard, StatLead } from "./ui.jsx";
 import { PLASTIC_BALL, formatDate, localDateString, RESULTS, SURFACES, RELEASES, MISSES, BALL_CHANGE_REASONS, resultsForHandedness, storedResultFor, strikeDescriptionsForHand, storedStrikeDescriptionFor, practiceLeagueDisplayName } from "./constants.js";
 import { rAvg, cAvg, threeSixNineResults, cumulativeAvgBeforeDate } from "./domain/stats.js";
@@ -88,6 +88,18 @@ export default function LogView({
   //     need the separate ball and surface cards under them.
   const env=preferences.environment;
   const isDrill=env==="practice"&&practiceMode==="drill";
+  // Is there anything on the Results tab yet? Same question the results
+  // card itself asks, asked one place earlier so the chip can hide until
+  // the answer is yes -- a tab whose only content is "nothing here"
+  // reads as a broken tab, and it was also where bowlers went looking
+  // for the Save Drill button that actually lives on Drill.
+  const practiceHasResults=useMemo(()=>{
+    if(env!=="practice"||!activeBowler)return false;
+    try{
+      return !practiceSummary({sessions,liveScores:gameScores,drills,
+        bowler:activeBowler,date:sessionDate}).didNothing;
+    }catch{ return false; }
+  },[env,activeBowler,sessions,gameScores,drills,sessionDate]);
   // Extra game rows the bowler asked for beyond what's been entered.
   // Session-local: a practice where you added a 4th game shouldn't make
   // every future session start with four empty boxes.
@@ -1249,8 +1261,10 @@ export default function LogView({
                       neither had a place to see how it went -- the only
                       way to read a practice was to end it and hope the
                       recap covered it. */}
-                  <Chip label="Results" selected={practiceMode==="results"}
-                    onToggle={()=>setPracticeMode("results")} />
+                  {(practiceHasResults||practiceMode==="results")&&(
+                    <Chip label="Results" selected={practiceMode==="results"}
+                      onToggle={()=>setPracticeMode("results")} />
+                  )}
                 </div>
                 {/* Tracking depth for THIS practice only. It changes what the
                     Log tab shows tonight and nothing in Settings, so a
@@ -3890,8 +3904,15 @@ export default function LogView({
                 -- had nothing between it and the sticky bar and got cut
                 off at the bottom. A spacer only clears what precedes it. */}
           {env==="casual"&&casualSpacer>0&&<div style={{height:`${casualSpacer}px`}}/>}
+          {/* The bar is FIXED 64px up from the bottom, above the nav, so
+              the last card has to clear both of them, not just the bar.
+              Reserving footerHeight alone left the final cards -- Shoes,
+              Execution, Cancel Practice -- under the furniture on taller
+              phones. */}
           {(editingId||(activeBowler&&effectiveSessionLeague))&&(
-            <div style={{height:footerShown?`${footerHeight}px`:"76px"}}/>
+            <div style={{height:footerShown
+              ?`calc(${footerHeight}px + 76px + env(safe-area-inset-bottom, 0px))`
+              :"calc(76px + env(safe-area-inset-bottom, 0px))"}}/>
           )}
 
           {/* The bar shows while EDITING too.
@@ -3977,7 +3998,18 @@ export default function LogView({
                   setCasualResultsShown(true);
                   setCasualTab("results");
                 }
-                else if(env==="practice")setPracticeMode("results");
+                else if(env==="practice"){
+                  // Ending practice files the drill in progress too.
+                  // Save Drill lives on the Drill tab and is easy to walk
+                  // past, and a drill that wasn't saved never reached the
+                  // Results tab -- so the bowler arrived at an empty
+                  // recap of a practice they had just finished. Only a
+                  // drill with attempts on it; an untouched one is not a
+                  // thing that happened.
+                  const att=Number(activeDrill?.made||0)+Number(activeDrill?.missed||0);
+                  if(att>0&&typeof saveDrill==="function"){ try{ saveDrill(); }catch{} }
+                  setPracticeMode("results");
+                }
                 else if(env==="tournament")setTournamentTab("results");
                 else setLeagueTabChoice("results");
                 try{window.scrollTo({top:0});}catch{}
