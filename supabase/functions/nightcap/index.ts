@@ -87,7 +87,7 @@ const RESPONSE_SCHEMA = {
     // field is the exact failure this feature exists to avoid.
     nudge: {
       type: "string",
-      description: "One conditional suggestion for next time out, or omit entirely when the facts do not support one.",
+      description: "One conditional suggestion for next time out -- for a tournament, for the next tournament rather than the next block. Omit entirely when the facts do not support one.",
     },
   },
   required: ["opener", "notes"],
@@ -112,6 +112,8 @@ HARD RULES
 
 THE NUDGE
 At most one, and only when a fact actually supports it. Phrase it as a condition the bowler can check against what they felt, never as a verdict: "if you were coming up heavy, that is the adjustment to make earlier next time" -- not "you were coming up heavy". If nothing supports a nudge, omit the field. A clean night is allowed to just be a clean night.
+
+WHEN THE NUDGE APPLIES. A league night's nudge looks ahead to next week. A tournament's looks ahead to the NEXT TOURNAMENT, not the next block: by the time a bowler reads this the event is finished -- they have been cut, or they have won it -- and telling them what to fix in the block they just stopped bowling is advice they cannot use. Say "next tournament" or "next time out". Never "next block", "the next block" or "later today".
 
 EVENT
 A tournament block may also carry facts about the rest of the event -- the cut, match play, the stepladder, brackets and side pots, and where it finished. They are the day, not a footnote: a bowler who made the cut, went 4-2 and lost the ladder's first step has had a day, and a read-back covering only the qualifying scores describes the least interesting part of it. Where one of those facts is present it belongs in the notes ahead of a spare percentage, and a finish -- won it, runner-up, top five -- belongs in the opener. Never invent one: most blocks have none of them, and their absence means the bowler's day ended at qualifying.
@@ -374,7 +376,7 @@ Deno.serve(async (req) => {
     const earlier = tournament ? "earlier blocks of this event" : "earlier nights in this league";
     const userPrompt = [
       tournament
-        ? "This was ONE BLOCK OF A TOURNAMENT, not a league night. Call it a block, not a night, and never refer to a league, a team, standings or next week -- a tournament is bowled against a cut and a field, and the next block may be an hour away. A season figure here spans earlier blocks of THIS event, not a league season."
+        ? "This was a TOURNAMENT, not a league night. Call the qualifying games a block rather than a night, and never refer to a league, a team, standings or next week. The event is over by the time this is read, so any nudge is for the NEXT TOURNAMENT -- never for the next block of this one. A season figure here spans earlier blocks of THIS event, not a league season."
         : "This was a league night.",
       `Games: ${games ?? "unknown"}. First balls logged: ${firstBalls ?? "unknown"}.`,
       payload?.hasSeason
