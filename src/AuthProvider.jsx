@@ -132,17 +132,31 @@ export function AuthProvider({ children }) {
 
   const PREFERENCES_KEY = 'bowling-preferences-v1';
 
-  // Loads whatever's cached on this device immediately, before any network
-  // round trip and regardless of sign-in state. This is what lets Settings
-  // work the instant the app opens.
+  // Loads whatever's cached on this device, as soon as we know WHOSE
+  // device this is.
+  //
+  // It used to run on mount with an empty dependency list, which is one
+  // tick before getSession() resolves and setStorageUser names the
+  // bowler. scopedStorage falls back to the unscoped key when nobody is
+  // set, so the first read of every cold start reached across accounts:
+  // sign in as a second bowler on a shared phone and you inherited the
+  // first one's theme and Settings toggles.
+  //
+  // Waiting for `loading` to clear costs nothing visible -- that is the
+  // same instant the app decides what to render -- and it means this
+  // reads the signed-in bowler's own preferences, or the signed-out
+  // device's, and never one in place of the other.
   useEffect(() => {
+    if (loading) return;
+    let cancelled = false;
     (async () => {
       try {
         const cached = await window.storage.get(PREFERENCES_KEY);
-        if (cached) setPreferences(normalizePreferences(JSON.parse(cached.value)));
+        if (!cancelled && cached) setPreferences(normalizePreferences(JSON.parse(cached.value)));
       } catch {}
     })();
-  }, []);
+    return () => { cancelled = true; };
+  }, [loading, session?.user?.id]);
 
   // Same pattern for preferences -- stored as one JSONB blob per user
   // rather than a fixed set of columns, since the toggle set is expected

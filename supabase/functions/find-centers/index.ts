@@ -204,7 +204,15 @@ Deno.serve(async (req) => {
   try {
     const { query, lat, lng } = await req.json();
 
-    const q = (query ?? "").toString().trim();
+    // Bounded before it becomes a URL to a metered third party.
+    //
+    // HERE bills per call and a centre's name is a few words; a caller
+    // sending kilobytes is not searching for a bowling alley. Truncated
+    // rather than refused, because a long paste is far more likely to be
+    // a slip than an attack, and a search that quietly works on the first
+    // 120 characters is the friendlier failure.
+    const MAX_QUERY = 120;
+    const q = (query ?? "").toString().trim().slice(0, MAX_QUERY);
     // Without a location to search near, HERE has no idea where to look.
     // Requiring one is better than silently returning centres in another
     // state.

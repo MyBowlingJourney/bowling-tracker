@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { profileSearchPattern } from "./domain/profileSearch.js";
 import { useAuth } from "./AuthProvider.jsx";
 import { cloudUpdate, cloudRead, cloudWrite, cloudInsert, cloudDelete } from "./syncQueue.js";
 import { generateSignupCode } from "./domain/signupCodes.js";
@@ -493,8 +494,13 @@ export default function TeamManagement({
       return;
     }
     searchTimers.current[teamId] = setTimeout(async () => {
+      const pattern = profileSearchPattern(term);
+      if (!pattern) {
+        setSearchState(prev => ({ ...prev, [teamId]: { term, results: [], searching: false } }));
+        return;
+      }
       const { data, online } = await cloudRead("profiles", q =>
-        q.select("id,display_name").ilike("display_name", `%${term.trim()}%`).limit(8)
+        q.select("id,display_name").ilike("display_name", pattern).limit(8)
       );
       setSearchState(prev => ({ ...prev, [teamId]: { term, results: online && data ? data : [], searching: false } }));
     }, 300);

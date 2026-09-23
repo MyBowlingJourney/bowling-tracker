@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, Suspense } from "react";
+import { profileSearchPattern } from "./domain/profileSearch.js";
 import appLogo from "../mbj-logo-512.png";
 // lazyScreen instead of React.lazy: a deploy while the app is open
 // replaces every content-hashed chunk, and a page already loaded asks
@@ -3443,7 +3444,9 @@ export default function BowlingTracker(){
     if(!term.trim()){setCoachSearchResults([]);setCoachSearching(false);return;}
     setCoachSearching(true);
     coachSearchTimer.current=setTimeout(async()=>{
-      const{data,online}=await cloudRead("profiles",q=>q.select("id,display_name").ilike("display_name",`%${term.trim()}%`).limit(8),{paginate:false});
+      const pattern=profileSearchPattern(term);
+      if(!pattern){setCoachSearchResults([]);setCoachSearching(false);return;}
+      const{data,online}=await cloudRead("profiles",q=>q.select("id,display_name").ilike("display_name",pattern).limit(8),{paginate:false});
       setCoachSearchResults((online&&data)?data.filter(p=>p.id!==user?.id):[]);
       setCoachSearching(false);
     },300);

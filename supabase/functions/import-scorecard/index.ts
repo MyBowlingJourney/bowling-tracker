@@ -518,6 +518,21 @@ Deno.serve(async (req) => {
       });
     }
 
+    // An id the bowler can quote and the logs can be searched by.
+    //
+    // Replaces returning the exception text: a stack trace or a raw
+    // upstream payload tells an attacker about the server and tells a
+    // bowler nothing. An id tells the bowler nothing either, which is the
+    // point -- it is a handle into logs they cannot read.
+    const requestId = crypto.randomUUID().slice(0, 8);
+
+    // Declared FIRST, before anything that might return early.
+    //
+    // It used to sit below the rate-limit check, which referenced it --
+    // so the one branch that reports "the limiter is unavailable" threw a
+    // ReferenceError instead of returning its 503, and the outer catch
+    // turned that into a generic 500. It fails closed either way; the
+    // bowler just never got the message that says to try again shortly.
     // Paid, and checked here rather than only in the browser.
     //
     // This was briefly a free allowance of one import a week. It came out
@@ -569,13 +584,6 @@ Deno.serve(async (req) => {
     //
     // Neither is required. A request with neither behaves exactly as it
     // did before, which is the fallback when counting fails.
-    // An id the bowler can quote and the logs can be searched by.
-    //
-    // Replaces returning the exception text: a stack trace or a raw
-    // upstream payload tells an attacker about the server and tells a
-    // bowler nothing. An id tells the bowler nothing either, which is the
-    // point -- it is a handle into logs they cannot read.
-    const requestId = crypto.randomUUID().slice(0, 8);
 
     const { images, mode, onlyGame, detailed, totalsOnly } = await req.json();
 
