@@ -191,7 +191,7 @@ function blockWord(opts?: RenderOptions, n = 2) {
   return isTournament(opts) ? (n === 1 ? "block" : "blocks") : (n === 1 ? "night" : "nights");
 }
 // And what THIS one is called, in a sentence about right now.
-function nowWord(opts?: RenderOptions) { return isTournament(opts) ? "This block" : "Tonight"; }
+function nowWord(opts?: RenderOptions) { return isTournament(opts) ? "This tournament" : "Tonight"; }
 type Renderer = (f: Record<string, unknown>, opts?: RenderOptions) => string | null;
 
 export const RENDERERS: Record<string, Renderer> = {
@@ -199,7 +199,7 @@ export const RENDERERS: Record<string, Renderer> = {
     const scores = arr(f.scores).map(v => int(v, 0, 300)).filter((v): v is number => v !== null);
     const total = count(f.total), avg = int(f.avg, 0, 300), games = int(f.games, 1, 30);
     if (!scores.length || total === null || avg === null || games === null) return null;
-    return `Scores ${isTournament(opts) ? "this block" : "tonight"}: ${scores.join(", ")} — ${total} series, ${avg} average over ${games} ${plural(games, "game", "games")}.`;
+    return `Scores ${isTournament(opts) ? "this tournament" : "tonight"}: ${scores.join(", ")} — ${total} series, ${avg} average over ${games} ${plural(games, "game", "games")}.`;
   },
 
   vsAverage(f, opts) {
@@ -389,7 +389,7 @@ export const RENDERERS: Record<string, Renderer> = {
     if (total !== null) bits.push(`${total} with bonus`);
     let line = `${bits.join(", ")}.`;
     if (diff !== null && diff !== 0) {
-      line += ` ${diff > 0 ? "Outscored" : "Outscored by"} their opponents by ${Math.abs(diff)} pins across the block.`;
+      line += ` ${diff > 0 ? "Outscored" : "Outscored by"} their opponents by ${Math.abs(diff)} pins.`;
     }
     return line;
   },

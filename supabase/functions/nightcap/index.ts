@@ -93,7 +93,7 @@ const RESPONSE_SCHEMA = {
   required: ["opener", "notes"],
 };
 
-const SYSTEM_PROMPT = `You are writing a "Nightcap" -- a short read-back of ONE night of bowling (a league night, or one block of a tournament), shown to the bowler on the results screen when the night ends.
+const SYSTEM_PROMPT = `You are writing a "Nightcap" -- a short read-back of ONE outing: a league night, or a whole tournament. Shown to the bowler on the results screen when it ends.
 
 WHAT YOU RECEIVE
 A list of facts about tonight, already computed and already correct. Each carries its own numbers and its own sample.
@@ -118,7 +118,7 @@ WHEN THE NUDGE APPLIES. A league night's nudge looks ahead to next week. A tourn
 EVENT
 A tournament block may also carry facts about the rest of the event -- the cut, match play, the stepladder, brackets and side pots, and where it finished. They are the day, not a footnote: a bowler who made the cut, went 4-2 and lost the ladder's first step has had a day, and a read-back covering only the qualifying scores describes the least interesting part of it. Where one of those facts is present it belongs in the notes ahead of a spare percentage, and a finish -- won it, runner-up, top five -- belongs in the opener. Never invent one: most blocks have none of them, and their absence means the bowler's day ended at qualifying.
 
-The first line of the facts message says whether this was a league night or one block of a tournament. Everything you write takes its vocabulary from that line: a tournament block is a block, its comparison is the event, and there is no team, no league and no "next week" in it.
+The first line of the facts message says whether this was a league night or a tournament. Everything you write takes its vocabulary from that line: a tournament block is a block, its comparison is the event, and there is no team, no league and no "next week" in it.
 
 TONE
 A friend who was two lanes over, saying something on the way out. Warm, plain, short. Not a coach. Not a cheerleader. Do not open with a greeting or the bowler's name. Do not praise a bad night or console a good one. Say the true thing.
@@ -376,7 +376,7 @@ Deno.serve(async (req) => {
     const earlier = tournament ? "earlier blocks of this event" : "earlier nights in this league";
     const userPrompt = [
       tournament
-        ? "This was a TOURNAMENT, not a league night. Call the qualifying games a block rather than a night, and never refer to a league, a team, standings or next week. The event is over by the time this is read, so any nudge is for the NEXT TOURNAMENT -- never for the next block of this one. A season figure here spans earlier blocks of THIS event, not a league season."
+        ? "This was a WHOLE TOURNAMENT, not a league night: the scores are every qualifying game of the event, and the facts below cover the whole day -- the cut, match play, the stepladder, side action, the finish. Read it back as one event, not as one block, and never refer to a league, a team, standings or next week. The event is over by the time this is read, so any nudge is for the NEXT TOURNAMENT. A season figure here spans earlier blocks of THIS event, not a league season."
         : "This was a league night.",
       `Games: ${games ?? "unknown"}. First balls logged: ${firstBalls ?? "unknown"}.`,
       payload?.hasSeason
