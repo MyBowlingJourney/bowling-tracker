@@ -87,7 +87,7 @@ const RESPONSE_SCHEMA = {
     // field is the exact failure this feature exists to avoid.
     nudge: {
       type: "string",
-      description: "One conditional suggestion for next week, or omit entirely when the facts do not support one.",
+      description: "One conditional suggestion for next time out, or omit entirely when the facts do not support one.",
     },
   },
   required: ["opener", "notes"],
@@ -111,7 +111,10 @@ HARD RULES
 8. TEAM BANTER. Facts starting "Team banter" are about the whole team's night, not this bowler's game. If one is there it is usually worth a note: mention it lightly, the way teammates would rib each other on the way out -- name the teammate, and say "you" for "this bowler". Being hung is bad luck, not a failing. A missed lone 5 means a round owed; say who owes it, never how many drinks or anything about drinking beyond that. Never turn either into advice.
 
 THE NUDGE
-At most one, and only when a fact actually supports it. Phrase it as a condition the bowler can check against what they felt, never as a verdict: "if you were coming up heavy, that is the adjustment to make earlier next week" -- not "you were coming up heavy". If nothing supports a nudge, omit the field. A clean night is allowed to just be a clean night.
+At most one, and only when a fact actually supports it. Phrase it as a condition the bowler can check against what they felt, never as a verdict: "if you were coming up heavy, that is the adjustment to make earlier next time" -- not "you were coming up heavy". If nothing supports a nudge, omit the field. A clean night is allowed to just be a clean night.
+
+EVENT
+The first line of the facts message says whether this was a league night or one block of a tournament. Everything you write takes its vocabulary from that line: a tournament block is a block, its comparison is the event, and there is no team, no league and no "next week" in it.
 
 TONE
 A friend who was two lanes over, saying something on the way out. Warm, plain, short. Not a coach. Not a cheerleader. Do not open with a greeting or the bowler's name. Do not praise a bad night or console a good one. Say the true thing.
@@ -340,7 +343,15 @@ Deno.serve(async (req) => {
       return json({ error: "Payload too large." }, CORS, 413);
     }
 
-    const facts = renderFacts(rawFacts, { ballNames: NAME_BALLS, teamNames: NAME_TEAMMATES });
+    // The renderer words a block as a block. Read here rather than
+    // inside render.ts so the allowlist below is the only place the
+    // client's value is interpreted.
+    const isTournamentEvent = payload?.event === "tournament";
+    const facts = renderFacts(rawFacts, {
+      ballNames: NAME_BALLS,
+      teamNames: NAME_TEAMMATES,
+      event: isTournamentEvent ? "tournament" : "league",
+    });
 
     // Defence in depth. The client already refuses to call with a thin
     // night, but an empty fact list must never reach the model: there
@@ -357,10 +368,12 @@ Deno.serve(async (req) => {
     // League night or tournament block. Read from a two-value allowlist:
     // anything else is a league night, so nothing the client sends here
     // can reach the prompt as text.
-    const tournament = payload?.event === "tournament";
+    const tournament = isTournamentEvent;
     const earlier = tournament ? "earlier blocks of this event" : "earlier nights in this league";
     const userPrompt = [
-      `This was ${tournament ? "one block of a tournament" : "a league night"}.`,
+      tournament
+        ? "This was ONE BLOCK OF A TOURNAMENT, not a league night. Call it a block, not a night, and never refer to a league, a team, standings or next week -- a tournament is bowled against a cut and a field, and the next block may be an hour away. A season figure here spans earlier blocks of THIS event, not a league season."
+        : "This was a league night.",
       `Games: ${games ?? "unknown"}. First balls logged: ${firstBalls ?? "unknown"}.`,
       payload?.hasSeason
         ? `Season context IS available: ${seasonNights ?? "several"} ${earlier}. Facts beginning "Season" carry it.`

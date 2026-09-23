@@ -167,22 +167,38 @@ function countedList(items: unknown[], valueOf: (v: unknown) => string | null, c
 // numbers it needs are missing or out of range -- a fact that cannot be
 // rendered correctly is not rendered at all, because a sentence with a
 // hole in it is worse than one fewer fact.
-export type RenderOptions = { ballNames?: boolean; teamNames?: boolean };
+export type RenderOptions = { ballNames?: boolean; teamNames?: boolean; event?: string };
+
+// A league night and a tournament block are the same shape of data and
+// different words. The facts carry figures, not wording, so the wording
+// lives here -- and a tournament read back as "their league average
+// across 6 nights" is the whole feature sounding like it was not paying
+// attention.
+function isTournament(opts?: RenderOptions) { return opts?.event === "tournament"; }
+// What the season figure is a season OF.
+function scopeWord(opts?: RenderOptions) { return isTournament(opts) ? "event" : "league"; }
+// What one of those samples is called.
+function blockWord(opts?: RenderOptions, n = 2) {
+  return isTournament(opts) ? (n === 1 ? "block" : "blocks") : (n === 1 ? "night" : "nights");
+}
+// And what THIS one is called, in a sentence about right now.
+function nowWord(opts?: RenderOptions) { return isTournament(opts) ? "This block" : "Tonight"; }
 type Renderer = (f: Record<string, unknown>, opts?: RenderOptions) => string | null;
 
 export const RENDERERS: Record<string, Renderer> = {
-  series(f) {
+  series(f, opts) {
     const scores = arr(f.scores).map(v => int(v, 0, 300)).filter((v): v is number => v !== null);
     const total = count(f.total), avg = int(f.avg, 0, 300), games = int(f.games, 1, 30);
     if (!scores.length || total === null || avg === null || games === null) return null;
-    return `Scores tonight: ${scores.join(", ")} — ${total} series, ${avg} average over ${games} ${plural(games, "game", "games")}.`;
+    return `Scores ${isTournament(opts) ? "this block" : "tonight"}: ${scores.join(", ")} — ${total} series, ${avg} average over ${games} ${plural(games, "game", "games")}.`;
   },
 
-  vsAverage(f) {
+  vsAverage(f, opts) {
     const avg = int(f.avg, 0, 300), seasonAvg = int(f.seasonAvg, 0, 300), diff = int(f.diff, -300, 300);
     if (avg === null || seasonAvg === null || diff === null) return null;
-    if (diff === 0) return `That is exactly their league average of ${seasonAvg}.`;
-    return `That is ${Math.abs(diff)} ${diff > 0 ? "above" : "below"} their league average of ${seasonAvg}.`;
+    const scope = scopeWord(opts);
+    if (diff === 0) return `That is exactly their ${scope} average of ${seasonAvg}.`;
+    return `That is ${Math.abs(diff)} ${diff > 0 ? "above" : "below"} their ${scope} average of ${seasonAvg}.`;
   },
 
   strikes(f) {
@@ -327,40 +343,40 @@ export const RENDERERS: Record<string, Renderer> = {
   // arithmetic it has to do, and arithmetic is the one thing it is
   // forbidden.
 
-  seasonStrikes(f) {
+  seasonStrikes(f, opts) {
     const sp = pct(f.seasonPct), sn = count(f.seasonFirstBalls), nights = count(f.seasonNights);
     const tp = pct(f.tonightPct), tn = count(f.tonightFirstBalls);
     if (sp === null || !sn || !nights || tp === null || !tn) return null;
-    return `Season so far in this league: ${sp}% strikes on ${sn} first balls across ${nights} nights. Tonight was ${tp}% on ${tn}.`;
+    return `Season so far in this ${scopeWord(opts)}: ${sp}% strikes on ${sn} first balls across ${nights} ${blockWord(opts, nights)}. ${nowWord(opts)} was ${tp}% on ${tn}.`;
   },
 
-  seasonSpares(f) {
+  seasonSpares(f, opts) {
     const sp = pct(f.seasonPct), sa = count(f.seasonAttempts);
     const tp = pct(f.tonightPct), ta = count(f.tonightAttempts);
     if (sp === null || !sa || tp === null || !ta) return null;
-    return `Season spare conversion: ${sp}% on ${sa} attempts. Tonight was ${tp}% on ${ta}.`;
+    return `Season spare conversion: ${sp}% on ${sa} attempts. ${nowWord(opts)} was ${tp}% on ${ta}.`;
   },
 
-  seasonSinglePins(f) {
+  seasonSinglePins(f, opts) {
     const sp = pct(f.seasonPct), sa = count(f.seasonAttempts);
     const tp = pct(f.tonightPct), ta = count(f.tonightAttempts);
     if (sp === null || !sa || tp === null || !ta) return null;
-    return `Season single-pin spares: ${sp}% on ${sa}. Tonight was ${tp}% on ${ta}.`;
+    return `Season single-pin spares: ${sp}% on ${sa}. ${nowWord(opts)} was ${tp}% on ${ta}.`;
   },
 
-  seasonCornerPin(f) {
+  seasonCornerPin(f, opts) {
     const pin = oneOf(String(f.pin), ["7", "10"]);
     const sl = count(f.seasonLeft), sp = pct(f.seasonPct);
     const tl = count(f.tonightLeft), tm = count(f.tonightMade);
     if (!pin || !sl || sp === null || !tl || tm === null) return null;
-    return `Season ${pin} pin: left ${sl} times, made ${sp}%. Tonight: left ${tl}, made ${tm}.`;
+    return `Season ${pin} pin: left ${sl} times, made ${sp}%. ${nowWord(opts)}: left ${tl}, made ${tm}.`;
   },
 
-  seasonLeaveSide(f) {
+  seasonLeaveSide(f, opts) {
     const sl = pct(f.seasonLeftPct), sr = pct(f.seasonRightPct), st = count(f.seasonTotal);
     const tl = pct(f.tonightLeftPct), tr = pct(f.tonightRightPct), tt = count(f.tonightTotal);
     if (sl === null || sr === null || !st || tl === null || tr === null || !tt) return null;
-    return `Season leaves with a side: ${sl}% left / ${sr}% right on ${st} leaves. Tonight: ${tl}% left / ${tr}% right on ${tt}.`;
+    return `Season leaves with a side: ${sl}% left / ${sr}% right on ${st} leaves. ${nowWord(opts)}: ${tl}% left / ${tr}% right on ${tt}.`;
   },
 };
 
