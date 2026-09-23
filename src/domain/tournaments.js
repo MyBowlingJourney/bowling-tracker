@@ -205,7 +205,13 @@ export function normalizeTournamentDay(raw, dayNumber = 1) {
     games,
     cutLine: raw.cutLine ?? "",
     cutSign: raw.cutSign === "-" ? "-" : "+",
-    madeCut: raw.madeCut === true || raw.madeCut === false ? raw.madeCut : null,
+    // true / false / "na" / null. "na" is the bowler saying this block
+    // had no cut at all, which is a different statement from null ("not
+    // known yet") and has to survive a round trip to say so. Everything
+    // that counts cuts tests === true or === false, so "na" is excluded
+    // from the stats exactly like null.
+    madeCut: raw.madeCut === true || raw.madeCut === false ? raw.madeCut
+      : raw.madeCut === "na" ? "na" : null,
     notes: raw.notes || "",
   };
 }
