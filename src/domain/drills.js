@@ -113,6 +113,9 @@ export function emptyDrill(bowler = "", date = "", leftHanded = false) {
     made: 0,
     missed: 0,
     notes: "",
+    // Which practice of that day this drill belongs to. Undefined on
+    // every drill worked before the idea existed, which reads as 1.
+    practiceSeq: undefined,
   };
 }
 
@@ -131,6 +134,11 @@ export function normalizeDrill(raw) {
     made: n(raw.made),
     missed: n(raw.missed),
     notes: raw.notes || "",
+    // Preserved rather than rebuilt: this function returns a fresh object
+    // field by field, so anything not named here is dropped -- and a
+    // dropped seq would put every drill back in one same-day bucket.
+    practiceSeq: Number.isFinite(Number(raw.practiceSeq)) && Number(raw.practiceSeq) > 0
+      ? Number(raw.practiceSeq) : undefined,
   };
 }
 

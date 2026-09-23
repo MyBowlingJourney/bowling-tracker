@@ -34,13 +34,19 @@ export function practiceGames(sessions, liveScores, opts) {
   // A default parameter only covers undefined, and a caller reading these
   // out of component state hands over null long before it hands over
   // nothing. This has bitten three domain modules now.
-  const { bowler, date } = (opts && typeof opts === "object") ? opts : {};
+  const { bowler, date, seq } = (opts && typeof opts === "object") ? opts : {};
   const who = clean(bowler), when = clean(date);
   const empty = { games: [], total: null, best: null, average: null };
   if (!who || !when) return empty;
 
+  // seq: which practice of that day. A day can hold more than one, and a
+  // filed row from the morning is not this afternoon's night -- reading
+  // it as one is how a 256 nobody bowled today turned up in Results. A
+  // row with no seq of its own predates the idea and reads as 1, so a
+  // single-practice day is untouched.
+  const sameRun = s => seq == null || (Number(s?.practiceSeq) || 1) === seq;
   const fromSessions = rows(sessions)
-    .filter(s => sameNight(s, who, when))
+    .filter(s => sameNight(s, who, when) && sameRun(s))
     .flatMap(scoresOf);
 
   // Only fall back when no session recorded scores: counting both would
@@ -101,13 +107,14 @@ export function practiceDrills(drills, opts) {
   // A default parameter only covers undefined, and a caller reading these
   // out of component state hands over null long before it hands over
   // nothing. This has bitten three domain modules now.
-  const { bowler, date } = (opts && typeof opts === "object") ? opts : {};
+  const { bowler, date, seq } = (opts && typeof opts === "object") ? opts : {};
   const who = clean(bowler), when = clean(date);
   if (!who || !when) return [];
 
   const byTarget = new Map();
   for (const d of rows(drills)) {
     if (!sameNight(d, who, when)) continue;
+    if (seq != null && (Number(d?.practiceSeq) || 1) !== seq) continue;
     const key = clean(d.customTarget) || clean(d.target) || "drill";
     const made = Number(d.made) || 0;
     const missed = Number(d.missed) || 0;
@@ -138,9 +145,9 @@ export function practiceSummary(opts) {
   // A default parameter only covers undefined, and a caller reading these
   // out of component state hands over null long before it hands over
   // nothing. This has bitten three domain modules now.
-  const { sessions, liveScores, drills, bowler, date } = (opts && typeof opts === "object") ? opts : {};
-  const games = practiceGames(sessions, liveScores, { bowler, date });
-  const targets = practiceDrills(drills, { bowler, date });
+  const { sessions, liveScores, drills, bowler, date, seq } = (opts && typeof opts === "object") ? opts : {};
+  const games = practiceGames(sessions, liveScores, { bowler, date, seq });
+  const targets = practiceDrills(drills, { bowler, date, seq });
   const drillAttempts = targets.reduce((a, t) => a + t.attempts, 0);
   const drillMade = targets.reduce((a, t) => a + t.made, 0);
   return {

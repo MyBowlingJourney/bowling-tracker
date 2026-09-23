@@ -25,10 +25,13 @@ import { getManualScore, seriesTotal } from "./manualScores.js";
 // rather than counted as zero.
 const MAX_GAMES = 3;
 
-function scoresFor(manualScores, bowler, league, date) {
+// seq: a same-day practice's own counter, undefined everywhere else --
+// including a day's FIRST practice, whose scores are stored under the
+// plain key exactly as they always have been.
+function scoresFor(manualScores, bowler, league, date, seq) {
   const out = [];
   for (let g = 1; g <= MAX_GAMES; g++) {
-    const raw = getManualScore(manualScores, bowler, league, date, g);
+    const raw = getManualScore(manualScores, bowler, league, date, g, seq);
     const n = raw === null || raw === "" ? null : Number(raw);
     if (n !== null && Number.isFinite(n) && n >= 0 && n <= 300) out.push(n);
   }
@@ -36,8 +39,8 @@ function scoresFor(manualScores, bowler, league, date) {
 }
 
 // One bowler's night.
-export function bowlerLine(manualScores, bowler, league, date) {
-  const scores = scoresFor(manualScores, bowler, league, date);
+export function bowlerLine(manualScores, bowler, league, date, seq) {
+  const scores = scoresFor(manualScores, bowler, league, date, seq);
   if (!scores.length) return null;
   const total = seriesTotal(scores);
   return {
@@ -181,8 +184,8 @@ export function casualRecap(manualScores, bowlers, league, date) {
 // A partner comparison is added on top when there is one, but it never
 // replaces the self-comparison.
 
-export function practiceRecap(manualScores, bowler, league, date, priorAverage = null) {
-  const line = bowlerLine(manualScores, bowler, league, date);
+export function practiceRecap(manualScores, bowler, league, date, priorAverage = null, seq) {
+  const line = bowlerLine(manualScores, bowler, league, date, seq);
   if (!line) return null;
 
   // Comparison against the bowler's established average, when there is

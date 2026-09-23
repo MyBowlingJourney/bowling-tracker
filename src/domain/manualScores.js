@@ -12,8 +12,19 @@
 
 const KEY_SEP = "|";
 
-export function scoreKey(bowler, league, date, game) {
-  return [bowler, league, date, String(game)].join(KEY_SEP);
+// seq is an OPTIONAL 5th segment -- a same-day practice's own counter,
+// appended only when the caller passes one. Every existing call site
+// omits it, so every existing key is byte-for-byte identical to before;
+// this is purely additive. A cloud round-trip also never supplies one
+// (the manual_scores table has no such column yet), so a synced row
+// always lands back in the no-seq key -- the seq split holds for a
+// same-day second practice within one continuous session, but a full
+// reload during it can re-merge its typed totals until that table gets
+// its own seq column. Shot-tracked games do not have this gap.
+export function scoreKey(bowler, league, date, game, seq) {
+  const parts = [bowler, league, date, String(game)];
+  if (seq != null) parts.push(String(seq));
+  return parts.join(KEY_SEP);
 }
 
 export function normalizeManualScores(raw) {
@@ -28,8 +39,8 @@ export function normalizeManualScores(raw) {
   return out;
 }
 
-export function setManualScore(scores, bowler, league, date, game, value) {
-  const key = scoreKey(bowler, league, date, game);
+export function setManualScore(scores, bowler, league, date, game, value, seq) {
+  const key = scoreKey(bowler, league, date, game, seq);
   const next = { ...scores };
   const raw = value === null || value === undefined ? "" : String(value).trim();
   if (raw === "") {
@@ -46,15 +57,15 @@ export function setManualScore(scores, bowler, league, date, game, value) {
   return next;
 }
 
-export function getManualScore(scores, bowler, league, date, game) {
-  const v = scores?.[scoreKey(bowler, league, date, game)];
+export function getManualScore(scores, bowler, league, date, game, seq) {
+  const v = scores?.[scoreKey(bowler, league, date, game, seq)];
   return v === undefined ? null : v;
 }
 
 // The score to actually use: manual if present, otherwise whatever the
 // shots computed to (which may itself be null for an incomplete game).
-export function resolveGameScore(manualScores, bowler, league, date, game, shotDerived) {
-  const manual = getManualScore(manualScores, bowler, league, date, game);
+export function resolveGameScore(manualScores, bowler, league, date, game, shotDerived, seq) {
+  const manual = getManualScore(manualScores, bowler, league, date, game, seq);
   return manual !== null ? manual : shotDerived;
 }
 
