@@ -5,6 +5,7 @@ import {
   addGame, removeGame, setGameField, addDay, removeDay, setDayField, updateDay,
   dayTotal, dayAverage, dayGamesEntered, cutMargin,
   tournamentTotal, tournamentTotalWithHandicap, tournamentAverage, tournamentMoney,
+  cutMarginWithCarry, carryBefore, tournamentGamesEntered, resolveTournamentGameScore,
   SCORING_BASES, PIN_FORMATS, PLAY_STYLES,
   scoringBasis, pinFormat, playStyle, cutTarget, describeTournamentFormat} from "./domain/tournaments.js";
 import { patternDisplayName, searchPatterns, describePattern, patternStats } from "./domain/oilPatterns.js";
@@ -20,6 +21,10 @@ import {
   addMatch, removeMatch, setMatchField, setBonus, matchResult, matchPlayTotals, pinDifferential,
   matchMargin, competitiveness, describeCompetitiveness,
 } from "./domain/matchPlay.js";
+import {
+  addStep, removeStep, setStepField, setStepladderField, stepResult,
+  stepladderResult, describeStepladder, ordinal,
+} from "./domain/stepladder.js";
 
 function fieldLabel(text) {
   return (
@@ -290,11 +295,16 @@ function DayDetails({ tournament, day, onChange, canRemoveDay, onRemoveDay, mult
   );
 }
 
-function DayScoring({ tournament, day, onChange, multiDay, shotScores, shotScoresByDate, expanded = true, onToggleExpanded }) {
+function DayScoring({ tournament, day, onChange, multiDay, shotScores, shotScoresByDate, expanded = true, onToggleExpanded, carry = null, onGoToPhase = null }) {
   const total = dayTotal(day, shotScores);
   const avg = dayAverage(day, shotScores);
   const entered = dayGamesEntered(day, shotScores);
-  const margin = cutMargin(day, shotScores);
+  // A cut after the first block is posted against everything bowled so
+  // far, so day two onwards carries day one's pins into the comparison.
+  const carrying = !!carry && (carry.games > 0);
+  const margin = carrying ? cutMarginWithCarry(day, shotScores, carry) : cutMargin(day, shotScores);
+  const cumGames = entered + (carrying ? carry.games : 0);
+  const cumTotal = (total ?? 0) + (carrying ? carry.total : 0);
   // Score and completeness come from ONE entry per game.
   //
   // They used to be two props -- the score map and a separate map of raw
@@ -401,26 +411,38 @@ function DayScoring({ tournament, day, onChange, multiDay, shotScores, shotScore
             </div>
           )}
         </div>
-        {day.cutLine !== "" && cutTarget(day) !== null && (
+        {day.cutLine !== "" && cumGames > 0 && (
           <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "4px" }}>
-            That's {cutTarget(day)} across {dayGamesEntered(day, shotScores)} game{dayGamesEntered(day, shotScores) === 1 ? "" : "s"}.
+            {/* Cumulative when it is cumulative, and it says so: a
+                bowler reading "1230 of 1350" has to be able to tell
+                whether that is this block or the whole event. */}
+            {cumTotal} of {(200 * cumGames) + (day.cutSign === "-" ? -Number(day.cutLine || 0) : Number(day.cutLine || 0))}
+            {" across "}{cumGames} game{cumGames === 1 ? "" : "s"}
+            {carrying ? " (all blocks so far)" : ""}.
           </div>
         )}
-        <div style={{ display: "flex", gap: "6px", alignItems: "center", marginTop: "8px" }}>
-          <div style={{ ...S.label, marginBottom: 0, flex: "0 0 auto" }}>
-            Made {multiDay ? `day ${day.dayNumber}'s` : "this day's"} cut?
-          </div>
+
+        {/* What this block led to. Whether they MADE the cut is the sign
+            of the margin above -- asking as well invited two answers
+            that could disagree. What the app cannot work out is which
+            phase came next, which is the question worth asking. */}
+        <div style={{ display: "flex", gap: "6px", alignItems: "center", marginTop: "8px", flexWrap: "wrap" }}>
+          <div style={{ ...S.label, marginBottom: 0, flex: "0 0 auto" }}>Qualified for</div>
           <div style={{ ...S.chips, marginBottom: 0 }}>
-            <Chip label="Yes" dense selected={day.madeCut === true} color={C.strike}
-              onToggle={() => update({ ...day, madeCut: day.madeCut === true ? null : true })} />
-            <Chip label="No" dense selected={day.madeCut === false} color={C.miss}
-              onToggle={() => update({ ...day, madeCut: day.madeCut === false ? null : false })} />
-            {/* For a block with no cut to make. Left blank it reads as
-                "not posted yet", which is a different thing. */}
-            <Chip label="N/A" dense selected={day.madeCut === "na"}
-              onToggle={() => update({ ...day, madeCut: day.madeCut === "na" ? null : "na" })} />
+            <Chip label="Match play" dense selected={day.nextRound === "match"} color={C.strike}
+              onToggle={() => update({ ...day, nextRound: day.nextRound === "match" ? null : "match" })} />
+            <Chip label="Stepladder" dense selected={day.nextRound === "stepladder"} color={C.strike}
+              onToggle={() => update({ ...day, nextRound: day.nextRound === "stepladder" ? null : "stepladder" })} />
+            <Chip label="N/A" dense selected={day.nextRound === "na"}
+              onToggle={() => update({ ...day, nextRound: day.nextRound === "na" ? null : "na" })} />
           </div>
         </div>
+        {onGoToPhase && (day.nextRound === "match" || day.nextRound === "stepladder") && (
+          <button style={{ ...S.btn("primary"), width: "100%", marginTop: "8px" }}
+            onClick={() => onGoToPhase(day.nextRound)}>
+            Go to {day.nextRound === "match" ? "match play" : "the stepladder"} {"→"}
+          </button>
+        )}
       </div>
     )}
     <div style={{ ...S.card, border: `1px solid ${C.border}` }}>
@@ -629,7 +651,7 @@ function SidePots({ tournament, onChange }) {
 }
 
 // Match play: the head-to-head block after the cut.
-function MatchPlay({ tournament, onChange }) {
+function MatchPlay({ tournament, onChange, onGoToPhase = null }) {
   const [open, setOpen] = useState(true);
   const mp = tournament.matchPlay || {};
   const matches = mp.matches || [];
@@ -772,6 +794,283 @@ function MatchPlay({ tournament, onChange }) {
           )}
         </>
       )}
+
+      {/* Where match play led, asked the same way qualifying asks it. */}
+      <div style={{ display: "flex", gap: "6px", alignItems: "center", marginTop: "12px", flexWrap: "wrap" }}>
+        <div style={{ ...S.label, marginBottom: 0, flex: "0 0 auto" }}>Qualified for</div>
+        <div style={{ ...S.chips, marginBottom: 0 }}>
+          <Chip label="Stepladder" dense color={C.strike}
+            selected={tournament.matchPlayNextRound === "stepladder"}
+            onToggle={() => onChange({ ...tournament, matchPlayNextRound: tournament.matchPlayNextRound === "stepladder" ? null : "stepladder" })} />
+          <Chip label="N/A" dense
+            selected={tournament.matchPlayNextRound === "na"}
+            onToggle={() => onChange({ ...tournament, matchPlayNextRound: tournament.matchPlayNextRound === "na" ? null : "na" })} />
+        </div>
+      </div>
+      {onGoToPhase && tournament.matchPlayNextRound === "stepladder" && (
+        <button style={{ ...S.btn("primary"), width: "100%", marginTop: "8px" }}
+          onClick={() => onGoToPhase("stepladder")}>
+          Go to the stepladder {"→"}
+        </button>
+      )}
+      </>)}
+    </div>
+  );
+}
+
+// The stepladder finals.
+//
+// Match play with two things taken away and one added: no bonus pins
+// (a step is sudden death), and seeds, which are what decide where a
+// bowler finished -- so the app works the finish out rather than asking
+// for it. See domain/stepladder.js for the placement rule.
+function Stepladder({ tournament, onChange }) {
+  const [open, setOpen] = useState(true);
+  const sl = tournament.stepladder || {};
+  const steps = sl.steps || [];
+  const result = stepladderResult(sl);
+
+  function update(next) { onChange({ ...tournament, stepladder: next }); }
+
+  return (
+    <div style={S.card}>
+      <div style={{ ...S.label, marginBottom: 0, cursor: "pointer" }} onClick={() => setOpen(o => !o)}>
+        {open ? "▾" : "▸"} Stepladder
+      </div>
+      {open && (<>
+      <div style={{ fontSize: "11px", color: C.textMuted, margin: "6px 0 10px", lineHeight: 1.5 }}>
+        Sudden death, no bonus pins. Enter the seeds and the app works out where you finished.
+      </div>
+
+      <div style={{ display: "flex", gap: "6px", alignItems: "center", marginBottom: "10px" }}>
+        <div style={{ flex: 1 }}>
+          {fieldLabel("Your seed")}
+          <input style={{ ...S.input, fontSize: "12px" }} type="number" inputMode="numeric" placeholder="e.g. 3"
+            value={sl.yourSeed ?? ""}
+            onChange={e => update(setStepladderField(sl, "yourSeed", e.target.value))} />
+        </div>
+        {result.decided && result.place !== null && (
+          <div style={{ ...S.statBox, flex: 1, border: `1px solid ${C.accent}44` }}>
+            <div style={{ ...S.statNum, fontSize: "18px", color: result.place === 1 ? C.strike : C.accent }}>
+              {ordinal(result.place)}
+            </div>
+            <div style={S.statLbl}>Finished</div>
+          </div>
+        )}
+      </div>
+
+      {steps.map(s => {
+        const r = stepResult(s);
+        const color = r === "win" ? C.strike : r === "loss" ? C.miss : r === "tie" ? C.spare : C.textMuted;
+        const margin = r === null ? null : Number(s.yourScore) - Number(s.opponentScore);
+        return (
+          <div key={s.stepNumber} style={{ padding: "10px", marginBottom: "8px", backgroundColor: C.surface, borderRadius: "8px", border: `1px solid ${C.border}` }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+              <div style={{ fontSize: "12px", fontWeight: 600 }}>
+                Step {s.stepNumber}
+                {r && <span style={{ color, marginLeft: "6px", textTransform: "uppercase", fontSize: "10px" }}>{r}</span>}
+                {margin !== null && margin !== 0 && (
+                  <span style={{ color: C.textMuted, marginLeft: "6px", fontSize: "11px", fontWeight: 400 }}>
+                    by {Math.abs(margin)}
+                  </span>
+                )}
+              </div>
+              <button style={{ background: "none", border: "none", color: C.textMuted, cursor: "pointer", fontSize: "11px", textDecoration: "underline", padding: 0 }}
+                onClick={() => update(removeStep(sl, s.stepNumber))}>
+                Remove
+              </button>
+            </div>
+            <div style={{ display: "flex", gap: "6px", marginBottom: "6px" }}>
+              <input style={{ ...S.input, flex: 2, fontSize: "12px" }} placeholder="Opponent"
+                value={s.opponent} onChange={e => update(setStepField(sl, s.stepNumber, "opponent", e.target.value))} />
+              <input style={{ ...S.input, flex: 1, fontSize: "12px" }} type="number" inputMode="numeric" placeholder="Seed"
+                value={s.opponentSeed} onChange={e => update(setStepField(sl, s.stepNumber, "opponentSeed", e.target.value))} />
+              <input style={{ ...S.input, flex: 1, fontSize: "12px" }} placeholder="Lanes"
+                value={s.lanePair} onChange={e => update(setStepField(sl, s.stepNumber, "lanePair", e.target.value))} />
+            </div>
+            <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+              <input style={{ ...S.input, flex: 1, fontSize: "14px", textAlign: "center" }} type="number" inputMode="numeric" placeholder="You"
+                value={s.yourScore} onChange={e => update(setStepField(sl, s.stepNumber, "yourScore", e.target.value))} />
+              <span style={{ fontSize: "11px", color: C.textMuted }}>vs</span>
+              <input style={{ ...S.input, flex: 1, fontSize: "14px", textAlign: "center" }} type="number" inputMode="numeric" placeholder="Them"
+                value={s.opponentScore} onChange={e => update(setStepField(sl, s.stepNumber, "opponentScore", e.target.value))} />
+            </div>
+          </div>
+        );
+      })}
+
+      <button style={{ ...S.btn(), width: "100%", marginBottom: steps.length ? "12px" : 0 }}
+        onClick={() => update(addStep(sl))}>
+        + Add Step
+      </button>
+
+      {result.played > 0 && (
+        <>
+          <div style={{ display: "flex", gap: "6px", marginBottom: "8px" }}>
+            <div style={S.statBox}>
+              <div style={{ ...S.statNum, fontSize: "16px" }}>{result.wins}-{result.losses}{result.ties ? `-${result.ties}` : ""}</div>
+              <div style={S.statLbl}>Steps</div>
+            </div>
+            <div style={S.statBox}>
+              <div style={{ ...S.statNum, fontSize: "16px", color: C.textMuted }}>{result.scratch}</div>
+              <div style={S.statLbl}>Scratch</div>
+            </div>
+            <div style={S.statBox}>
+              <div style={{ ...S.statNum, fontSize: "16px" }}>{result.average ?? "—"}</div>
+              <div style={S.statLbl}>Average</div>
+            </div>
+          </div>
+          <div style={{ fontSize: "11px", color: C.textMuted, textAlign: "center" }}>
+            {describeStepladder(sl)}
+          </div>
+        </>
+      )}
+      </>)}
+    </div>
+  );
+}
+
+// The recap, for a tournament.
+//
+// A league night recap answers "how did tonight go": one set of games,
+// one average, one set of money. A tournament is three competitions in
+// a row scored three different ways -- qualifying on total pinfall
+// against a cut, match play on bonus pins, the stepladder on sudden
+// death -- and blending them into one average describes none of them.
+// So each phase reports itself, round by round, and only the phases
+// actually bowled appear.
+function TournamentRecap({ tournament, dayScores }) {
+  const days = tournament?.days || [];
+  const mp = tournament?.matchPlay || {};
+  const mpTotals = matchPlayTotals(mp);
+  const sl = tournament?.stepladder || {};
+  const slResult = stepladderResult(sl);
+
+  const qualGames = tournamentGamesEntered(tournament, null);
+  const scratch = tournamentTotal(tournament, null);
+  const withHcp = tournamentTotalWithHandicap(tournament, null);
+  const hasQualifying = days.some(d => dayGamesEntered(d, dayScores ? dayScores(d) : null) > 0);
+
+  if (!hasQualifying && !mpTotals.played && !slResult.played) return null;
+
+  const phaseLabel = { match: "match play", stepladder: "the stepladder", na: "nothing further" };
+
+  return (
+    <div style={{ ...S.card, border: `1px solid ${C.accent}44` }}>
+      <div style={{ ...S.label, color: C.accent }}>How it went</div>
+
+      {hasQualifying && (<>
+        <div style={{ ...S.label, marginTop: "4px" }}>Qualifying</div>
+        <div style={{ display: "flex", gap: "6px", marginBottom: "8px" }}>
+          <div style={{ ...S.statBox, border: `1px solid ${C.accent}44` }}>
+            <div style={{ ...S.statNum, fontSize: "18px", color: C.accent }}>{withHcp ?? "\u2014"}</div>
+            <div style={S.statLbl}>{appliesHandicap(tournament) ? "With handicap" : "Total"}</div>
+          </div>
+          <div style={S.statBox}>
+            <div style={{ ...S.statNum, fontSize: "18px" }}>
+              {/* Bowling averages truncate. */}
+              {qualGames ? Math.floor((scratch ?? 0) / qualGames) : "\u2014"}
+            </div>
+            <div style={S.statLbl}>Average</div>
+          </div>
+          <div style={S.statBox}>
+            <div style={{ ...S.statNum, fontSize: "18px" }}>{qualGames}</div>
+            <div style={S.statLbl}>Games</div>
+          </div>
+        </div>
+
+        {days.map(d => {
+          const scores = dayScores ? dayScores(d) : null;
+          const n = dayGamesEntered(d, scores);
+          if (!n) return null;
+          const carry = carryBefore(tournament, d.dayNumber, dayScores);
+          const margin = carry.games ? cutMarginWithCarry(d, scores, carry) : cutMargin(d, scores);
+          const games = (d.games || []).map(g => resolveTournamentGameScore(g, scores)).filter(v => v !== null);
+          const label = [
+            days.length > 1 ? `Day ${d.dayNumber}` : "Block",
+            d.squad ? `Squad ${d.squad}` : "",
+            d.blockNumber ? `Block ${d.blockNumber}` : "",
+          ].filter(Boolean).join(" \u00b7 ");
+          return (
+            <div key={d.dayNumber} style={{ marginBottom: "8px", paddingBottom: "8px", borderBottom: `1px solid ${C.border}` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", fontWeight: 600 }}>
+                <span>{label}</span>
+                <span style={{ color: C.accent }}>{dayTotal(d, scores)}</span>
+              </div>
+              {/* The games themselves. A tournament recap without the
+                  game scores was the one thing every bowler checked
+                  for and the only thing it did not show. */}
+              <div style={{ fontSize: "12px", color: C.textMuted, marginTop: "2px" }}>
+                {games.join(" \u00b7 ")}
+              </div>
+              <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "2px" }}>
+                {Math.floor(games.reduce((a, b) => a + b, 0) / n)} average over {n} game{n === 1 ? "" : "s"}
+                {margin !== null && (
+                  <span style={{ color: margin >= 0 ? C.strike : C.miss, fontWeight: 600 }}>
+                    {" \u00b7 "}{margin >= 0 ? `+${margin}` : margin} vs the cut
+                  </span>
+                )}
+                {d.nextRound && phaseLabel[d.nextRound] ? ` \u00b7 on to ${phaseLabel[d.nextRound]}` : ""}
+              </div>
+            </div>
+          );
+        })}
+      </>)}
+
+      {mpTotals.played > 0 && (<>
+        <div style={{ ...S.label, marginTop: "8px" }}>Match Play</div>
+        <div style={{ display: "flex", gap: "6px", marginBottom: "8px" }}>
+          <div style={S.statBox}>
+            <div style={{ ...S.statNum, fontSize: "18px" }}>{mpTotals.wins}-{mpTotals.losses}{mpTotals.ties ? `-${mpTotals.ties}` : ""}</div>
+            <div style={S.statLbl}>Record</div>
+          </div>
+          <div style={S.statBox}>
+            <div style={{ ...S.statNum, fontSize: "18px", color: C.spare }}>+{mpTotals.bonusPins}</div>
+            <div style={S.statLbl}>Bonus</div>
+          </div>
+          <div style={{ ...S.statBox, border: `1px solid ${C.accent}44` }}>
+            <div style={{ ...S.statNum, fontSize: "18px", color: C.accent }}>{mpTotals.total}</div>
+            <div style={S.statLbl}>Total</div>
+          </div>
+        </div>
+        {(mp.matches || []).map(m => {
+          const r = matchResult(m);
+          if (r === null) return null;
+          const color = r === "win" ? C.strike : r === "loss" ? C.miss : C.spare;
+          return (
+            <div key={m.matchNumber} style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", marginBottom: "2px" }}>
+              <span style={{ color: C.textMuted }}>
+                Match {m.matchNumber}{m.opponent ? ` vs ${m.opponent}` : ""}
+              </span>
+              <span style={{ color }}>{m.yourScore}{"\u2013"}{m.opponentScore}</span>
+            </div>
+          );
+        })}
+        {tournament.matchPlayNextRound && phaseLabel[tournament.matchPlayNextRound] && (
+          <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "4px" }}>
+            On to {phaseLabel[tournament.matchPlayNextRound]}.
+          </div>
+        )}
+      </>)}
+
+      {slResult.played > 0 && (<>
+        <div style={{ ...S.label, marginTop: "8px" }}>Stepladder</div>
+        {(sl.steps || []).map(st => {
+          const r = stepResult(st);
+          if (r === null) return null;
+          const color = r === "win" ? C.strike : r === "loss" ? C.miss : C.spare;
+          return (
+            <div key={st.stepNumber} style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", marginBottom: "2px" }}>
+              <span style={{ color: C.textMuted }}>
+                Step {st.stepNumber}{st.opponent ? ` vs ${st.opponent}` : ""}{st.opponentSeed ? ` (${ordinal(st.opponentSeed)})` : ""}
+              </span>
+              <span style={{ color }}>{st.yourScore}{"\u2013"}{st.opponentScore}</span>
+            </div>
+          );
+        })}
+        <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "4px" }}>
+          {sl.yourSeed ? `Seeded ${ordinal(sl.yourSeed)}. ` : ""}{describeStepladder(sl)}
+        </div>
       </>)}
     </div>
   );
@@ -799,6 +1098,12 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
   // resolved at render so adding a day cannot leave this pointing at a
   // block that no longer exists.
   const [scoreDay, setScoreDay] = useState(null);
+
+  // Which phase of the event the Scoring tab is showing: qualifying,
+  // match play or the stepladder. A tournament is bowled in that order
+  // and each phase is scored differently, so they are sub-tabs of
+  // Scoring rather than peers of Set up and Results.
+  const [phase, setPhase] = useState("qualifying");
 
   // The review sticks around; `saved` does not.
   //
@@ -932,7 +1237,7 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
             share the row equally (dense + fill: they shrink rather than
             overflow) and each label stays on one line. */}
         <div style={{ ...S.chips, flexWrap: "nowrap", gap: "4px", marginBottom: 0 }}>
-          {[["setup", "Set up"], ["scoring", "Scoring"], ["brackets", "Brackets"], ["match", "Match"], ["results", "Results"]].map(([id, label]) => (
+          {[["setup", "Set up"], ["scoring", "Scoring"], ["brackets", "Brackets"], ["results", "Results"]].map(([id, label]) => (
             <Chip key={id} label={label} dense fill selected={tab === id} onToggle={() => setTab(id)} />
           ))}
         </div>
@@ -1054,6 +1359,7 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
             // whichever squad happened to be expanded.
             setOpen(o => ({ ...o, [`score${d.dayNumber}`]: true }));
             setScoreDay(d.dayNumber);
+            setPhase("qualifying");
             if (d.date && onUseDate) onUseDate(d.date);
             setTab("scoring");
           }}
@@ -1083,6 +1389,7 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
           if (next) {
             setOpen(o => ({ ...o, [`score${next.dayNumber}`]: true }));
             setScoreDay(next.dayNumber);
+            setPhase("qualifying");
             if (next.date && onUseDate) onUseDate(next.date);
           }
           setTab("scoring");
@@ -1142,12 +1449,6 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
           Brackets and side pots are deliberately NOT here -- those are
           side action, and adding them to this total would answer a
           different question than "did the tournament pay". */}
-      {/* Match play: its own tab. It is a separate competition running
-          alongside the block -- head to head against one opponent, with
-          its own bonus pins -- and it was crowding the scoring tab. */}
-      {tab === "match" && (<>
-        <MatchPlay tournament={tournament} onChange={onChange} />
-      </>)}
 
       {tab === "results" && (<>
       <CollapsibleCard title="How did it finish?" expanded={isOpen("finish")} onToggle={() => toggle("finish")}>
@@ -1244,11 +1545,16 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
         )}
       </CollapsibleCard>
 
-      {/* Tonight's scores, the Nightcap and the running averages, handed
-          in by LogView. Here, rather than after this card, so Results
-          reads top to bottom: how it finished, the money, the night,
-          the notes -- and Save last, once everything above is right. */}
-      {resultsSummary}
+      {/* The event, phase by phase. Here, rather than after this card,
+          so Results reads top to bottom: how it finished, the money,
+          the bowling, the notes -- and Save last, once everything above
+          is right.
+
+          NOT the league night recap LogView hands in: that answers
+          "how did tonight go" with one average over one set of games,
+          which describes a qualifying block and says nothing at all
+          about match play or a stepladder. */}
+      <TournamentRecap tournament={tournament} dayScores={dayScores} />
 
       <CollapsibleCard title="Tournament Notes" expanded={isOpen("notes")} onToggle={() => toggle("notes")}>
         <textarea style={{ ...S.input, minHeight: "60px", resize: "vertical" }}
@@ -1394,6 +1700,26 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
       </>)}
 
       {tab === "scoring" && (<>
+      {/* The three phases of a tournament, in the order they are
+          bowled. They were a top-level tab each, which put qualifying
+          and match play at the same level as Set up and Results -- and
+          left the stepladder nowhere at all. */}
+      <div style={{ ...S.card, padding: "10px 12px" }}>
+        <div style={{ ...S.chips, flexWrap: "nowrap", gap: "4px", marginBottom: 0 }}>
+          {[["qualifying", "Qualifying"], ["match", "Match Play"], ["stepladder", "Stepladder"]].map(([id, label]) => (
+            <Chip key={id} label={label} dense fill selected={phase === id} onToggle={() => setPhase(id)} />
+          ))}
+        </div>
+      </div>
+
+      {phase === "match" && (
+        <MatchPlay tournament={tournament} onChange={onChange} onGoToPhase={setPhase} />
+      )}
+      {phase === "stepladder" && (
+        <Stepladder tournament={tournament} onChange={onChange} />
+      )}
+
+      {phase === "qualifying" && (<>
       {(() => {
         const days = tournament.days || [];
         if (days.length < 2) return null;
@@ -1435,6 +1761,8 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
           multiDay={multiDay}
           expanded={isOpen(`score${day.dayNumber}`)}
           onToggleExpanded={() => toggle(`score${day.dayNumber}`)}
+          carry={carryBefore(tournament, day.dayNumber, dayScores)}
+          onGoToPhase={setPhase}
           onChange={next => onChange(updateDay(tournament, day.dayNumber, () => next))} />
       ))}
 
@@ -1461,6 +1789,7 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
           )}
         </div>
       )}
+      </>)}
 
 
 
