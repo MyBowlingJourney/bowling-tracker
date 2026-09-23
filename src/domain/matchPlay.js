@@ -35,10 +35,25 @@ export function emptyMatch(matchNumber = 1) {
 
 export function emptyMatchPlay() {
   return {
+    // The day match play was bowled.
+    //
+    // A tournament's phases can fall on different days -- qualify
+    // Saturday, match play Sunday morning, the ladder Sunday afternoon
+    // -- and without a date of its own the block had nowhere to belong:
+    // every phase was reported against whichever day the app happened
+    // to be showing. It is also the second half of the frames' address,
+    // which is what keeps one phase's game 1 apart from another's.
+    date: "",
     bonusPerWin: String(DEFAULT_BONUS_PER_WIN),
     bonusPerTie: String(DEFAULT_BONUS_PER_TIE),
     matches: [],
   };
+}
+
+// An ISO date or nothing. A half-typed one is not a date.
+function isoDate(v) {
+  const raw = String(v ?? "").trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : "";
 }
 
 function num(v) {
@@ -87,6 +102,7 @@ export function normalizeMatchPlay(raw) {
     ? raw.matches.map((m, i) => normalizeMatch(m, i + 1))
     : [];
   return {
+    date: isoDate(raw.date),
     bonusPerWin: String(bonus(raw.bonusPerWin, DEFAULT_BONUS_PER_WIN)),
     bonusPerTie: String(bonus(raw.bonusPerTie, DEFAULT_BONUS_PER_TIE)),
     matches,

@@ -282,7 +282,7 @@ export function tournamentNights(tournaments, bowler) {
         // back as one: three games, a series and an average describes a
         // Tuesday, not a day that had a cut, match play and a ladder in
         // it. This is what the calendar shows instead.
-        event: tournamentNightSummary(t, day, date === lastDate),
+        event: tournamentNightSummary(t, day, date === lastDate, date),
       });
     }
   }
@@ -344,7 +344,7 @@ export function withTournamentDetail(nights, tournaments) {
     const lastPlayed = played.length ? played[played.length - 1] : null;
     const isFinal = !lastPlayed || !day || day === lastPlayed
       || String(day.dayNumber ?? "") === String(lastPlayed.dayNumber ?? "");
-    return { ...n, mode: "tournament", event: tournamentNightSummary(t, day, isFinal) };
+    return { ...n, mode: "tournament", event: tournamentNightSummary(t, day, isFinal, String(n.date || "")) };
   });
 }
 
@@ -352,7 +352,7 @@ export function withTournamentDetail(nights, tournaments) {
 //
 // Everything is optional and nothing is invented: a block that ended at
 // qualifying carries qualifying alone, and the card shows one line.
-export function tournamentNightSummary(tournament, day, isFinalDay) {
+export function tournamentNightSummary(tournament, day, isFinalDay, nightDate = "") {
   const t = tournament || {};
   const scores = rows(day?.games).map(g => num(g.score)).filter(v => v !== null);
   const games = scores.length;
@@ -383,23 +383,43 @@ export function tournamentNightSummary(tournament, day, isFinalDay) {
     : cutMargin(day, null, t);
   if (margin !== null) out.cutMargin = margin;
 
-  if (!isFinalDay) return out;
+  // Which day does each phase belong to?
+  //
+  // Its own date when it has one -- match play bowled Sunday morning
+  // belongs on Sunday and nowhere else. Without one, the old rule
+  // stands: the event's last block carries them, because that is where
+  // the day ended.
+  const night = String(nightDate || day?.date || "");
+  const phaseOnThisDay = phaseDate => {
+    const d = String(phaseDate || "");
+    if (!d) return isFinalDay;
+    return !night || d === night;
+  };
 
   const mp = matchPlayTotals(t.matchPlay, activeHandicapPerGame(t));
-  if (mp.played) {
+  if (mp.played && phaseOnThisDay(t.matchPlay?.date)) {
     out.matchPlay = {
       played: mp.played, wins: mp.wins, losses: mp.losses, ties: mp.ties,
       total: mp.total, average: mp.average,
     };
   }
   const sl = stepladderResult(t.stepladder);
-  if (sl.played) {
+  if (sl.played && phaseOnThisDay(t.stepladder?.date)) {
     out.stepladder = {
       played: sl.played, wins: sl.wins, losses: sl.losses,
       seed: Number(t.stepladder?.yourSeed) || null, place: sl.place,
     };
   }
-  if (t.placement && t.placement !== "none") out.placement = t.placement;
+  // The finish goes with the last phase that was actually bowled: the
+  // ladder if there was one, then match play, then the block itself.
+  // Printing "Won it" on Saturday when it was won on Sunday is the same
+  // mistake as reporting the ladder there.
+  const finishHere = sl.played
+    ? phaseOnThisDay(t.stepladder?.date)
+    : mp.played
+      ? phaseOnThisDay(t.matchPlay?.date)
+      : isFinalDay;
+  if (t.placement && t.placement !== "none" && finishHere) out.placement = t.placement;
   return out;
 }
 

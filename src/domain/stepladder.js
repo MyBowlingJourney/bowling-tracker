@@ -44,9 +44,16 @@ export function emptyStep(stepNumber = 1) {
 
 export function emptyStepladder() {
   return {
+    // The day the ladder was bowled -- see matchPlay.js.
+    date: "",
     yourSeed: "",
     steps: [],
   };
+}
+
+function isoDate(v) {
+  const raw = String(v ?? "").trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : "";
 }
 
 function num(v) {
@@ -97,6 +104,7 @@ export function normalizeStepladder(raw) {
   if (!raw || typeof raw !== "object") return base;
   const ys = seed(raw.yourSeed);
   return {
+    date: isoDate(raw.date),
     yourSeed: ys === null ? "" : String(ys),
     steps: Array.isArray(raw.steps) ? raw.steps.map((s, i) => normalizeStep(s, i + 1)) : [],
   };
