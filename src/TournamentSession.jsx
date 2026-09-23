@@ -301,7 +301,7 @@ function DayDetails({ tournament, day, onChange, canRemoveDay, onRemoveDay, mult
   );
 }
 
-function DayScoring({ tournament, day, onChange, multiDay, shotScores, shotScoresByDate, expanded = true, onToggleExpanded, carry = null, onGoToPhase = null }) {
+function DayScoring({ tournament, day, onChange, multiDay, shotScores, shotScoresByDate, expanded = true, onToggleExpanded, carry = null, onGoToPhase = null, framesFrom = "", onMoveFrames = null }) {
   const total = dayTotal(day, shotScores);
   const avg = dayAverage(day, shotScores);
   const entered = dayGamesEntered(day, shotScores);
@@ -459,6 +459,26 @@ function DayScoring({ tournament, day, onChange, multiDay, shotScores, shotScore
         {expanded ? "\u25be" : "\u25b8"} {multiDay ? `Day ${day.dayNumber}` : "Games"}
       </div>
       {expanded && (<>
+
+      {/* These frames are filed under another date.
+      
+          It happens when a block is dated after it was bowled: the shot
+          form files under the session's date, the block carries its
+          own, and the two stop matching. The games are being read
+          correctly -- but a mismatch nothing says out loud is one every
+          screen keyed on a date has to keep working around. */}
+      {framesFrom && onMoveFrames && (
+        <div style={{ ...S.card, padding: "10px 12px", marginBottom: "8px",
+          border: `1px solid ${C.accent}44`, backgroundColor: C.accent + "0D" }}>
+          <div style={{ fontSize: "12px", color: C.text, lineHeight: 1.5, marginBottom: "8px" }}>
+            This block{"\u2019"}s frames are logged under {framesFrom}, not {day.date}.
+          </div>
+          <button style={{ ...S.btn(), width: "100%", fontSize: "12px" }}
+            onClick={() => onMoveFrames(framesFrom, day.date)}>
+            Move them to {day.date}
+          </button>
+        </div>
+      )}
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
         <div style={S.label}>Games</div>
@@ -1314,7 +1334,7 @@ function TournamentRecap({ tournament, dayScores }) {
   );
 }
 
-export default function TournamentSession({ onCancelTournament = null, resultsSummary = null, entitlement = null, tournament, onChange, onSave, saved, oilPatterns, submitOilPattern, tournaments, shotScoresByDate = null, tab: controlledTab, onTabChange, saveMessage = "", onUseDate, onUseGameNumber = null, onCloseTournament, sessionDate = "", phase: controlledPhase, onPhaseChange, nightcap = null }) {
+export default function TournamentSession({ onCancelTournament = null, resultsSummary = null, entitlement = null, tournament, onChange, onSave, saved, oilPatterns, submitOilPattern, tournaments, shotScoresByDate = null, tab: controlledTab, onTabChange, saveMessage = "", onUseDate, onUseGameNumber = null, onMoveFrames = null, onCloseTournament, sessionDate = "", phase: controlledPhase, onPhaseChange, nightcap = null }) {
   // The tab is owned by the caller.
   //
   // LogView renders Shot Context alongside this card, and it only makes
@@ -1342,6 +1362,8 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
   // and each phase is scored differently, so they are sub-tabs of
   // Scoring rather than peers of Set up and Results.
   const [ownPhase, setOwnPhase] = useState("qualifying");
+  // Answered once per visit, not once per render.
+  const [dismissedSaved, setDismissedSaved] = useState(false);
   const phase = controlledPhase ?? ownPhase;
   const setPhase = onPhaseChange ?? setOwnPhase;
 
@@ -1368,6 +1390,8 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
   const [closing, setClosing] = useState(false);
   const [cancelArmed, setCancelArmed] = useState(false);
   useEffect(() => { if (saved) setShowReview(true); }, [saved]);
+  // A different event on screen is a different question.
+  useEffect(() => { setDismissedSaved(false); }, [tournament.id]);
   const seenId = useRef(tournament?.id || "");
   useEffect(() => {
     const id = tournament?.id || "";
@@ -1480,7 +1504,28 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
     return byDate[String(sessionDate)] || null;
   };
 
+  // Is the event on screen one that is already filed?
+  const savedAlready = !!tournament.id
+    && (tournaments || []).some(t => t && t.id === tournament.id)
+    && !!tournament.name;
+
   const dayScores = d => pickForDay(shotScoresByDate, d);
+
+  // Where a block's frames actually are, when that is not its own date.
+  //
+  // pickForDay tolerates the mismatch; this is what lets the screen say
+  // so and offer to correct it, rather than quietly reading around a
+  // problem the bowler cannot see.
+  const frameSourceDate = d => {
+    const byDate = shotScoresByDate || {};
+    const key = String(d?.date || "");
+    if (!key) return "";
+    if (byDate[key]) return "";
+    const found = pickForDay(byDate, d);
+    if (!found) return "";
+    const match = Object.keys(byDate).find(k => byDate[k] === found);
+    return match && match !== key ? match : "";
+  };
 
   // Where the stepladder says they finished, if it says anything.
   const derivedFinish = derivedPlacement(tournament);
@@ -1593,6 +1638,40 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
       </div>
 
       {tab === "setup" && (<>
+
+      {/* This event is already in your history.
+      
+          Saving does not clear the card, on purpose: a two-day event is
+          saved at the end of day one and carried on the next morning.
+          But "Save & Finish" also sends the bowler home, so the next
+          time they choose Tournament they are looking at last week's
+          squads, dates and times with nothing saying why -- and the
+          control that starts a fresh one is at the bottom of a tab they
+          have no reason to open.
+      
+          So the choice is offered where they actually land, and neither
+          answer is assumed. Dismissed for the session once answered. */}
+      {savedAlready && !dismissedSaved && (
+        <div style={{ ...S.card, border: `1px solid ${C.accent}66`, backgroundColor: C.accent + "0D" }}>
+          <div style={{ fontSize: "13px", color: C.text, lineHeight: 1.5, marginBottom: "10px" }}>
+            <strong>{tournament.name}</strong> is saved to your history.
+            Bowling another block of it, or starting a new tournament?
+          </div>
+          <div style={{ display: "flex", gap: "8px" }}>
+            <button style={{ ...S.btn(), flex: 1, fontSize: "12px" }}
+              onClick={() => setDismissedSaved(true)}>
+              Another block
+            </button>
+            {onCloseTournament && (
+              <button style={{ ...S.btn("primary"), flex: 1, fontSize: "12px" }}
+                onClick={() => { setDismissedSaved(true); onCloseTournament(); }}>
+                New tournament
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       <CollapsibleCard title="Tournament"
         summary={tournament.name || ""}
         expanded={isOpen("tournament")} onToggle={() => toggle("tournament")}>
@@ -2136,6 +2215,8 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
           onToggleExpanded={() => toggle(`score${day.dayNumber}`)}
           carry={carryBefore(tournament, day.dayNumber, dayScores)}
           onGoToPhase={setPhase}
+          framesFrom={frameSourceDate(day)}
+          onMoveFrames={onMoveFrames}
           onChange={next => onChange(updateDay(tournament, day.dayNumber, () => next))} />
       ))}
 
