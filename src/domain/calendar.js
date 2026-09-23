@@ -298,16 +298,31 @@ export function withTournamentDetail(nights, tournaments) {
       ? tournamentLeagueEventName(league) || ""
       : league;
     if (!name) return n;
-    const t = list.find(x => x && String(x.name || "") === name
-      && (!n.bowler || !x.bowler || x.bowler === n.bowler)
-      && rows(x.days).some(d => String(d.date || "") === String(n.date || "")));
-    if (!t) return n;
-    const day = rows(t.days).find(d => String(d.date || "") === String(n.date || ""));
+    // By NAME, with the date only breaking ties.
+    //
+    // A block's date is optional and plenty are logged without one, so
+    // requiring a dated day to match meant an undated event never found
+    // itself and the night kept its league shape.
+    const sameName = list.filter(x => x && String(x.name || "") === name
+      && (!n.bowler || !x.bowler || x.bowler === n.bowler));
+    if (!sameName.length) return n;
+    const t = sameName.find(x => rows(x.days).some(d => String(d.date || "") === String(n.date || "")))
+      || sameName[0];
+    // The block bowled that day, or -- when nothing is dated -- the
+    // only block there is.
+    const dated = rows(t.days).find(d => String(d.date || "") === String(n.date || ""));
+    const undated = rows(t.days).filter(d => !String(d.date || ""));
+    const day = dated || (undated.length === 1 ? undated[0] : rows(t.days)[0]);
     const played = rows(t.days).filter(d =>
       /^\d{4}-\d{2}-\d{2}$/.test(String(d.date || ""))
       && rows(d.games).some(g => num(g.score) !== null));
-    const lastDate = played.length ? String(played[played.length - 1].date) : String(day?.date || "");
-    return { ...n, mode: "tournament", event: tournamentNightSummary(t, day, String(n.date) === lastDate) };
+    const lastDate = played.length ? String(played[played.length - 1].date) : "";
+    // Nothing dated at all: this night IS the event's last day, so the
+    // finish and the phases after qualifying belong on it. Without this
+    // an undated event reported its qualifying block and silently
+    // dropped the match play, the ladder and the result.
+    const isFinal = lastDate ? String(n.date) === lastDate : true;
+    return { ...n, mode: "tournament", event: tournamentNightSummary(t, day, isFinal) };
   });
 }
 
