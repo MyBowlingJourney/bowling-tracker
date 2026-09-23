@@ -995,7 +995,9 @@ CREATE TABLE IF NOT EXISTS public.tournaments (
   scoring_basis text,
   tracking_mode text,
   pin_format text,
-  play_style text
+  play_style text,
+  stepladder jsonb,
+  match_play_next_round text
 );
 CREATE TABLE IF NOT EXISTS public.user_preferences (
   user_id uuid NOT NULL,
@@ -1136,6 +1138,7 @@ ALTER TABLE public.teams ADD CONSTRAINT teams_pkey PRIMARY KEY (id);
 ALTER TABLE public.teams ADD CONSTRAINT teams_created_by_fkey FOREIGN KEY (created_by) REFERENCES profiles(id) ON DELETE SET NULL;
 ALTER TABLE public.teams ADD CONSTRAINT teams_league_id_fkey FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE;
 ALTER TABLE public.tournaments ADD CONSTRAINT tournaments_pkey PRIMARY KEY (id);
+ALTER TABLE public.tournaments ADD CONSTRAINT tournaments_match_play_next_round_check CHECK (((match_play_next_round IS NULL) OR (match_play_next_round = ANY (ARRAY['match'::text, 'stepladder'::text, 'na'::text]))));
 ALTER TABLE public.tournaments ADD CONSTRAINT tournaments_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.user_preferences ADD CONSTRAINT user_preferences_pkey PRIMARY KEY (user_id);
 ALTER TABLE public.user_preferences ADD CONSTRAINT user_preferences_user_id_key UNIQUE (user_id);
