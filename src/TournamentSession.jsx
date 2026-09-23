@@ -369,6 +369,60 @@ function DayScoring({ tournament, day, onChange, multiDay, shotScores, shotScore
   function update(next) { onChange(next); }
 
   return (
+    <>
+    {/* The cut, in its own card above the games: it is the target every
+        game below is bowled against, and it is posted during the block
+        rather than before it. Set up carries what the block IS; this
+        carries how it is going.
+
+        Two rows, everything on a line with its label -- it was seven
+        stacked rows and a paragraph of explanation, which pushed the
+        first game off a phone screen. */}
+    {expanded && (
+      <div style={{ ...S.card, border: `1px solid ${C.border}`, padding: "10px 12px", marginBottom: "8px" }}>
+        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+          <div style={{ ...S.label, marginBottom: 0, flex: "0 0 auto" }}>Cut</div>
+          {/* The sign, before the number, because that is how a cut is
+              read out: "plus one fifty", not "one fifty, over". */}
+          <div style={{ ...S.chips, marginBottom: 0, flex: "0 0 auto" }}>
+            {["+", "-"].map(sign => (
+              <Chip key={sign} label={sign} dense
+                selected={(day.cutSign || "+") === sign}
+                onToggle={() => update({ ...day, cutSign: sign })} />
+            ))}
+          </div>
+          <input style={{ ...S.input, flex: 1, minWidth: 0, fontSize: "13px", padding: "6px 10px" }}
+            type="number" inputMode="numeric"
+            placeholder="Pins vs 200 avg"
+            value={day.cutLine} onChange={e => update({ ...day, cutLine: e.target.value })} />
+          {margin !== null && (
+            <div style={{ flex: "0 0 auto", fontSize: "12px", fontWeight: 700, color: margin >= 0 ? C.strike : C.miss }}>
+              {margin >= 0 ? `▲ +${margin}` : `▼ ${margin}`}
+            </div>
+          )}
+        </div>
+        {day.cutLine !== "" && cutTarget(day) !== null && (
+          <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "4px" }}>
+            That's {cutTarget(day)} across {dayGamesEntered(day, shotScores)} game{dayGamesEntered(day, shotScores) === 1 ? "" : "s"}.
+          </div>
+        )}
+        <div style={{ display: "flex", gap: "6px", alignItems: "center", marginTop: "8px" }}>
+          <div style={{ ...S.label, marginBottom: 0, flex: "0 0 auto" }}>
+            Made {multiDay ? `day ${day.dayNumber}'s` : "this day's"} cut?
+          </div>
+          <div style={{ ...S.chips, marginBottom: 0 }}>
+            <Chip label="Yes" dense selected={day.madeCut === true} color={C.strike}
+              onToggle={() => update({ ...day, madeCut: day.madeCut === true ? null : true })} />
+            <Chip label="No" dense selected={day.madeCut === false} color={C.miss}
+              onToggle={() => update({ ...day, madeCut: day.madeCut === false ? null : false })} />
+            {/* For a block with no cut to make. Left blank it reads as
+                "not posted yet", which is a different thing. */}
+            <Chip label="N/A" dense selected={day.madeCut === "na"}
+              onToggle={() => update({ ...day, madeCut: day.madeCut === "na" ? null : "na" })} />
+          </div>
+        </div>
+      </div>
+    )}
     <div style={{ ...S.card, border: `1px solid ${C.border}` }}>
       {/* A finished block is worth folding away -- a four-day event
           is four of these and only the current one matters. */}
@@ -377,55 +431,6 @@ function DayScoring({ tournament, day, onChange, multiDay, shotScores, shotScore
         {expanded ? "\u25be" : "\u25b8"} {multiDay ? `Day ${day.dayNumber}` : "Games"}
       </div>
       {expanded && (<>
-
-      {/* The cut, first: it is the target every game below is bowled
-          against, and it is posted during the block rather than before
-          it. Set up carries what the block IS; this carries how it is
-          going. */}
-      <div style={S.label}>Cut Line</div>
-      <div style={{ fontSize: "11px", color: C.textMuted, marginBottom: "8px" }}>
-        Pins over or under a 200 average. A cut posted as +150 after eight games means 1750.
-      </div>
-      <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-        {/* The sign, before the number, because that is how a cut is
-            read out: "plus one fifty", not "one fifty, over". */}
-        <div style={S.chips}>
-          {["+", "-"].map(sign => (
-            <Chip key={sign} label={sign} dense
-              selected={(day.cutSign || "+") === sign}
-              onToggle={() => update({ ...day, cutSign: sign })} />
-          ))}
-        </div>
-        <input style={{ ...S.input, flex: 1 }} type="number" inputMode="numeric"
-          placeholder="Add it when it's posted"
-          value={day.cutLine} onChange={e => update({ ...day, cutLine: e.target.value })} />
-      </div>
-      {day.cutLine !== "" && cutTarget(day) !== null && (
-        <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "4px" }}>
-          That's {cutTarget(day)} across {dayGamesEntered(day, shotScores)} game{dayGamesEntered(day, shotScores) === 1 ? "" : "s"}.
-        </div>
-      )}
-      {margin !== null && (
-        <div style={{ textAlign: "center", marginTop: "8px", fontSize: "13px", fontWeight: 700, color: margin >= 0 ? C.strike : C.miss }}>
-          {margin >= 0 ? `▲ +${margin} above the cut` : `▼ ${margin} below the cut`}
-        </div>
-      )}
-
-      <div style={{ ...S.label, marginTop: "10px" }}>
-        Made {multiDay ? `day ${day.dayNumber}'s` : "this day's"} cut?
-      </div>
-      <div style={S.chips}>
-        <Chip label="Yes" selected={day.madeCut === true} color={C.strike}
-          onToggle={() => update({ ...day, madeCut: day.madeCut === true ? null : true })} />
-        <Chip label="No" selected={day.madeCut === false} color={C.miss}
-          onToggle={() => update({ ...day, madeCut: day.madeCut === false ? null : false })} />
-        {/* For a block with no cut to make. Left blank it reads as "not
-            posted yet", which is a different thing and keeps prompting. */}
-        <Chip label="N/A" selected={day.madeCut === "na"}
-          onToggle={() => update({ ...day, madeCut: day.madeCut === "na" ? null : "na" })} />
-      </div>
-
-      <div style={S.divider} />
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
         <div style={S.label}>Games</div>
@@ -494,6 +499,7 @@ function DayScoring({ tournament, day, onChange, multiDay, shotScores, shotScore
         value={day.notes} onChange={e => update({ ...day, notes: e.target.value })} />
       </>)}
     </div>
+    </>
   );
 }
 
