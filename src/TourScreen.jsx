@@ -1,4 +1,5 @@
 import { C, S, F } from "./ui.jsx";
+import { TOUR_TRACKS, FIRST_TOUR } from "./domain/tour.js";
 import journeyIcon from "../journey-icon.png";
 
 // Mock-ups built from the app's OWN style tokens.
@@ -15,6 +16,39 @@ import journeyIcon from "../journey-icon.png";
 
 // A phone-shaped frame, so it reads as "this is a screen" rather than
 // as more of the tour's own UI.
+// Brooklyn's lamp, as it sits in the header.
+//
+// The real one is a drawn SVG rather than an emoji, so a glyph here
+// would not look like the thing a bowler is being told to tap. This is
+// a simplified version of the same shape, in the same accent colour.
+function Lamp({ on }) {
+  return (
+    <svg width="17" height="13" viewBox="0 0 24 18" aria-hidden="true"
+      style={on ? undefined : { opacity: 0.55 }}>
+      {/* Body, spout and handle -- enough to read as a lamp at 17px. */}
+      <ellipse cx="11" cy="14.5" rx="8" ry="2.4" fill={C.accent} />
+      <path d="M4 13.5c0-4 3-6.5 7-6.5s7 2.5 7 6.5z" fill={C.accent} />
+      <path d="M18 11.5l5-2.5-5-1.4z" fill={C.accent} />
+      <path d="M11 7V4.6" stroke={C.accent} strokeWidth="1.6" strokeLinecap="round" />
+      <circle cx="11" cy="3.4" r="1.6" fill={C.accent} />
+    </svg>
+  );
+}
+
+// The header, as the app actually draws it.
+//
+// It had a magnifier, a camera, a person and a cog -- four icons, three
+// of which have not existed separately for a while. What is really
+// there, left to right:
+//
+//   the app name (the LOGGING screens show the app name, not a tab
+//   name -- there is no tab called "Bowl")
+//   Brooklyn's lamp, once there is something to ask about
+//   Import, a LABELLED button, because a bare camera read as "take a
+//     photo" and bowlers hunted for import elsewhere
+//   the menu, three lines, holding search, profile and settings
+//
+// `headerIcon` lights one of them: "genie" | "import" | "menu".
 function Phone({ children, title, headerIcon, casual }) {
   return (
     <div style={{
@@ -27,11 +61,30 @@ function Phone({ children, title, headerIcon, casual }) {
         padding: "10px 12px", background: C.surface, borderBottom: `1px solid ${C.border}`,
       }}>
         <span style={{ fontSize: "13px", fontWeight: 700, color: C.text, fontFamily: F.body }}>{title}</span>
-        <span style={{ display: "flex", gap: "8px", fontSize: "13px" }}>
-          <span style={lit(headerIcon === "help")}>🔍</span>
-          {!casual && <span style={lit(headerIcon === "import")}>📷</span>}
-          <span style={{ opacity: 0.55 }}>👤</span>
-          <span style={lit(headerIcon === "settings")}>⚙️</span>
+        <span style={{ display: "flex", gap: "7px", alignItems: "center", fontSize: "13px" }}>
+          {/* Brooklyn is never offered on a casual night. */}
+          {!casual && (
+            <span style={headerIcon === "genie" ? lit(true) : undefined}>
+              <Lamp on={headerIcon === "genie"} />
+            </span>
+          )}
+          {!casual && (
+            <span style={{
+              ...(headerIcon === "import" ? lit(true) : { opacity: 0.55 }),
+              border: `1px solid ${C.border}`, borderRadius: "7px",
+              padding: "2px 5px", fontSize: "9px", fontWeight: 700,
+              color: C.text, fontFamily: F.body, display: "flex",
+              alignItems: "center", gap: "3px", whiteSpace: "nowrap",
+            }}>
+              <span style={{ fontSize: "10px" }}>📷</span>Import
+            </span>
+          )}
+          <span style={headerIcon === "menu" ? lit(true) : { opacity: 0.55 }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={C.text}
+              strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16" />
+            </svg>
+          </span>
         </span>
       </div>
       <div style={{ padding: "10px", minHeight: "230px" }}>{children}</div>
@@ -462,7 +515,7 @@ const SCREENS = {
   // not open on, a plain milestone list -- and a tour is a promise about
   // what the bowler will find.
   "look-score": () => (
-    <Phone title="Bowl">
+    <Phone title="My Bowling Journey">
       <Spot>
         <div style={card}>
           <div style={label}>Game 1</div>
@@ -488,8 +541,11 @@ const SCREENS = {
   ),
 
   "look-gear": () => (
-    <Phone title="Setup · Balls">
-      <Spot>
+    <Phone title="Setup">
+      {/* The header says "Setup"; which of the four you are on is the
+          chip row, exactly as the real screen draws it. */}
+      <Chips items={["Balls", "Bags", "League", "Team"]} sel={0} />
+      <Spot style={{ marginTop: "8px" }}>
         <div style={card}>
           <div style={label}>Arsenal · 3 balls</div>
           <BallRow initials="PI" colour="#7B2A8C" name="Phaze II" line="47% strikes · 54% spares" spec="15lb · RG 2.5 / Diff 0.05" />
@@ -503,8 +559,9 @@ const SCREENS = {
   ),
 
   "look-team": () => (
-    <Phone title="Setup · Team">
-      <Spot>
+    <Phone title="Setup">
+      <Chips items={["Balls", "Bags", "League", "Team"]} sel={3} />
+      <Spot style={{ marginTop: "8px" }}>
         <div style={card}>
           <div style={label}>Team</div>
           <Select value="Split Happens — Tuesday House Shot" />
@@ -561,12 +618,21 @@ const SCREENS = {
           borderRadius: "10px", padding: "10px", marginBottom: "8px", color: "#FFFFFF",
           background: "linear-gradient(155deg, #0B4DB3 0%, #00398B 42%, #061A45 100%)",
         }}>
+          {/* The Badges pill, which the slide's words promise and the
+              picture did not have -- it is how badges are reached, so
+              leaving it out sent a bowler hunting for a screen with no
+              door on it. */}
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <img src={journeyIcon} alt="" width="26" height="26" style={{ borderRadius: "7px" }} />
-            <div>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: "12px", fontWeight: 700, fontFamily: F.body }}>My Bowling Journey</div>
               <div style={{ fontSize: "8.5px", opacity: 0.75, fontFamily: F.body }}>On the road since Jul 9</div>
             </div>
+            <span style={{
+              background: "rgba(255,255,255,0.14)", border: "1px solid rgba(255,255,255,0.22)",
+              borderRadius: "999px", fontSize: "8.5px", fontWeight: 600,
+              padding: "3px 7px", fontFamily: F.body, whiteSpace: "nowrap", flexShrink: 0,
+            }}>{"\u{1F3C5}"} Badges</span>
           </div>
           <div style={{ display: "flex", marginTop: "8px", paddingTop: "6px", borderTop: "1px solid rgba(255,255,255,0.16)" }}>
             {[["15", "nights"], ["45", "games"], ["8,569", "pins down"], ["23", "milestones"]].map(([v, l]) => (
@@ -639,13 +705,18 @@ const SCREENS = {
   "look-more": () => (
     <div style={{ textAlign: "center", padding: "18px 10px" }}>
       <div style={{ fontSize: "28px", marginBottom: "10px" }}>🎳</div>
+      {/* Read from TOUR_TRACKS rather than listed here.
+
+          This was three hardcoded cards and stayed three after two more
+          tours were written -- the closing slide of the first tour, the
+          one whole job of which is telling a new bowler what else
+          exists, quietly stopped naming half of it. A list that has to
+          be updated by hand is a list that goes stale. */}
       <div style={{ display: "flex", flexDirection: "column", gap: "6px", maxWidth: "240px", margin: "0 auto" }}>
-        {[["Keeping score", "By game, or ball by ball"],
-          ["What the AI does", "Scorecards, insights, Brooklyn"],
-          ["Stats", "Breakdowns, comparing, trends"]].map(([t, b]) => (
-          <div key={t} style={{ ...card, marginBottom: 0, textAlign: "left" }}>
-            <div style={{ fontSize: "11px", fontWeight: 700, color: C.text, fontFamily: F.body }}>{t}</div>
-            <div style={muted}>{b}</div>
+        {TOUR_TRACKS.filter(t => t.key !== FIRST_TOUR).map(t => (
+          <div key={t.key} style={{ ...card, marginBottom: 0, textAlign: "left" }}>
+            <div style={{ fontSize: "11px", fontWeight: 700, color: C.text, fontFamily: F.body }}>{t.label}</div>
+            <div style={muted}>{t.blurb}</div>
           </div>
         ))}
       </div>
@@ -655,7 +726,7 @@ const SCREENS = {
 
   // ── Scorekeeping ──────────────────────────────────────────────────────
   "score-game": () => (
-    <Phone title="Bowl">
+    <Phone title="My Bowling Journey">
       <Spot>
         <div style={card}>
           <div style={label}>Tonight's scores</div>
@@ -679,7 +750,7 @@ const SCREENS = {
   // The three frame outcomes share a shape on purpose: same card, same
   // pin rack, different answer. The bowler learns one screen, not three.
   "score-strike": () => (
-    <Phone title="Bowl">
+    <Phone title="My Bowling Journey">
       <div style={card}>
         <div style={label}>Frame 4 · Ball 1</div>
         <Spot>
@@ -704,7 +775,7 @@ const SCREENS = {
   ),
 
   "score-spare": () => (
-    <Phone title="Bowl">
+    <Phone title="My Bowling Journey">
       <div style={card}>
         <div style={label}>Frame 5 · left standing</div>
         <Spot><PinRack standing={["10"]} /></Spot>
@@ -722,7 +793,7 @@ const SCREENS = {
   ),
 
   "score-open": () => (
-    <Phone title="Bowl">
+    <Phone title="My Bowling Journey">
       <div style={card}>
         <div style={label}>Frame 6 · left standing</div>
         <PinRack standing={["2", "4", "5"]} />
@@ -747,7 +818,7 @@ const SCREENS = {
   ),
 
   "score-results": () => (
-    <Phone title="Bowl">
+    <Phone title="My Bowling Journey">
       <Spot>
         <Chips items={["Set up", "Scoring", "Side games", "Results"]} sel={3} />
       </Spot>
@@ -984,14 +1055,20 @@ const SCREENS = {
         <Select value="18 Mar 2026" />
 
         <Spot style={{ marginTop: "8px" }}>
-          <div style={label}>Scorecard Screenshots</div>
+          <div style={label}>Scorecard Screenshot</div>
+          {/* No "2 selected" caption. The picker on a phone hands back
+              one photo at a time, so a count implying otherwise is a
+              promise the screen does not keep. */}
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
             <span style={{
               border: `1px solid ${C.border}`, borderRadius: "6px",
               padding: "4px 8px", fontSize: "10px", color: C.text,
               fontFamily: F.body, background: C.surface,
-            }}>Choose files</span>
-            <span style={muted}>2 selected</span>
+            }}>Choose file</span>
+            <div style={{
+              width: "26px", height: "26px", borderRadius: "5px",
+              border: `1px solid ${C.border}`, background: C.surface,
+            }} />
           </div>
         </Spot>
       </div>
@@ -1018,7 +1095,7 @@ const SCREENS = {
   ),
 
   "ai-nightcap": () => (
-    <Phone title="Bowl">
+    <Phone title="My Bowling Journey">
       <Chips items={["Set up", "Scoring", "Side games", "Results"]} sel={3} />
       <Spot style={{ marginTop: "8px" }}>
         <div style={{ ...card, border: `1px solid ${C.accent}66`, background: C.accent + "0D" }}>
@@ -1036,11 +1113,16 @@ const SCREENS = {
     </Phone>
   ),
 
+  // Stands on Home with the LAMP lit, not on Improve.
+  //
+  // Brooklyn is reached from the header on every screen -- she is not a
+  // tab, and lighting one sent bowlers to Improve looking for her.
   "ai-brooklyn": () => (
-    <Phone title="Improve">
+    <Phone title="My Bowling Journey" headerIcon="genie">
+      <Note>Her lamp, on every screen</Note>
       <div style={card}>
         <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px" }}>
-          <span style={{ fontSize: "14px" }}>🧞‍♀️</span>
+          <Lamp on />
           <span style={{ fontSize: "11px", fontWeight: 700, color: C.text, fontFamily: F.body }}>Brooklyn</span>
           <span style={{ ...muted, marginLeft: "auto" }}>2 wishes left today</span>
         </div>
@@ -1056,7 +1138,7 @@ const SCREENS = {
           On a 37-foot pattern you've struck more with the Bionic every time out. Start there.
         </div>
       </div>
-      <Nav active={3} />
+      <Nav active={0} />
     </Phone>
   ),
 

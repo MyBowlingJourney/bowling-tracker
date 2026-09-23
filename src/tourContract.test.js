@@ -8,10 +8,11 @@ import { TOUR_TRACKS, TRACK_KEYS, stepsForTrack, FIRST_TOUR } from './domain/tou
 // It is the one part of the app with no way to notice it has gone
 // stale: nothing imports the mock-ups, no screen renders against them,
 // and a slide describing a chip row that changed last month looks
-// exactly like one that is right. Three separate drifts had accumulated
-// before anyone looked -- a Journey chip that had moved to its own
-// screen, an "Other Leave" label the app shows as "Other", and a
-// journal drawn without the filters it had gained.
+// exactly like one that is right. Several drifts had accumulated before
+// anyone looked -- a Journey chip that had moved to its own screen, an
+// "Other Leave" label the app shows as "Other", a journal drawn without
+// the filters it had gained, a header of four icons where the app has
+// three different ones, and a "Bowl" tab that does not exist.
 //
 // These are the mechanical parts of that promise: a step with no
 // mock-up renders its words over blank space, and a track with no steps
@@ -85,7 +86,8 @@ describe('tour contract', () => {
   it('the closing slide names every other track', () => {
     // It used to say "three other tours" and was wrong by the time a
     // fourth existed. Naming them is only better than counting them if
-    // the names keep up.
+    // the names keep up. (The PICTURE beside these words is built from
+    // TOUR_TRACKS directly, so only the prose can drift now.)
     const closing = stepsForTrack(FIRST_TOUR).find(s => s.id === 'look-more');
     expect(closing).toBeTruthy();
     const body = closing.body.toLowerCase();
@@ -93,5 +95,18 @@ describe('tour contract', () => {
       .filter(t => t.key !== FIRST_TOUR)
       .filter(t => !body.includes(t.key));
     expect(unnamed.map(t => t.key)).toEqual([]);
+  });
+
+  it('no mock-up draws a tab the nav does not have', () => {
+    // "Bowl" was a Phone title on seven slides and has not been a tab
+    // for a long time -- the logging screens show the app name. A tour
+    // naming a tab that is not on the row is the single most confusing
+    // thing it can do, because the bowler goes looking for it.
+    const titles = [...screenSource.matchAll(/<Phone title="([^"]+)"/g)].map(m => m[1]);
+    const allowed = new Set([
+      'My Bowling Journey', 'Setup', 'Stats', 'Improve', 'History',
+      'Tournament', 'Import scorecard', 'Coach', 'Results', 'Friends', 'Standings',
+    ]);
+    expect(titles.filter(t => !allowed.has(t))).toEqual([]);
   });
 });
