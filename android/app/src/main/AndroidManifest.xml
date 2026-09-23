@@ -22,11 +22,34 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <intent-filter>
+            <!-- App Links: mybowlingjourney.com/app/... opens THE APP.
+
+                 This replaces a custom-scheme filter
+                 (com.mybowlingjourney.app://auth), which any web page
+                 could navigate to and hand the app someone else's
+                 session. An App Link cannot be forged that way: Android
+                 checks /.well-known/assetlinks.json on the domain
+                 against this app's signing certificate, and only links
+                 to a domain that vouches for this exact app are
+                 delivered here.
+
+                 autoVerify is what triggers that check, at install
+                 time. If assetlinks.json is missing, malformed, or
+                 lists the wrong fingerprint, verification fails quietly
+                 and links open in the browser instead -- the old
+                 behaviour, not a broken one.
+
+                 Scoped to /app because the domain root is the public
+                 welcome page, which should stay in the browser: someone
+                 who has not installed the app is the person that page is
+                 for. -->
+            <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="com.mybowlingjourney.app" android:host="auth" />
+                <data android:scheme="https"
+                      android:host="mybowlingjourney.com"
+                      android:pathPrefix="/app" />
             </intent-filter>
 
         </activity>

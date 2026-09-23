@@ -67,3 +67,4 @@ Thumbs.db
 npm-debug.log*
 yarn-error.log*
 supabase/.temp/
+dist-native/  

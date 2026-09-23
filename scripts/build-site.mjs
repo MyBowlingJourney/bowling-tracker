@@ -14,7 +14,7 @@
 //
 // The Android bundle is built separately (npm run build:native, into
 // dist-native with relative URLs), so none of this affects the phone.
-import { mkdir, copyFile, readdir } from "node:fs/promises";
+import { mkdir, copyFile, readdir, writeFile } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -32,4 +32,20 @@ for (const f of ROOT_PAGES) await copyFile(join(pub, f), join(out, f));
 for (const f of await readdir(pub)) {
   if (/\.(png|svg|ico|webmanifest)$/.test(f)) await copyFile(join(pub, f), join(out, f));
 }
-console.log("site: dist/index.html (welcome) + app at dist/app/");
+// Android App Links: assetlinks.json has to sit at the DOMAIN ROOT, on
+// https, as application/json. Android fetches it at install time and
+// only delivers mybowlingjourney.com/app/... links to the app when the
+// fingerprint in it matches the installed app's signing certificate.
+//
+// A missing or wrong file is not an error anyone sees: verification just
+// fails and links open in the browser, which is why this is copied by
+// the build rather than left to be remembered.
+await mkdir(join(out, ".well-known"), { recursive: true });
+await copyFile(join(pub, ".well-known", "assetlinks.json"), join(out, ".well-known", "assetlinks.json"));
+
+// GitHub Pages hides dot-directories unless Jekyll is switched off, and
+// .well-known is a dot-directory. Without this, the file above 404s and
+// every App Link silently falls back to the browser.
+await writeFile(join(out, ".nojekyll"), "");
+
+console.log("site: dist/index.html (welcome) + app at dist/app/ + .well-known/assetlinks.json");

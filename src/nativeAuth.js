@@ -47,6 +47,7 @@
 // only thing that proves those.
 
 import { supabase } from "./supabaseClient.js";
+import { APP_URL } from "./constants.js";
 
 // Capacitor is loaded lazily, and never on the web.
 //
@@ -74,36 +75,18 @@ export async function isNative() {
 // The web keeps its current behaviour exactly; only the native shell gets
 // the scheme. Returning webDefault means "use the web behaviour", so the
 // caller does not have to know which platform it is on.
+// ONE redirect url now, for the app and the web alike.
+//
+// It used to be `<appId>://auth` on a device, which no browser could
+// open: tapped on a desktop, or in a mail app that would not hand the
+// scheme back to Android, it opened a blank tab and did nothing.
+//
+// The App Link makes the split unnecessary. The same
+// https://mybowlingjourney.com/app/ opens the installed app on Android,
+// and the web app anywhere else -- one link that always lands somewhere
+// that can finish the sign-in.
 export async function authRedirectTo(webDefault) {
-  const cap = await capacitor();
-  if (!cap) return webDefault;
-
-  // The appId IS the scheme, by Capacitor convention. Read at runtime
-  // from the native layer so there is one source of truth -- the value
-  // in capacitor.config.ts -- rather than a second copy here that can
-  // drift from it.
-  const info = await cap.App.getInfo();
-  const id = info?.id || "";
-
-  // Deliberately loud, and deliberately NOT a fall back to webDefault.
-  //
-  // Falling back here is what made the original bug invisible: on a
-  // device, a web redirect url produces a link that CANNOT reach this
-  // app, so sign-in silently never completes and everything upstream
-  // looks fine. Failing outright is worse for exactly one user -- the
-  // one hitting a broken build -- and better for every attempt to
-  // diagnose it. In practice this is near-unreachable: getInfo is a core
-  // plugin, and if it were missing, listenForAuthLinks would already be
-  // dead too.
-  if (!id) {
-    throw new Error(
-      "Native platform detected but App.getInfo() returned no app id. " +
-      "Refusing to fall back to the web redirect url, which would send " +
-      "the magic link somewhere this app can never receive it."
-    );
-  }
-
-  return `${id}://auth`;
+  return webDefault;
 }
 
 // Finish a sign-in that arrived as a deep link.
@@ -142,11 +125,38 @@ export function sessionFromUrl(url) {
 // onError is called with a short, human sentence -- an expired link is
 // the common case and the bowler needs to be told, not left on a screen
 // that did nothing.
+// Is this link one WE can be trusted to act on?
+//
+// The app used to accept any URL the system handed it, which with a
+// BROWSABLE custom scheme meant any web page could navigate to
+// com.mybowlingjourney.app://auth#access_token=... and swap the bowler's
+// session for the attacker's. Everything logged afterwards landed in
+// someone else's account, with nothing on screen to show it.
+//
+// Two things now stand in the way. Android only delivers App Links for a
+// domain whose assetlinks.json names this app's signing certificate, so a
+// page cannot forge one. And this check refuses anything that is not
+// https on our own host under /app -- belt and braces, because the
+// listener also receives links from other sources (a share intent, a
+// future filter) and a session is not something to hand out on trust.
+export function isOurAppLink(url) {
+  try {
+    const u = new URL(url);
+    const home = new URL(APP_URL);
+    return u.protocol === "https:"
+      && u.hostname.toLowerCase() === home.hostname.toLowerCase()
+      && u.pathname.startsWith("/app");
+  } catch {
+    return false;
+  }
+}
+
 export async function listenForAuthLinks(onError) {
   const cap = await capacitor();
   if (!cap) return null;
 
   const handle = await cap.App.addListener("appUrlOpen", async ({ url }) => {
+    if (!isOurAppLink(url || "")) return;
     const parsed = sessionFromUrl(url || "");
     if (!parsed) return;
 
