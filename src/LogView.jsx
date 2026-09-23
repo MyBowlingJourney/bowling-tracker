@@ -17,6 +17,7 @@ import { casualRecap } from "./domain/sessionRecap.js";
 // The rest of a tournament, for the Nightcap's read-back.
 import { dayGamesEntered, cutMargin, cutMarginWithCarry, carryBefore, resolveTournamentGameScore } from "./domain/tournaments.js";
 import { matchPlayTotals, pinDifferential } from "./domain/matchPlay.js";
+import { activeHandicapPerGame } from "./domain/tournamentFormats.js";
 import { stepladderResult } from "./domain/stepladder.js";
 import { sidePotTotals } from "./domain/sidePots.js";
 import Nightcap from "./Nightcap.jsx";
@@ -792,10 +793,10 @@ export default function LogView({
     const out={};
     if(day){
       const carry=carryBefore(t,day.dayNumber,scoresFor);
-      const margin=carry.games?cutMarginWithCarry(day,scoresFor(day),carry):cutMargin(day,scoresFor(day));
+      const margin=carry.games?cutMarginWithCarry(day,scoresFor(day),carry,t):cutMargin(day,scoresFor(day),t);
       if(margin!==null)out.cutMargin=margin;
     }
-    const mt=matchPlayTotals(t.matchPlay);
+    const mt=matchPlayTotals(t.matchPlay,activeHandicapPerGame(t));
     if(mt.played>0){
       out.matchPlay={
         played:mt.played,wins:mt.wins,losses:mt.losses,ties:mt.ties,

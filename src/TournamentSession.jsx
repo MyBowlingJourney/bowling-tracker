@@ -11,7 +11,7 @@ import {
   scoringBasis, pinFormat, playStyle, cutTarget, describeTournamentFormat} from "./domain/tournaments.js";
 import { patternDisplayName, searchPatterns, describePattern, patternStats } from "./domain/oilPatterns.js";
 import { leagueFormat, isNoTapLeague } from "./domain/leagueSeasons.js";
-import { isBaker, appliesHandicap, bakerFramesFor, BAKER_STARTERS, handicapPins, bakerScoreNote } from "./domain/tournamentFormats.js";
+import { isBaker, appliesHandicap, bakerFramesFor, BAKER_STARTERS, handicapPins, activeHandicapPerGame, bakerScoreNote } from "./domain/tournamentFormats.js";
 
 
 import {
@@ -308,7 +308,7 @@ function DayScoring({ tournament, day, onChange, multiDay, shotScores, shotScore
   // A cut after the first block is posted against everything bowled so
   // far, so day two onwards carries day one's pins into the comparison.
   const carrying = !!carry && (carry.games > 0);
-  const margin = carrying ? cutMarginWithCarry(day, shotScores, carry) : cutMargin(day, shotScores);
+  const margin = carrying ? cutMarginWithCarry(day, shotScores, carry, tournament) : cutMargin(day, shotScores, tournament);
   const cumGames = entered + (carrying ? carry.games : 0);
   const cumTotal = (total ?? 0) + (carrying ? carry.total : 0);
   // Score and completeness come from ONE entry per game.
@@ -693,7 +693,8 @@ function MatchPlay({ tournament, onChange, onGoToPhase = null, shotScores = null
   const [open, setOpen] = useState(true);
   const mp = tournament.matchPlay || {};
   const matches = mp.matches || [];
-  const totals = matchPlayTotals(mp);
+  // A handicap event's standings are handicap standings.
+  const totals = matchPlayTotals(mp, activeHandicapPerGame(tournament));
 
   function update(next) { onChange({ ...tournament, matchPlay: next }); }
 
@@ -1077,12 +1078,12 @@ export function tournamentShareSummary(tournament, dayScores) {
   if (lastDay) {
     const carry = carryBefore(t, lastDay.dayNumber, scoresFor);
     const m = carry.games
-      ? cutMarginWithCarry(lastDay, scoresFor(lastDay), carry)
-      : cutMargin(lastDay, scoresFor(lastDay));
+      ? cutMarginWithCarry(lastDay, scoresFor(lastDay), carry, t)
+      : cutMargin(lastDay, scoresFor(lastDay), t);
     if (m !== null) cutMarginValue = m;
   }
 
-  const mp = matchPlayTotals(t.matchPlay);
+  const mp = matchPlayTotals(t.matchPlay, activeHandicapPerGame(t));
   const sl = stepladderResult(t.stepladder);
   const money = tournamentMoney(t);
 
@@ -1105,7 +1106,7 @@ export function tournamentShareSummary(tournament, dayScores) {
 function TournamentRecap({ tournament, dayScores }) {
   const days = tournament?.days || [];
   const mp = tournament?.matchPlay || {};
-  const mpTotals = matchPlayTotals(mp);
+  const mpTotals = matchPlayTotals(mp, activeHandicapPerGame(tournament));
   const mpDiff = pinDifferential(mp);
   const mpComp = competitiveness(mp);
   const sl = tournament?.stepladder || {};
@@ -1149,7 +1150,7 @@ function TournamentRecap({ tournament, dayScores }) {
           const n = dayGamesEntered(d, scores);
           if (!n) return null;
           const carry = carryBefore(tournament, d.dayNumber, dayScores);
-          const margin = carry.games ? cutMarginWithCarry(d, scores, carry) : cutMargin(d, scores);
+          const margin = carry.games ? cutMarginWithCarry(d, scores, carry, tournament) : cutMargin(d, scores, tournament);
           const games = (d.games || []).map(g => resolveTournamentGameScore(g, scores)).filter(v => v !== null);
           const label = [
             days.length > 1 ? `Day ${d.dayNumber}` : "Block",
@@ -1160,7 +1161,14 @@ function TournamentRecap({ tournament, dayScores }) {
             <div key={d.dayNumber} style={{ marginBottom: "8px", paddingBottom: "8px", borderBottom: `1px solid ${C.border}` }}>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", fontWeight: 600 }}>
                 <span>{label}</span>
-                <span style={{ color: C.accent }}>{dayTotal(d, scores)}</span>
+                {/* The event's own pins: a handicap block is read off a
+                    handicap sheet, and showing scratch here while the
+                    total above included handicap had one card
+                    disagreeing with itself. */}
+                <span style={{ color: C.accent }}>
+                  {(dayTotal(d, scores) ?? 0) + handicapPins(tournament, n)}
+                  {appliesHandicap(tournament) ? " hcp" : ""}
+                </span>
               </div>
               {/* The games themselves. A tournament recap without the
                   game scores was the one thing every bowler checked
@@ -1193,6 +1201,12 @@ function TournamentRecap({ tournament, dayScores }) {
             <div style={{ ...S.statNum, fontSize: "18px", color: C.spare }}>+{mpTotals.bonusPins}</div>
             <div style={S.statLbl}>Bonus</div>
           </div>
+          {mpTotals.handicapPins > 0 && (
+            <div style={S.statBox}>
+              <div style={{ ...S.statNum, fontSize: "18px", color: C.spare }}>+{mpTotals.handicapPins}</div>
+              <div style={S.statLbl}>Handicap</div>
+            </div>
+          )}
           <div style={{ ...S.statBox, border: `1px solid ${C.accent}44` }}>
             <div style={{ ...S.statNum, fontSize: "18px", color: C.accent }}>{mpTotals.total}</div>
             <div style={S.statLbl}>Total</div>

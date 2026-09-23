@@ -61,7 +61,7 @@ import { emptyShot, computeSessionStats, findExistingShotSlot } from "./domain/s
 import { buyInsForLeague, costArraysFor } from "./domain/money.js";
 import { normalizeLayout } from "./domain/layouts.js";
 import { profileFromRow, profileToRow, emptyProfile, normalizeProfile, resolveHandedness, effectiveLeftHanded, suggestBookAverage } from "./domain/profiles.js";
-import { emptyTournament, normalizeTournament, tournamentToRow, tournamentFromRow } from "./domain/tournaments.js";
+import { emptyTournament, normalizeTournament, tournamentToRow, tournamentFromRow, scratchExcludedLeagues } from "./domain/tournaments.js";
 import { todaysRoutine, shouldShowLaunchPrompt } from "./domain/launchPrompt.js";
 import { normalizeGoals, goalsToRow, goalsFromRow, measurementsFor } from "./domain/goals.js";
 import { scoreStats, gamePositionAverages } from "./domain/scoreInsights.js";
@@ -3776,6 +3776,13 @@ export default function BowlingTracker(){
     try{window.storage.set(SESSION_START_SEEN_KEY,"1");}catch{}
   }
 
+  // Leagues whose scores stay out of the scratch record: Baker (half a
+  // partner's pins) and no-tap (a nine is a strike). Read from each
+  // tournament's own format rather than guessed from its name.
+  const scratchExcluded=useMemo(
+    ()=>scratchExcludedLeagues(tournaments,user?.id||""),
+    [tournaments,user?.id]);
+
   function updateTournament(next){
     const normalized=normalizeTournament(next);
     setActiveTournament(normalized);
@@ -6081,8 +6088,8 @@ export default function BowlingTracker(){
     // is not being shown.
     const mine=visibleSessions.filter(s=>s&&s.bowler===activeBowler);
     const scores=mine.flatMap(s=>Array.isArray(s.scores)?s.scores:[]).filter(v=>Number.isFinite(Number(v))).map(Number);
-    const hg=bowlerHighGame(visibleSessions,activeBowler);
-    const hs=bowlerHighSeries(visibleSessions,activeBowler);
+    const hg=bowlerHighGame(visibleSessions,activeBowler,scratchExcluded);
+    const hs=bowlerHighSeries(visibleSessions,activeBowler,scratchExcluded);
 
     // The shot-level figures come from shotBreakdown, the same function
     // the coaching screen uses -- rather than a second implementation
@@ -6972,8 +6979,8 @@ export default function BowlingTracker(){
         return v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):null;
       })(),
       bookAverage:normalizeProfile(profiles[who],who).bookAverage??null,
-      highGame:bowlerHighGame(sessions,who)?.value??null,
-      highSeries:bowlerHighSeries(sessions,who)?.value??null,
+      highGame:bowlerHighGame(sessions,who,scratchExcluded)?.value??null,
+      highSeries:bowlerHighSeries(sessions,who,scratchExcluded)?.value??null,
       gamesLogged:gameCount,
       nightsLogged:new Set(mySessions.map(x=>x.date)).size||null,
 
@@ -7655,8 +7662,8 @@ export default function BowlingTracker(){
   const cornerPinAttempts=goalBowler===statsBowler?tenPinAttempts:statsShots.filter(s=>isCornerPinLeave(s,viewedLeftHanded)&&s.spareMade!=="");
   const cornerPinMade=cornerPinAttempts.filter(s=>s.spareMade==="Yes").length;
   const cornerPinSpareR=cornerPinAttempts.length?Math.round((cornerPinMade/cornerPinAttempts.length)*100):0;
-  const goalHighGame=bowlerHighGame(sessions,goalBowler);
-  const goalHighSeries=bowlerHighSeries(sessions,goalBowler);
+  const goalHighGame=bowlerHighGame(sessions,goalBowler,scratchExcluded);
+  const goalHighSeries=bowlerHighSeries(sessions,goalBowler,scratchExcluded);
   const goalMeasurements={
     average:{current:cAvg(sessions,goalBowler,statsLeague),sample:1},
     highGame:{current:goalHighGame?goalHighGame.value:null,sample:1},
@@ -7703,8 +7710,8 @@ export default function BowlingTracker(){
     isSplit,isSinglePinLeave,isCornerPinLeave,
     leftHanded:leftHandedForBowler(activeBowler),
     average:cAvg(sessions,activeBowler,null),
-    highGame:bowlerHighGame(sessions,activeBowler)?.value??null,
-    highSeries:bowlerHighSeries(sessions,activeBowler)?.value??null,
+    highGame:bowlerHighGame(sessions,activeBowler,scratchExcluded)?.value??null,
+    highSeries:bowlerHighSeries(sessions,activeBowler,scratchExcluded)?.value??null,
   });
 
   // Weighted frame-quality score (0-100), strict priority order:
