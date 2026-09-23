@@ -105,6 +105,18 @@ jobs:
         uses: actions/upload-pages-artifact@v5
         with:
           path: ./dist
+          # WITHOUT THIS, /.well-known/ NEVER REACHES THE SITE.
+          #
+          # The action tars the directory with `--exclude=.[^/]*`, which
+          # drops every dotfile and dot-directory -- including
+          # .well-known/assetlinks.json, the file Android fetches to
+          # decide whether mybowlingjourney.com/app links may open the
+          # app, and the .nojekyll marker beside it.
+          #
+          # Nothing fails when they are dropped. The build copies them,
+          # the deploy succeeds, and the URL 404s, so App Link
+          # verification quietly falls back to opening the browser.
+          include-hidden-files: true
 
   deploy:
     needs: build
