@@ -609,6 +609,15 @@ export function tournamentToRow(t, userId) {
     buy_in: num(t.buyIn),
     winnings: num(t.winnings),
     side_pots: normalizeSidePots(t.sidePots),
+    // The finish and the note about it.
+    //
+    // Neither was mapped, so both lived only in the copy on the phone:
+    // the journal could still read the note from the list in memory
+    // while the tournament reloaded from the cloud came back with the
+    // finish blank. A recorded result that survives until the next
+    // refresh is worse than one the app never offered to record.
+    placement: t.placement || null,
+    placement_note: t.placementNote || null,
     match_play: normalizeMatchPlay(t.matchPlay),
     stepladder: normalizeStepladder(t.stepladder),
     match_play_next_round: NEXT_ROUNDS.includes(t.matchPlayNextRound) ? t.matchPlayNextRound : null,
@@ -633,6 +642,8 @@ export function tournamentFromRow(row) {
     buyIn: row.buy_in == null ? "" : String(row.buy_in),
     winnings: row.winnings == null ? "" : String(row.winnings),
     sidePots: row.side_pots || [],
+    placement: row.placement || "",
+    placementNote: row.placement_note || "",
     matchPlay: row.match_play || null,
     stepladder: row.stepladder || null,
     matchPlayNextRound: row.match_play_next_round || null,
