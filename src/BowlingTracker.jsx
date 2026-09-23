@@ -5404,7 +5404,15 @@ export default function BowlingTracker(){
     //
     // gameScores is already sized to the night.
     const scores=gameScores.map((_,idx)=>idx+1).map(g=>getGameStrict(nightBowler,nightLeague,nightDate,g)).filter(s=>s!=null);
-    if(!scores.length){
+    // A drill-only practice has no games at all -- that is not a failure
+    // to file, it is the whole night. Requiring a game here blocked
+    // exactly the practices this app exists to track: the ones that are
+    // just target work. Only block when there is truly nothing -- no
+    // games AND no drill attempts tonight.
+    const hasDrillWork=preferences.environment==="practice"
+      &&(drills||[]).some(d=>d&&d.bowler===activeBowler&&d.date===sessionDate
+        &&(Number(d.made||0)+Number(d.missed||0))>0);
+    if(!scores.length&&!hasDrillWork){
       // Previously silently did nothing here — no feedback at all, even
       // though this is a common, valid state (e.g. only the match points
       // have been entered so far, no shots logged yet for this night).
@@ -5415,6 +5423,10 @@ export default function BowlingTracker(){
       }
       return false;
     }
+    // Nothing to file as a session row for a drill-only night -- drills
+    // live in their own table, not in sessions -- but the night still
+    // ended, so say so.
+    if(!scores.length&&hasDrillWork)return true;
     const ss=shots.filter(s=>s.bowler===activeBowler&&s.league===effectiveSessionLeague&&s.date===sessionDate);
     // A session is uniquely identified by bowler+league+date. If one already
     // exists (e.g. a double-tap on Save), update it in place rather than

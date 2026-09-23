@@ -88,6 +88,7 @@ export default function LogView({
   //     need the separate ball and surface cards under them.
   const env=preferences.environment;
   const isDrill=env==="practice"&&practiceMode==="drill";
+
   // Is there anything on the Results tab yet? Same question the results
   // card itself asks, asked one place earlier so the chip can hide until
   // the answer is yes -- a tab whose only content is "nothing here"
@@ -3944,15 +3945,20 @@ export default function LogView({
                 -- had nothing between it and the sticky bar and got cut
                 off at the bottom. A spacer only clears what precedes it. */}
           {env==="casual"&&casualSpacer>0&&<div style={{height:`${casualSpacer}px`}}/>}
-          {/* The bar is FIXED 64px up from the bottom, above the nav, so
+        {/* The bar is FIXED some distance up from the bottom, above the nav, so
               the last card has to clear both of them, not just the bar.
               Reserving footerHeight alone left the final cards -- Shoes,
               Execution, Cancel Practice -- under the furniture on taller
-              phones. */}
+              phones.
+              
+              navClearance is MEASURED from the real nav element, the same
+              way HomeView already does it, rather than guessed as a flat
+              76px: a flat guess taller than the real nav (which already
+              includes the safe-area inset in its own padding) left a
+              slab of dead space below Cancel Practice on shorter navs,
+              double-counting the inset on top of it. */}
           {(editingId||(activeBowler&&effectiveSessionLeague))&&(
-            <div style={{height:footerShown
-              ?`calc(${footerHeight}px + 76px + env(safe-area-inset-bottom, 0px))`
-              :"calc(76px + env(safe-area-inset-bottom, 0px))"}}/>
+            <div style={{height:footerShown?`${footerHeight}px`:"0px"}}/>
           )}
 
           {/* The bar shows while EDITING too.
