@@ -23,7 +23,7 @@
 // shift it a day either side of UTC, which would put a Tuesday night in
 // Monday's box.
 
-import { isPracticeLeagueName, isCasualLeagueName, isTournamentLeagueName } from "../constants.js";
+import { isPracticeLeagueName, isCasualLeagueName, isTournamentLeagueName, tournamentBaseLeagueName } from "../constants.js";
 
 const rows = v => (Array.isArray(v) ? v : []).filter(x => x && typeof x === "object");
 
@@ -93,12 +93,18 @@ export function monthKey(year, month) {
 // part-bowled game has no final score worth showing; they exist so the
 // day is on the map and coloured by its mode.
 export function shotNights(shots, sessions) {
+  // A tournament's phases -- qualifying, match play, the stepladder --
+  // file their frames under their own container leagues so their game
+  // numbering cannot collide. On a calendar they are one day at one
+  // event, not three, so the phase suffix comes off before grouping.
+  const group = name => tournamentBaseLeagueName(String(name || "")) || String(name || "");
+
   const haveSession = new Set(
-    rows(sessions).map(s => `${clean(s.bowler)}|${clean(s.league)}|${clean(s.date)}`));
+    rows(sessions).map(s => `${clean(s.bowler)}|${group(s.league)}|${clean(s.date)}`));
 
   const seen = new Map();
   for (const sh of rows(shots)) {
-    const key = `${clean(sh.bowler)}|${clean(sh.league)}|${clean(sh.date)}`;
+    const key = `${clean(sh.bowler)}|${group(sh.league)}|${clean(sh.date)}`;
     // A night with a session row is already on the calendar, with its
     // real scores. Adding it again would double it.
     if (haveSession.has(key)) continue;
@@ -106,7 +112,9 @@ export function shotNights(shots, sessions) {
     if (seen.has(key)) continue;
     seen.set(key, {
       bowler: sh.bowler,
-      league: sh.league,
+      // The event's league, so the entry is named for the event rather
+      // than for whichever phase happened to be logged first.
+      league: group(sh.league),
       date: clean(sh.date),
       scores: [],
       mode: sessionMode(sh),
