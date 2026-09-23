@@ -42,7 +42,7 @@ const ALL_STEPS = [
     track: "look",
     tab: "log",
     title: "Keeping score",
-    body: "Bowl is where a night gets logged. Enter three game scores, or go ball by ball and record every leave. Pick a mode from the rows on Home and you land here.",
+    body: "Home is where a night gets logged. Pick what you're doing from the rows at the top — league, practice, a tournament, just bowling — and the card opens underneath. Enter three game scores, or go ball by ball and record every leave.",
   },
   {
     id: "look-gear",
@@ -175,7 +175,7 @@ const ALL_STEPS = [
     track: "tournament",
     tab: "log",
     title: "Match play",
-    body: "Each match is your score against an opponent's, with bonus pins for a win or a tie. Game numbering starts again at 1 here, so tracking frames in a match is a fresh slate rather than a continuation of qualifying. In a handicap event there's a box for your opponent's handicap too.",
+    body: "Each match is your score against an opponent's, with bonus pins for a win or a tie. In a handicap event there's a box for your opponent's handicap too.",
   },
   {
     id: "tourn-stepladder",
@@ -198,14 +198,14 @@ const ALL_STEPS = [
     track: "ai",
     tab: "log",
     title: "Photograph the scorecard",
-    body: "The camera icon at the top takes a picture of the monitor or a printed sheet. Every bowler on it, every frame it can read — no typing.",
+    body: "Import, in the header, takes a picture of the monitor or a printed sheet. Every bowler on it, every frame it can read — no typing. It asks what you're importing, so you don't have to set the night up first.",
   },
   {
     id: "ai-insights",
     track: "ai",
     tab: "improve",
     title: "Insights",
-    body: "Improve reads your own history and tells you what it finds — which ball is carrying, where a spare is leaking, what changed this month. It stays quiet until it has enough shots to be sure.",
+    body: "Improve reads your own history and tells you what it finds — which ball is carrying, where a spare is leaking, what changed this month. Each one says how confident it is, and while the sample is still small it says so rather than letting you act on a pattern that is really just noise.",
   },
   {
     id: "ai-nightcap",
@@ -219,7 +219,7 @@ const ALL_STEPS = [
     track: "ai",
     tab: "improve",
     title: "Ask Brooklyn",
-    body: "The Stats screens cover the usual numbers. Brooklyn is for the questions they don't answer — ask about your own bowling in plain words and she works it out from what you've logged. If it needs something you don't track yet, she'll say what to start logging. Tap the lamp at the top of any screen. Three wishes a day.",
+    body: "The Stats screens cover the usual numbers. Brooklyn is for the questions they don't answer — ask about your own bowling in plain words and she works it out from what you've logged. If it needs something you don't track yet, she'll say what to start logging. Her lamp sits in the header on every screen, so you never have to go looking. Three wishes a day.",
   },
 
   // ── Coaching ──────────────────────────────────────────────────────────
