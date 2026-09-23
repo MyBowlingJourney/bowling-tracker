@@ -15,7 +15,7 @@ import DrillSession from "./DrillSession.jsx";
 import SessionRecap from "./SessionRecap.jsx";
 import { casualRecap } from "./domain/sessionRecap.js";
 // The rest of a tournament, for the Nightcap's read-back.
-import { dayGamesEntered, cutMargin, cutMarginWithCarry, carryBefore } from "./domain/tournaments.js";
+import { dayGamesEntered, cutMargin, cutMarginWithCarry, carryBefore, resolveTournamentGameScore } from "./domain/tournaments.js";
 import { matchPlayTotals, pinDifferential } from "./domain/matchPlay.js";
 import { stepladderResult } from "./domain/stepladder.js";
 import { sidePotTotals } from "./domain/sidePots.js";
@@ -736,7 +736,12 @@ export default function LogView({
   // null when nothing beyond qualifying happened -- an empty shape here
   // would have the nightcap reaching for a match play block nobody
   // bowled.
-  const tournamentNightcapFacts=()=>{
+  // Which block is being read back, and its frame scores.
+  //
+  // One resolution, used by both the facts below and the scores handed
+  // to the Nightcap -- two would eventually disagree about which block
+  // the bowler just finished.
+  const tournamentBlock=()=>{
     if(env!=="tournament")return null;
     const t=activeTournament;
     if(!t)return null;
@@ -751,6 +756,30 @@ export default function LogView({
     const day=days.find(d=>sessionDate&&String(d.date)===String(sessionDate))
       ||[...days].reverse().find(d=>dayGamesEntered(d,scoresFor(d))>0)
       ||days[0];
+    return {tournament:t,day,scoresFor};
+  };
+
+  // The block's game scores, in order.
+  //
+  // NOT the session row's scores. A tournament's games live on the
+  // tournament, and the session row for a tournament league carries
+  // whatever the generic night machinery made of the frames -- which on
+  // a multi-phase day was a couple of match play games, read back to
+  // the bowler as "a 514 series across 2 games" on a day they shot 1466
+  // across six.
+  const tournamentBlockScores=()=>{
+    const block=tournamentBlock();
+    if(!block?.day)return null;
+    const scores=block.scoresFor(block.day);
+    return (block.day.games||[])
+      .map(g=>resolveTournamentGameScore(g,scores))
+      .filter(v=>typeof v==="number");
+  };
+
+  const tournamentNightcapFacts=()=>{
+    const block=tournamentBlock();
+    if(!block)return null;
+    const {tournament:t,day,scoresFor}=block;
     const out={};
     if(day){
       const carry=carryBefore(t,day.dayNumber,scoresFor);
@@ -796,7 +825,12 @@ export default function LogView({
     // different read-backs of one event depending on where you had
     // just been. The block is the qualifying block.
     const nightLeague=env==="tournament"?tournamentBaseLeagueName(cs.league):cs.league;
-    const scores=Array.isArray(cs.scores)?cs.scores:[];
+    // A tournament reads back the BLOCK it just bowled, not the session
+    // row: see tournamentBlockScores.
+    const blockScores=env==="tournament"?tournamentBlockScores():null;
+    const scores=blockScores&&blockScores.length
+      ?blockScores
+      :(Array.isArray(cs.scores)?cs.scores:[]);
     const theoreticalScores=scores
       .map((_,idx)=>idx+1)
       .map(g=>theoreticalScoreForGame(cs.bowler,nightLeague,cs.date,g));
@@ -814,7 +848,7 @@ export default function LogView({
         league={nightLeague}
         date={cs.date}
         leftHanded={leftHandedForBowler?leftHandedForBowler(cs.bowler):false}
-        scores={cs.scores}
+        scores={scores}
         priorAverage={cumulativeAvgBeforeDate(sessions,cs.bowler,nightLeague,cs.date)}
         pinsLeftOnLane={anyTheoretical&&played.length?(theoryTotal-realTotal):null}
         sessionEnded={(sessions||[]).some(s=>s&&s.bowler===cs.bowler&&s.league===nightLeague&&s.date===cs.date)}
