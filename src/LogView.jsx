@@ -759,21 +759,30 @@ export default function LogView({
     return {tournament:t,day,scoresFor};
   };
 
-  // The block's game scores, in order.
+  // The WHOLE event's qualifying games, in the order they were bowled.
   //
-  // NOT the session row's scores. A tournament's games live on the
+  // NOT the session row's scores: a tournament's games live on the
   // tournament, and the session row for a tournament league carries
   // whatever the generic night machinery made of the frames -- which on
-  // a multi-phase day was a couple of match play games, read back to
-  // the bowler as "a 514 series across 2 games" on a day they shot 1466
-  // across six.
+  // a multi-phase day was a couple of match play games, read back as "a
+  // 514 series across 2 games" on a day the bowler shot 1466 across six.
+  //
+  // And not one block either. A bowler reads this once, at the end,
+  // with the whole event behind them; a read-back of Sunday's three
+  // games describes half of what they did.
   const tournamentBlockScores=()=>{
     const block=tournamentBlock();
-    if(!block?.day)return null;
-    const scores=block.scoresFor(block.day);
-    return (block.day.games||[])
-      .map(g=>resolveTournamentGameScore(g,scores))
-      .filter(v=>typeof v==="number");
+    if(!block)return null;
+    const days=block.tournament?.days||[];
+    const out=[];
+    for(const d of days){
+      const scores=block.scoresFor(d);
+      for(const g of (d.games||[])){
+        const v=resolveTournamentGameScore(g,scores);
+        if(typeof v==="number")out.push(v);
+      }
+    }
+    return out;
   };
 
   const tournamentNightcapFacts=()=>{
@@ -825,8 +834,8 @@ export default function LogView({
     // different read-backs of one event depending on where you had
     // just been. The block is the qualifying block.
     const nightLeague=env==="tournament"?tournamentBaseLeagueName(cs.league):cs.league;
-    // A tournament reads back the BLOCK it just bowled, not the session
-    // row: see tournamentBlockScores.
+    // A tournament reads back the whole event, not the session row:
+    // see tournamentBlockScores.
     const blockScores=env==="tournament"?tournamentBlockScores():null;
     const scores=blockScores&&blockScores.length
       ?blockScores
