@@ -77,6 +77,9 @@ export default function Nightcap({
   entitlement = null,
   // "league" or "tournament": which kind of night this reads back.
   event = "league",
+  // The rest of the event, already computed: the cut, match play, the
+  // stepladder, side action and the finish. Null for a league night.
+  tournament = null,
 }) {
   const [state, setState] = useState({ status: "idle", result: null, error: null });
 
@@ -93,10 +96,14 @@ export default function Nightcap({
   // scores is an array prop with a fresh identity each render, so it is
   // depended on by value rather than by reference.
   const scoreKey = (Array.isArray(scores) ? scores : []).join(",");
+  const tournamentKey = tournament ? JSON.stringify(tournament) : "";
   const payload = useMemo(
-    () => nightcapPayload(shots, { bowler, league, date, leftHanded, scores, priorAverage, pinsLeftOnLane, event }),
+    () => nightcapPayload(shots, { bowler, league, date, leftHanded, scores, priorAverage, pinsLeftOnLane, event, tournament }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [shots, bowler, league, date, leftHanded, scoreKey, priorAverage, pinsLeftOnLane, event],
+    // tournamentKey, not the object: it is rebuilt on every render of
+    // the card, and depending on the reference would recompute the
+    // payload (and change its fingerprint) forever.
+    [shots, bowler, league, date, leftHanded, scoreKey, priorAverage, pinsLeftOnLane, event, tournamentKey],
   );
 
   const allowed = canPourNightcap(entitlement);

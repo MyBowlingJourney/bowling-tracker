@@ -14,6 +14,11 @@ import TournamentSession from "./TournamentSession.jsx";
 import DrillSession from "./DrillSession.jsx";
 import SessionRecap from "./SessionRecap.jsx";
 import { casualRecap } from "./domain/sessionRecap.js";
+// The rest of a tournament, for the Nightcap's read-back.
+import { dayGamesEntered, cutMargin, cutMarginWithCarry, carryBefore } from "./domain/tournaments.js";
+import { matchPlayTotals, pinDifferential } from "./domain/matchPlay.js";
+import { stepladderResult } from "./domain/stepladder.js";
+import { sidePotTotals } from "./domain/sidePots.js";
 import Nightcap from "./Nightcap.jsx";
 import ShareButton from "./ShareButton.jsx";
 import OilPatternPicker from "./OilPatternPicker.jsx";
@@ -724,6 +729,55 @@ export default function LogView({
   //
   // Same inputs as the league copy, computed here so there is one
   // derivation of each.
+  // What else happened at this event, for the Nightcap.
+  //
+  // Numbers only, already computed, so the read-back can cover the day
+  // rather than the first block of it. Null outside a tournament and
+  // null when nothing beyond qualifying happened -- an empty shape here
+  // would have the nightcap reaching for a match play block nobody
+  // bowled.
+  const tournamentNightcapFacts=()=>{
+    if(env!=="tournament")return null;
+    const t=activeTournament;
+    if(!t)return null;
+    const scoresFor=d=>{
+      const byDate=tournamentShotScoresByDate?.scores||null;
+      if(!byDate)return null;
+      return d?.date?(byDate[String(d.date)]||null):(byDate[String(sessionDate)]||null);
+    };
+    // The block being bowled: the one dated today, else the last with
+    // anything in it.
+    const days=t.days||[];
+    const day=days.find(d=>sessionDate&&String(d.date)===String(sessionDate))
+      ||[...days].reverse().find(d=>dayGamesEntered(d,scoresFor(d))>0)
+      ||days[0];
+    const out={};
+    if(day){
+      const carry=carryBefore(t,day.dayNumber,scoresFor);
+      const margin=carry.games?cutMarginWithCarry(day,scoresFor(day),carry):cutMargin(day,scoresFor(day));
+      if(margin!==null)out.cutMargin=margin;
+    }
+    const mt=matchPlayTotals(t.matchPlay);
+    if(mt.played>0){
+      out.matchPlay={
+        played:mt.played,wins:mt.wins,losses:mt.losses,ties:mt.ties,
+        bonusPins:mt.bonusPins,total:mt.total,average:mt.average,
+        pinDiff:pinDifferential(t.matchPlay),
+      };
+    }
+    const sr=stepladderResult(t.stepladder);
+    if(sr.played>0){
+      out.stepladder={
+        played:sr.played,wins:sr.wins,losses:sr.losses,
+        seed:Number(t.stepladder?.yourSeed)||null,place:sr.place,
+      };
+    }
+    const sp=sidePotTotals(t.sidePots);
+    if(sp.count>0)out.sidePots={count:sp.count,cost:sp.cost,won:sp.won,net:sp.net};
+    if(t.placement&&t.placement!=="none")out.placement=t.placement;
+    return Object.keys(out).length?out:null;
+  };
+
   const renderNightcap=()=>{
     const cs=curSession;
     if(!cs)return null;
@@ -764,6 +818,7 @@ export default function LogView({
         priorAverage={cumulativeAvgBeforeDate(sessions,cs.bowler,nightLeague,cs.date)}
         pinsLeftOnLane={anyTheoretical&&played.length?(theoryTotal-realTotal):null}
         sessionEnded={(sessions||[]).some(s=>s&&s.bowler===cs.bowler&&s.league===nightLeague&&s.date===cs.date)}
+        tournament={tournamentNightcapFacts()}
         entitlement={entitlement}/>
     );
   };
