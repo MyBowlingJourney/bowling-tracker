@@ -1,24 +1,5 @@
 -- BASELINE. Generated once from the live database; not edited by hand.
 -- Later changes go in new migration files beside this one.
---
--- TWO FIXES MAKE THIS FILE REPLAYABLE. It was not.
---
--- 1. Policy names were single-quoted -- CREATE POLICY 'name' -- which is
---    a string literal where Postgres wants an identifier. All 139
---    statements failed, so a database rebuilt from this file came up
---    with RLS enabled and NO POLICIES AT ALL. It fails closed, so
---    nothing leaks; the app simply cannot read its own tables. The names
---    are now double-quoted.
---
--- 2. The functions are written above the tables they read, and a SQL
---    function body is checked at creation time. Turning
---    check_function_bodies off defers that to run time, which is what
---    pg_restore does for the same reason. Without it the helpers
---    (is_team_member, are_friends, ...) fail to create, and every policy
---    that calls one fails with them.
---
--- Verified by replaying this file into an empty PostgreSQL 16.
-SET check_function_bodies = false;
 
 CREATE OR REPLACE FUNCTION public.accept_team_invite(invite_id uuid)
  RETURNS boolean
@@ -664,7 +645,8 @@ CREATE TABLE IF NOT EXISTS public.bowling_centers (
   lng numeric,
   created_by uuid,
   created_at timestamp with time zone DEFAULT now() NOT NULL,
-  rack_type text
+  rack_type text,
+  freefall_lanes integer[]
 );
 CREATE TABLE IF NOT EXISTS public.closed_seasons (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -721,7 +703,8 @@ CREATE TABLE IF NOT EXISTS public.drills (
   missed integer DEFAULT 0 NOT NULL,
   notes text,
   created_at timestamp with time zone DEFAULT now() NOT NULL,
-  custom_pins jsonb
+  custom_pins jsonb,
+  session_seq integer DEFAULT 1 NOT NULL
 );
 CREATE TABLE IF NOT EXISTS public.entitlements (
   user_id uuid NOT NULL,
@@ -823,7 +806,8 @@ CREATE TABLE IF NOT EXISTS public.manual_scores (
   created_at timestamp with time zone DEFAULT now() NOT NULL,
   updated_at timestamp with time zone DEFAULT now() NOT NULL,
   ball text,
-  surface text
+  surface text,
+  session_seq integer DEFAULT 1 NOT NULL
 );
 CREATE TABLE IF NOT EXISTS public.matches (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -909,7 +893,8 @@ CREATE TABLE IF NOT EXISTS public.sessions (
   poker_dollar_cost numeric[] DEFAULT '{0,0,0}'::numeric[] NOT NULL,
   three_six_nine_cost numeric DEFAULT 0 NOT NULL,
   prebowled_on date,
-  notes text
+  notes text,
+  session_seq integer DEFAULT 1 NOT NULL
 );
 CREATE TABLE IF NOT EXISTS public.shots (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -951,7 +936,8 @@ CREATE TABLE IF NOT EXISTS public.shots (
   axis_tilt numeric,
   breakpoint_board text,
   breakpoint_distance text,
-  second_leave jsonb
+  second_leave jsonb,
+  session_seq integer DEFAULT 1 NOT NULL
 );
 CREATE TABLE IF NOT EXISTS public.subscription_events (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -1016,151 +1002,143 @@ CREATE TABLE IF NOT EXISTS public.user_preferences (
   preferences jsonb DEFAULT '{}'::jsonb NOT NULL,
   updated_at timestamp with time zone DEFAULT now()
 );
--- CONSTRAINTS, REORDERED: keys first, then foreign keys.
---
--- They were emitted in table-name order, so a foreign key could point
--- at a table whose primary key had not been added yet, and psql said
--- "there is no unique constraint matching given keys for referenced
--- table". 17 failed that way on a replay, taking their referential
--- integrity with them. Primary and unique keys now go first.
 ALTER TABLE public.ai_token_usage ADD CONSTRAINT ai_token_usage_pkey PRIMARY KEY (id);
+ALTER TABLE public.ai_token_usage ADD CONSTRAINT ai_token_usage_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE SET NULL;
 ALTER TABLE public.api_usage ADD CONSTRAINT api_usage_pkey PRIMARY KEY (id);
+ALTER TABLE public.api_usage ADD CONSTRAINT api_usage_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.arsenals ADD CONSTRAINT arsenal_pkey PRIMARY KEY (id);
-ALTER TABLE public.bags ADD CONSTRAINT bags_pkey PRIMARY KEY (id);
-ALTER TABLE public.ball_bags ADD CONSTRAINT ball_bags_pkey PRIMARY KEY (id);
-ALTER TABLE public.ball_confirmations ADD CONSTRAINT ball_confirmations_pkey PRIMARY KEY (id);
-ALTER TABLE public.ball_groups ADD CONSTRAINT ball_groups_pkey PRIMARY KEY (id);
-ALTER TABLE public.ball_submissions ADD CONSTRAINT ball_submissions_pkey PRIMARY KEY (id);
-ALTER TABLE public.bowler_goals ADD CONSTRAINT bowler_goals_pkey PRIMARY KEY (id);
-ALTER TABLE public.bowler_names ADD CONSTRAINT bowler_names_pkey PRIMARY KEY (id);
-ALTER TABLE public.bowler_profiles ADD CONSTRAINT bowler_profiles_pkey PRIMARY KEY (id);
-ALTER TABLE public.bowling_centers ADD CONSTRAINT bowling_centers_pkey PRIMARY KEY (id);
-ALTER TABLE public.closed_seasons ADD CONSTRAINT closed_seasons_pkey PRIMARY KEY (id);
-ALTER TABLE public.coaching_notes ADD CONSTRAINT coaching_notes_pkey PRIMARY KEY (id);
-ALTER TABLE public.coaching_relationships ADD CONSTRAINT coaching_relationships_pkey PRIMARY KEY (id);
-ALTER TABLE public.coaching_tasks ADD CONSTRAINT coaching_tasks_pkey PRIMARY KEY (id);
-ALTER TABLE public.drills ADD CONSTRAINT drills_pkey PRIMARY KEY (id);
-ALTER TABLE public.entitlements ADD CONSTRAINT entitlements_pkey PRIMARY KEY (user_id);
-ALTER TABLE public.error_reports ADD CONSTRAINT error_reports_pkey PRIMARY KEY (id);
-ALTER TABLE public.friendships ADD CONSTRAINT friendships_pkey PRIMARY KEY (id);
-ALTER TABLE public.hidden_leagues ADD CONSTRAINT hidden_leagues_pkey PRIMARY KEY (id);
-ALTER TABLE public.imported_scores ADD CONSTRAINT imported_scores_pkey PRIMARY KEY (id);
-ALTER TABLE public.lane_patterns ADD CONSTRAINT lane_patterns_pkey PRIMARY KEY (id);
-ALTER TABLE public.leagues ADD CONSTRAINT leagues_pkey PRIMARY KEY (id);
-ALTER TABLE public.manual_scores ADD CONSTRAINT manual_scores_pkey PRIMARY KEY (id);
-ALTER TABLE public.matches ADD CONSTRAINT matches_pkey PRIMARY KEY (id);
-ALTER TABLE public.oil_patterns ADD CONSTRAINT oil_patterns_pkey PRIMARY KEY (id);
-ALTER TABLE public.pending_invites ADD CONSTRAINT pending_invites_pkey PRIMARY KEY (id);
-ALTER TABLE public.profiles ADD CONSTRAINT profiles_pkey PRIMARY KEY (id);
-ALTER TABLE public.sessions ADD CONSTRAINT sessions_pkey PRIMARY KEY (id);
-ALTER TABLE public.shots ADD CONSTRAINT shots_pkey PRIMARY KEY (id);
-ALTER TABLE public.subscription_events ADD CONSTRAINT subscription_events_pkey PRIMARY KEY (id);
-ALTER TABLE public.sync_tombstones ADD CONSTRAINT sync_tombstones_pkey PRIMARY KEY (id);
-ALTER TABLE public.team_members ADD CONSTRAINT team_members_pkey PRIMARY KEY (team_id, user_id);
-ALTER TABLE public.teams ADD CONSTRAINT teams_pkey PRIMARY KEY (id);
-ALTER TABLE public.tournaments ADD CONSTRAINT tournaments_pkey PRIMARY KEY (id);
-ALTER TABLE public.user_preferences ADD CONSTRAINT user_preferences_pkey PRIMARY KEY (user_id);
-ALTER TABLE public.bags ADD CONSTRAINT bags_created_by_bowler_name_name_key UNIQUE (created_by, bowler_name, name);
-ALTER TABLE public.ball_bags ADD CONSTRAINT ball_bags_created_by_bowler_name_ball_bag_id_key UNIQUE (created_by, bowler_name, ball, bag_id);
-ALTER TABLE public.ball_confirmations ADD CONSTRAINT ball_confirmations_submission_id_confirmed_by_key UNIQUE (submission_id, confirmed_by);
-ALTER TABLE public.ball_groups ADD CONSTRAINT ball_groups_created_by_bowler_name_name_key UNIQUE (created_by, bowler_name, name);
-ALTER TABLE public.ball_submissions ADD CONSTRAINT ball_submissions_submitted_by_ball_key_key UNIQUE (submitted_by, ball_key);
-ALTER TABLE public.bowler_goals ADD CONSTRAINT bowler_goals_created_by_bowler_name_key UNIQUE (created_by, bowler_name);
-ALTER TABLE public.bowler_profiles ADD CONSTRAINT bowler_profiles_created_by_bowler_name_key UNIQUE (created_by, bowler_name);
-ALTER TABLE public.bowler_profiles ADD CONSTRAINT bowler_profiles_owner_name_key UNIQUE (created_by, bowler_name);
-ALTER TABLE public.bowling_centers ADD CONSTRAINT bowling_centers_here_id_key UNIQUE (here_id);
-ALTER TABLE public.closed_seasons ADD CONSTRAINT closed_seasons_user_id_league_end_date_key UNIQUE (user_id, league, end_date);
-ALTER TABLE public.coaching_relationships ADD CONSTRAINT coaching_relationships_coach_id_bowler_id_key UNIQUE (coach_id, bowler_id);
-ALTER TABLE public.error_reports ADD CONSTRAINT error_reports_user_signature_key UNIQUE (user_id, signature);
-ALTER TABLE public.friendships ADD CONSTRAINT friendships_requester_id_addressee_id_key UNIQUE (requester_id, addressee_id);
-ALTER TABLE public.hidden_leagues ADD CONSTRAINT hidden_leagues_user_id_league_id_key UNIQUE (user_id, league_id);
-ALTER TABLE public.lane_patterns ADD CONSTRAINT lane_patterns_team_id_date_lane_key UNIQUE (team_id, date, lane);
-ALTER TABLE public.manual_scores ADD CONSTRAINT manual_scores_slot_key UNIQUE (user_id, bowler_name, league_id, date, game);
-ALTER TABLE public.manual_scores ADD CONSTRAINT manual_scores_user_id_bowler_name_league_id_date_game_key UNIQUE (user_id, bowler_name, league_id, date, game);
-ALTER TABLE public.matches ADD CONSTRAINT matches_team_id_date_key UNIQUE (team_id, date);
-ALTER TABLE public.oil_patterns ADD CONSTRAINT oil_patterns_name_key UNIQUE (name);
-ALTER TABLE public.pending_invites ADD CONSTRAINT pending_invites_team_id_invited_email_key UNIQUE (team_id, invited_email);
-ALTER TABLE public.sessions ADD CONSTRAINT sessions_user_id_bowler_name_league_id_date_key UNIQUE (user_id, bowler_name, league_id, date);
-ALTER TABLE public.user_preferences ADD CONSTRAINT user_preferences_user_id_key UNIQUE (user_id);
 ALTER TABLE public.arsenals ADD CONSTRAINT arsenals_core_type_check CHECK (((core_type IS NULL) OR (core_type = ANY (ARRAY['symmetric'::text, 'asymmetric'::text]))));
 ALTER TABLE public.arsenals ADD CONSTRAINT arsenals_coverstock_check CHECK (((coverstock IS NULL) OR (coverstock = ANY (ARRAY['solid'::text, 'pearl'::text, 'hybrid'::text]))));
 ALTER TABLE public.arsenals ADD CONSTRAINT arsenals_layout_system_check CHECK (((layout_system IS NULL) OR (layout_system = ANY (ARRAY['dual_angle'::text, 'vls'::text, '2ls'::text]))));
+ALTER TABLE public.arsenals ADD CONSTRAINT arsenals_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.arsenals ADD CONSTRAINT arsenals_group_id_fkey FOREIGN KEY (group_id) REFERENCES ball_groups(id) ON DELETE SET NULL;
+ALTER TABLE public.bags ADD CONSTRAINT bags_pkey PRIMARY KEY (id);
+ALTER TABLE public.bags ADD CONSTRAINT bags_created_by_bowler_name_name_key UNIQUE (created_by, bowler_name, name);
 ALTER TABLE public.bags ADD CONSTRAINT bags_bag_type_check CHECK ((bag_type = ANY (ARRAY['league'::text, 'tournament'::text])));
+ALTER TABLE public.bags ADD CONSTRAINT bags_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.ball_bags ADD CONSTRAINT ball_bags_pkey PRIMARY KEY (id);
+ALTER TABLE public.ball_bags ADD CONSTRAINT ball_bags_created_by_bowler_name_ball_bag_id_key UNIQUE (created_by, bowler_name, ball, bag_id);
+ALTER TABLE public.ball_bags ADD CONSTRAINT ball_bags_bag_id_fkey FOREIGN KEY (bag_id) REFERENCES bags(id) ON DELETE CASCADE;
+ALTER TABLE public.ball_bags ADD CONSTRAINT ball_bags_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.ball_confirmations ADD CONSTRAINT ball_confirmations_pkey PRIMARY KEY (id);
+ALTER TABLE public.ball_confirmations ADD CONSTRAINT ball_confirmations_submission_id_confirmed_by_key UNIQUE (submission_id, confirmed_by);
 ALTER TABLE public.ball_confirmations ADD CONSTRAINT ball_confirmations_vote_check CHECK ((vote = ANY (ARRAY['approve'::text, 'reject'::text])));
+ALTER TABLE public.ball_confirmations ADD CONSTRAINT ball_confirmations_confirmed_by_fkey FOREIGN KEY (confirmed_by) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.ball_confirmations ADD CONSTRAINT ball_confirmations_submission_id_fkey FOREIGN KEY (submission_id) REFERENCES ball_submissions(id) ON DELETE CASCADE;
+ALTER TABLE public.ball_groups ADD CONSTRAINT ball_groups_pkey PRIMARY KEY (id);
+ALTER TABLE public.ball_groups ADD CONSTRAINT ball_groups_created_by_bowler_name_name_key UNIQUE (created_by, bowler_name, name);
+ALTER TABLE public.ball_groups ADD CONSTRAINT ball_groups_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.ball_submissions ADD CONSTRAINT ball_submissions_pkey PRIMARY KEY (id);
+ALTER TABLE public.ball_submissions ADD CONSTRAINT ball_submissions_submitted_by_ball_key_key UNIQUE (submitted_by, ball_key);
+ALTER TABLE public.ball_submissions ADD CONSTRAINT ball_submissions_submitted_by_fkey FOREIGN KEY (submitted_by) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.bowler_goals ADD CONSTRAINT bowler_goals_pkey PRIMARY KEY (id);
+ALTER TABLE public.bowler_goals ADD CONSTRAINT bowler_goals_created_by_bowler_name_key UNIQUE (created_by, bowler_name);
+ALTER TABLE public.bowler_goals ADD CONSTRAINT bowler_goals_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.bowler_names ADD CONSTRAINT bowler_names_pkey PRIMARY KEY (id);
+ALTER TABLE public.bowler_names ADD CONSTRAINT bowler_names_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.bowler_profiles ADD CONSTRAINT bowler_profiles_pkey PRIMARY KEY (id);
+ALTER TABLE public.bowler_profiles ADD CONSTRAINT bowler_profiles_created_by_bowler_name_key UNIQUE (created_by, bowler_name);
+ALTER TABLE public.bowler_profiles ADD CONSTRAINT bowler_profiles_owner_name_key UNIQUE (created_by, bowler_name);
 ALTER TABLE public.bowler_profiles ADD CONSTRAINT bowler_profiles_all_time_high_game_check CHECK (((all_time_high_game IS NULL) OR ((all_time_high_game >= 0) AND (all_time_high_game <= 300))));
 ALTER TABLE public.bowler_profiles ADD CONSTRAINT bowler_profiles_all_time_high_series_check CHECK (((all_time_high_series IS NULL) OR ((all_time_high_series >= 0) AND (all_time_high_series <= 900))));
+ALTER TABLE public.bowler_profiles ADD CONSTRAINT bowler_profiles_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.bowling_centers ADD CONSTRAINT bowling_centers_pkey PRIMARY KEY (id);
+ALTER TABLE public.bowling_centers ADD CONSTRAINT bowling_centers_here_id_key UNIQUE (here_id);
+ALTER TABLE public.bowling_centers ADD CONSTRAINT bowling_centers_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE public.closed_seasons ADD CONSTRAINT closed_seasons_pkey PRIMARY KEY (id);
+ALTER TABLE public.closed_seasons ADD CONSTRAINT closed_seasons_user_id_league_end_date_key UNIQUE (user_id, league, end_date);
 ALTER TABLE public.closed_seasons ADD CONSTRAINT closed_seasons_check CHECK ((end_date >= start_date));
+ALTER TABLE public.closed_seasons ADD CONSTRAINT closed_seasons_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.coaching_notes ADD CONSTRAINT coaching_notes_pkey PRIMARY KEY (id);
+ALTER TABLE public.coaching_notes ADD CONSTRAINT coaching_notes_author_id_fkey FOREIGN KEY (author_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.coaching_notes ADD CONSTRAINT coaching_notes_relationship_id_fkey FOREIGN KEY (relationship_id) REFERENCES coaching_relationships(id) ON DELETE CASCADE;
+ALTER TABLE public.coaching_relationships ADD CONSTRAINT coaching_relationships_pkey PRIMARY KEY (id);
+ALTER TABLE public.coaching_relationships ADD CONSTRAINT coaching_relationships_coach_id_bowler_id_key UNIQUE (coach_id, bowler_id);
 ALTER TABLE public.coaching_relationships ADD CONSTRAINT coaching_relationships_check CHECK ((coach_id <> bowler_id));
 ALTER TABLE public.coaching_relationships ADD CONSTRAINT coaching_relationships_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'accepted'::text, 'declined'::text])));
+ALTER TABLE public.coaching_relationships ADD CONSTRAINT coaching_relationships_bowler_id_fkey FOREIGN KEY (bowler_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.coaching_relationships ADD CONSTRAINT coaching_relationships_coach_id_fkey FOREIGN KEY (coach_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.coaching_relationships ADD CONSTRAINT coaching_relationships_requested_by_fkey FOREIGN KEY (requested_by) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.coaching_tasks ADD CONSTRAINT coaching_tasks_pkey PRIMARY KEY (id);
 ALTER TABLE public.coaching_tasks ADD CONSTRAINT coaching_tasks_status_check CHECK ((status = ANY (ARRAY['open'::text, 'completed'::text, 'attempted'::text])));
+ALTER TABLE public.coaching_tasks ADD CONSTRAINT coaching_tasks_assigned_by_fkey FOREIGN KEY (assigned_by) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.coaching_tasks ADD CONSTRAINT coaching_tasks_relationship_id_fkey FOREIGN KEY (relationship_id) REFERENCES coaching_relationships(id) ON DELETE CASCADE;
+ALTER TABLE public.drills ADD CONSTRAINT drills_pkey PRIMARY KEY (id);
+ALTER TABLE public.drills ADD CONSTRAINT drills_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.entitlements ADD CONSTRAINT entitlements_pkey PRIMARY KEY (user_id);
 ALTER TABLE public.entitlements ADD CONSTRAINT entitlements_billing_period_check CHECK ((billing_period = ANY (ARRAY['month'::text, 'year'::text])));
 ALTER TABLE public.entitlements ADD CONSTRAINT entitlements_plan_check CHECK ((plan = ANY (ARRAY['free'::text, 'plus'::text])));
 ALTER TABLE public.entitlements ADD CONSTRAINT entitlements_source_check CHECK ((source = ANY (ARRAY['play'::text, 'stripe'::text, 'manual'::text])));
 ALTER TABLE public.entitlements ADD CONSTRAINT entitlements_status_check CHECK ((status = ANY (ARRAY['none'::text, 'trialing'::text, 'active'::text, 'grace'::text, 'on_hold'::text, 'paused'::text, 'canceled'::text, 'expired'::text])));
-ALTER TABLE public.friendships ADD CONSTRAINT friendships_check CHECK ((requester_id <> addressee_id));
-ALTER TABLE public.friendships ADD CONSTRAINT friendships_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'accepted'::text, 'declined'::text])));
-ALTER TABLE public.imported_scores ADD CONSTRAINT imported_scores_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'verified'::text, 'corrected'::text, 'rejected'::text, 'superseded'::text])));
-ALTER TABLE public.subscription_events ADD CONSTRAINT subscription_events_source_check CHECK ((source = ANY (ARRAY['play'::text, 'stripe'::text])));
-ALTER TABLE public.ai_token_usage ADD CONSTRAINT ai_token_usage_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE SET NULL;
-ALTER TABLE public.api_usage ADD CONSTRAINT api_usage_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-ALTER TABLE public.arsenals ADD CONSTRAINT arsenals_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE CASCADE;
-ALTER TABLE public.arsenals ADD CONSTRAINT arsenals_group_id_fkey FOREIGN KEY (group_id) REFERENCES ball_groups(id) ON DELETE SET NULL;
-ALTER TABLE public.bags ADD CONSTRAINT bags_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE CASCADE;
-ALTER TABLE public.ball_bags ADD CONSTRAINT ball_bags_bag_id_fkey FOREIGN KEY (bag_id) REFERENCES bags(id) ON DELETE CASCADE;
-ALTER TABLE public.ball_bags ADD CONSTRAINT ball_bags_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE CASCADE;
-ALTER TABLE public.ball_confirmations ADD CONSTRAINT ball_confirmations_confirmed_by_fkey FOREIGN KEY (confirmed_by) REFERENCES auth.users(id) ON DELETE CASCADE;
-ALTER TABLE public.ball_confirmations ADD CONSTRAINT ball_confirmations_submission_id_fkey FOREIGN KEY (submission_id) REFERENCES ball_submissions(id) ON DELETE CASCADE;
-ALTER TABLE public.ball_groups ADD CONSTRAINT ball_groups_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE CASCADE;
-ALTER TABLE public.ball_submissions ADD CONSTRAINT ball_submissions_submitted_by_fkey FOREIGN KEY (submitted_by) REFERENCES auth.users(id) ON DELETE CASCADE;
-ALTER TABLE public.bowler_goals ADD CONSTRAINT bowler_goals_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE CASCADE;
-ALTER TABLE public.bowler_names ADD CONSTRAINT bowler_names_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE CASCADE;
-ALTER TABLE public.bowler_profiles ADD CONSTRAINT bowler_profiles_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE CASCADE;
-ALTER TABLE public.bowling_centers ADD CONSTRAINT bowling_centers_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
-ALTER TABLE public.closed_seasons ADD CONSTRAINT closed_seasons_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-ALTER TABLE public.coaching_notes ADD CONSTRAINT coaching_notes_author_id_fkey FOREIGN KEY (author_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-ALTER TABLE public.coaching_notes ADD CONSTRAINT coaching_notes_relationship_id_fkey FOREIGN KEY (relationship_id) REFERENCES coaching_relationships(id) ON DELETE CASCADE;
-ALTER TABLE public.coaching_relationships ADD CONSTRAINT coaching_relationships_bowler_id_fkey FOREIGN KEY (bowler_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-ALTER TABLE public.coaching_relationships ADD CONSTRAINT coaching_relationships_coach_id_fkey FOREIGN KEY (coach_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-ALTER TABLE public.coaching_relationships ADD CONSTRAINT coaching_relationships_requested_by_fkey FOREIGN KEY (requested_by) REFERENCES auth.users(id) ON DELETE CASCADE;
-ALTER TABLE public.coaching_tasks ADD CONSTRAINT coaching_tasks_assigned_by_fkey FOREIGN KEY (assigned_by) REFERENCES auth.users(id) ON DELETE CASCADE;
-ALTER TABLE public.coaching_tasks ADD CONSTRAINT coaching_tasks_relationship_id_fkey FOREIGN KEY (relationship_id) REFERENCES coaching_relationships(id) ON DELETE CASCADE;
-ALTER TABLE public.drills ADD CONSTRAINT drills_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.entitlements ADD CONSTRAINT entitlements_kept_league_id_fkey FOREIGN KEY (kept_league_id) REFERENCES leagues(id) ON DELETE SET NULL;
 ALTER TABLE public.entitlements ADD CONSTRAINT entitlements_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.error_reports ADD CONSTRAINT error_reports_pkey PRIMARY KEY (id);
+ALTER TABLE public.error_reports ADD CONSTRAINT error_reports_user_signature_key UNIQUE (user_id, signature);
 ALTER TABLE public.error_reports ADD CONSTRAINT error_reports_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.friendships ADD CONSTRAINT friendships_pkey PRIMARY KEY (id);
+ALTER TABLE public.friendships ADD CONSTRAINT friendships_requester_id_addressee_id_key UNIQUE (requester_id, addressee_id);
+ALTER TABLE public.friendships ADD CONSTRAINT friendships_check CHECK ((requester_id <> addressee_id));
+ALTER TABLE public.friendships ADD CONSTRAINT friendships_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'accepted'::text, 'declined'::text])));
 ALTER TABLE public.friendships ADD CONSTRAINT friendships_addressee_id_fkey FOREIGN KEY (addressee_id) REFERENCES profiles(id) ON DELETE CASCADE;
 ALTER TABLE public.friendships ADD CONSTRAINT friendships_requester_id_fkey FOREIGN KEY (requester_id) REFERENCES profiles(id) ON DELETE CASCADE;
+ALTER TABLE public.hidden_leagues ADD CONSTRAINT hidden_leagues_pkey PRIMARY KEY (id);
+ALTER TABLE public.hidden_leagues ADD CONSTRAINT hidden_leagues_user_id_league_id_key UNIQUE (user_id, league_id);
 ALTER TABLE public.hidden_leagues ADD CONSTRAINT hidden_leagues_league_id_fkey FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE;
 ALTER TABLE public.hidden_leagues ADD CONSTRAINT hidden_leagues_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.imported_scores ADD CONSTRAINT imported_scores_pkey PRIMARY KEY (id);
+ALTER TABLE public.imported_scores ADD CONSTRAINT imported_scores_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'verified'::text, 'corrected'::text, 'rejected'::text, 'superseded'::text])));
 ALTER TABLE public.imported_scores ADD CONSTRAINT imported_scores_bowler_user_id_fkey FOREIGN KEY (bowler_user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.imported_scores ADD CONSTRAINT imported_scores_corrected_by_fkey FOREIGN KEY (corrected_by) REFERENCES auth.users(id) ON DELETE SET NULL;
 ALTER TABLE public.imported_scores ADD CONSTRAINT imported_scores_uploaded_by_fkey FOREIGN KEY (uploaded_by) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.lane_patterns ADD CONSTRAINT lane_patterns_pkey PRIMARY KEY (id);
+ALTER TABLE public.lane_patterns ADD CONSTRAINT lane_patterns_team_id_date_lane_key UNIQUE (team_id, date, lane);
 ALTER TABLE public.lane_patterns ADD CONSTRAINT lane_patterns_league_id_fkey FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE SET NULL;
 ALTER TABLE public.lane_patterns ADD CONSTRAINT lane_patterns_team_id_fkey FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE;
+ALTER TABLE public.leagues ADD CONSTRAINT leagues_pkey PRIMARY KEY (id);
 ALTER TABLE public.leagues ADD CONSTRAINT leagues_center_id_fkey FOREIGN KEY (center_id) REFERENCES bowling_centers(id) ON DELETE SET NULL;
 ALTER TABLE public.leagues ADD CONSTRAINT leagues_created_by_fkey FOREIGN KEY (created_by) REFERENCES profiles(id) ON DELETE SET NULL;
+ALTER TABLE public.manual_scores ADD CONSTRAINT manual_scores_pkey PRIMARY KEY (id);
+ALTER TABLE public.manual_scores ADD CONSTRAINT manual_scores_slot_key UNIQUE (user_id, bowler_name, league_id, date, game, session_seq);
 ALTER TABLE public.manual_scores ADD CONSTRAINT manual_scores_league_id_fkey FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE;
 ALTER TABLE public.manual_scores ADD CONSTRAINT manual_scores_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.matches ADD CONSTRAINT matches_pkey PRIMARY KEY (id);
+ALTER TABLE public.matches ADD CONSTRAINT matches_team_id_date_key UNIQUE (team_id, date);
 ALTER TABLE public.matches ADD CONSTRAINT matches_league_id_fkey FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE SET NULL;
 ALTER TABLE public.matches ADD CONSTRAINT matches_team_id_fkey FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE;
+ALTER TABLE public.oil_patterns ADD CONSTRAINT oil_patterns_pkey PRIMARY KEY (id);
+ALTER TABLE public.oil_patterns ADD CONSTRAINT oil_patterns_name_key UNIQUE (name);
 ALTER TABLE public.oil_patterns ADD CONSTRAINT oil_patterns_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE public.pending_invites ADD CONSTRAINT pending_invites_pkey PRIMARY KEY (id);
+ALTER TABLE public.pending_invites ADD CONSTRAINT pending_invites_team_id_invited_email_key UNIQUE (team_id, invited_email);
 ALTER TABLE public.pending_invites ADD CONSTRAINT pending_invites_accepted_user_id_fkey FOREIGN KEY (accepted_user_id) REFERENCES profiles(id) ON DELETE SET NULL;
 ALTER TABLE public.pending_invites ADD CONSTRAINT pending_invites_created_by_fkey FOREIGN KEY (created_by) REFERENCES profiles(id) ON DELETE SET NULL;
 ALTER TABLE public.pending_invites ADD CONSTRAINT pending_invites_team_id_fkey FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE;
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_pkey PRIMARY KEY (id);
 ALTER TABLE public.profiles ADD CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.sessions ADD CONSTRAINT sessions_pkey PRIMARY KEY (id);
+ALTER TABLE public.sessions ADD CONSTRAINT sessions_user_id_bowler_name_league_id_date_seq_key UNIQUE (user_id, bowler_name, league_id, date, session_seq);
 ALTER TABLE public.sessions ADD CONSTRAINT sessions_league_id_fkey FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE SET NULL;
 ALTER TABLE public.sessions ADD CONSTRAINT sessions_team_id_fkey FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE SET NULL;
 ALTER TABLE public.sessions ADD CONSTRAINT sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE;
+ALTER TABLE public.shots ADD CONSTRAINT shots_pkey PRIMARY KEY (id);
 ALTER TABLE public.shots ADD CONSTRAINT shots_league_id_fkey FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE SET NULL;
 ALTER TABLE public.shots ADD CONSTRAINT shots_team_id_fkey FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE SET NULL;
 ALTER TABLE public.shots ADD CONSTRAINT shots_user_id_fkey FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE;
+ALTER TABLE public.subscription_events ADD CONSTRAINT subscription_events_pkey PRIMARY KEY (id);
+ALTER TABLE public.subscription_events ADD CONSTRAINT subscription_events_source_check CHECK ((source = ANY (ARRAY['play'::text, 'stripe'::text])));
 ALTER TABLE public.subscription_events ADD CONSTRAINT subscription_events_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.sync_tombstones ADD CONSTRAINT sync_tombstones_pkey PRIMARY KEY (id);
 ALTER TABLE public.sync_tombstones ADD CONSTRAINT sync_tombstones_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.team_members ADD CONSTRAINT team_members_pkey PRIMARY KEY (team_id, user_id);
 ALTER TABLE public.team_members ADD CONSTRAINT team_members_team_id_fkey FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE;
 ALTER TABLE public.team_members ADD CONSTRAINT team_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE;
+ALTER TABLE public.teams ADD CONSTRAINT teams_pkey PRIMARY KEY (id);
 ALTER TABLE public.teams ADD CONSTRAINT teams_created_by_fkey FOREIGN KEY (created_by) REFERENCES profiles(id) ON DELETE SET NULL;
 ALTER TABLE public.teams ADD CONSTRAINT teams_league_id_fkey FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE;
+ALTER TABLE public.tournaments ADD CONSTRAINT tournaments_pkey PRIMARY KEY (id);
 ALTER TABLE public.tournaments ADD CONSTRAINT tournaments_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.user_preferences ADD CONSTRAINT user_preferences_pkey PRIMARY KEY (user_id);
+ALTER TABLE public.user_preferences ADD CONSTRAINT user_preferences_user_id_key UNIQUE (user_id);
 ALTER TABLE public.user_preferences ADD CONSTRAINT user_preferences_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 CREATE INDEX ai_token_usage_report_idx ON public.ai_token_usage USING btree (called_at DESC, endpoint, model);
 CREATE INDEX api_usage_lookup_idx ON public.api_usage USING btree (user_id, endpoint, called_at DESC);
@@ -1186,7 +1164,7 @@ CREATE INDEX imported_scores_team_idx ON public.imported_scores USING btree (tea
 CREATE INDEX lane_patterns_league_id_idx ON public.lane_patterns USING btree (league_id);
 CREATE INDEX lane_patterns_team_id_idx ON public.lane_patterns USING btree (team_id);
 CREATE UNIQUE INDEX leagues_name_per_user_idx ON public.leagues USING btree (created_by, name);
-CREATE INDEX manual_scores_lookup_idx ON public.manual_scores USING btree (user_id, bowler_name, date);
+CREATE INDEX manual_scores_lookup_idx ON public.manual_scores USING btree (user_id, bowler_name, date, session_seq);
 CREATE INDEX matches_league_id_idx ON public.matches USING btree (league_id);
 CREATE INDEX matches_team_id_idx ON public.matches USING btree (team_id);
 CREATE INDEX oil_patterns_name_idx ON public.oil_patterns USING btree (lower(name));
@@ -1194,12 +1172,12 @@ CREATE INDEX pending_invites_email_idx ON public.pending_invites USING btree (in
 CREATE UNIQUE INDEX pending_invites_signup_code_open_idx ON public.pending_invites USING btree (signup_code) WHERE ((signup_code IS NOT NULL) AND (accepted_at IS NULL));
 CREATE INDEX pending_invites_team_id_idx ON public.pending_invites USING btree (team_id);
 CREATE INDEX sessions_bowler_name_idx ON public.sessions USING btree (bowler_name);
-CREATE UNIQUE INDEX sessions_no_league_uniq ON public.sessions USING btree (user_id, bowler_name, date) WHERE (league_id IS NULL);
+CREATE UNIQUE INDEX sessions_no_league_uniq ON public.sessions USING btree (user_id, bowler_name, date, session_seq) WHERE (league_id IS NULL);
 CREATE INDEX sessions_team_id_idx ON public.sessions USING btree (team_id);
 CREATE INDEX sessions_user_id_idx ON public.sessions USING btree (user_id);
 CREATE INDEX sessions_user_updated_idx ON public.sessions USING btree (user_id, updated_at);
 CREATE INDEX shots_bowler_name_idx ON public.shots USING btree (bowler_name);
-CREATE UNIQUE INDEX shots_identity_uniq ON public.shots USING btree (user_id, bowler_name, COALESCE(league_id, '00000000-0000-0000-0000-000000000000'::uuid), COALESCE(league_name, ''::text), date, game, frame, COALESCE(ball_num, 1));
+CREATE UNIQUE INDEX shots_identity_uniq ON public.shots USING btree (user_id, bowler_name, COALESCE(league_id, '00000000-0000-0000-0000-000000000000'::uuid), COALESCE(league_name, ''::text), date, game, frame, COALESCE(ball_num, 1), session_seq);
 CREATE INDEX shots_team_id_idx ON public.shots USING btree (team_id);
 CREATE INDEX shots_user_date_idx ON public.shots USING btree (user_id, date);
 CREATE INDEX shots_user_id_idx ON public.shots USING btree (user_id);
@@ -1246,414 +1224,357 @@ ALTER TABLE public.team_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.teams ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tournaments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_preferences ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "teammates can view each other's arsenal entries" ON public.arsenals FOR SELECT TO authenticated
+CREATE POLICY 'teammates can view each other''s arsenal entries' ON public.arsenals FOR SELECT TO authenticated
   USING ((EXISTS ( SELECT 1
    FROM (team_members me
      JOIN team_members them ON ((them.team_id = me.team_id)))
   WHERE ((me.user_id = auth.uid()) AND (them.user_id = arsenals.created_by)))));
-CREATE POLICY "users can add their own arsenal entries" ON public.arsenals FOR INSERT TO authenticated
+CREATE POLICY 'users can add their own arsenal entries' ON public.arsenals FOR INSERT TO authenticated
   WITH CHECK ((created_by = auth.uid()));
-CREATE POLICY "users can remove their own arsenal entries" ON public.arsenals FOR DELETE TO authenticated
+CREATE POLICY 'users can remove their own arsenal entries' ON public.arsenals FOR DELETE TO authenticated
   USING ((created_by = auth.uid()));
-CREATE POLICY "users can update their own arsenal entries" ON public.arsenals FOR UPDATE TO authenticated
+CREATE POLICY 'users can update their own arsenal entries' ON public.arsenals FOR UPDATE TO authenticated
   USING ((created_by = auth.uid()))
   WITH CHECK ((created_by = auth.uid()));
-CREATE POLICY "users can view their own arsenal entries" ON public.arsenals FOR SELECT TO authenticated
+CREATE POLICY 'users can view their own arsenal entries' ON public.arsenals FOR SELECT TO authenticated
   USING ((created_by = auth.uid()));
-CREATE POLICY "teammates can view each other's bags" ON public.bags FOR SELECT TO authenticated
+CREATE POLICY 'teammates can view each other''s bags' ON public.bags FOR SELECT TO authenticated
   USING ((EXISTS ( SELECT 1
    FROM (team_members me
      JOIN team_members them ON ((them.team_id = me.team_id)))
   WHERE ((me.user_id = auth.uid()) AND (them.user_id = bags.created_by)))));
-CREATE POLICY "users can delete their own bags" ON public.bags FOR DELETE TO authenticated
+CREATE POLICY 'users can delete their own bags' ON public.bags FOR DELETE TO authenticated
   USING ((created_by = auth.uid()));
-CREATE POLICY "users can insert their own bags" ON public.bags FOR INSERT TO authenticated
+CREATE POLICY 'users can insert their own bags' ON public.bags FOR INSERT TO authenticated
   WITH CHECK ((created_by = auth.uid()));
-CREATE POLICY "users can update their own bags" ON public.bags FOR UPDATE TO authenticated
+CREATE POLICY 'users can update their own bags' ON public.bags FOR UPDATE TO authenticated
   USING ((created_by = auth.uid()))
   WITH CHECK ((created_by = auth.uid()));
-CREATE POLICY "users can view their own bags" ON public.bags FOR SELECT TO authenticated
+CREATE POLICY 'users can view their own bags' ON public.bags FOR SELECT TO authenticated
   USING ((created_by = auth.uid()));
-CREATE POLICY "teammates can view each other's ball bag assignments" ON public.ball_bags FOR SELECT TO authenticated
+CREATE POLICY 'teammates can view each other''s ball bag assignments' ON public.ball_bags FOR SELECT TO authenticated
   USING ((EXISTS ( SELECT 1
    FROM (team_members me
      JOIN team_members them ON ((them.team_id = me.team_id)))
   WHERE ((me.user_id = auth.uid()) AND (them.user_id = ball_bags.created_by)))));
-CREATE POLICY "users can delete their own ball bag assignments" ON public.ball_bags FOR DELETE TO authenticated
+CREATE POLICY 'users can delete their own ball bag assignments' ON public.ball_bags FOR DELETE TO authenticated
   USING ((created_by = auth.uid()));
-CREATE POLICY "users can insert their own ball bag assignments" ON public.ball_bags FOR INSERT TO authenticated
+CREATE POLICY 'users can insert their own ball bag assignments' ON public.ball_bags FOR INSERT TO authenticated
   WITH CHECK ((created_by = auth.uid()));
-CREATE POLICY "users can update their own ball bag assignments" ON public.ball_bags FOR UPDATE TO authenticated
+CREATE POLICY 'users can update their own ball bag assignments' ON public.ball_bags FOR UPDATE TO authenticated
   USING ((created_by = auth.uid()))
   WITH CHECK ((created_by = auth.uid()));
-CREATE POLICY "users can view their own ball bag assignments" ON public.ball_bags FOR SELECT TO authenticated
+CREATE POLICY 'users can view their own ball bag assignments' ON public.ball_bags FOR SELECT TO authenticated
   USING ((created_by = auth.uid()));
-CREATE POLICY "anyone can read confirmations" ON public.ball_confirmations FOR SELECT TO authenticated
+CREATE POLICY 'anyone can read confirmations' ON public.ball_confirmations FOR SELECT TO authenticated
   USING ((auth.uid() IS NOT NULL));
-CREATE POLICY "users can change their own vote" ON public.ball_confirmations FOR UPDATE TO authenticated
+CREATE POLICY 'users can change their own vote' ON public.ball_confirmations FOR UPDATE TO authenticated
   USING ((confirmed_by = auth.uid()))
   WITH CHECK ((confirmed_by = auth.uid()));
-CREATE POLICY "users can confirm as themselves" ON public.ball_confirmations FOR INSERT TO authenticated
+CREATE POLICY 'users can confirm as themselves' ON public.ball_confirmations FOR INSERT TO authenticated
   WITH CHECK ((confirmed_by = auth.uid()));
-CREATE POLICY "users can withdraw their own confirmation" ON public.ball_confirmations FOR DELETE TO authenticated
+CREATE POLICY 'users can withdraw their own confirmation' ON public.ball_confirmations FOR DELETE TO authenticated
   USING ((confirmed_by = auth.uid()));
-CREATE POLICY "teammates can view each other's ball groups" ON public.ball_groups FOR SELECT TO authenticated
+CREATE POLICY 'teammates can view each other''s ball groups' ON public.ball_groups FOR SELECT TO authenticated
   USING ((EXISTS ( SELECT 1
    FROM (team_members me
      JOIN team_members them ON ((them.team_id = me.team_id)))
   WHERE ((me.user_id = auth.uid()) AND (them.user_id = ball_groups.created_by)))));
-CREATE POLICY "users can delete their own ball groups" ON public.ball_groups FOR DELETE TO authenticated
+CREATE POLICY 'users can delete their own ball groups' ON public.ball_groups FOR DELETE TO authenticated
   USING ((created_by = auth.uid()));
-CREATE POLICY "users can insert their own ball groups" ON public.ball_groups FOR INSERT TO authenticated
+CREATE POLICY 'users can insert their own ball groups' ON public.ball_groups FOR INSERT TO authenticated
   WITH CHECK ((created_by = auth.uid()));
-CREATE POLICY "users can update their own ball groups" ON public.ball_groups FOR UPDATE TO authenticated
+CREATE POLICY 'users can update their own ball groups' ON public.ball_groups FOR UPDATE TO authenticated
   USING ((created_by = auth.uid()))
   WITH CHECK ((created_by = auth.uid()));
-CREATE POLICY "users can view their own ball groups" ON public.ball_groups FOR SELECT TO authenticated
+CREATE POLICY 'users can view their own ball groups' ON public.ball_groups FOR SELECT TO authenticated
   USING ((created_by = auth.uid()));
-CREATE POLICY "anyone can read ball submissions" ON public.ball_submissions FOR SELECT TO authenticated
+CREATE POLICY 'anyone can read ball submissions' ON public.ball_submissions FOR SELECT TO authenticated
   USING ((auth.uid() IS NOT NULL));
-CREATE POLICY "users can delete only their own submission" ON public.ball_submissions FOR DELETE TO authenticated
+CREATE POLICY 'users can delete only their own submission' ON public.ball_submissions FOR DELETE TO authenticated
   USING ((submitted_by = auth.uid()));
-CREATE POLICY "users can insert their own submission" ON public.ball_submissions FOR INSERT TO authenticated
+CREATE POLICY 'users can insert their own submission' ON public.ball_submissions FOR INSERT TO authenticated
   WITH CHECK ((submitted_by = auth.uid()));
-CREATE POLICY "users can update only their own submission" ON public.ball_submissions FOR UPDATE TO authenticated
+CREATE POLICY 'users can update only their own submission' ON public.ball_submissions FOR UPDATE TO authenticated
   USING ((submitted_by = auth.uid()))
   WITH CHECK ((submitted_by = auth.uid()));
-CREATE POLICY "users can delete their own bowler goals" ON public.bowler_goals FOR DELETE TO authenticated
+CREATE POLICY 'users can delete their own bowler goals' ON public.bowler_goals FOR DELETE TO authenticated
   USING ((created_by = auth.uid()));
-CREATE POLICY "users can insert their own bowler goals" ON public.bowler_goals FOR INSERT TO authenticated
+CREATE POLICY 'users can insert their own bowler goals' ON public.bowler_goals FOR INSERT TO authenticated
   WITH CHECK ((created_by = auth.uid()));
-CREATE POLICY "users can update their own bowler goals" ON public.bowler_goals FOR UPDATE TO authenticated
+CREATE POLICY 'users can update their own bowler goals' ON public.bowler_goals FOR UPDATE TO authenticated
   USING ((created_by = auth.uid()))
   WITH CHECK ((created_by = auth.uid()));
-CREATE POLICY "users can view their own bowler goals" ON public.bowler_goals FOR SELECT TO authenticated
+CREATE POLICY 'users can view their own bowler goals' ON public.bowler_goals FOR SELECT TO authenticated
   USING ((created_by = auth.uid()));
-CREATE POLICY "teammates can view each other's bowler names" ON public.bowler_names FOR SELECT TO authenticated
+CREATE POLICY 'teammates can view each other''s bowler names' ON public.bowler_names FOR SELECT TO authenticated
   USING ((EXISTS ( SELECT 1
    FROM (team_members me
      JOIN team_members them ON ((them.team_id = me.team_id)))
   WHERE ((me.user_id = auth.uid()) AND (them.user_id = bowler_names.created_by)))));
-CREATE POLICY "users can add their own bowler names" ON public.bowler_names FOR INSERT TO authenticated
+CREATE POLICY 'users can add their own bowler names' ON public.bowler_names FOR INSERT TO authenticated
   WITH CHECK ((created_by = auth.uid()));
-CREATE POLICY "users can remove their own bowler names" ON public.bowler_names FOR DELETE TO authenticated
+CREATE POLICY 'users can remove their own bowler names' ON public.bowler_names FOR DELETE TO authenticated
   USING ((created_by = auth.uid()));
-CREATE POLICY "users can update their own bowler names" ON public.bowler_names FOR UPDATE TO authenticated
+CREATE POLICY 'users can update their own bowler names' ON public.bowler_names FOR UPDATE TO authenticated
   USING ((created_by = auth.uid()))
   WITH CHECK ((created_by = auth.uid()));
-CREATE POLICY "users can view their own bowler names" ON public.bowler_names FOR SELECT TO authenticated
+CREATE POLICY 'users can view their own bowler names' ON public.bowler_names FOR SELECT TO authenticated
   USING ((created_by = auth.uid()));
-CREATE POLICY "users can delete their own bowler profiles" ON public.bowler_profiles FOR DELETE TO authenticated
+CREATE POLICY 'users can delete their own bowler profiles' ON public.bowler_profiles FOR DELETE TO authenticated
   USING ((created_by = auth.uid()));
-CREATE POLICY "users can insert their own bowler profiles" ON public.bowler_profiles FOR INSERT TO authenticated
+CREATE POLICY 'users can insert their own bowler profiles' ON public.bowler_profiles FOR INSERT TO authenticated
   WITH CHECK ((created_by = auth.uid()));
-CREATE POLICY "users can update their own bowler profiles" ON public.bowler_profiles FOR UPDATE TO authenticated
+CREATE POLICY 'users can update their own bowler profiles' ON public.bowler_profiles FOR UPDATE TO authenticated
   USING ((created_by = auth.uid()))
   WITH CHECK ((created_by = auth.uid()));
-CREATE POLICY "users can view their own bowler profiles" ON public.bowler_profiles FOR SELECT TO authenticated
+CREATE POLICY 'users can view their own bowler profiles' ON public.bowler_profiles FOR SELECT TO authenticated
   USING ((created_by = auth.uid()));
-CREATE POLICY "anyone can read bowling centers" ON public.bowling_centers FOR SELECT TO authenticated
+CREATE POLICY 'anyone can read bowling centers' ON public.bowling_centers FOR SELECT TO authenticated
   USING ((auth.uid() IS NOT NULL));
-CREATE POLICY "centers update any authenticated" ON public.bowling_centers FOR UPDATE TO authenticated
-  USING (true)
-  WITH CHECK (true);
-CREATE POLICY "creators can correct their own hand-entered centers" ON public.bowling_centers FOR UPDATE TO authenticated
+CREATE POLICY 'creators can correct their own hand-entered centers' ON public.bowling_centers FOR UPDATE TO authenticated
   USING (((created_by = auth.uid()) AND (here_id IS NULL)))
   WITH CHECK (((created_by = auth.uid()) AND (here_id IS NULL)));
-CREATE POLICY "signed-in users can add centers" ON public.bowling_centers FOR INSERT TO authenticated
+CREATE POLICY 'signed-in users can add centers' ON public.bowling_centers FOR INSERT TO authenticated
   WITH CHECK ((auth.uid() IS NOT NULL));
-CREATE POLICY "own closed seasons: delete" ON public.closed_seasons FOR DELETE TO authenticated
+CREATE POLICY 'own closed seasons: delete' ON public.closed_seasons FOR DELETE TO authenticated
   USING ((user_id = auth.uid()));
-CREATE POLICY "own closed seasons: insert" ON public.closed_seasons FOR INSERT TO authenticated
+CREATE POLICY 'own closed seasons: insert' ON public.closed_seasons FOR INSERT TO authenticated
   WITH CHECK ((user_id = auth.uid()));
-CREATE POLICY "own closed seasons: select" ON public.closed_seasons FOR SELECT TO authenticated
+CREATE POLICY 'own closed seasons: select' ON public.closed_seasons FOR SELECT TO authenticated
   USING ((user_id = auth.uid()));
-CREATE POLICY "authors can delete their own notes" ON public.coaching_notes FOR DELETE TO authenticated
+CREATE POLICY 'authors can delete their own notes' ON public.coaching_notes FOR DELETE TO authenticated
   USING ((author_id = auth.uid()));
-CREATE POLICY "authors can edit their own notes" ON public.coaching_notes FOR UPDATE TO authenticated
+CREATE POLICY 'authors can edit their own notes' ON public.coaching_notes FOR UPDATE TO authenticated
   USING ((author_id = auth.uid()))
   WITH CHECK ((author_id = auth.uid()));
-CREATE POLICY "both sides can view notes" ON public.coaching_notes FOR SELECT TO authenticated
+CREATE POLICY 'both sides can view notes' ON public.coaching_notes FOR SELECT TO authenticated
   USING ((EXISTS ( SELECT 1
    FROM coaching_relationships r
   WHERE ((r.id = coaching_notes.relationship_id) AND (r.status = 'accepted'::text) AND ((r.coach_id = auth.uid()) OR (r.bowler_id = auth.uid()))))));
-CREATE POLICY "both sides can write notes" ON public.coaching_notes FOR INSERT TO authenticated
+CREATE POLICY 'both sides can write notes' ON public.coaching_notes FOR INSERT TO authenticated
   WITH CHECK (((author_id = auth.uid()) AND (EXISTS ( SELECT 1
    FROM coaching_relationships r
   WHERE ((r.id = coaching_notes.relationship_id) AND (r.status = 'accepted'::text) AND ((r.coach_id = auth.uid()) OR (r.bowler_id = auth.uid())))))));
-CREATE POLICY "either side can end a coaching relationship" ON public.coaching_relationships FOR DELETE TO authenticated
+CREATE POLICY 'either side can end a coaching relationship' ON public.coaching_relationships FOR DELETE TO authenticated
   USING (((coach_id = auth.uid()) OR (bowler_id = auth.uid())));
-CREATE POLICY "either side can update their coaching relationship" ON public.coaching_relationships FOR UPDATE TO authenticated
-  USING (((coach_id = auth.uid()) OR (bowler_id = auth.uid())))
-  WITH CHECK (((coach_id = auth.uid()) OR (bowler_id = auth.uid())));
-CREATE POLICY "either side can view their coaching relationship" ON public.coaching_relationships FOR SELECT TO authenticated
+CREATE POLICY 'either side can view their coaching relationship' ON public.coaching_relationships FOR SELECT TO authenticated
   USING (((coach_id = auth.uid()) OR (bowler_id = auth.uid())));
-CREATE POLICY "users can request a coaching relationship" ON public.coaching_relationships FOR INSERT TO authenticated
+CREATE POLICY 'the other side answers a coaching request' ON public.coaching_relationships FOR UPDATE TO authenticated
+  USING (((auth.uid() <> requested_by) AND ((auth.uid() = coach_id) OR (auth.uid() = bowler_id))))
+  WITH CHECK (((auth.uid() <> requested_by) AND ((auth.uid() = coach_id) OR (auth.uid() = bowler_id))));
+CREATE POLICY 'users can request a coaching relationship' ON public.coaching_relationships FOR INSERT TO authenticated
   WITH CHECK (((requested_by = auth.uid()) AND ((coach_id = auth.uid()) OR (bowler_id = auth.uid()))));
-CREATE POLICY "both sides can update tasks" ON public.coaching_tasks FOR UPDATE TO authenticated
+CREATE POLICY 'both sides can update tasks' ON public.coaching_tasks FOR UPDATE TO authenticated
   USING ((EXISTS ( SELECT 1
    FROM coaching_relationships r
   WHERE ((r.id = coaching_tasks.relationship_id) AND (r.status = 'accepted'::text) AND ((r.coach_id = auth.uid()) OR (r.bowler_id = auth.uid()))))))
   WITH CHECK ((EXISTS ( SELECT 1
    FROM coaching_relationships r
   WHERE ((r.id = coaching_tasks.relationship_id) AND (r.status = 'accepted'::text) AND ((r.coach_id = auth.uid()) OR (r.bowler_id = auth.uid()))))));
-CREATE POLICY "both sides can view tasks" ON public.coaching_tasks FOR SELECT TO authenticated
+CREATE POLICY 'both sides can view tasks' ON public.coaching_tasks FOR SELECT TO authenticated
   USING ((EXISTS ( SELECT 1
    FROM coaching_relationships r
   WHERE ((r.id = coaching_tasks.relationship_id) AND (r.status = 'accepted'::text) AND ((r.coach_id = auth.uid()) OR (r.bowler_id = auth.uid()))))));
-CREATE POLICY "the coach can assign tasks" ON public.coaching_tasks FOR INSERT TO authenticated
+CREATE POLICY 'the coach can assign tasks' ON public.coaching_tasks FOR INSERT TO authenticated
   WITH CHECK (((assigned_by = auth.uid()) AND (EXISTS ( SELECT 1
    FROM coaching_relationships r
   WHERE ((r.id = coaching_tasks.relationship_id) AND (r.status = 'accepted'::text) AND (r.coach_id = auth.uid()))))));
-CREATE POLICY "the coach can remove tasks" ON public.coaching_tasks FOR DELETE TO authenticated
+CREATE POLICY 'the coach can remove tasks' ON public.coaching_tasks FOR DELETE TO authenticated
   USING ((EXISTS ( SELECT 1
    FROM coaching_relationships r
   WHERE ((r.id = coaching_tasks.relationship_id) AND (r.status = 'accepted'::text) AND (r.coach_id = auth.uid())))));
-CREATE POLICY "users manage their own drills" ON public.drills FOR ALL TO authenticated
+CREATE POLICY 'users manage their own drills' ON public.drills FOR ALL TO authenticated
   USING ((user_id = auth.uid()))
   WITH CHECK ((user_id = auth.uid()));
-CREATE POLICY "read own entitlement" ON public.entitlements FOR SELECT TO authenticated
+CREATE POLICY 'read own entitlement' ON public.entitlements FOR SELECT TO authenticated
   USING ((auth.uid() = user_id));
-CREATE POLICY "set own kept league" ON public.entitlements FOR UPDATE TO authenticated
+CREATE POLICY 'set own kept league' ON public.entitlements FOR UPDATE TO authenticated
   USING ((auth.uid() = user_id))
   WITH CHECK ((auth.uid() = user_id));
-CREATE POLICY "either side can delete a friendship" ON public.friendships FOR DELETE TO authenticated
+CREATE POLICY 'either side can delete a friendship' ON public.friendships FOR DELETE TO authenticated
   USING (((requester_id = auth.uid()) OR (addressee_id = auth.uid())));
-CREATE POLICY "either side can respond to or cancel a request" ON public.friendships FOR UPDATE TO authenticated
-  USING (((requester_id = auth.uid()) OR (addressee_id = auth.uid())))
-  WITH CHECK (((requester_id = auth.uid()) OR (addressee_id = auth.uid())));
-CREATE POLICY "users can send friend requests" ON public.friendships FOR INSERT TO authenticated
+CREATE POLICY 'only the addressee can answer a friend request' ON public.friendships FOR UPDATE TO authenticated
+  USING ((addressee_id = auth.uid()))
+  WITH CHECK ((addressee_id = auth.uid()));
+CREATE POLICY 'users can send friend requests' ON public.friendships FOR INSERT TO authenticated
   WITH CHECK ((requester_id = auth.uid()));
-CREATE POLICY "users can view friendships they're part of" ON public.friendships FOR SELECT TO authenticated
+CREATE POLICY 'users can view friendships they''re part of' ON public.friendships FOR SELECT TO authenticated
   USING (((requester_id = auth.uid()) OR (addressee_id = auth.uid())));
-CREATE POLICY "users can hide leagues for themselves" ON public.hidden_leagues FOR INSERT TO authenticated
+CREATE POLICY 'users can hide leagues for themselves' ON public.hidden_leagues FOR INSERT TO authenticated
   WITH CHECK ((user_id = auth.uid()));
-CREATE POLICY "users can unhide their own leagues" ON public.hidden_leagues FOR DELETE TO authenticated
+CREATE POLICY 'users can unhide their own leagues' ON public.hidden_leagues FOR DELETE TO authenticated
   USING ((user_id = auth.uid()));
-CREATE POLICY "users can update their own hidden leagues" ON public.hidden_leagues FOR UPDATE TO authenticated
+CREATE POLICY 'users can update their own hidden leagues' ON public.hidden_leagues FOR UPDATE TO authenticated
   USING ((user_id = auth.uid()))
   WITH CHECK ((user_id = auth.uid()));
-CREATE POLICY "users can view their own hidden leagues" ON public.hidden_leagues FOR SELECT TO authenticated
+CREATE POLICY 'users can view their own hidden leagues' ON public.hidden_leagues FOR SELECT TO authenticated
   USING ((user_id = auth.uid()));
-CREATE POLICY "bowler or team can update imported scores" ON public.imported_scores FOR UPDATE TO authenticated
-  USING (((bowler_user_id = auth.uid()) OR ((team_id IS NOT NULL) AND is_team_member(team_id))));
-CREATE POLICY "team can view imported scores" ON public.imported_scores FOR SELECT TO authenticated
+CREATE POLICY 'bowler or team can update imported scores' ON public.imported_scores FOR UPDATE TO authenticated
+  USING (((bowler_user_id = auth.uid()) OR ((team_id IS NOT NULL) AND is_team_member(team_id))))
+  WITH CHECK (((bowler_user_id = auth.uid()) OR ((team_id IS NOT NULL) AND is_team_member(team_id))));
+CREATE POLICY 'team can view imported scores' ON public.imported_scores FOR SELECT TO authenticated
   USING (((bowler_user_id = auth.uid()) OR (uploaded_by = auth.uid()) OR ((team_id IS NOT NULL) AND is_team_member(team_id))));
-CREATE POLICY "teammates can upload scores" ON public.imported_scores FOR INSERT TO authenticated
+CREATE POLICY 'teammates can upload scores' ON public.imported_scores FOR INSERT TO authenticated
   WITH CHECK (((uploaded_by = auth.uid()) AND ((team_id IS NULL) OR is_team_member(team_id))));
-CREATE POLICY "uploader can delete their upload" ON public.imported_scores FOR DELETE TO authenticated
+CREATE POLICY 'uploader can delete their upload' ON public.imported_scores FOR DELETE TO authenticated
   USING ((uploaded_by = auth.uid()));
-CREATE POLICY "team members can delete their team's lane patterns" ON public.lane_patterns FOR DELETE TO authenticated
+CREATE POLICY 'team members can delete their team''s lane patterns' ON public.lane_patterns FOR DELETE TO authenticated
   USING (((team_id IS NOT NULL) AND is_team_member(team_id)));
-CREATE POLICY "team members can log lane patterns for their team" ON public.lane_patterns FOR INSERT TO authenticated
+CREATE POLICY 'team members can log lane patterns for their team' ON public.lane_patterns FOR INSERT TO authenticated
   WITH CHECK (((team_id IS NOT NULL) AND is_team_member(team_id)));
-CREATE POLICY "team members can update their team's lane patterns" ON public.lane_patterns FOR UPDATE TO authenticated
+CREATE POLICY 'team members can update their team''s lane patterns' ON public.lane_patterns FOR UPDATE TO authenticated
   USING (((team_id IS NOT NULL) AND is_team_member(team_id)))
   WITH CHECK (((team_id IS NOT NULL) AND is_team_member(team_id)));
-CREATE POLICY "team members can view their team's lane patterns" ON public.lane_patterns FOR SELECT TO authenticated
+CREATE POLICY 'team members can view their team''s lane patterns' ON public.lane_patterns FOR SELECT TO authenticated
   USING (((team_id IS NOT NULL) AND is_team_member(team_id)));
-CREATE POLICY "league members or its creator can update it" ON public.leagues FOR UPDATE TO authenticated
+CREATE POLICY 'league members or its creator can update it' ON public.leagues FOR UPDATE TO authenticated
   USING ((is_league_member(id) OR (created_by = auth.uid())))
   WITH CHECK ((is_league_member(id) OR (created_by = auth.uid())));
-CREATE POLICY "leagues are viewable by any authenticated user" ON public.leagues FOR SELECT TO authenticated
+CREATE POLICY 'leagues are viewable by any authenticated user' ON public.leagues FOR SELECT TO authenticated
   USING (true);
-CREATE POLICY "users can create leagues as themselves" ON public.leagues FOR INSERT TO authenticated
+CREATE POLICY 'users can create leagues as themselves' ON public.leagues FOR INSERT TO authenticated
   WITH CHECK ((created_by = auth.uid()));
-CREATE POLICY "teammates can view each other's manual scores" ON public.manual_scores FOR SELECT TO authenticated
+CREATE POLICY 'teammates can view each other''s manual scores' ON public.manual_scores FOR SELECT TO authenticated
   USING ((EXISTS ( SELECT 1
    FROM (team_members me
      JOIN team_members them ON ((them.team_id = me.team_id)))
   WHERE ((me.user_id = auth.uid()) AND (them.user_id = manual_scores.user_id)))));
-CREATE POLICY "users can delete their own manual scores" ON public.manual_scores FOR DELETE TO authenticated
+CREATE POLICY 'users can delete their own manual scores' ON public.manual_scores FOR DELETE TO authenticated
   USING ((user_id = auth.uid()));
-CREATE POLICY "users can insert their own manual scores" ON public.manual_scores FOR INSERT TO authenticated
+CREATE POLICY 'users can insert their own manual scores' ON public.manual_scores FOR INSERT TO authenticated
   WITH CHECK ((user_id = auth.uid()));
-CREATE POLICY "users can update their own manual scores" ON public.manual_scores FOR UPDATE TO authenticated
+CREATE POLICY 'users can update their own manual scores' ON public.manual_scores FOR UPDATE TO authenticated
   USING ((user_id = auth.uid()))
   WITH CHECK ((user_id = auth.uid()));
-CREATE POLICY "users can view their own manual scores" ON public.manual_scores FOR SELECT TO authenticated
+CREATE POLICY 'users can view their own manual scores' ON public.manual_scores FOR SELECT TO authenticated
   USING ((user_id = auth.uid()));
-CREATE POLICY "team members can delete their team's matches" ON public.matches FOR DELETE TO authenticated
+CREATE POLICY 'team members can delete their team''s matches' ON public.matches FOR DELETE TO authenticated
   USING (((team_id IS NOT NULL) AND is_team_member(team_id)));
-CREATE POLICY "team members can log matches for their team" ON public.matches FOR INSERT TO authenticated
+CREATE POLICY 'team members can log matches for their team' ON public.matches FOR INSERT TO authenticated
   WITH CHECK (((team_id IS NOT NULL) AND is_team_member(team_id)));
-CREATE POLICY "team members can update their team's matches" ON public.matches FOR UPDATE TO authenticated
+CREATE POLICY 'team members can update their team''s matches' ON public.matches FOR UPDATE TO authenticated
   USING (((team_id IS NOT NULL) AND is_team_member(team_id)))
   WITH CHECK (((team_id IS NOT NULL) AND is_team_member(team_id)));
-CREATE POLICY "team members can view their team's matches" ON public.matches FOR SELECT TO authenticated
+CREATE POLICY 'team members can view their team''s matches' ON public.matches FOR SELECT TO authenticated
   USING (((team_id IS NOT NULL) AND is_team_member(team_id)));
-CREATE POLICY "anyone can read oil patterns" ON public.oil_patterns FOR SELECT TO authenticated
+CREATE POLICY 'anyone can read oil patterns' ON public.oil_patterns FOR SELECT TO authenticated
   USING ((auth.uid() IS NOT NULL));
-CREATE POLICY "creators can correct their own unverified patterns" ON public.oil_patterns FOR UPDATE TO authenticated
+CREATE POLICY 'creators can correct their own unverified patterns' ON public.oil_patterns FOR UPDATE TO authenticated
   USING (((created_by = auth.uid()) AND (verified = false)))
   WITH CHECK (((created_by = auth.uid()) AND (verified = false)));
-CREATE POLICY "signed-in users can add patterns" ON public.oil_patterns FOR INSERT TO authenticated
+CREATE POLICY 'signed-in users can add patterns' ON public.oil_patterns FOR INSERT TO authenticated
   WITH CHECK ((auth.uid() IS NOT NULL));
-CREATE POLICY "invitees can answer their own invites" ON public.pending_invites FOR UPDATE TO authenticated
+CREATE POLICY 'invitees can answer their own invites' ON public.pending_invites FOR UPDATE TO authenticated
   USING ((lower(invited_email) = lower((auth.jwt() ->> 'email'::text))))
   WITH CHECK ((lower(invited_email) = lower((auth.jwt() ->> 'email'::text))));
-CREATE POLICY "invitees can view their own invites" ON public.pending_invites FOR SELECT TO authenticated
+CREATE POLICY 'invitees can view their own invites' ON public.pending_invites FOR SELECT TO authenticated
   USING ((lower(invited_email) = lower((auth.jwt() ->> 'email'::text))));
-CREATE POLICY "team members can create invites for their teams" ON public.pending_invites FOR INSERT TO authenticated
+CREATE POLICY 'team members can create invites for their teams' ON public.pending_invites FOR INSERT TO authenticated
   WITH CHECK (is_team_member(team_id));
-CREATE POLICY "team members can delete pending invites for their teams" ON public.pending_invites FOR DELETE TO authenticated
+CREATE POLICY 'team members can delete pending invites for their teams' ON public.pending_invites FOR DELETE TO authenticated
   USING (is_team_member(team_id));
-CREATE POLICY "team members can manually link a placeholder to any account" ON public.pending_invites FOR UPDATE TO authenticated
+CREATE POLICY 'team members can manually link a placeholder to any account' ON public.pending_invites FOR UPDATE TO authenticated
   USING ((is_team_member(team_id) AND (accepted_at IS NULL)))
   WITH CHECK (is_team_member(team_id));
-CREATE POLICY "team members can view pending invites for their teams" ON public.pending_invites FOR SELECT TO authenticated
+CREATE POLICY 'team members can view pending invites for their teams' ON public.pending_invites FOR SELECT TO authenticated
   USING (is_team_member(team_id));
-CREATE POLICY "users can claim invites addressed to their own email" ON public.pending_invites FOR UPDATE TO authenticated
+CREATE POLICY 'users can claim invites addressed to their own email' ON public.pending_invites FOR UPDATE TO authenticated
   USING (((accepted_at IS NULL) AND (invited_email = (auth.jwt() ->> 'email'::text))))
   WITH CHECK ((accepted_user_id = auth.uid()));
-CREATE POLICY "users can view invites addressed to their own email" ON public.pending_invites FOR SELECT TO authenticated
+CREATE POLICY 'users can view invites addressed to their own email' ON public.pending_invites FOR SELECT TO authenticated
   USING (((accepted_at IS NULL) AND (invited_email = (auth.jwt() ->> 'email'::text))));
-CREATE POLICY "profiles are viewable by any authenticated user" ON public.profiles FOR SELECT TO authenticated
+CREATE POLICY 'profiles are viewable by any authenticated user' ON public.profiles FOR SELECT TO authenticated
   USING (true);
-CREATE POLICY "users can insert their own profile" ON public.profiles FOR INSERT TO authenticated
+CREATE POLICY 'users can insert their own profile' ON public.profiles FOR INSERT TO authenticated
   WITH CHECK ((id = auth.uid()));
-CREATE POLICY "users can update their own profile" ON public.profiles FOR UPDATE TO authenticated
+CREATE POLICY 'users can update their own profile' ON public.profiles FOR UPDATE TO authenticated
   USING ((id = auth.uid()))
   WITH CHECK ((id = auth.uid()));
-CREATE POLICY "coaches can view their bowler's sessions" ON public.sessions FOR SELECT TO authenticated
+CREATE POLICY 'coaches can view their bowler''s sessions' ON public.sessions FOR SELECT TO authenticated
   USING (is_accepted_coach_of(user_id));
-CREATE POLICY "friends can view each other's sessions" ON public.sessions FOR SELECT TO authenticated
+CREATE POLICY 'friends can view each other''s sessions' ON public.sessions FOR SELECT TO authenticated
   USING (are_friends(user_id));
-CREATE POLICY "teammates can view each other's sessions" ON public.sessions FOR SELECT TO authenticated
+CREATE POLICY 'teammates can view each other''s sessions' ON public.sessions FOR SELECT TO authenticated
   USING (((team_id IS NOT NULL) AND is_team_member(team_id)));
-CREATE POLICY "users can delete their own sessions" ON public.sessions FOR DELETE TO authenticated
+CREATE POLICY 'users can delete their own sessions' ON public.sessions FOR DELETE TO authenticated
   USING ((user_id = auth.uid()));
-CREATE POLICY "users can insert their own sessions" ON public.sessions FOR INSERT TO authenticated
+CREATE POLICY 'users can insert their own sessions' ON public.sessions FOR INSERT TO authenticated
   WITH CHECK ((user_id = auth.uid()));
-CREATE POLICY "users can update their own sessions" ON public.sessions FOR UPDATE TO authenticated
+CREATE POLICY 'users can update their own sessions' ON public.sessions FOR UPDATE TO authenticated
   USING ((user_id = auth.uid()))
   WITH CHECK ((user_id = auth.uid()));
-CREATE POLICY "users can view their own sessions" ON public.sessions FOR SELECT TO authenticated
+CREATE POLICY 'users can view their own sessions' ON public.sessions FOR SELECT TO authenticated
   USING ((user_id = auth.uid()));
-CREATE POLICY "coaches can view their bowler's shots" ON public.shots FOR SELECT TO authenticated
+CREATE POLICY 'coaches can view their bowler''s shots' ON public.shots FOR SELECT TO authenticated
   USING (is_accepted_coach_of(user_id));
-CREATE POLICY "friends can view each other's shots" ON public.shots FOR SELECT TO authenticated
+CREATE POLICY 'friends can view each other''s shots' ON public.shots FOR SELECT TO authenticated
   USING (are_friends(user_id));
-CREATE POLICY "teammates can view each other's shots" ON public.shots FOR SELECT TO authenticated
+CREATE POLICY 'teammates can view each other''s shots' ON public.shots FOR SELECT TO authenticated
   USING (((team_id IS NOT NULL) AND is_team_member(team_id)));
-CREATE POLICY "users can delete their own shots" ON public.shots FOR DELETE TO authenticated
+CREATE POLICY 'users can delete their own shots' ON public.shots FOR DELETE TO authenticated
   USING ((user_id = auth.uid()));
-CREATE POLICY "users can insert their own shots" ON public.shots FOR INSERT TO authenticated
+CREATE POLICY 'users can insert their own shots' ON public.shots FOR INSERT TO authenticated
   WITH CHECK ((user_id = auth.uid()));
-CREATE POLICY "users can update their own shots" ON public.shots FOR UPDATE TO authenticated
+CREATE POLICY 'users can update their own shots' ON public.shots FOR UPDATE TO authenticated
   USING ((user_id = auth.uid()))
   WITH CHECK ((user_id = auth.uid()));
-CREATE POLICY "users can view their own shots" ON public.shots FOR SELECT TO authenticated
+CREATE POLICY 'users can view their own shots' ON public.shots FOR SELECT TO authenticated
   USING ((user_id = auth.uid()));
-CREATE POLICY "user can read their own tombstones" ON public.sync_tombstones FOR SELECT TO authenticated
+CREATE POLICY 'user can read their own tombstones' ON public.sync_tombstones FOR SELECT TO authenticated
   USING ((user_id = auth.uid()));
-CREATE POLICY "team members can remove roster entries" ON public.team_members FOR DELETE TO authenticated
-  USING (is_team_member(team_id));
-CREATE POLICY "team members can reorder their team's roster" ON public.team_members FOR UPDATE TO authenticated
+CREATE POLICY 'leave a team, or the creator removes a member' ON public.team_members FOR DELETE TO authenticated
+  USING (((user_id = auth.uid()) OR (EXISTS ( SELECT 1
+   FROM teams t
+  WHERE ((t.id = team_members.team_id) AND (t.created_by = auth.uid()))))));
+CREATE POLICY 'team members can reorder their team''s roster' ON public.team_members FOR UPDATE TO authenticated
   USING (is_team_member(team_id))
   WITH CHECK (is_team_member(team_id));
-CREATE POLICY "team members can view their own roster" ON public.team_members FOR SELECT TO authenticated
+CREATE POLICY 'team members can view their own roster' ON public.team_members FOR SELECT TO authenticated
   USING (is_team_member(team_id));
-CREATE POLICY "you can only add yourself to a roster" ON public.team_members FOR INSERT TO authenticated
+CREATE POLICY 'you can only add yourself to a roster' ON public.team_members FOR INSERT TO authenticated
   WITH CHECK (((user_id = auth.uid()) AND ((EXISTS ( SELECT 1
    FROM teams
   WHERE ((teams.id = team_members.team_id) AND (teams.created_by = auth.uid())))) OR (EXISTS ( SELECT 1
    FROM pending_invites
   WHERE ((pending_invites.team_id = team_members.team_id) AND (lower(pending_invites.invited_email) = lower((auth.jwt() ->> 'email'::text))) AND (pending_invites.accepted_at IS NULL)))))));
-CREATE POLICY "team creators can delete their team" ON public.teams FOR DELETE TO authenticated
+CREATE POLICY 'only the team creator can delete the team' ON public.teams FOR DELETE TO authenticated
   USING ((created_by = auth.uid()));
-CREATE POLICY "team creators can rename their team" ON public.teams FOR UPDATE TO authenticated
+CREATE POLICY 'team creators can rename their team' ON public.teams FOR UPDATE TO authenticated
   USING ((created_by = auth.uid()))
   WITH CHECK ((created_by = auth.uid()));
-CREATE POLICY "team creators can view their team" ON public.teams FOR SELECT TO authenticated
+CREATE POLICY 'team creators can view their team' ON public.teams FOR SELECT TO authenticated
   USING ((created_by = auth.uid()));
-CREATE POLICY "team members can delete their team" ON public.teams FOR DELETE TO authenticated
-  USING (is_team_member(id));
-CREATE POLICY "team members can rename their team" ON public.teams FOR UPDATE TO authenticated
+CREATE POLICY 'team members can rename their team' ON public.teams FOR UPDATE TO authenticated
   USING (is_team_member(id))
   WITH CHECK (is_team_member(id));
-CREATE POLICY "team members can view their team" ON public.teams FOR SELECT TO authenticated
+CREATE POLICY 'team members can view their team' ON public.teams FOR SELECT TO authenticated
   USING (is_team_member(id));
-CREATE POLICY "users can create teams as themselves" ON public.teams FOR INSERT TO authenticated
+CREATE POLICY 'users can create teams as themselves' ON public.teams FOR INSERT TO authenticated
   WITH CHECK ((created_by = auth.uid()));
-CREATE POLICY "teammates can view each other's tournaments" ON public.tournaments FOR SELECT TO authenticated
+CREATE POLICY 'teammates can view each other''s tournaments' ON public.tournaments FOR SELECT TO authenticated
   USING ((EXISTS ( SELECT 1
    FROM (team_members me
      JOIN team_members them ON ((them.team_id = me.team_id)))
   WHERE ((me.user_id = auth.uid()) AND (them.user_id = tournaments.user_id)))));
-CREATE POLICY "users can delete their own tournaments" ON public.tournaments FOR DELETE TO authenticated
+CREATE POLICY 'users can delete their own tournaments' ON public.tournaments FOR DELETE TO authenticated
   USING ((user_id = auth.uid()));
-CREATE POLICY "users can insert their own tournaments" ON public.tournaments FOR INSERT TO authenticated
+CREATE POLICY 'users can insert their own tournaments' ON public.tournaments FOR INSERT TO authenticated
   WITH CHECK ((user_id = auth.uid()));
-CREATE POLICY "users can update their own tournaments" ON public.tournaments FOR UPDATE TO authenticated
+CREATE POLICY 'users can update their own tournaments' ON public.tournaments FOR UPDATE TO authenticated
   USING ((user_id = auth.uid()))
   WITH CHECK ((user_id = auth.uid()));
-CREATE POLICY "users can view their own tournaments" ON public.tournaments FOR SELECT TO authenticated
+CREATE POLICY 'users can view their own tournaments' ON public.tournaments FOR SELECT TO authenticated
   USING ((user_id = auth.uid()));
-CREATE POLICY "users can insert their own preferences" ON public.user_preferences FOR INSERT TO authenticated
+CREATE POLICY 'users can insert their own preferences' ON public.user_preferences FOR INSERT TO authenticated
   WITH CHECK ((user_id = auth.uid()));
-CREATE POLICY "users can update their own preferences" ON public.user_preferences FOR UPDATE TO authenticated
+CREATE POLICY 'users can update their own preferences' ON public.user_preferences FOR UPDATE TO authenticated
   USING ((user_id = auth.uid()))
   WITH CHECK ((user_id = auth.uid()));
-CREATE POLICY "users can view their own preferences" ON public.user_preferences FOR SELECT TO authenticated
+CREATE POLICY 'users can view their own preferences' ON public.user_preferences FOR SELECT TO authenticated
   USING ((user_id = auth.uid()));
 CREATE TRIGGER entitlements_set_updated_at BEFORE UPDATE ON public.entitlements FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER sessions_record_tombstone AFTER DELETE ON public.sessions FOR EACH ROW EXECUTE FUNCTION record_tombstone();
 CREATE TRIGGER sessions_set_updated_at BEFORE UPDATE ON public.sessions FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER shots_record_tombstone AFTER DELETE ON public.shots FOR EACH ROW EXECUTE FUNCTION record_tombstone();
 CREATE TRIGGER shots_set_updated_at BEFORE UPDATE ON public.shots FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
--- ── HARDENING, applied to the live database on 22 Sep 2026 ───────────
---
--- The baseline above is the schema as it was generated. These are the
--- policy changes made after it, kept here so a rebuilt database is the
--- database we actually run rather than the one with the holes in it.
---
--- Each fix closed a way for one signed-in bowler to reach another's
--- data or destroy their records. The self-accept pair is the serious
--- one: an attacker could create a pending friendship or coaching link
--- naming any user, then accept it on that user's behalf.
-
-DROP POLICY IF EXISTS "either side can respond to or cancel a request" ON public.friendships;
-CREATE POLICY "only the addressee can answer a friend request"
-  ON public.friendships FOR UPDATE TO authenticated
-  USING (addressee_id = auth.uid())
-  WITH CHECK (addressee_id = auth.uid());
-
-DROP POLICY IF EXISTS "either side can update their coaching relationship" ON public.coaching_relationships;
-CREATE POLICY "the other side answers a coaching request"
-  ON public.coaching_relationships FOR UPDATE TO authenticated
-  USING (auth.uid() <> requested_by AND auth.uid() IN (coach_id, bowler_id))
-  WITH CHECK (auth.uid() <> requested_by AND auth.uid() IN (coach_id, bowler_id));
-
-DROP POLICY IF EXISTS "team members can delete their team" ON public.teams;
-DROP POLICY IF EXISTS "team creators can delete their team" ON public.teams;
-CREATE POLICY "only the team creator can delete the team"
-  ON public.teams FOR DELETE TO authenticated
-  USING (created_by = auth.uid());
-
-DROP POLICY IF EXISTS "team members can remove roster entries" ON public.team_members;
-CREATE POLICY "leave a team, or the creator removes a member"
-  ON public.team_members FOR DELETE TO authenticated
-  USING (
-    user_id = auth.uid()
-    OR EXISTS (SELECT 1 FROM public.teams t WHERE t.id = team_id AND t.created_by = auth.uid())
-  );
-
-DROP POLICY IF EXISTS "bowler or team can update imported scores" ON public.imported_scores;
-CREATE POLICY "bowler or team can update imported scores"
-  ON public.imported_scores FOR UPDATE TO authenticated
-  USING (bowler_user_id = auth.uid() OR (team_id IS NOT NULL AND is_team_member(team_id)))
-  WITH CHECK (bowler_user_id = auth.uid() OR (team_id IS NOT NULL AND is_team_member(team_id)));
-
-DROP POLICY IF EXISTS "centers update any authenticated" ON public.bowling_centers;
-
--- THE PAYWALL, IN VERSION CONTROL.
---
--- The row policy lets a bowler update their own entitlements row, which
--- is only safe because the grant below limits that to one column. The
--- grant lived in the live database and in no file, so a rebuilt database
--- would have let any signed-in user set their own plan to paid using the
--- anon key that ships in the app bundle.
-REVOKE UPDATE ON public.entitlements FROM authenticated;
-GRANT UPDATE (kept_league_id) ON public.entitlements TO authenticated;
