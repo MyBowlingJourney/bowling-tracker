@@ -1397,7 +1397,22 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
   const pickForDay = (map, d) => {
     const byDate = map || {};
     const key = String(d?.date || "");
-    if (key) return byDate[key] || null;
+    if (key) {
+      const own = byDate[key];
+      if (own) return own;
+      // The block is dated, but nothing was logged under that date.
+      //
+      // The block's date and the date the frames were filed under are
+      // set separately, and a bowler who dated a block for the weekend
+      // and then bowled it today has frames under today. They are the
+      // only frames there are, and the block is the only block that
+      // wants them -- provided no OTHER block claims today.
+      if (!sessionDate) return null;
+      const claimedByAnother = (tournament.days || [])
+        .some(x => x && x !== d && String(x.date) === String(sessionDate));
+      if (claimedByAnother) return null;
+      return byDate[String(sessionDate)] || null;
+    }
     // An UNDATED block means "the night being bowled", which is the
     // session date -- not "whichever single date happens to be in the
     // map".

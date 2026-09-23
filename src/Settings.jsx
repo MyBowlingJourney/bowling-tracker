@@ -71,7 +71,7 @@ export default function Settings({
   leagueFormats = {}, setLeagueFormat,
   leaguePatterns = {}, setLeaguePattern, oilPatterns = [],
   updateCenter,
-  tournaments = [], deleteNight, onImportCsv,
+  tournaments = [], lanePatterns = [], deleteNight, onImportCsv,
   hiddenLeagues, leagueIds, toggleLeagueHidden, teams, activeBowler, leaveTeam, onCreateTeam,
   shots, leftHandedForBowler,
 }) {
@@ -383,6 +383,7 @@ export default function Settings({
               shots={shots || []}
               drills={drills || []}
               tournaments={tournaments || []}
+              patterns={lanePatterns || []}
               bowler={statsBowler || activeBowler} />
             </div>
           )}

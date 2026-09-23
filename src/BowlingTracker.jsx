@@ -8719,6 +8719,9 @@ export default function BowlingTracker(){
             // journal. Nothing was wrong with any of those features;
             // they were reading an empty list.
             tournaments={tournaments}
+            // Lane pattern notes are the last writable note field the
+            // journal was missing.
+            lanePatterns={lanePatterns}
 
             drills={drills}
             restartOnboarding={restartOnboarding} replayTour={replayTour} isCoach={showCoachingTab}
