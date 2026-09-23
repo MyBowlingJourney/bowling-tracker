@@ -495,6 +495,27 @@ function DayScoring({ tournament, day, onChange, multiDay, shotScores, shotScore
           <input style={{ ...S.input, flex: 1, fontSize: "13px", padding: "6px 10px" }}
             placeholder="Pair" value={g.lanePair}
             onChange={e => update(setGameField(day, g.gameNumber, "lanePair", e.target.value))} />
+          {/* Typed total and frames disagree. Same treatment league
+              gets: say what the frames say, and hand the game back to
+              the frames in one tap. Neither one is authoritative from
+              here -- a mis-tapped frame and a mis-typed total look
+              identical. */}
+          {(() => {
+            const v = derived(g);
+            if (v === null || !gameComplete(g)) return null;
+            if (g.score === "" || g.scoreAuto) return null;
+            if (Number(g.score) === Number(v)) return null;
+            return (
+              <button
+                title={`Frames say ${v} \u2014 tap to use them`}
+                onClick={() => update(setGameField(
+                  setGameField(day, g.gameNumber, "scoreAuto", true),
+                  g.gameNumber, "score", String(v)))}
+                style={{ background: "none", border: "none", cursor: "pointer", color: C.miss, fontSize: "11px", padding: 0, flexShrink: 0, textDecoration: "underline" }}>
+                {"\u2260"} {v}
+              </button>
+            );
+          })()}
           {(day.games || []).length > 1 && (
             <button style={{ background: "none", border: "none", color: C.textMuted, cursor: "pointer", fontSize: "16px", padding: "0 4px" }}
               onClick={() => update(removeGame(day, g.gameNumber))} aria-label={`Remove game ${g.gameNumber}`}>×</button>
@@ -762,6 +783,25 @@ function MatchPlay({ tournament, onChange, onGoToPhase = null, shotScores = null
                 onChange={e => update(setMatchField(
                   setMatchField(mp, m.matchNumber, "scoreAuto", false),
                   m.matchNumber, "yourScore", e.target.value))} />
+              {(() => {
+                // Typed total against the frames for this match's game.
+                const e = shotScores ? shotScores[String(gameFor(m))] : null;
+                if (e === null || e === undefined) return null;
+                const entry = typeof e === "number" ? { score: e, complete: true } : e;
+                const v = Number(entry?.score);
+                if (!Number.isFinite(v) || !entry?.complete) return null;
+                if (m.yourScore === "" || m.scoreAuto) return null;
+                if (Number(m.yourScore) === v) return null;
+                return (
+                  <button title={`Frames say ${v} \u2014 tap to use them`}
+                    onClick={() => update(setMatchField(
+                      setMatchField(mp, m.matchNumber, "scoreAuto", true),
+                      m.matchNumber, "yourScore", String(v)))}
+                    style={{ background: "none", border: "none", cursor: "pointer", color: C.miss, fontSize: "11px", padding: 0, textDecoration: "underline" }}>
+                    {"\u2260"} {v}
+                  </button>
+                );
+              })()}
               <span style={{ fontSize: "11px", color: C.textMuted }}>vs</span>
               <input style={{ ...S.input, flex: 1, fontSize: "14px", textAlign: "center" }} type="number" inputMode="numeric" placeholder="Them"
                 value={m.opponentScore} onChange={e => update(setMatchField(mp, m.matchNumber, "opponentScore", e.target.value))} />
@@ -975,6 +1015,24 @@ function Stepladder({ tournament, onChange, shotScores = null, gameStart = 0, on
                 onChange={e => update(setStepField(
                   setStepField(sl, s.stepNumber, "scoreAuto", false),
                   s.stepNumber, "yourScore", e.target.value))} />
+              {(() => {
+                const e = shotScores ? shotScores[String(gameFor(s))] : null;
+                if (e === null || e === undefined) return null;
+                const entry = typeof e === "number" ? { score: e, complete: true } : e;
+                const v = Number(entry?.score);
+                if (!Number.isFinite(v) || !entry?.complete) return null;
+                if (s.yourScore === "" || s.scoreAuto) return null;
+                if (Number(s.yourScore) === v) return null;
+                return (
+                  <button title={`Frames say ${v} \u2014 tap to use them`}
+                    onClick={() => update(setStepField(
+                      setStepField(sl, s.stepNumber, "scoreAuto", true),
+                      s.stepNumber, "yourScore", String(v)))}
+                    style={{ background: "none", border: "none", cursor: "pointer", color: C.miss, fontSize: "11px", padding: 0, textDecoration: "underline" }}>
+                    {"\u2260"} {v}
+                  </button>
+                );
+              })()}
               <span style={{ fontSize: "11px", color: C.textMuted }}>vs</span>
               <input style={{ ...S.input, flex: 1, fontSize: "14px", textAlign: "center" }} type="number" inputMode="numeric" placeholder="Them"
                 value={s.opponentScore} onChange={e => update(setStepField(sl, s.stepNumber, "opponentScore", e.target.value))} />
@@ -1274,8 +1332,20 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
     // undated block: G1 showed 277 from Saturday while the scoresheet
     // showed Sunday's 211. Two different games, both presented as this
     // one.
-    if (dated.length) return null;
-    return sessionDate ? (byDate[String(sessionDate)] || null) : null;
+    //
+    // Dated blocks alongside it used to mean "give up": with day one
+    // dated and day two left blank, day two got nothing, so frames
+    // bowled in it filled in nowhere -- the block being bowled was the
+    // one block the tracker ignored.
+    //
+    // The narrower rule: an undated block takes the session date's
+    // frames unless a DATED block already claims that date. Then there
+    // is exactly one candidate for those frames and no way for them to
+    // bleed into a block that has its own date.
+    if (!sessionDate) return null;
+    const claimed = dated.some(x => String(x.date) === String(sessionDate));
+    if (claimed) return null;
+    return byDate[String(sessionDate)] || null;
   };
 
   const dayScores = d => pickForDay(shotScoresByDate, d);

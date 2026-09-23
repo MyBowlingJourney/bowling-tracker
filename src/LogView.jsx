@@ -2010,7 +2010,17 @@ export default function LogView({
                           // disabled.
                           const frameScore=frameScores[g-1];
                           const manualScore=entered[g-1];
-                          const locked=frameScore!=null&&manualScore==null;
+                          // NOT locked any more.
+                          //
+                          // A game with frames used to disable its box,
+                          // which made the two ways of scoring exclusive:
+                          // frame-track a game and the only way to fix a
+                          // mis-tapped frame was to delete the game. The
+                          // frames still fill the box in, and a typed
+                          // score that disagrees with them is called out
+                          // rather than prevented -- the house scorer is
+                          // what settles it, not the app.
+                          const locked=false;
                           return(
                             // Fixed width, not flex:1. A score is three
                             // digits; letting it take every spare pixel
@@ -2055,6 +2065,29 @@ export default function LogView({
                                   setForm(p=>({...p,game:String(Math.min(12,g+1)),frame:"1",ballNum:""}));
                                 }
                               }}/>
+                          );
+                        })()}
+                        {/* The two scores disagree.
+
+                            Not an error and not something to block: a
+                            mis-tapped frame and a mis-typed total look
+                            identical from here, and only the bowler
+                            knows which. This says what the frames say
+                            and hands the game back to them in one tap. */}
+                        {(()=>{
+                          const fs=frameScores[g-1];
+                          const ms=entered[g-1];
+                          if(fs==null||ms==null)return null;
+                          if(Number(fs)===Number(ms))return null;
+                          return(
+                            <button
+                              onClick={()=>updateManualScore(activeBowler,effectiveSessionLeague,sessionDate,g,"")}
+                              title={`Frames say ${fs} \u2014 tap to use them`}
+                              style={{background:"none",border:"none",cursor:"pointer",
+                                color:C.miss,fontSize:"11px",padding:0,flexShrink:0,
+                                textDecoration:"underline"}}>
+                              {"\u2260"} frames say {fs}
+                            </button>
                           );
                         })()}
                         {/* Delete this game -- the typed score AND the
