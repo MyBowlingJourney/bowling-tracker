@@ -20,9 +20,9 @@ const one = (...facts) => render(...facts)[0];
 const oneEvent = (...facts) => renderFacts(facts, { event: 'tournament' })[0];
 
 describe('wording a tournament block', () => {
-  it('calls the scores a block, not a night', () => {
+  it('calls the scores a tournament, not a night', () => {
     expect(oneEvent({ id: 'series', scores: [212, 224, 201], total: 637, avg: 212, games: 3 }))
-      .toBe('Scores this block: 212, 224, 201 — 637 series, 212 average over 3 games.');
+      .toBe('Scores this tournament: 212, 224, 201 — 637 series, 212 average over 3 games.');
   });
 
   it('compares against the event average, not a league average', () => {
@@ -34,12 +34,12 @@ describe('wording a tournament block', () => {
     expect(oneEvent({
       id: 'seasonStrikes', seasonPct: 52, seasonFirstBalls: 300, seasonNights: 6,
       tonightPct: 60, tonightFirstBalls: 35,
-    })).toBe('Season so far in this event: 52% strikes on 300 first balls across 6 blocks. This block was 60% on 35.');
+    })).toBe('Season so far in this event: 52% strikes on 300 first balls across 6 blocks. This tournament was 60% on 35.');
   });
 
-  it('says "this block" where a league night says "tonight"', () => {
+  it('says "this tournament" where a league night says "tonight"', () => {
     expect(oneEvent({ id: 'seasonSpares', seasonPct: 61, seasonAttempts: 120, tonightPct: 70, tonightAttempts: 10 }))
-      .toBe('Season spare conversion: 61% on 120 attempts. This block was 70% on 10.');
+      .toBe('Season spare conversion: 61% on 120 attempts. This tournament was 70% on 10.');
   });
 
   it('leaves league wording alone when no event is given', () => {
@@ -59,7 +59,7 @@ describe('the rest of the event', () => {
     expect(oneEvent({
       id: 'eventMatchPlay', played: 6, wins: 4, losses: 2, ties: 0,
       bonusPins: 120, total: 1380, average: 210, pinDiff: 85,
-    })).toBe('Match play: 4-2 over 6 matches, 210 average, 120 bonus pins, 1380 with bonus. Outscored their opponents by 85 pins across the block.');
+    })).toBe('Match play: 4-2 over 6 matches, 210 average, 120 bonus pins, 1380 with bonus. Outscored their opponents by 85 pins.');
   });
 
   it('writes the ladder with the seed and the finish', () => {
