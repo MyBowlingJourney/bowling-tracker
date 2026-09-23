@@ -310,7 +310,11 @@ function DayScoring({ tournament, day, onChange, multiDay, shotScores, shotScore
   const carrying = !!carry && (carry.games > 0);
   const margin = carrying ? cutMarginWithCarry(day, shotScores, carry, tournament) : cutMargin(day, shotScores, tournament);
   const cumGames = entered + (carrying ? carry.games : 0);
-  const cumTotal = (total ?? 0) + (carrying ? carry.total : 0);
+  // In the event's own pins -- the same pins the margin beside it is
+  // measured in. Printing scratch here while the margin counted
+  // handicap put "540 of 600" right next to "+60 above the cut".
+  const cumTotal = (total ?? 0) + (carrying ? carry.total : 0)
+    + handicapPins(tournament, cumGames);
   // Score and completeness come from ONE entry per game.
   //
   // They used to be two props -- the score map and a separate map of raw
@@ -563,11 +567,18 @@ function DayScoring({ tournament, day, onChange, multiDay, shotScores, shotScore
       {total !== null && (
         <div style={{ display: "flex", gap: "6px", marginTop: "10px" }}>
           <div style={S.statBox}>
-            <div style={{ ...S.statNum, fontSize: "18px", color: C.accent }}>{total}</div>
-            <div style={S.statLbl}>Total ({entered}g)</div>
+            {/* The block's total as the sheet shows it: with handicap
+                in a handicap event, since that is the number the cut
+                above is measured against. */}
+            <div style={{ ...S.statNum, fontSize: "18px", color: C.accent }}>
+              {total + handicapPins(tournament, entered)}
+            </div>
+            <div style={S.statLbl}>
+              {appliesHandicap(tournament) ? `With hcp (${entered}g)` : `Total (${entered}g)`}
+            </div>
           </div>
           <div style={S.statBox}>
-            <div style={{ ...S.statNum, fontSize: "18px" }}>{avg === null ? "—" : avg.toFixed(1)}</div>
+            <div style={{ ...S.statNum, fontSize: "18px" }}>{avg === null ? "—" : Math.floor(avg)}</div>
             <div style={S.statLbl}>Average</div>
           </div>
         </div>
@@ -1113,6 +1124,9 @@ export function tournamentShareSummary(tournament, dayScores) {
   const days = t.days || [];
   const scoresFor = d => (typeof dayScores === "function" ? dayScores(d) : null);
   const total = tournamentTotalWithHandicap(t, null);
+  // Scratch alongside, so the card can give an average that is an
+  // average -- see tournamentLines.
+  const scratch = tournamentTotal(t, null);
   const games = days.reduce((a, d) => a + dayGamesEntered(d, scoresFor(d)), 0);
 
   // The last block with anything in it: its margin is the one that
@@ -1133,6 +1147,7 @@ export function tournamentShareSummary(tournament, dayScores) {
 
   return {
     total: total === null ? null : total,
+    scratch: scratch === null ? null : scratch,
     games,
     cutMargin: cutMarginValue,
     matchPlay: mp.played ? {
@@ -2071,7 +2086,7 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
               <div style={S.statLbl}>{appliesHandicap(tournament) ? "With handicap" : "Total"}</div>
             </div>
             <div style={S.statBox}>
-              <div style={{ ...S.statNum, fontSize: "18px" }}>{avg === null ? "—" : avg.toFixed(1)}</div>
+              <div style={{ ...S.statNum, fontSize: "18px" }}>{avg === null ? "—" : Math.floor(avg)}</div>
               <div style={S.statLbl}>Average</div>
             </div>
             <div style={S.statBox}>
@@ -2229,7 +2244,7 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
               <div style={S.statLbl}>{appliesHandicap(tournament) ? "With handicap" : "All Days"}</div>
             </div>
             <div style={S.statBox}>
-              <div style={{ ...S.statNum, fontSize: "20px" }}>{avg === null ? "—" : avg.toFixed(1)}</div>
+              <div style={{ ...S.statNum, fontSize: "20px" }}>{avg === null ? "—" : Math.floor(avg)}</div>
               <div style={S.statLbl}>Average</div>
             </div>
           </div>
