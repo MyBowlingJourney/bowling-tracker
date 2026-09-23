@@ -83,19 +83,74 @@ function fromDrills(drills, bowler, labelFor) {
     });
 }
 
+// Tournament notes: the event, each block, and the finish.
+//
+// Three separate boxes on the tournament screen, none of which reached
+// the journal -- so a bowler who wrote "moved left 2 after game one" in
+// a block's notes could not find it again anywhere. A tournament is
+// also the kind of day most worth writing about, which made this the
+// worst place to be missing.
+//
+// The event note is dated by its last block, because that is when it
+// was written -- at the end, looking back.
+function fromTournaments(tournaments, bowler) {
+  const out = [];
+  for (const t of rows(tournaments)) {
+    if (!mine(t, bowler)) continue;
+    const days = rows(t.days);
+    const dated = days.map(d => clean(d.date)).filter(Boolean);
+    const lastDate = dated.length ? dated[dated.length - 1] : "";
+    const event = clean(t.name);
+
+    // One per block: written between games, about that block.
+    for (const day of days) {
+      const text = clean(day.notes);
+      if (!text) continue;
+      const scores = rows(day.games)
+        .map(g => Number(g.score))
+        .filter(v => Number.isFinite(v) && v > 0);
+      out.push({
+        kind: "tournament",
+        date: clean(day.date) || lastDate,
+        league: event,
+        text,
+        detail: [
+          days.length > 1 && day.dayNumber ? `Day ${day.dayNumber}` : "",
+          clean(day.squad) ? `Squad ${clean(day.squad)}` : "",
+          scores.length ? scores.join(" \u00b7 ") : "",
+        ].filter(Boolean).join(" \u00b7 "),
+      });
+    }
+
+    const overall = clean(t.notes);
+    if (overall) {
+      out.push({ kind: "tournament", date: lastDate, league: event, text: overall, detail: "Overall" });
+    }
+
+    // The placement note is about how it finished, which is why it sits
+    // beside the finish rather than in the event's notes.
+    const placement = clean(t.placementNote);
+    if (placement) {
+      out.push({ kind: "tournament", date: lastDate, league: event, text: placement, detail: "How it finished" });
+    }
+  }
+  return out;
+}
+
 // Everything, newest first.
 //
 // Ties break session, then drill, then shot: on one night the session note
 // is the summary and belongs at the top of that day's entries.
-const KIND_ORDER = { session: 0, drill: 1, shot: 2 };
+const KIND_ORDER = { session: 0, tournament: 1, drill: 2, shot: 3 };
 
 export function journalEntries(opts) {
   // A default parameter only covers undefined, not null. Fourth domain
   // module to hit this; the pattern is always the same.
-  const { sessions, shots, drills, bowler, labelFor } =
+  const { sessions, shots, drills, tournaments, bowler, labelFor } =
     (opts && typeof opts === "object") ? opts : {};
   const all = [
     ...fromSessions(sessions, bowler),
+    ...fromTournaments(tournaments, bowler),
     ...fromDrills(drills, bowler, labelFor),
     ...fromShots(shots, bowler),
   ];

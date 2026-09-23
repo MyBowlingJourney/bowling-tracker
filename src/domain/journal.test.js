@@ -131,3 +131,47 @@ describe('the journal', () => {
     }
   });
 });
+
+describe('tournament notes', () => {
+  const tournament = {
+    bowler: 'Ryan', name: 'City Open',
+    notes: 'Lanes broke down early', placementNote: 'First win of the year',
+    days: [
+      { dayNumber: 1, date: '2026-09-22', squad: 'A', notes: 'Moved left 2 after game one',
+        games: [{ score: '225' }, { score: '289' }] },
+      { dayNumber: 2, date: '2026-09-23', notes: '', games: [{ score: '247' }] },
+    ],
+  };
+
+  it('gathers the block note, the event note and the finish note', () => {
+    const out = journalEntries({ tournaments: [tournament], bowler: 'Ryan' });
+    expect(out.map(e => e.text)).toEqual([
+      'Lanes broke down early',
+      'First win of the year',
+      'Moved left 2 after game one',
+    ]);
+    expect(out.every(e => e.kind === 'tournament')).toBe(true);
+    expect(out.every(e => e.league === 'City Open')).toBe(true);
+  });
+
+  it('dates the event note by its last block', () => {
+    const out = journalEntries({ tournaments: [tournament], bowler: 'Ryan' });
+    expect(out.find(e => e.detail === 'Overall').date).toBe('2026-09-23');
+  });
+
+  it('gives a block note its day, squad and scores', () => {
+    const out = journalEntries({ tournaments: [tournament], bowler: 'Ryan' });
+    expect(out.find(e => e.text.startsWith('Moved left')).detail)
+      .toBe('Day 1 · Squad A · 225 · 289');
+  });
+
+  it('skips blocks with nothing written and other bowlers entirely', () => {
+    expect(journalEntries({ tournaments: [tournament], bowler: 'Someone Else' })).toEqual([]);
+    expect(journalEntries({ tournaments: [{ name: 'X', days: [{ dayNumber: 1, notes: '' }] }] })).toEqual([]);
+  });
+
+  it('survives junk', () => {
+    expect(journalEntries({ tournaments: [null, 7, { days: null }] })).toEqual([]);
+    expect(journalEntries({ tournaments: 'nope' })).toEqual([]);
+  });
+});
