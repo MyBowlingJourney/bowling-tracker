@@ -3885,11 +3885,6 @@ export default function BowlingTracker(){
       cloudDelete("tournaments",t.id);
     }
 
-    if(!finish){
-      setTournamentTab("results");
-      try{window.scrollTo({top:0});}catch{}
-      return;
-    }
     closeTournament();
     setTournamentTab("setup");
     setView("home");
@@ -3968,6 +3963,15 @@ export default function BowlingTracker(){
     // The event is in history and one tap away on the calendar, which
     // is where another block of it is added from. Nothing is lost by
     // clearing the card, and the next event starts clean.
+    //
+    // Not finished: "End Tournament & View Results" saves and stays --
+    // it is the step before the results are read, and closing the card
+    // on the way to looking at it would be absurd.
+    if(!finish){
+      setTournamentTab("results");
+      try{window.scrollTo({top:0});}catch{}
+      return;
+    }
     closeTournament();
     setTournamentTab("setup");
     setView("home");
