@@ -488,7 +488,8 @@ CREATE TABLE IF NOT EXISTS public.tournaments (
   pin_format text,
   play_style text,
   stepladder jsonb,
-  match_play_next_round text
+  match_play_next_round text,
+  baker_alternate boolean DEFAULT true NOT NULL
 );
 CREATE TABLE IF NOT EXISTS public.user_preferences (
   user_id uuid NOT NULL,
