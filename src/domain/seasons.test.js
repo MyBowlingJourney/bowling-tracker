@@ -166,7 +166,10 @@ describe('summaries', () => {
 describe('comparing', () => {
   it('reports the change in each figure', () => {
     const c = compareSeasons('Tue', SESSIONS, CLOSED, CURRENT, 'Ryan');
-    expect(c.changes.average).toBe(16);
+    // 192.5 last season, 209.16 this one. Truncated -- a bowling average
+    // drops the fraction -- that is 192 and 209, so 17 pins. Rounding
+    // took 192.5 up to 193 and reported 16.
+    expect(c.changes.average).toBe(17);
     expect(c.changes.highGame).toBe(15);
   });
 
@@ -181,7 +184,7 @@ describe('comparing', () => {
 
   it('states direction and pins without congratulating', () => {
     const d = describeSeasonChange(compareSeasons('Tue', SESSIONS, CLOSED, CURRENT, 'Ryan'));
-    expect(d).toContain('up 16 pins');
+    expect(d).toContain('up 17 pins');
     expect(d).not.toMatch(/great|well done|unlucky|keep it up/i);
   });
 

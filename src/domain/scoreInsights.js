@@ -205,7 +205,7 @@ export function seasonComparison(sessions, opts) {
       .map(g => g.reduce((a, b) => a + b, 0));
     return {
       games: games.length,
-      average: Math.round((total / games.length) * 10) / 10,
+      average: Math.floor((total / games.length) * 10) / 10,
       highGame: Math.max(...games),
       highSeries: series.length ? Math.max(...series) : null,
     };

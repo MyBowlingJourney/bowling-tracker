@@ -196,7 +196,7 @@ export function nightSummary(session) {
     scores,
     series: scores.reduce((a, b) => a + b, 0),
     high: Math.max(...scores),
-    average: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length),
+    average: Math.floor(scores.reduce((a, b) => a + b, 0) / scores.length),
     // The night's note and its shot totals, carried through.
     //
     // This returned scores and nothing else, so the calendar could show

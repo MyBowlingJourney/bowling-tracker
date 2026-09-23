@@ -189,8 +189,9 @@ describe('gameAvg', () => {
   });
 
   it('pools every bowler together when bowler is empty/omitted -- a per-person average, not a team total', () => {
-    // Game 1 (index 0) across everyone: (200+180+150)/3 = 176.67 -> rounds to 177
-    expect(gameAvg(sessions, '', 0, 'Thursday House Shot')).toBe(177);
+    // Game 1 (index 0) across everyone: (200+180+150)/3 = 176.67, and a
+    // bowling average drops the fraction rather than rounding up -> 176
+    expect(gameAvg(sessions, '', 0, 'Thursday House Shot')).toBe(176);
   });
 
   it('returns null when no games exist at that position for this filter', () => {

@@ -233,7 +233,9 @@ describe('pattern history, results and notes', () => {
 
   it('reports average, best and worst on each', () => {
     const [main] = patternHistory(sessions, lanePatterns, 'Ryan');
-    expect(main.average).toBe(197);
+    // 1180 over 6 games is 196.67, truncated to 196 -- a bowling average
+    // drops the fraction rather than rounding up.
+    expect(main.average).toBe(196);
     expect(main.best).toBe(210);
     expect(main.worst).toBe(180);
   });
@@ -280,8 +282,8 @@ describe('pattern history, results and notes', () => {
   // the sentence a bowler can act on.
   it('compares each pattern with the bowler’s overall average', () => {
     const h = patternHistory(sessions, lanePatterns, 'Ryan');
-    expect(patternVersusOverall(h, 190)[0].versusOverall).toBe(7);
-    expect(patternVersusOverall(h, 210)[0].versusOverall).toBe(-13);
+    expect(patternVersusOverall(h, 190)[0].versusOverall).toBe(6);
+    expect(patternVersusOverall(h, 210)[0].versusOverall).toBe(-14);
   });
 
   it('says nothing about comparison without an overall average', () => {

@@ -179,7 +179,7 @@ export function gameAvg(sessions,bowler,gameIdx,league){
   const vals=ls.map(s=>Array.isArray(s.scores)?s.scores[gameIdx]:null)
     .filter(v=>v!=null&&Number.isFinite(Number(v))).map(Number);
   if(!vals.length)return null;
-  return Math.round(vals.reduce((a,b)=>a+b,0)/vals.length);
+  return Math.floor(vals.reduce((a,b)=>a+b,0)/vals.length);
 }
 
 // The team's average game total (any of the 3 game positions pooled
@@ -209,7 +209,7 @@ export function rAvg(sessions,bowler,league){
   const all=ls.flatMap(s=>Array.isArray(s.scores)?s.scores:[])
     .filter(v=>Number.isFinite(Number(v))).map(Number);
   if(!all.length)return null;
-  return Math.round(all.reduce((a,b)=>a+b,0)/all.length);
+  return Math.floor(all.reduce((a,b)=>a+b,0)/all.length);
 }
 
 // This bowler's combined average across every league they bowl in (or, if
@@ -225,7 +225,7 @@ export function cAvg(sessions,bowler,league){
     .flatMap(s=>Array.isArray(s.scores)?s.scores:[])
     .filter(v=>Number.isFinite(Number(v))).map(Number);
   if(!all.length)return null;
-  return Math.round(all.reduce((a,b)=>a+b,0)/all.length);
+  return Math.floor(all.reduce((a,b)=>a+b,0)/all.length);
 }
 
 // How close this bowler's average is to their next 5-pin milestone (e.g.

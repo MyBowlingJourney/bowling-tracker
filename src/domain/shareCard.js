@@ -141,7 +141,11 @@ export function drawShareCard(ctx, { bowler, scores, league, date, colors, fonts
   // Highlights on the image itself. The text carries them for every
   // share target, but the picture is what actually gets looked at -- a
   // card showing only three numbers wastes the moment.
-  const hl = (highlights || []).slice(0, 3);
+  // Filtered before slicing: a caller that builds this list with
+  // conditional entries leaves nulls in it, and String(null) drew the
+  // word "null" on the card -- and a null also ate one of the three
+  // slots a real highlight could have used.
+  const hl = (highlights || []).filter(h => h != null && String(h).trim() !== "").slice(0, 3);
   if (hl.length) {
     ctx.font = `500 34px ${fonts?.body || "system-ui, sans-serif"}`;
     hl.forEach((line, i) => {
@@ -281,8 +285,8 @@ export function sessionHighlights(arg) {
 
   // 5. Beating your own average, which is the everyday version of a win.
   if (priorAverage != null && clean.length) {
-    const avg = Math.round(series / clean.length);
-    const diff = avg - Math.round(priorAverage);
+    const avg = Math.floor(series / clean.length);
+    const diff = avg - Math.floor(priorAverage);
     if (diff >= 5) out.push(`${diff} pins over my average`);
   }
 
@@ -330,7 +334,7 @@ export function drawTrendCard(ctx, { bowler, label, points, league, colors, font
   if (!vals.length) return true;
 
   const hi = Math.max(...vals), lo = Math.min(...vals);
-  const avg = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+  const avg = Math.floor(vals.reduce((a, b) => a + b, 0) / vals.length);
 
   // The graph. Padded so a flat line doesn't sit on the axis, and scaled
   // to the data rather than to zero -- a bowling average never starts at
@@ -396,7 +400,7 @@ export function trendShareText(arg) {
     .filter(v => Number.isFinite(v));
   if (!vals.length) return `${label || "Trend"}\n\nTracked with ${APP_NAME} — ${APP_URL}`;
   const hi = Math.max(...vals), lo = Math.min(...vals);
-  const avg = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+  const avg = Math.floor(vals.reduce((a, b) => a + b, 0) / vals.length);
   const where = league ? ` at ${league.replace(" House Shot", "")}` : "";
   return [
     `${bowler ? bowler + "'s " : ""}${label || "trend"}${where}`,

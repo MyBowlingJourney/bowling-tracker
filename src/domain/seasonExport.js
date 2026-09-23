@@ -158,7 +158,7 @@ export function seasonSummary(sessions, shots, bowler, league) {
     lastDate: dates[dates.length - 1] || "",
     sessions: mine.length,
     games: games.length,
-    average: Math.round((games.reduce((a, b) => a + b, 0) / games.length) * 10) / 10,
+    average: Math.floor((games.reduce((a, b) => a + b, 0) / games.length) * 10) / 10,
     highGame: Math.max(...games),
     highSeries: series.length ? Math.max(...series) : null,
     lowGame: Math.min(...games),

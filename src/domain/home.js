@@ -96,7 +96,7 @@ export function seasonFigures(sessions, opts) {
     .map(g => g.reduce((a, b) => a + b, 0));
 
   return {
-    average: Math.round((games.reduce((a, b) => a + b, 0) / games.length) * 10) / 10,
+    average: Math.floor((games.reduce((a, b) => a + b, 0) / games.length) * 10) / 10,
     highGame: Math.max(...games),
     highSeries: seriesTotals.length ? Math.max(...seriesTotals) : null,
     games: games.length,

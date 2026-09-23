@@ -229,10 +229,10 @@ export function nightcapFacts(shots, {
   const played = (Array.isArray(scores) ? scores : []).filter(v => typeof v === "number");
   if (played.length) {
     const total = played.reduce((a, b) => a + b, 0);
-    const avg = Math.round(total / played.length);
+    const avg = Math.floor(total / played.length);
     add("series", { scores: played, total, avg, games: played.length });
     if (typeof priorAverage === "number") {
-      const seasonAvg = Math.round(priorAverage);
+      const seasonAvg = Math.floor(priorAverage);
       add("vsAverage", { avg, seasonAvg, diff: avg - seasonAvg });
     }
   }

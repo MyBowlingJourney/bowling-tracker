@@ -48,7 +48,13 @@ export function bowlerLine(manualScores, bowler, league, date, seq) {
     scores,
     games: scores.length,
     total,
-    // Truncated, like every average in this app.
+    // Truncated, like every average in this app -- a bowling average
+    // drops the fraction, it does not round up. 530 over three games is
+    // a 176 average, not 177.
+    //
+    // This comment used to claim the rule was universal while half the
+    // app rounded: the same night read 177 on the Games card and 176
+    // here. One number, two values, on adjacent screens.
     average: Math.floor(total / scores.length),
     high: Math.max(...scores),
     low: Math.min(...scores),

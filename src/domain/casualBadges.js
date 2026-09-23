@@ -268,7 +268,7 @@ export function casualStatsFor(bowler, nights = []) {
   const highGame = Math.max(...allScores);
   const lowGame = Math.min(...allScores);
   const games = allScores.length;
-  const average = Math.round(allScores.reduce((a, b) => a + b, 0) / games);
+  const average = Math.floor(allScores.reduce((a, b) => a + b, 0) / games);
 
   let nightsWon = 0, nightsLast = 0, sweptANight = false;
   let biggestJump = 0, widestSpread = 0, tightestSpread = null;

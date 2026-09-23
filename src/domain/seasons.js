@@ -197,7 +197,7 @@ export function seasonSummary(season, sessions, bowler) {
     closed: !!s.closed,
     nights: nights.length,
     games: scores.length,
-    average: Math.round(avg),
+    average: Math.floor(avg),
     highGame: Math.max(...scores),
     highSeries: series.length ? Math.max(...series) : null,
     // How steady, not how good. A bowler can raise their average and get

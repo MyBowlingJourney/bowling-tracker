@@ -406,7 +406,7 @@ export function patternHistory(sessions, lanePatterns, bowler) {
         name,
         nights: entries.length,
         games: all.length,
-        average: all.length ? Math.round(all.reduce((a, b) => a + b, 0) / all.length) : null,
+        average: all.length ? Math.floor(all.reduce((a, b) => a + b, 0) / all.length) : null,
         best: all.length ? Math.max(...all) : null,
         worst: all.length ? Math.min(...all) : null,
         // Newest first: what happened last time is what a bowler wants
@@ -515,7 +515,7 @@ export function patternAverages(sessions, lanePatterns, tournaments, bowler, lea
     .map(([name, scores]) => ({
       name,
       games: scores.length,
-      average: Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10,
+      average: Math.floor((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10,
     }))
     .sort((a, b) => b.games - a.games);
 }

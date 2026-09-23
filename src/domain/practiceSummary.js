@@ -94,7 +94,7 @@ export function practiceGames(sessions, liveScores, opts) {
     games,
     total,
     best: Math.max(...games),
-    average: Math.round((total / games.length) * 10) / 10,
+    average: Math.floor((total / games.length) * 10) / 10,
   };
 }
 

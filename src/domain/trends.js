@@ -414,7 +414,7 @@ export function allGamesSummary(points) {
   const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
   return {
     games: vals.length,
-    average: Math.round(avg * 10) / 10,
+    average: Math.floor(avg * 10) / 10,
     high: Math.max(...vals),
     low: Math.min(...vals),
     // Spread is the reason to look at every game rather than nightly
