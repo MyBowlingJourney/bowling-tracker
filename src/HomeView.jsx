@@ -5,7 +5,7 @@ import tournamentIcon from "./assets/home-icons/tournament.png";
 import openBowlingIcon from "./assets/home-icons/open-bowling.png";
 import { C, S, ActionRow } from "./ui.jsx";
 import { useLayoutEffect, useRef, useState } from "react";
-import { seasonFigures, journeyRecap, latestNight } from "./domain/home.js";
+import { seasonFigures, journeyRecap, latestNight, activeSeasonWindow } from "./domain/home.js";
 import { journeyMilestones, upcomingMilestones, describeUpcoming } from "./domain/journey.js";
 import { formatDate } from "./constants.js";
 import { progressPercent } from "./domain/progressPercent.js";
@@ -40,7 +40,7 @@ function ModeIcon({ mode }) {
 export default function HomeView({
   sessions = [], shots = [], tournaments = [], bowler = "",
   leagues = [], onOpenJourney, onOpenStats, onPickMode, badgeCount = 0,
-  today = "", onOpenNight,
+  today = "", onOpenNight, leagueDates = {},
 }) {
   // Home fits between the header and the bottom nav, with no scrolling.
   //
@@ -80,7 +80,43 @@ export default function HomeView({
   });
   const recent = latestNight(sessions, tournaments, { bowler });
 
-  const figures = seasonFigures(sessions, { bowler, leagues });
+  // In season, the card means the season. Out of season -- or before any
+  // league has its dates set -- it means the career, and says so.
+  const seasonWindow = activeSeasonWindow(leagueDates, { leagues, today });
+  const figures = seasonFigures(sessions, {
+    bowler, leagues,
+    since: seasonWindow.inSeason ? seasonWindow.since : null,
+  });
+  // Distinct seasons behind a career figure, for "96 games - 4 seasons".
+  const careerSeasons = seasonWindow.inSeason ? 0 : (() => {
+    const yrs = new Set();
+    for (const s of sessions || []) {
+      if (!s || s.bowler !== bowler || !s.date) continue;
+      const d = String(s.date);
+      // A season spans a year boundary, so it is named by the year it
+      // STARTED: anything before August belongs to the season that began
+      // the previous calendar year.
+      const y = Number(d.slice(0, 4)), m = Number(d.slice(5, 7));
+      if (!Number.isFinite(y) || !Number.isFinite(m)) continue;
+      yrs.add(m >= 8 ? y : y - 1);
+    }
+    return yrs.size;
+  })();
+  const seasonHeading = seasonWindow.inSeason ? "This season" : "Your career";
+  const scopeLabel = seasonWindow.inSeason
+    ? (seasonWindow.label || "League season")
+    : (seasonWindow.configured ? "Between seasons" : "All league play");
+  const averageCaption = seasonWindow.inSeason ? "season average" : "lifetime average";
+  const countLabel = !figures.games ? "No games yet"
+    : seasonWindow.inSeason ? `${figures.games} games logged`
+    : `${figures.games} games${careerSeasons > 1 ? ` · ${careerSeasons} seasons` : ""}`;
+  // The record-tie badge. Two or more only: "x1" is just the record.
+  const tieBadge = n => (n > 1 ? (
+    <span style={{display:"inline-block",marginLeft:"5px",fontFamily:"Archivo, system-ui, sans-serif",
+      fontSize:"11px",fontWeight:800,color:C.strike,background:C.strike+"1f",
+      border:`1px solid ${C.strike}55`,borderRadius:"999px",padding:"1px 6px",
+      verticalAlign:"middle",whiteSpace:"nowrap"}}>×{n}</span>
+  ) : null);
   const recap = journeyRecap(journeyMilestones(
     (sessions || []).filter(s => s && s.bowler === bowler),
     tournaments,
@@ -127,7 +163,7 @@ export default function HomeView({
       }}>
         <div>
           <div style={{fontSize:"11px",fontWeight:800,letterSpacing:"0.12em",textTransform:"uppercase",color:C.accent,marginBottom:"5px"}}>Your bowling</div>
-          <div style={{fontFamily:"Archivo Expanded, Archivo, system-ui, sans-serif",fontSize:"27px",fontWeight:800,lineHeight:1.05,letterSpacing:"-0.045em",color:C.text}}>This season</div>
+          <div style={{fontFamily:"Archivo Expanded, Archivo, system-ui, sans-serif",fontSize:"27px",fontWeight:800,lineHeight:1.05,letterSpacing:"-0.045em",color:C.text}}>{seasonHeading}</div>
         </div>
       </div>
 
@@ -138,8 +174,8 @@ export default function HomeView({
       }}>
         <div style={{padding:"14px 16px 12px",background:`linear-gradient(135deg, ${C.accent}12, transparent 62%)`}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"10px"}}>
-            <span style={{fontSize:"12px",fontWeight:700,color:C.textMuted}}>League season</span>
-            <span style={{fontSize:"12px",fontWeight:700,color:C.accent}}>{figures.games ? `${figures.games} games logged` : "No games yet"}</span>
+            <span style={{fontSize:"12px",fontWeight:700,color:C.textMuted,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{scopeLabel}</span>
+            <span style={{fontSize:"12px",fontWeight:700,color:C.accent,flexShrink:0}}>{countLabel}</span>
           </div>
           <div style={{display:"flex",alignItems:"flex-end",gap:"10px"}}>
             {/* The average gives up a little width so the two boxes can
@@ -148,17 +184,17 @@ export default function HomeView({
             <div style={{minWidth:0,flex:"1 1 0"}}>
               <div style={{fontSize:"11px",fontWeight:800,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted}}>Average</div>
               <div style={{fontFamily:"Roboto Condensed, Archivo, system-ui, sans-serif",fontSize:"40px",fontWeight:800,lineHeight:.95,letterSpacing:"-0.045em",color:C.text}}>{figures.average ?? "—"}</div>
-              <div style={{fontSize:"12px",color:C.textMuted,marginTop:"3px"}}>season average</div>
+              <div style={{fontSize:"12px",color:C.textMuted,marginTop:"3px"}}>{averageCaption}</div>
             </div>
             <div style={{width:"1px",height:"54px",background:C.border,flexShrink:0}}/>
             <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)",gap:"8px",flex:"1.9 1 0"}}>
               <div style={{padding:"9px 8px",borderRadius:"14px",background:C.surface,border:`1px solid ${C.border}`,minWidth:0}}>
                 <div style={{fontSize:"clamp(9px, 2.6vw, 10px)",fontWeight:800,textTransform:"uppercase",letterSpacing:"0.03em",color:C.textMuted,whiteSpace:"nowrap"}}>High game</div>
-                <div style={{fontFamily:"Roboto Condensed, Archivo, system-ui, sans-serif",fontSize:"25px",fontWeight:800,color:C.text,marginTop:"2px"}}>{figures.highGame ?? "—"}</div>
+                <div style={{fontFamily:"Roboto Condensed, Archivo, system-ui, sans-serif",fontSize:"25px",fontWeight:800,color:C.text,marginTop:"2px"}}>{figures.highGame ?? "—"}{tieBadge(figures.highGameCount)}</div>
               </div>
               <div style={{padding:"9px 8px",borderRadius:"14px",background:C.surface,border:`1px solid ${C.border}`,minWidth:0}}>
                 <div style={{fontSize:"clamp(9px, 2.6vw, 10px)",fontWeight:800,textTransform:"uppercase",letterSpacing:"0.03em",color:C.textMuted,whiteSpace:"nowrap"}}>High series</div>
-                <div style={{fontFamily:"Roboto Condensed, Archivo, system-ui, sans-serif",fontSize:"25px",fontWeight:800,color:C.text,marginTop:"2px"}}>{figures.highSeries ?? "—"}</div>
+                <div style={{fontFamily:"Roboto Condensed, Archivo, system-ui, sans-serif",fontSize:"25px",fontWeight:800,color:C.text,marginTop:"2px"}}>{figures.highSeries ?? "—"}{tieBadge(figures.highSeriesCount)}</div>
               </div>
             </div>
           </div>

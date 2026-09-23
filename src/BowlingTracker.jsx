@@ -8746,6 +8746,11 @@ export default function BowlingTracker(){
 
               badgeCount={earnedBadgeCount}
 
+              // The season windows, so Home can tell "this season" from
+              // "between seasons" instead of labelling every league night
+              // ever bowled as the current one.
+              leagueDates={leagueDates}
+
               today={localDateString()}
               onPickMode={env=>{
                 // Set the mode, then go straight to scoring.
