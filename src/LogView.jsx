@@ -680,7 +680,7 @@ export default function LogView({
   // (and Save Shot on Scoring). Set up has Start Scoring; Results has its
   // own Save & Finish.
   const footerShown=!!(editingId||(activeBowler&&effectiveSessionLeague
-    &&(env!=="tournament"||tournamentTab==="scoring"||tournamentTab==="match")));
+    &&(env!=="tournament"||tournamentTab==="scoring"||tournamentTab==="results")));
 
   // In BAKER, the name follows the FRAME, not the session.
   //
@@ -4423,11 +4423,17 @@ export default function LogView({
                 the same two buttons inside its own screen. League's Set up
                 has Start Scoring instead, so nothing ends from there. */}
             {!editingId&&!(env==="league"&&leagueTab==="setup")
-              &&!(env==="tournament"&&tournamentTab!=="scoring"&&tournamentTab!=="match")&&(()=>{
+              &&!(env==="tournament"&&tournamentTab!=="scoring"&&tournamentTab!=="results")&&(()=>{
               const name=env==="practice"?"Practice":env==="league"?"League":env==="tournament"?"Tournament":"Open Bowling";
-              // Tournament's Save & Finish is on its Results tab, inside
-              // the tournament screen, so the bar only ever moves it on.
-              const onResults=env==="tournament"?false
+              // A tournament ends from the bar too.
+              //
+              // It used to end only from the button inside the tournament
+              // card, at the bottom of a Results tab that now carries a
+              // finish, the money, a Nightcap, a phase-by-phase recap and
+              // a share -- so the one control that ends the event was
+              // several screens down and easy to conclude was missing.
+              // The bar is always on screen.
+              const onResults=env==="tournament"?tournamentTab==="results"
                 :env==="practice"?practiceMode==="results"
                 :env==="league"?leagueTab==="results":casualTab==="results";
               const toResults=()=>{
@@ -4468,12 +4474,16 @@ export default function LogView({
               };
               const saveAndFinish=env==="casual"
                 ?async()=>{ await saveCasualResults?.(); setCasualResultsShown(false); setCasualSpacer(0); setCasualTab("scoring"); endCasual?.(); }
+                // The tournament's own save, not the league night one:
+                // an event is filed as a tournament row.
+                :env==="tournament"?()=>saveTournament?.()
                 :submitSession;
               return (
                 <button style={{...S.btn("primary"),flex:1}} onClick={onResults?saveAndFinish:toResults}>
-                  {(env==="casual"&&casualMsg)||sessionSaveMessage||(sessionSaved
-                    ?"✓ Session Saved"
-                    :onResults?`Save & Finish ${name}`:`End ${name} & View Results`)}
+                  {(env==="casual"&&casualMsg)||(env==="tournament"?tournamentSaveMessage:sessionSaveMessage)||(
+                    (env==="tournament"?tournamentSaved:sessionSaved)
+                      ?`✓ ${env==="tournament"?"Tournament":"Session"} Saved`
+                      :onResults?`Save & Finish ${name}`:`End ${name} & View Results`)}
                 </button>
               );
             })()}
