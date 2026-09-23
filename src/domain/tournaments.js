@@ -22,6 +22,7 @@ import { handicapPins, scoringBasis, pinFormat, playStyle } from "./tournamentFo
 
 import { normalizeSidePots, sidePotTotals } from "./sidePots.js";
 import { normalizeMatchPlay, emptyMatchPlay, matchPlayTotals } from "./matchPlay.js";
+import { normalizeStepladder, emptyStepladder, stepladderResult } from "./stepladder.js";
 
 export function emptyTournamentGame(gameNumber = 1) {
   // scoreAuto: this score came from frame tracking and should keep
@@ -45,7 +46,16 @@ export function emptyTournamentDay(dayNumber = 1) {
     // "+" or "-": is the cut over or under a 200 average.
     cutSign: "+",
     // null = not yet known (the usual state until the squad finishes)
+    //
+    // No longer asked. Whether the bowler made the cut is the sign of
+    // the margin, which the app already works out from the cut line and
+    // the scores -- asking as well invited two answers that disagree.
+    // Kept on the record because tournaments saved before this still
+    // carry it, and the pattern stats read it.
     madeCut: null,
+    // What the block led to: "match" (match play), "stepladder", "na"
+    // (this block was the end of it), or null while it is unknown.
+    nextRound: null,
     notes: "",
   };
 }
@@ -129,9 +139,20 @@ export function emptyTournament() {
     // The head-to-head phase after the cut. Empty until a bowler makes it
     // -- most tournaments end at qualifying for most bowlers.
     matchPlay: emptyMatchPlay(),
+    // The stepladder finals. Fewer bowlers still than match play, and
+    // scored differently (no bonus pins), so it is its own phase rather
+    // than more matches on the end of that one.
+    stepladder: emptyStepladder(),
+    // What match play led to, in the same words the days use.
+    matchPlayNextRound: null,
     notes: "",
   };
 }
+
+// Where a phase led. "na" is the bowler saying it ended there, which is
+// a different statement from null ("not known yet") and is worth keeping
+// so the app stops asking.
+export const NEXT_ROUNDS = ["match", "stepladder", "na"];
 
 function num(v) {
   if (v === null || v === undefined) return null;
@@ -179,6 +200,8 @@ export function normalizeTournament(raw) {
     winnings: raw.winnings ?? "",
     sidePots: normalizeSidePots(raw.sidePots),
     matchPlay: normalizeMatchPlay(raw.matchPlay),
+    stepladder: normalizeStepladder(raw.stepladder),
+    matchPlayNextRound: NEXT_ROUNDS.includes(raw.matchPlayNextRound) ? raw.matchPlayNextRound : null,
     notes: raw.notes || "",
   };
 }
@@ -212,6 +235,7 @@ export function normalizeTournamentDay(raw, dayNumber = 1) {
     // from the stats exactly like null.
     madeCut: raw.madeCut === true || raw.madeCut === false ? raw.madeCut
       : raw.madeCut === "na" ? "na" : null,
+    nextRound: NEXT_ROUNDS.includes(raw.nextRound) ? raw.nextRound : null,
     notes: raw.notes || "",
   };
 }
@@ -359,6 +383,48 @@ export function cutMargin(day, shotScores) {
   return total - target;
 }
 
+// The same question for a block that isn't the first one.
+//
+// A cut after day two is posted against everything bowled so far, not
+// against day two alone -- a bowler 90 pins up after day one and 40
+// down on day two is still 50 to the good, and the day-only margin said
+// they had missed. carry is { total, games } from the earlier blocks.
+export function cutMarginWithCarry(day, shotScores, carry) {
+  const dayScore = dayTotal(day, shotScores);
+  const pace = num(day?.cutLine);
+  if (pace === null) return null;
+  const carryTotal = num(carry?.total) ?? 0;
+  const carryGames = num(carry?.games) ?? 0;
+  const games = dayGamesEntered(day, shotScores) + carryGames;
+  if (!games) return null;
+  // The cut is quoted for the whole block set, so a day with nothing in
+  // it yet still counts what came before.
+  const total = (dayScore ?? 0) + carryTotal;
+  const target = (PACE_PER_GAME * games) + (day?.cutSign === "-" ? -pace : pace);
+  return total - target;
+}
+
+// Everything bowled before this block, to hand to cutMarginWithCarry.
+// scoresFor(day) supplies the frame-tracked scores for a day, the same
+// way the scoring cards get them.
+export function carryBefore(tournament, dayNumber, scoresFor) {
+  let total = 0, games = 0;
+  for (const d of tournament?.days || []) {
+    if (Number(d?.dayNumber) >= Number(dayNumber)) continue;
+    const s = typeof scoresFor === "function" ? scoresFor(d) : null;
+    total += dayTotal(d, s) ?? 0;
+    games += dayGamesEntered(d, s);
+  }
+  return { total, games };
+}
+
+// Did this block make its cut? Derived from the margin rather than
+// asked. null when there is no cut line or nothing bowled yet.
+export function dayMadeCut(day, shotScores, carry) {
+  const margin = carry ? cutMarginWithCarry(day, shotScores, carry) : cutMargin(day, shotScores);
+  return margin === null ? null : margin >= 0;
+}
+
 // The total that decides where a bowler finished.
 //
 // Handicap included, because that is the number the tournament used --
@@ -441,6 +507,8 @@ export function tournamentToRow(t, userId) {
     winnings: num(t.winnings),
     side_pots: normalizeSidePots(t.sidePots),
     match_play: normalizeMatchPlay(t.matchPlay),
+    stepladder: normalizeStepladder(t.stepladder),
+    match_play_next_round: NEXT_ROUNDS.includes(t.matchPlayNextRound) ? t.matchPlayNextRound : null,
     notes: t.notes || null,
   };
 }
@@ -463,6 +531,8 @@ export function tournamentFromRow(row) {
     winnings: row.winnings == null ? "" : String(row.winnings),
     sidePots: row.side_pots || [],
     matchPlay: row.match_play || null,
+    stepladder: row.stepladder || null,
+    matchPlayNextRound: row.match_play_next_round || null,
     notes: row.notes || "",
   });
 }

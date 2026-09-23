@@ -253,6 +253,8 @@ export function patternFromRow(row) {
 // pattern stats would need shots tagged with the pattern, which they
 // aren't.
 
+import { dayMadeCut, carryBefore } from "./tournaments.js";
+
 function scoresForDay(day) {
   return (day?.games || [])
     .map(g => (g.score === "" || g.score == null ? null : Number(g.score)))
@@ -275,7 +277,12 @@ export function patternDays(tournaments, patternName) {
         date: day.date || "",
         dayNumber: day.dayNumber ?? null,
         scores,
-        madeCut: day.madeCut === true || day.madeCut === false ? day.madeCut : null,
+        // Recorded answer first, for tournaments saved back when the
+        // app asked. Newer ones do not ask -- making the cut is the
+        // sign of the margin against the posted cut line, so it is
+        // derived from what was bowled instead.
+        madeCut: day.madeCut === true || day.madeCut === false ? day.madeCut
+          : dayMadeCut(day, null, carryBefore(t, day.dayNumber, null)),
       });
     }
   }
