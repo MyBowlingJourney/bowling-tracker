@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { journalEntries, searchJournal, journalByDate } from './journal.js';
+import { journalEntries, searchJournal, journalByDate, filterJournal, journalKinds } from './journal.js';
 
 const session = (date, notes, over = {}) =>
   ({ bowler: 'R', league: 'Tuesday', date, notes, scores: [210, 195, 220], ...over });
@@ -173,5 +173,52 @@ describe('tournament notes', () => {
   it('survives junk', () => {
     expect(journalEntries({ tournaments: [null, 7, { days: null }] })).toEqual([]);
     expect(journalEntries({ tournaments: 'nope' })).toEqual([]);
+  });
+});
+
+describe('filtering', () => {
+  const entries = [
+    { kind: 'session', date: '2026-09-21', text: 'a' },
+    { kind: 'shot', date: '2026-09-15', text: 'b' },
+    { kind: 'drill', date: '', text: 'c' },
+    { kind: 'tournament', date: '2026-08-02', text: 'd' },
+  ];
+  const texts = o => filterJournal(entries, o).map(e => e.text);
+
+  it('keeps everything when nothing is asked for', () => {
+    expect(texts({})).toEqual(['a', 'b', 'c', 'd']);
+    expect(texts()).toEqual(['a', 'b', 'c', 'd']);
+  });
+
+  it('narrows to the kinds given', () => {
+    expect(texts({ kinds: ['shot', 'drill'] })).toEqual(['b', 'c']);
+    // An empty list is "all", not "none" -- the default must cost nothing.
+    expect(texts({ kinds: [] })).toEqual(['a', 'b', 'c', 'd']);
+  });
+
+  it('narrows by either end of a date range, or both', () => {
+    expect(texts({ from: '2026-09-01' })).toEqual(['a', 'b']);
+    expect(texts({ to: '2026-08-31' })).toEqual(['d']);
+    expect(texts({ from: '2026-09-01', to: '2026-09-20' })).toEqual(['b']);
+  });
+
+  it('drops undated entries once a range is set', () => {
+    // A note with no date cannot honestly be said to fall inside one.
+    expect(texts({ from: '2020-01-01' })).not.toContain('c');
+    expect(texts({})).toContain('c');
+  });
+
+  it('combines kind and range', () => {
+    expect(texts({ kinds: ['session'], from: '2026-09-01' })).toEqual(['a']);
+  });
+
+  it('survives junk', () => {
+    expect(filterJournal(null, { kinds: ['shot'] })).toEqual([]);
+    expect(filterJournal(entries, { kinds: 'shot' })).toHaveLength(4);
+  });
+
+  it('lists only the kinds present, in reading order', () => {
+    expect(journalKinds(entries)).toEqual(['session', 'tournament', 'drill', 'shot']);
+    expect(journalKinds(null)).toEqual([]);
   });
 });

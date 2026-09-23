@@ -218,6 +218,18 @@ export function nightSummary(session) {
     // Nulls rather than zeros: a night logged scores-only has no strike
     // count, and 0 would read as "struck nothing".
     notes: String(s.notes || "").trim(),
+    // The tournament's phases, when this night is one.
+    //
+    // THIS function is why the calendar kept showing a tournament as a
+    // league night however many times the detail was attached upstream:
+    // it rebuilds every night as a fresh object with a fixed list of
+    // fields, and anything not named here is dropped on the way to the
+    // grid. Attaching `event` to the input did nothing because the
+    // output never carried it.
+    event: s.event || null,
+    // Carried for the same reason -- the row that opens a night needs
+    // to know whose it was.
+    bowler: s.bowler || "",
     shotCount: num(s.shotCount),
     strikes: num(s.strikes),
     spareAttempts: num(s.spareAttempts),

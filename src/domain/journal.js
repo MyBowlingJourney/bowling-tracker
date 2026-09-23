@@ -192,6 +192,41 @@ export function searchJournal(entries, query) {
     `${e.text} ${e.detail} ${e.league} ${e.date}`.toLowerCase().includes(q));
 }
 
+// Narrow by kind and by date.
+//
+// The journal is worth having once it is too long to scroll, which is
+// exactly when scrolling stops working as a way to find anything. Search
+// answers "where did I say that"; these answer "what did I write in
+// March" and "show me only what I wrote about drills".
+//
+// kinds: a list of kinds to keep. Empty or missing means all of them,
+// so the default costs nothing.
+// from/to: inclusive ISO dates, either end optional. Entries with no
+// date at all are kept only when neither end is set -- a note with no
+// date cannot honestly be said to fall inside a range.
+export function filterJournal(entries, { kinds, from, to } = {}) {
+  const keep = Array.isArray(kinds) && kinds.length ? new Set(kinds) : null;
+  const a = clean(from);
+  const b = clean(to);
+  return rows(entries).filter(e => {
+    if (keep && !keep.has(e.kind)) return false;
+    const d = clean(e.date);
+    if (!a && !b) return true;
+    if (!d) return false;
+    if (a && d < a) return false;
+    if (b && d > b) return false;
+    return true;
+  });
+}
+
+// Which kinds actually appear, in the journal's own order, so the
+// filter offers Drill only to a bowler who has written one.
+export function journalKinds(entries) {
+  const order = ["session", "tournament", "pattern", "drill", "shot"];
+  const present = new Set(rows(entries).map(e => e.kind));
+  return order.filter(k => present.has(k));
+}
+
 // Grouped by date, for rendering under day headings.
 export function journalByDate(entries) {
   const out = [];
