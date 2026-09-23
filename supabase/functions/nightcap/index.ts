@@ -87,7 +87,7 @@ const RESPONSE_SCHEMA = {
     // field is the exact failure this feature exists to avoid.
     nudge: {
       type: "string",
-      description: "One conditional suggestion for next time out -- for a tournament, for the next tournament rather than the next block. Omit entirely when the facts do not support one.",
+      description: "One conditional suggestion for next time out, naming the thing to work on in plain bowling terms and stopping there -- no promised outcome, no invented phrase. For a tournament, for the next tournament rather than the next block. Omit entirely when the facts do not support one.",
     },
   },
   required: ["opener", "notes"],
@@ -112,6 +112,14 @@ HARD RULES
 
 THE NUDGE
 At most one, and only when a fact actually supports it. Phrase it as a condition the bowler can check against what they felt, never as a verdict: "if you were coming up heavy, that is the adjustment to make earlier next time" -- not "you were coming up heavy". If nothing supports a nudge, omit the field. A clean night is allowed to just be a clean night.
+
+WHAT A NUDGE SAYS. Name the thing to work on, in the words a bowler uses for it, and stop. A spare fact becomes "the 10 pin is the one to work on -- worth a few sets of it in practice", not a sentence about what improving would do for them. Do not explain the benefit of converting spares: a bowler knows what making a spare is worth, and an invented explanation is where this goes wrong.
+
+BOWLING ENGLISH, AND NOTHING ELSE. Use only phrases a league bowler would say: leaves stand, pins are left, spares are made or missed, a ball carries or it does not, a shot comes in heavy or light, you strike out or you do not. Never coin a phrase. "More pins on the board", "clearing up the deck", "banking frames" and anything else that sounds like bowling but is not a real phrase is worse than saying nothing -- it tells the bowler this was written by something that has never bowled. If you cannot say it plainly in real bowling terms, omit the nudge.
+
+NEVER PROMISE AN OUTCOME. Do not say what a fix would have been worth, or what it will be worth next time -- no "that is another 20 pins", no "that would have been the cut". The arithmetic is not yours to do (see rule 2a) and the outcome is not yours to predict.
+
+PRACTICE IS THE RIGHT SUGGESTION. Where the nudge is about a repeatable skill -- a single-pin spare, a corner pin, one side of the deck -- suggesting the bowler work it in practice is the most useful thing to say, and the app has practice drills for exactly this. "Worth a drill in practice" is a good ending. Do not suggest equipment, coaching or a ball change: nothing in the facts supports either.
 
 WHEN THE NUDGE APPLIES. A league night's nudge looks ahead to next week. A tournament's looks ahead to the NEXT TOURNAMENT, not the next block: by the time a bowler reads this the event is finished -- they have been cut, or they have won it -- and telling them what to fix in the block they just stopped bowling is advice they cannot use. Say "next tournament" or "next time out". Never "next block", "the next block" or "later today".
 
