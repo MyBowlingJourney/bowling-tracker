@@ -77,7 +77,7 @@ const ALL_STEPS = [
     track: "look",
     tab: "history",
     title: "Calendar and journal",
-    body: "History keeps every night you've bowled, on a calendar you can scroll back through. The journal holds all of your notes from every bowling session, gathered in one place and searchable.",
+    body: "History keeps every night you've bowled, on a calendar you can scroll back through. The journal gathers every note you've written — on a shot, a drill, a pattern or the end of a night — and you can search them, or filter by kind and date range.",
   },
 
   {
@@ -91,7 +91,10 @@ const ALL_STEPS = [
     track: "look",
     tab: "home",
     title: "That's enough for now",
-    body: "You know your way around. If you want more, there are three other tours waiting in the settings menu — keeping score, what the AI does, and stats.",
+    // Named rather than counted. "Three other tours" was already wrong
+    // by the time a fourth was added, and a count is the part of a
+    // sentence nobody remembers to update.
+    body: "You know your way around. If you want more, the settings menu has the rest — keeping score, bowling a tournament, what the AI does, stats, and coaching.",
   },
 
   // ── Scorekeeping ──────────────────────────────────────────────────────
@@ -135,6 +138,60 @@ const ALL_STEPS = [
     body: "The Results chip closes the session: games, series, how it compared to your average, and anything you won. Tap it when you're done and the night is filed.",
   },
 
+  // ── Tournaments ───────────────────────────────────────────────────────
+  //
+  // Its own track, because a tournament is the one thing in the app that
+  // is genuinely several screens deep: an event is set up once, bowled
+  // across blocks, and may then run into match play or a stepladder that
+  // score nothing like qualifying does.
+  //
+  // In event order, which is also the order the tabs sit in. A bowler
+  // entering a one-squad scratch tournament can stop after the second
+  // slide and has lost nothing -- the later phases only exist for events
+  // that actually have them.
+  {
+    id: "tourn-setup",
+    track: "tournament",
+    tab: "log",
+    title: "Setting up an event",
+    body: "Pick Tournament on Home and Set up asks what the event is: its name and center, then Style, Scoring and Format. Those three are separate questions, so any mix works — a Baker squad can be handicapped and 9 pin no-tap at once. A handicap event then asks for your pins per game.",
+  },
+  {
+    id: "tourn-qualifying",
+    track: "tournament",
+    tab: "log",
+    title: "Qualifying",
+    body: "Add a block for each day or squad and they become tabs under Scoring. Enter the cut as it's posted — plus or minus against a 200 average — and the app tells you where you stand against it, carrying your earlier blocks in once there's more than one.",
+  },
+  {
+    id: "tourn-cut",
+    track: "tournament",
+    tab: "log",
+    title: "Making the cut",
+    body: "The app never asks whether you made it: the margin already says. What it can't work out is what came next, so each block asks what you qualified for — match play, a stepladder, or neither — and gives you a button straight to it.",
+  },
+  {
+    id: "tourn-match",
+    track: "tournament",
+    tab: "log",
+    title: "Match play",
+    body: "Each match is your score against an opponent's, with bonus pins for a win or a tie. Game numbering starts again at 1 here, so tracking frames in a match is a fresh slate rather than a continuation of qualifying. In a handicap event there's a box for your opponent's handicap too.",
+  },
+  {
+    id: "tourn-stepladder",
+    track: "tournament",
+    tab: "log",
+    title: "The stepladder",
+    body: "Sudden death, so no bonus pins — the higher score advances. Enter your seed and each opponent's, and the app works out where you finished from how far you climbed. Beat the one seed and it says you won it.",
+  },
+  {
+    id: "tourn-results",
+    track: "tournament",
+    tab: "log",
+    title: "How the event went",
+    body: "Results recaps the whole event broken out by phase, with your brackets and side pots and what they paid. End tournament and view results saves everything on its way there. The Nightcap reads the night back to you, and the share button hands the lot to whoever asks how you did.",
+  },
+
   // ── AI ────────────────────────────────────────────────────────────────
   {
     id: "ai-import-shot",
@@ -163,6 +220,51 @@ const ALL_STEPS = [
     tab: "improve",
     title: "Ask Brooklyn",
     body: "The Stats screens cover the usual numbers. Brooklyn is for the questions they don't answer — ask about your own bowling in plain words and she works it out from what you've logged. If it needs something you don't track yet, she'll say what to start logging. Tap the lamp at the top of any screen. Three wishes a day.",
+  },
+
+  // ── Coaching ──────────────────────────────────────────────────────────
+  //
+  // One track covering BOTH sides of the link, deliberately. The two
+  // roles are the same screen with the View toggle flipped, and a bowler
+  // whose coach just sent them a drill arrives wanting to know what to
+  // do about it -- not to be told this tour was written for coaches.
+  //
+  // The link is directional, so the first slide is about establishing it
+  // and everything after assumes it exists.
+  {
+    id: "coach-connect",
+    track: "coach",
+    tab: "improve",
+    title: "Linking up",
+    body: "Improve has a Coach button once you're coaching someone or being coached. Search for them by name, say which way round it goes — they coach me, or I coach them — and send the request. It starts working when they accept.",
+  },
+  {
+    id: "coach-switch",
+    track: "coach",
+    tab: "improve",
+    title: "Both sides, one screen",
+    body: "If you do both, the View chips flip between them: I'm bowling shows what your own coach has sent you, I'm coaching shows your bowlers. A coach sees their pupils' scores without having to add them as a friend.",
+  },
+  {
+    id: "coach-bowler",
+    track: "coach",
+    tab: "improve",
+    title: "Reading a bowler",
+    body: "Pick a bowler and you get their recent nights and how their shots break down — strikes, spares, the leaves that keep coming back — with the number of shots it's built on shown beside it, so you know how much to trust it.",
+  },
+  {
+    id: "coach-task",
+    track: "coach",
+    tab: "improve",
+    title: "Setting work",
+    body: "A task is something to go and do, with an optional measurable target and a due date — convert 60% of your single-pin spares, say. Leave the target off for anything that isn't a number.",
+  },
+  {
+    id: "coach-respond",
+    track: "coach",
+    tab: "improve",
+    title: "Answering back",
+    body: "The bowler marks it done, or records an attempt with the number they actually reached and a note about how it went. Either way it comes back to the coach, so the next thing you set is based on what happened rather than what was asked for.",
   },
 
   // ── Stats ─────────────────────────────────────────────────────────────
@@ -204,8 +306,10 @@ const ALL_STEPS = [
 export const TOUR_TRACKS = [
   { key: "look",  label: "Look around",  blurb: "What's behind each tab" },
   { key: "score", label: "Keeping score", blurb: "By game, or ball by ball" },
+  { key: "tournament", label: "Bowling a tournament", blurb: "Blocks, the cut, match play, the ladder" },
   { key: "ai",    label: "What the AI does", blurb: "Scorecards, insights, Nightcap, Brooklyn" },
   { key: "stats", label: "Stats",         blurb: "Breakdowns, comparing, trends" },
+  { key: "coach", label: "Coaching",      blurb: "Linking up, tasks, what comes back" },
 ];
 
 export const TRACK_KEYS = TOUR_TRACKS.map(t => t.key);

@@ -623,7 +623,7 @@ export function tournamentMoney(tournament) {
 // decides a finish at events that have one.
 export function tournamentFinalTotal(tournament) {
   const qualifying = tournamentTotal(tournament);
-  const mp = matchPlayTotals(tournament?.matchPlay, activeHandicapPerGame(tournament));
+  const mp = matchPlayTotals(tournament?.matchPlay, activeHandicapPerGame(tournament), isHandicapEvent(tournament));
   if (!mp.played) return { qualifying, matchPlay: null, total: qualifying };
   return { qualifying, matchPlay: mp, total: qualifying + mp.total };
 }

@@ -13,8 +13,8 @@ import {
 // shipped.
 
 describe('tracks', () => {
-  it('has exactly the four topic tracks', () => {
-    expect(TRACK_KEYS).toEqual(['look', 'score', 'ai', 'stats']);
+  it('has exactly the six topic tracks', () => {
+    expect(TRACK_KEYS).toEqual(['look', 'score', 'tournament', 'ai', 'stats', 'coach']);
   });
 
   it('every track has a label and a blurb', () => {
@@ -47,13 +47,19 @@ describe('slide counts', () => {
     expect(look[look.length - 1].id).toBe('look-more');
   });
   it('scorekeeping is 5 slides', () => expect(stepsForTrack('score').length).toBe(5));
+  // Set up, qualifying, the cut, then the two phases that only some
+  // events reach, then results.
+  it('tournaments is 6 slides', () => expect(stepsForTrack('tournament').length).toBe(6));
   it('AI is 4 slides', () => expect(stepsForTrack('ai').length).toBe(4));
   it('stats is 4 slides', () => expect(stepsForTrack('stats').length).toBe(4));
+  // Both sides of the link in one track: connecting, the view toggle,
+  // reading a bowler, setting work, and what comes back.
+  it('coaching is 5 slides', () => expect(stepsForTrack('coach').length).toBe(5));
 
-  it('20 slides in total, with no step in two tracks', () => {
+  it('31 slides in total, with no step in two tracks', () => {
     const all = TRACK_KEYS.flatMap(k => stepsForTrack(k));
-    expect(all.length).toBe(20);
-    expect(new Set(all.map(s => s.id)).size).toBe(20);
+    expect(all.length).toBe(31);
+    expect(new Set(all.map(s => s.id)).size).toBe(31);
   });
 });
 
@@ -88,7 +94,9 @@ describe('tourSteps', () => {
   it('falls back to the first tour for an unknown track', () => {
     // Callers predating the topic tracks pass "general" or "league". A
     // tour that opens empty looks like a broken button.
-    for (const stale of ['general', 'league', 'casual', 'coach', undefined]) {
+    // "coach" was on this list and is a real track now -- a name being
+    // stale is a fact about the current tracks, not a permanent one.
+    for (const stale of ['general', 'league', 'casual', 'tournament-scratch', undefined]) {
       expect(tourSteps({}, { track: stale }).length).toBe(stepsForTrack(FIRST_TOUR).length);
     }
   });
