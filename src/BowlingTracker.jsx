@@ -5662,6 +5662,31 @@ export default function BowlingTracker(){
   // for money: pots are paid before the first ball.
   const pendingSessionRowRef=useRef(null);
 
+  // The latest sessions list, synchronously.
+  //
+  // applyCosts writes three games across four money fields in one loop --
+  // a dozen writes, all before React re-renders. Each one read the same
+  // stale `sessions` from its own closure and overwrote the one before
+  // it, so only the LAST write of the burst survived. That is why a $1
+  // quarter buy-in over three games stored nothing: the pots card said
+  // "$3.00 paid in" (computed live from the rates) while the winnings
+  // card said "$0.00 paid in" (summed from the stored cost arrays), and
+  // the night's net was wrong by the whole buy-in.
+  //
+  // Every money write goes through commitSessions, which composes on the
+  // ref rather than on the closure, so a burst accumulates.
+  const sessionsRef=useRef(sessions);
+  useEffect(()=>{sessionsRef.current=sessions;},[sessions]);
+
+  function commitSessions(fn){
+    const prev=sessionsRef.current;
+    const next=fn(prev);
+    sessionsRef.current=next;
+    setSessions(next);
+    try{window.storage.set(SESSIONS_KEY,JSON.stringify(next));}catch{}
+    return {prev,next};
+  }
+
   // Cleared once the row is really in state, and whenever the night
   // changes. A held id that no longer matches the night on screen would
   // file the next money entry against the wrong session.
@@ -5679,7 +5704,7 @@ export default function BowlingTracker(){
   },[sessions,nightBowler,nightLeague,nightDate]);
 
   function ensureSessionRow(){
-    const existing=sessions.find(s=>s.bowler===nightBowler
+    const existing=sessionsRef.current.find(s=>s.bowler===nightBowler
       &&s.league===nightLeague&&s.date===nightDate);
     if(existing)return existing.id;
     if(pendingSessionIdRef.current)return pendingSessionIdRef.current;
@@ -5700,34 +5725,29 @@ export default function BowlingTracker(){
     };
     pendingSessionIdRef.current=row.id;
     pendingSessionRowRef.current=row;
-    const next=[...sessions,row];
-    setSessions(next);
-    try{window.storage.set(SESSIONS_KEY,JSON.stringify(next));}catch{}
+    commitSessions(prev=>[...prev,row]);
     return row.id;
   }
 
   // The list to write into: `sessions` when it already holds the row, and
   // `sessions` plus the row ensureSessionRow just made when it does not.
   // Without the second case the write lands nowhere and undoes the row.
-  function sessionsIncluding(id){
-    if(sessions.some(s=>s.id===id))return sessions;
+  function sessionsIncluding(list,id){
+    if(list.some(s=>s.id===id))return list;
     const pending=pendingSessionRowRef.current;
-    return (pending&&pending.id===id)?[...sessions,pending]:[...sessions];
+    return (pending&&pending.id===id)?[...list,pending]:[...list];
   }
 
   function setSessionMoneyArray(sessionId,field,gameIdx,amount){
     const id=sessionId||ensureSessionRow();
     if(!id)return;
-    const prevSessions=sessions;
-    const updatedSessions=sessionsIncluding(id)
-      .map(s=>{
-      if(s.id!==id)return s;
-      const arr=[...(s[field]||[0,0,0])];
-      arr[gameIdx]=amount;
-      return{...s,[field]:arr};
-    });
-    setSessions(updatedSessions);
-    try{window.storage.set(SESSIONS_KEY,JSON.stringify(updatedSessions));}catch{}
+    const {prev:prevSessions,next:updatedSessions}=commitSessions(list=>
+      sessionsIncluding(list,id).map(s=>{
+        if(s.id!==id)return s;
+        const arr=[...(s[field]||[0,0,0])];
+        arr[gameIdx]=amount;
+        return{...s,[field]:arr};
+      }));
 
     const debounceKey=`${sessionId}|${field}|${gameIdx}`;
     clearTimeout(pokerSaveTimers.current[debounceKey]);
@@ -5743,11 +5763,9 @@ export default function BowlingTracker(){
     // than writing into nothing. See ensureSessionRow.
     const ensuredId=sessionId||ensureSessionRow();
     if(!ensuredId)return;
-    const prevSessions=sessions;
-    const updatedSessions=sessionsIncluding(ensuredId)
-      .map(s=>s.id!==ensuredId?s:{...s,[field]:amount});
-    setSessions(updatedSessions);
-    try{window.storage.set(SESSIONS_KEY,JSON.stringify(updatedSessions));}catch{}
+    const {prev:prevSessions,next:updatedSessions}=commitSessions(list=>
+      sessionsIncluding(list,ensuredId)
+        .map(s=>s.id!==ensuredId?s:{...s,[field]:amount}));
 
     const debounceKey=`${sessionId}|${field}`;
     clearTimeout(pokerSaveTimers.current[debounceKey]);
@@ -5770,11 +5788,10 @@ export default function BowlingTracker(){
     // than writing into nothing. See ensureSessionRow.
     const ensuredId=sessionId||ensureSessionRow();
     if(!ensuredId)return;
-    const prevSessions=sessions;
     const key=type==="jackpot"?"jackpotWinnings":"threeSixNineWinnings";
-    const updatedSessions=sessions.map(s=>s.id!==ensuredId?s:{...s,[key]:amount});
-    setSessions(updatedSessions);
-    try{window.storage.set(SESSIONS_KEY,JSON.stringify(updatedSessions));}catch{}
+    const {prev:prevSessions,next:updatedSessions}=commitSessions(list=>
+      sessionsIncluding(list,ensuredId)
+        .map(s=>s.id!==ensuredId?s:{...s,[key]:amount}));
 
     const debounceKey=`${sessionId}|369|${type}`;
     clearTimeout(pokerSaveTimers.current[debounceKey]);

@@ -1163,21 +1163,34 @@ export default function LogView({
                       {(()=>{
                         // 3-6-9: a single, whole-session win (all 9 specific
                         // strikes across games 1, 2, AND 3) -- not per-game
-                        // like poker, so this only shows once per session, and
-                        // only when actually qualified. The jackpot input is
-                        // additionally gated on game 3's 10th being a full
-                        // turkey, on top of the win itself.
+                        // like poker, so this shows once per session.
+                        //
+                        // Shown because the bowler is IN the pot, not
+                        // because the app detected the strikes. Detection
+                        // reads shot data, so a bowler tracking game
+                        // totals only could NEVER qualify -- they paid
+                        // into the pot, won it, and had nowhere to write
+                        // it down. The same applies to the jackpot row.
+                        //
+                        // What the app can see is still worth saying, so
+                        // a confirmed 3-6-9 is called out below rather
+                        // than being the gate.
+                        if(!potIsIn(cs,"threeSixNine"))return null;
                         const r369=threeSixNineResults(shots,cs.bowler,cs.league,cs.date);
-                        if(!r369.qualifies)return null;
                         return(
                           <div style={{marginBottom:"12px"}}>
                             <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"6px"}}>3-6-9 Winnings ($)</div>
+                            {r369.qualifies&&(
+                              <div style={{fontSize:"11px",color:C.strike,marginBottom:"6px"}}>
+                                All nine struck — you took it{r369.jackpotEligible?", and the tenth carried for the jackpot":""}.
+                              </div>
+                            )}
                             <div style={{display:"flex",gap:"8px",alignItems:"center",marginBottom:"6px"}}>
                               <div style={{fontSize:"12px",color:C.strike,width:"56px"}}>Pot</div>
                               <input style={{...S.input,flex:1,fontSize:"13px",padding:"6px 10px"}} type="number" step="1" placeholder="$"
                                 value={cs.threeSixNineWinnings||""} onChange={e=>setThreeSixNineWinnings(cs.id,"pot",e.target.value===""?0:parseFloat(e.target.value))}/>
                             </div>
-                            {r369.jackpotEligible&&(
+                            {(
                               <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
                                 <div style={{fontSize:"12px",color:C.spare,width:"56px"}}>Jackpot</div>
                                 <input style={{...S.input,flex:1,fontSize:"13px",padding:"6px 10px"}} type="number" step="1" placeholder="$"
