@@ -8711,6 +8711,15 @@ export default function BowlingTracker(){
             onOpenNight={openHistoryNight}
             deleteNight={deleteNight}
 
+            // TOURNAMENTS. History is the screen that shows the calendar
+            // and the journal, and it was the one mount that never
+            // received them -- so a tournament had no day on the
+            // calendar, no phases on the card it did show, and every
+            // note written on a tournament screen was missing from the
+            // journal. Nothing was wrong with any of those features;
+            // they were reading an empty list.
+            tournaments={tournaments}
+
             drills={drills}
             restartOnboarding={restartOnboarding} replayTour={replayTour} isCoach={showCoachingTab}
             showBackup={showBackup} setShowBackup={setShowBackup}
