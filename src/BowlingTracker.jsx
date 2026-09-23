@@ -82,7 +82,7 @@ import { normalizePattern, patternFromRow, patternToRow, patternAverages, allVer
 import { normalizeLeagueDates, needsBookAverageUpdate , isNoTapLeague, leagueFormat} from "./domain/leagueSeasons.js";
 import { archiveOnNewStart, compareSeasons, describeSeasonChange } from "./domain/seasons.js";
 
-import { sessionsForFigures, isBaker, bakerBowlerFor } from "./domain/tournamentFormats.js";
+import { sessionsForFigures, isBaker, bakerBowlerFor, bakerAlternates } from "./domain/tournamentFormats.js";
 import { emptyDrill, normalizeDrill, drillToRow, drillFromRow } from "./domain/drills.js";
 import { scorekeepingOptions, allowsOtherBowlers, normalizeGuests, addGuest, removeGuest } from "./domain/scorekeeping.js";
 import { allowedLeagues, lockedLeagues, ENTITLEMENT_UNKNOWN } from "./domain/entitlements.js";
@@ -1553,7 +1553,7 @@ export default function BowlingTracker(){
           cloudRead("bowling_centers",q=>q.select("id,here_id,name,address,city,state,postal_code,country,lat,lng,rack_type,freefall_lanes,created_by")),
           cloudRead("oil_patterns",q=>q.select("id,name,series,length_feet,ratio,volume_ml,forward_ml,reverse_ml,verified,source_note,year")),
           cloudRead("bowler_goals",q=>q.select("bowler_name,goals")),
-          cloudRead("tournaments",q=>q.select("id,bowler_name,name,center,days,buy_in,winnings,side_pots,match_play,stepladder,match_play_next_round,placement,placement_note,notes,handicap,baker_partner,baker_starter,scoring_basis,pin_format,play_style")),
+          cloudRead("tournaments",q=>q.select("id,bowler_name,name,center,days,buy_in,winnings,side_pots,match_play,stepladder,match_play_next_round,placement,placement_note,notes,handicap,baker_partner,baker_starter,baker_alternate,scoring_basis,pin_format,play_style")),
           cloudRead("leagues",q=>q.select("name,center_id,start_date,end_date,format,pattern_name")),
           cloudRead("ball_submissions",q=>q.select("id,submitted_by,ball_key,ball_name,brand,coverstock,core_type,weight,rg,diff,int_diff,created_at,official,source_note,weight_specs")),
           cloudRead("ball_confirmations",q=>q.select("submission_id,confirmed_by,vote")),
@@ -6267,17 +6267,16 @@ export default function BowlingTracker(){
           .map(t=>tournamentLeagueCloudName(t.name,user?.id))
           .filter(Boolean));
       if(!bakerLeagues.size)return own;
-      const starterFor=lg=>{
-        const t=(tournaments||[]).find(x=>
-          tournamentLeagueCloudName(x.name,user?.id)===lg);
-        return t?.bakerStarter||"me";
-      };
+      const bakerFor=lg=>(tournaments||[]).find(x=>
+        tournamentLeagueCloudName(x.name,user?.id)===lg);
       return own.filter(s=>{
         // Through the phase suffix: match play frames belong to the
         // same Baker event as qualifying's.
         const lg=tournamentBaseLeagueName(s.league);
         if(!bakerLeagues.has(lg))return true;
-        return bakerBowlerFor(s.game,parseInt(s.frame,10),starterFor(lg))==="me";
+        const t=bakerFor(lg);
+        return bakerBowlerFor(s.game,parseInt(s.frame,10),
+          t?.bakerStarter||"me",bakerAlternates(t))==="me";
       });
     })();
     const bd=shotBreakdown(myShots,{

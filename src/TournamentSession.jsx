@@ -11,7 +11,7 @@ import {
   scoringBasis, pinFormat, playStyle, cutTarget, describeTournamentFormat} from "./domain/tournaments.js";
 import { patternDisplayName, searchPatterns, describePattern, patternStats } from "./domain/oilPatterns.js";
 import { leagueFormat, isNoTapLeague } from "./domain/leagueSeasons.js";
-import { isBaker, appliesHandicap, bakerFramesFor, BAKER_STARTERS, handicapPins, activeHandicapPerGame, bakerScoreNote } from "./domain/tournamentFormats.js";
+import { isBaker, appliesHandicap, bakerFramesFor, BAKER_STARTERS, handicapPins, activeHandicapPerGame, isHandicapEvent, bakerScoreNote } from "./domain/tournamentFormats.js";
 
 
 import {
@@ -23,7 +23,7 @@ import {
   matchMargin, competitiveness, describeCompetitiveness,
 } from "./domain/matchPlay.js";
 import {
-  addStep, removeStep, setStepField, setStepladderField, stepResult,
+  addStep, removeStep, setStepField, setStepladderField, stepResult, stepMargin,
   stepladderResult, describeStepladder, ordinal,
 } from "./domain/stepladder.js";
 
@@ -724,8 +724,13 @@ function MatchPlay({ tournament, onChange, onGoToPhase = null, shotScores = null
   const [open, setOpen] = useState(true);
   const mp = tournament.matchPlay || {};
   const matches = mp.matches || [];
-  // A handicap event's standings are handicap standings.
-  const totals = matchPlayTotals(mp, activeHandicapPerGame(tournament));
+  // A handicap event's standings are handicap standings, and every
+  // result below is decided on handicap totals too.
+  const myHcp = activeHandicapPerGame(tournament);
+  // Whether the EVENT adds pins -- see matchPlay.js. A bowler with a
+  // zero handicap in a handicap event still concedes their opponent's.
+  const evtHcp = isHandicapEvent(tournament);
+  const totals = matchPlayTotals(mp, myHcp, evtHcp);
 
   function update(next) { onChange({ ...tournament, matchPlay: next }); }
 
@@ -810,8 +815,8 @@ function MatchPlay({ tournament, onChange, onGoToPhase = null, shotScores = null
       </div>
 
       {matches.map(m => {
-        const result = matchResult(m);
-        const margin = matchMargin(m);
+        const result = matchResult(m, myHcp, evtHcp);
+        const margin = matchMargin(m, myHcp, evtHcp);
         const color = result === "win" ? C.strike : result === "loss" ? C.miss : result === "tie" ? C.spare : C.textMuted;
         return (
           <div key={m.matchNumber} style={{ padding: "10px", marginBottom: "8px", backgroundColor: C.surface, borderRadius: "8px", border: `1px solid ${C.border}` }}>
@@ -849,6 +854,12 @@ function MatchPlay({ tournament, onChange, onGoToPhase = null, shotScores = null
                 value={m.opponent} onChange={e => update(setMatchField(mp, m.matchNumber, "opponent", e.target.value))} />
               <input style={{ ...S.input, flex: 1, fontSize: "12px" }} placeholder="Lanes"
                 value={m.lanePair} onChange={e => update(setMatchField(mp, m.matchNumber, "lanePair", e.target.value))} />
+              {/* Only in a handicap event -- in a scratch one it would
+                  be a box that changes nothing. */}
+              {evtHcp && (
+                <input style={{ ...S.input, flex: 1, fontSize: "12px" }} type="number" inputMode="numeric" placeholder="Opp hcp"
+                  value={m.opponentHandicap} onChange={e => update(setMatchField(mp, m.matchNumber, "opponentHandicap", e.target.value))} />
+              )}
             </div>
             <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
               <input style={{ ...S.input, flex: 1, fontSize: "14px", textAlign: "center" }} type="number" inputMode="numeric" placeholder="You"
@@ -932,7 +943,9 @@ function Stepladder({ tournament, onChange, shotScores = null, gameStart = 0, on
   const [open, setOpen] = useState(true);
   const sl = tournament.stepladder || {};
   const steps = sl.steps || [];
-  const result = stepladderResult(sl);
+  const myHcp = activeHandicapPerGame(tournament);
+  const evtHcp = isHandicapEvent(tournament);
+  const result = stepladderResult(sl, myHcp, evtHcp);
 
   function update(next) { onChange({ ...tournament, stepladder: next }); }
 
@@ -1008,9 +1021,9 @@ function Stepladder({ tournament, onChange, shotScores = null, gameStart = 0, on
       </div>
 
       {steps.map(s => {
-        const r = stepResult(s);
+        const r = stepResult(s, myHcp, evtHcp);
         const color = r === "win" ? C.strike : r === "loss" ? C.miss : r === "tie" ? C.spare : C.textMuted;
-        const margin = r === null ? null : Number(s.yourScore) - Number(s.opponentScore);
+        const margin = stepMargin(s, myHcp, evtHcp);
         return (
           <div key={s.stepNumber} style={{ padding: "10px", marginBottom: "8px", backgroundColor: C.surface, borderRadius: "8px", border: `1px solid ${C.border}` }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
@@ -1043,6 +1056,10 @@ function Stepladder({ tournament, onChange, shotScores = null, gameStart = 0, on
                 value={s.opponentSeed} onChange={e => update(setStepField(sl, s.stepNumber, "opponentSeed", e.target.value))} />
               <input style={{ ...S.input, flex: 1, fontSize: "12px" }} placeholder="Lanes"
                 value={s.lanePair} onChange={e => update(setStepField(sl, s.stepNumber, "lanePair", e.target.value))} />
+              {evtHcp && (
+                <input style={{ ...S.input, flex: 1, fontSize: "12px" }} type="number" inputMode="numeric" placeholder="Opp hcp"
+                  value={s.opponentHandicap} onChange={e => update(setStepField(sl, s.stepNumber, "opponentHandicap", e.target.value))} />
+              )}
             </div>
             <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
               <input style={{ ...S.input, flex: 1, fontSize: "14px", textAlign: "center" }} type="number" inputMode="numeric" placeholder="You"
@@ -1098,7 +1115,7 @@ function Stepladder({ tournament, onChange, shotScores = null, gameStart = 0, on
             </div>
           </div>
           <div style={{ fontSize: "11px", color: C.textMuted, textAlign: "center" }}>
-            {describeStepladder(sl)}
+            {describeStepladder(sl, myHcp, evtHcp)}
           </div>
         </>
       )}
@@ -1141,8 +1158,8 @@ export function tournamentShareSummary(tournament, dayScores) {
     if (m !== null) cutMarginValue = m;
   }
 
-  const mp = matchPlayTotals(t.matchPlay, activeHandicapPerGame(t));
-  const sl = stepladderResult(t.stepladder);
+  const mp = matchPlayTotals(t.matchPlay, activeHandicapPerGame(t), isHandicapEvent(t));
+  const sl = stepladderResult(t.stepladder, activeHandicapPerGame(t), isHandicapEvent(t));
   const money = tournamentMoney(t);
 
   return {
@@ -1165,11 +1182,13 @@ export function tournamentShareSummary(tournament, dayScores) {
 function TournamentRecap({ tournament, dayScores }) {
   const days = tournament?.days || [];
   const mp = tournament?.matchPlay || {};
-  const mpTotals = matchPlayTotals(mp, activeHandicapPerGame(tournament));
-  const mpDiff = pinDifferential(mp);
-  const mpComp = competitiveness(mp);
+  const recapHcp = activeHandicapPerGame(tournament);
+  const recapEvtHcp = isHandicapEvent(tournament);
+  const mpTotals = matchPlayTotals(mp, recapHcp, recapEvtHcp);
+  const mpDiff = pinDifferential(mp, recapHcp, recapEvtHcp);
+  const mpComp = competitiveness(mp, recapHcp, recapEvtHcp);
   const sl = tournament?.stepladder || {};
-  const slResult = stepladderResult(sl);
+  const slResult = stepladderResult(sl, recapHcp, recapEvtHcp);
 
   const qualGames = tournamentGamesEntered(tournament, null);
   const scratch = tournamentTotal(tournament, null);
@@ -1272,7 +1291,7 @@ function TournamentRecap({ tournament, dayScores }) {
           </div>
         </div>
         {(mp.matches || []).map(m => {
-          const r = matchResult(m);
+          const r = matchResult(m, recapHcp, recapEvtHcp);
           if (r === null) return null;
           const color = r === "win" ? C.strike : r === "loss" ? C.miss : C.spare;
           return (
@@ -1292,9 +1311,9 @@ function TournamentRecap({ tournament, dayScores }) {
           {mpDiff !== null && <> &middot; {mpDiff >= 0 ? "+" : "\u2212"}{Math.abs(mpDiff)} pins vs opponents</>}
           {mpTotals.scratch ? ` \u00b7 ${mpTotals.scratch} scratch` : ""}
         </div>
-        {describeCompetitiveness(mp) && (
+        {describeCompetitiveness(mp, recapHcp, recapEvtHcp) && (
           <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "2px", lineHeight: 1.5 }}>
-            {describeCompetitiveness(mp)}
+            {describeCompetitiveness(mp, recapHcp, recapEvtHcp)}
           </div>
         )}
         {mpComp && (mpComp.biggestWin || mpComp.worstLoss) && (
@@ -1317,7 +1336,7 @@ function TournamentRecap({ tournament, dayScores }) {
       {slResult.played > 0 && (<>
         <div style={{ ...S.label, marginTop: "8px" }}>Stepladder</div>
         {(sl.steps || []).map(st => {
-          const r = stepResult(st);
+          const r = stepResult(st, recapHcp, recapEvtHcp);
           if (r === null) return null;
           const color = r === "win" ? C.strike : r === "loss" ? C.miss : C.spare;
           return (
@@ -1330,7 +1349,7 @@ function TournamentRecap({ tournament, dayScores }) {
           );
         })}
         <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "4px" }}>
-          {sl.yourSeed ? `Seeded ${ordinal(sl.yourSeed)}. ` : ""}{describeStepladder(sl)}
+          {sl.yourSeed ? `Seeded ${ordinal(sl.yourSeed)}. ` : ""}{describeStepladder(sl, recapHcp)}
         </div>
       </>)}
 
@@ -1616,7 +1635,7 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
     if (!ms.length) return "";
     let w = 0, l = 0, t = 0;
     for (const m of ms) {
-      const r = matchResult(m);
+      const r = matchResult(m, activeHandicapPerGame(tournament), isHandicapEvent(tournament));
       if (r === "win") w++; else if (r === "loss") l++; else if (r === "tie") t++;
     }
     if (!w && !l && !t) return "";
@@ -1773,9 +1792,20 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
               ))}
             </div>
             <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "6px", lineHeight: 1.5 }}>
-              You bowl frames {bakerFramesFor("me", tournament.bakerStarter).join(", ")}. The score stays
-              out of your average since you did not bowl it alone, but your own frames still count.
+              You bowl frames {bakerFramesFor("me", tournament.bakerStarter).join(", ")}
+              {tournament.bakerAlternate === false ? " every game" : " in game 1, then you swap each game"}.
+              The score stays out of your average since you did not bowl it alone, but your own
+              frames still count.
             </div>
+            {/* Most squads swap the leadoff between games; some keep the
+                same bowler leading off all block. Getting this wrong
+                hands every frame to the wrong person from game 2 on. */}
+            <label style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "10px", fontSize: "12px", cursor: "pointer" }}>
+              <input type="checkbox"
+                checked={tournament.bakerAlternate !== false}
+                onChange={e => onChange({ ...tournament, bakerAlternate: e.target.checked })} />
+              Alternate who leads off each game
+            </label>
           </div>
         )}
         </div>

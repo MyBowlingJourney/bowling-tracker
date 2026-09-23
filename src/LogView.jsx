@@ -17,7 +17,7 @@ import { casualRecap } from "./domain/sessionRecap.js";
 // The rest of a tournament, for the Nightcap's read-back.
 import { dayGamesEntered, cutMargin, cutMarginWithCarry, carryBefore, resolveTournamentGameScore } from "./domain/tournaments.js";
 import { matchPlayTotals, pinDifferential } from "./domain/matchPlay.js";
-import { activeHandicapPerGame } from "./domain/tournamentFormats.js";
+import { activeHandicapPerGame, isHandicapEvent } from "./domain/tournamentFormats.js";
 import { stepladderResult } from "./domain/stepladder.js";
 import { sidePotTotals } from "./domain/sidePots.js";
 import Nightcap from "./Nightcap.jsx";
@@ -35,7 +35,7 @@ import { maxPossibleScore } from "./domain/scoring.js";
 
 import { revealBottomDelta, MIN_SCROLL } from "./domain/scrollReveal.js";
 
-import { isBaker, bakerBowlerFor } from "./domain/tournamentFormats.js";
+import { isBaker, bakerBowlerFor, bakerAlternates } from "./domain/tournamentFormats.js";
 
 import { practiceSummary, practiceShotStats } from "./domain/practiceSummary.js";
 
@@ -711,7 +711,8 @@ export default function LogView({
     // a Baker night: pair heading, no Nightcap, frames given to a partner.
     if(env!=="tournament")return null;
     if(!activeTournament||!isBaker(activeTournament))return null;
-    const who=bakerBowlerFor(form.game,form.frame,activeTournament.bakerStarter);
+    const who=bakerBowlerFor(form.game,form.frame,activeTournament.bakerStarter,
+      bakerAlternates(activeTournament));
     if(!who)return null;
     const me=form.bowler||activeBowler||"Me";
     const partner=activeTournament.bakerPartner||"Partner";
@@ -796,15 +797,17 @@ export default function LogView({
       const margin=carry.games?cutMarginWithCarry(day,scoresFor(day),carry,t):cutMargin(day,scoresFor(day),t);
       if(margin!==null)out.cutMargin=margin;
     }
-    const mt=matchPlayTotals(t.matchPlay,activeHandicapPerGame(t));
+    const hcp=activeHandicapPerGame(t);
+    const evt=isHandicapEvent(t);
+    const mt=matchPlayTotals(t.matchPlay,hcp,evt);
     if(mt.played>0){
       out.matchPlay={
         played:mt.played,wins:mt.wins,losses:mt.losses,ties:mt.ties,
         bonusPins:mt.bonusPins,total:mt.total,average:mt.average,
-        pinDiff:pinDifferential(t.matchPlay),
+        pinDiff:pinDifferential(t.matchPlay,hcp,evt),
       };
     }
-    const sr=stepladderResult(t.stepladder);
+    const sr=stepladderResult(t.stepladder,hcp,evt);
     if(sr.played>0){
       out.stepladder={
         played:sr.played,wins:sr.wins,losses:sr.losses,
