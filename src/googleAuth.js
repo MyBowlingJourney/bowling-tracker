@@ -44,6 +44,7 @@
 // thing to debug. Hence the deliberate naming below.
 
 import { supabase } from "./supabaseClient.js";
+import { recordError } from "./errorLogStore.js";
 import { APP_HOME, GOOGLE_WEB_CLIENT_ID } from "./constants.js";
 
 // Lazy, exactly as nativeAuth.js does it. A static import would pull the
@@ -211,6 +212,28 @@ export async function signInWithGoogle() {
     if (/cancel|closed|dismiss|user_cancelled/i.test(message)) {
       return { error: null, cancelled: true };
     }
+
+    // The REAL error, logged, before it is rewritten into one fixed
+    // sentence for the bowler.
+    //
+    // "Check your connection" was shown for every native failure alike --
+    // a wrong SHA-1, a missing OAuth client, a plugin left uninitialized,
+    // an actual dropped connection -- so the one case this message is
+    // literally true for was indistinguishable from the four it wasn't.
+    // The import-scorecard function had the identical shape tonight: a
+    // fixed bowler-facing sentence with the real cause thrown away
+    // instead of sent to the one place (Settings > Diagnostics) that
+    // could have shown it immediately.
+    //
+    // Native sign-in errors are plain objects/strings from the platform
+    // plugin, not always real Error instances -- code and message are
+    // read defensively rather than assumed to exist.
+    recordError({
+      kind: "unhandled",
+      where: "googleAuth.signInWithGoogle",
+      message: `${e?.code ? `${e.code}: ` : ""}${message || String(e)}`.slice(0, 300),
+    });
+
     return {
       error: new Error("Couldn't sign in with Google. Check your connection and try again."),
     };
