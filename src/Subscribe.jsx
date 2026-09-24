@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { C, S } from "./ui.jsx";
-import { startPurchase, currentRail, DISPLAY_PRICES, openSubscriptionManager } from "./purchase.js";
+import { startPurchase, currentRail, DISPLAY_PRICES, openSubscriptionManager, playTrialEligibility } from "./purchase.js";
 import { TRIAL_DAYS, FREE_LEAGUE_LIMIT, hasPaidSubscription, isTestAccount } from "./domain/entitlements.js";
 
 // The one screen where a bowler decides to pay.
@@ -23,6 +23,12 @@ export default function Subscribe({ entitlement, onClose, onPurchased }) {
   const [rail, setRail] = useState("");
   const [manageBusy, setManageBusy] = useState(false);
   const [manageError, setManageError] = useState("");
+  // Play only: which plans still carry the free trial for this Google
+  // account. undefined while asking, null when it could not tell.
+  const [trialOffer, setTrialOffer] = useState(undefined);
+  // Set when a purchase has just gone through, so the bowler is TOLD it
+  // worked rather than silently sent somewhere else.
+  const [purchased, setPurchased] = useState(null);
 
   // Which store this bowler will actually be sent to. Only used for the
   // wording below -- "Google Play" versus "our payment provider" -- so a
@@ -30,6 +36,7 @@ export default function Subscribe({ entitlement, onClose, onPurchased }) {
   useEffect(() => {
     let live = true;
     currentRail().then(r => { if (live) setRail(r); }).catch(() => {});
+    playTrialEligibility().then(t => { if (live) setTrialOffer(t); }).catch(() => { if (live) setTrialOffer(null); });
     return () => { live = false; };
   }, []);
 
@@ -89,6 +96,7 @@ export default function Subscribe({ entitlement, onClose, onPurchased }) {
     // buy button to somebody who has just paid.
     if (result.purchased) {
       setBusy(false);
+      setPurchased({ status: result.status || "" });
       onPurchased?.();
     }
   }
@@ -103,6 +111,24 @@ export default function Subscribe({ entitlement, onClose, onPurchased }) {
       setManageError(result.message || "Something went wrong.");
       setManageBusy(false);
     }
+  }
+
+  if (purchased) {
+    const trialing = purchased.status === "trialing";
+    return (
+      <div style={S.card}>
+        <div style={{ ...S.label, color: C.accent }}>You're on Pro</div>
+        <div style={{ fontSize: "13px", color: C.text, lineHeight: 1.55, marginBottom: "12px" }}>
+          {trialing
+            ? `Your ${TRIAL_DAYS}-day free trial has started, and everything is unlocked.`
+            : "Thanks for subscribing. Everything is unlocked."}
+          {" "}Manage or cancel any time in the Play Store app, under Subscriptions.
+        </div>
+        {typeof onClose === "function" && (
+          <button style={S.btn("primary")} onClick={onClose}>Done</button>
+        )}
+      </div>
+    );
   }
 
   if (alreadyPaid) {
@@ -141,6 +167,12 @@ export default function Subscribe({ entitlement, onClose, onPurchased }) {
   }
 
   const yearly = period === "year";
+  // Whether to promise a trial. The web (Stripe) rail always starts one.
+  // On Play it is Google's call: promised only when Google lists the
+  // trial offer for this account, and not mentioned at all while unknown.
+  const offersTrial = rail !== "play" ? true : (trialOffer ? !!trialOffer[period] : false);
+  const trialUnknown = rail === "play" && !trialOffer;
+  const price = yearly ? DISPLAY_PRICES.year : DISPLAY_PRICES.month;
 
   return (
     <div>
@@ -201,7 +233,9 @@ export default function Subscribe({ entitlement, onClose, onPurchased }) {
           onClick={buy}
           disabled={busy}
         >
-          {busy ? "Opening…" : `Start your ${TRIAL_DAYS}-day free trial`}
+          {busy ? "Opening…"
+            : offersTrial ? `Start your ${TRIAL_DAYS}-day free trial`
+            : `Subscribe · ${price}/${yearly ? "year" : "month"}`}
         </button>
 
         {error && (
@@ -214,9 +248,12 @@ export default function Subscribe({ entitlement, onClose, onPurchased }) {
             only this paragraph should still be able to predict exactly
             what will be taken from their card and when. */}
         <div style={{ fontSize: "11.5px", color: C.textMuted, lineHeight: 1.6, marginTop: "14px" }}>
-          Your {TRIAL_DAYS}-day free trial starts today. When it ends, the {yearly ? "yearly" : "monthly"} plan starts at{" "}
-          {yearly ? DISPLAY_PRICES.year : DISPLAY_PRICES.month} and renews on its own
-          until you cancel. Cancel any time
+          {offersTrial
+            ? <>Your {TRIAL_DAYS}-day free trial starts today. When it ends, the {yearly ? "yearly" : "monthly"} plan starts at {price} and renews on its own until you cancel.</>
+            : trialUnknown
+              ? <>The {yearly ? "yearly" : "monthly"} plan is {price}. Google Play shows whether a free trial applies to your account before you confirm, then it renews on its own until you cancel.</>
+              : <>You have already had the free trial, so the {yearly ? "yearly" : "monthly"} plan starts today at {price} and renews on its own until you cancel.</>}
+          {" "}Cancel any time
           {rail === "play"
             ? " in the Play Store app under Subscriptions"
             : " from the link in your receipt"}

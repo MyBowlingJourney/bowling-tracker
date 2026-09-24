@@ -5,6 +5,7 @@ import tournamentIcon from "./assets/home-icons/tournament.png";
 import openBowlingIcon from "./assets/home-icons/open-bowling.png";
 import { C, S, ActionRow } from "./ui.jsx";
 import { useLayoutEffect, useRef, useState } from "react";
+import { recordError } from "./errorLogStore.js";
 import { seasonFigures, journeyRecap, latestNight, activeSeasonWindow } from "./domain/home.js";
 import { scratchRecordLeagues } from "./domain/tournaments.js";
 import { journeyMilestones, upcomingMilestones, describeUpcoming } from "./domain/journey.js";
@@ -66,16 +67,53 @@ export default function HomeView({
   // density down and measures again, and only falls back to scrolling on
   // a viewport too short for even the tightest pass.
   const [density, setDensity] = useState(0);
+
+  // ── The measuring pass has to be able to STOP ───────────────────────
+  //
+  // It runs after every render and sets state from what it measures, and
+  // that state changes the layout it measures next time. When two of those
+  // answers disagree -- compact cards make the grid taller, a taller grid
+  // says "not compact", full-size cards make it shorter again -- it flips
+  // back and forth forever, React gives up after fifty nested updates, and
+  // Home crashes with error #185 ("Maximum update depth exceeded").
+  //
+  // That is what a free-plan account hit: fewer leagues changed the
+  // content height just enough to land between the two answers. Two
+  // guards, so no content can do it again:
+  //
+  //   1. Hysteresis on `compact`, like the dead band density already has:
+  //      switch to compact below 100px a row, back only above 120px.
+  //   2. A cap. More than MAX_PASSES consecutive passes that each changed
+  //      something means it is not converging, so it stops, falls back to
+  //      scrolling (always safe), and waits for a resize or new content.
+  //   3. Measuring happens in the NEXT animation frame, never inside the
+  //      commit. A setState inside a layout effect re-renders
+  //      synchronously and counts toward React's limit of fifty; from a
+  //      frame callback it is an ordinary update that cannot nest. The
+  //      first two guards alone did not stop the crash on a real phone,
+  //      so this one removes the mechanism React counts rather than
+  //      trying to stay under it.
+  const MAX_PASSES = 6;
+  const passesRef = useRef(0);
+  const settledKey = `${sessions.length}|${tournaments.length}|${leagues.length}|${bowler}|${badgeCount}|${today}`;
+  const lastKeyRef = useRef(settledKey);
+  if (lastKeyRef.current !== settledKey) {
+    lastKeyRef.current = settledKey;
+    passesRef.current = 0;
+  }
   useLayoutEffect(() => {
-    function measure() {
+    function measure(fromResize) {
+      if (fromResize === true) passesRef.current = 0;
+      if (passesRef.current > MAX_PASSES) return;
       const el = boxRef.current;
       if (!el || typeof document === "undefined") return;
+      let changed = false;
       const nav = document.querySelector("[data-bottom-nav]");
       const bottom = nav ? nav.getBoundingClientRect().top : window.innerHeight;
       const top = el.getBoundingClientRect().top + (window.scrollY || 0);
       const h = Math.floor(bottom - top - 12);
       if (h > 0) {
-        setFitHeight(h);
+        if (h !== fitHeight) { setFitHeight(h); changed = true; }
         // Minus the padding this state itself adds, or it could never
         // switch back once added (a rotated phone, say).
         const pad = parseFloat(getComputedStyle(el).paddingBottom) || 0;
@@ -84,16 +122,38 @@ export default function HomeView({
         // thresholds. Stepping by one and re-measuring on the next frame
         // keeps this from oscillating between two densities that both
         // "fit" by their own measurement.
-        if (need > h + 1 && density < 2) setDensity(density + 1);
-        else if (density > 0 && need < h - 56) setDensity(density - 1);
-        setOverflowing(need > h + 1 && density >= 2);
+        if (need > h + 1 && density < 2) { setDensity(density + 1); changed = true; }
+        else if (density > 0 && need < h - 56) { setDensity(density - 1); changed = true; }
+        const over = need > h + 1 && density >= 2;
+        if (over !== overflowing) { setOverflowing(over); changed = true; }
       }
       const grid = el.querySelector(".mbj-mode-grid");
-      if (grid) setCompact((grid.clientHeight - 10) / 2 < 100);
+      if (grid) {
+        const row = (grid.clientHeight - 10) / 2;
+        const nextCompact = compact ? row < 120 : row < 100;
+        if (nextCompact !== compact) { setCompact(nextCompact); changed = true; }
+      }
+      if (!changed) { passesRef.current = 0; return; }
+      passesRef.current += 1;
+      // Not converging: stop here in the one state that always works --
+      // content at its natural height, scrolling if it has to. Logged so
+      // Diagnostics shows whether this is still happening.
+      if (passesRef.current > MAX_PASSES) {
+        if (!overflowing) setOverflowing(true);
+        recordError({ kind: "render", where: "HomeView.measure", message: `layout did not settle (density ${density}, compact ${compact})` });
+      }
     }
-    measure();
-    window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
+    const raf = typeof requestAnimationFrame === "function" ? requestAnimationFrame : (f => setTimeout(f, 16));
+    const caf = typeof cancelAnimationFrame === "function" ? cancelAnimationFrame : clearTimeout;
+    const frame = raf(() => measure());
+    let resizeFrame = null;
+    const onResize = () => { caf(resizeFrame); resizeFrame = raf(() => measure(true)); };
+    window.addEventListener("resize", onResize);
+    return () => {
+      caf(frame);
+      caf(resizeFrame);
+      window.removeEventListener("resize", onResize);
+    };
   });
   const recent = latestNight(sessions, tournaments, { bowler });
 

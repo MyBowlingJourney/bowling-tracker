@@ -8240,7 +8240,9 @@ export default function BowlingTracker(){
                 screen with both the sync and inbox buttons showing. If
                 that truncation ever shows up in practice, dropping the 🎳
                 buys back about 26px and is a one-line change. */}
-            {(view==="home"||view==="log")
+            {/* Journey is opened from Home and belongs to it, so it carries
+                the app name and logo too rather than a blank title. */}
+            {(view==="home"||view==="log"||view==="journey")
               ? <div style={{display:"flex",alignItems:"center",gap:"9px",minWidth:0}}>
                   <img src={appLogo} alt="" aria-hidden="true" className="mbj-app-logo" style={{width:"32px",height:"32px",borderRadius:"9px",objectFit:"cover",flexShrink:0,boxShadow:`0 5px 14px ${C.bg}30`}} />
                   <div style={{...S.title,fontSize:"clamp(13px, 3.9vw, 19px)",letterSpacing:"-0.02em",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:0}}>{APP_NAME}</div>
@@ -8871,7 +8873,7 @@ export default function BowlingTracker(){
         )}
 
         {view==="subscribe"&&(
-          <Subscribe entitlement={entitlement} onClose={()=>setView("settings")} onPurchased={()=>{setEntitlementReload(n=>n+1);setView("settings");}}/>
+          <Subscribe entitlement={entitlement} onClose={()=>setView("settings")} onPurchased={()=>setEntitlementReload(n=>n+1)}/>
         )}
 
         {/* Practice and casual: nothing to ask. The container league is

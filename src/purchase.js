@@ -18,7 +18,7 @@ import { recordError } from "./errorLogStore.js";
 // from the one file rather than copied, so the id the app buys and the id
 // the server recognises cannot drift apart.
 import {
-  PLAY_PRODUCT_ID, PLAY_BASE_PLAN_MONTHLY, PLAY_BASE_PLAN_YEARLY,
+  PLAY_PRODUCT_ID, PLAY_BASE_PLAN_MONTHLY, PLAY_BASE_PLAN_YEARLY, PLAY_TRIAL_OFFER_ID,
 } from "../supabase/functions/_shared/play.ts";
 
 // ⚠️ DISPLAY ONLY, AND PLACEHOLDERS. ⚠️
@@ -220,6 +220,38 @@ async function startPlay(period) {
 const VERIFY_LATER =
   "Your purchase went through, but we couldn't confirm it just yet. Pro will unlock shortly -- " +
   "reopen the app in a few minutes. You won't be charged twice.";
+
+// ── Is the free trial still on offer to THIS bowler? ────────────────
+//
+// Google decides trial eligibility, not us: someone who has had the trial
+// once is never offered it again, and the Play sheet then shows the full
+// price starting today. The subscribe screen must not promise a trial
+// Google is about to withhold -- that is exactly the surprise charge the
+// disclosure rules exist to prevent.
+//
+// Play only lists offers the signed-in Google account is ELIGIBLE for, so
+// the trial offer being present for a base plan is the answer. (v7 of the
+// plugin returns one product entry per offer, with identifier = base plan
+// id and offerId -- read from its Android source.)
+//
+// Returns { month, year } booleans, or null when it cannot tell (web, no
+// plugin, no connection). Null means "say nothing either way".
+export async function playTrialEligibility() {
+  try {
+    if ((await currentRail()) !== "play") return null;
+    const { NativePurchases, PURCHASE_TYPE } = await import("@capgo/native-purchases");
+    const { products } = await NativePurchases.getProducts({
+      productIdentifiers: [PLAY_PRODUCT_ID],
+      productType: PURCHASE_TYPE.SUBS,
+    });
+    const list = Array.isArray(products) ? products : [];
+    const has = plan => list.some(p => p?.identifier === plan && p?.offerId === PLAY_TRIAL_OFFER_ID);
+    return { month: has(PLAY_BASE_PLAN_MONTHLY), year: has(PLAY_BASE_PLAN_YEARLY) };
+  } catch (e) {
+    recordError({ kind: "unhandled", where: "purchase.play.trial", message: String(e?.message || e).slice(0, 300) });
+    return null;
+  }
+}
 
 // ── The one entry point ─────────────────────────────────────────────
 //
