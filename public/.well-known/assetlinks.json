@@ -1,12 +1,13 @@
 [
   {
-    "relation": ["delegate_permission/common.handle_all_urls"],
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
     "target": {
       "namespace": "android_app",
       "package_name": "com.mybowlingjourney.app",
       "sha256_cert_fingerprints": [
-        "F5:E1:CD:0A:96:C5:91:8D:99:8B:8F:FA:66:8C:F2:55:DA:63:42:73:BE:03:D5:B7:C4:C5:A3:C0:EA:D6:88:CE",
-        "F5:E1:CD:0A:96:C5:91:8D:99:8B:8F:FA:66:8C:F2:55:DA:63:42:73:BE:03:D5:B7:C4:C5:A3:C0:EA:D6:88:CE"
+        "FB:4F:5D:78:6F:C6:3F:FD:A0:9E:E4:8A:9A:3A:25:38:F5:CE:52:77:0C:EF:33:E3:6F:D4:CA:56:29:CF:76:D8"
       ]
     }
   }

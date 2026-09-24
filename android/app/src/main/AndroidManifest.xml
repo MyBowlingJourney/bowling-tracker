@@ -68,4 +68,12 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- APPROXIMATE location only, for "centers near me" in the center
+         picker. The WebView asks for it the first time a bowler searches;
+         saying no still leaves typing a center in by name. Coarse, not
+         fine, on purpose: a bowling alley is found fine to within a mile,
+         and the Play Data Safety form declares approximate location.
+         Adding ACCESS_FINE_LOCATION would make that declaration untrue. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 </manifest>
