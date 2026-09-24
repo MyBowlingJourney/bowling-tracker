@@ -1585,7 +1585,7 @@ export default function BowlingTracker(){
           cloudRead("oil_patterns",q=>q.select("id,name,series,length_feet,ratio,volume_ml,forward_ml,reverse_ml,verified,source_note,year")),
           cloudRead("bowler_goals",q=>q.select("bowler_name,goals")),
           cloudRead("tournaments",q=>q.select("id,bowler_name,name,center,days,buy_in,winnings,side_pots,match_play,stepladder,match_play_next_round,placement,placement_note,notes,handicap,baker_partner,baker_starter,baker_alternate,scoring_basis,pin_format,play_style")),
-          cloudRead("leagues",q=>q.select("name,center_id,start_date,end_date,format,pattern_name")),
+          cloudRead("leagues",q=>q.select("id,name,center_id,start_date,end_date,format,pattern_name")),
           cloudRead("ball_submissions",q=>q.select("id,submitted_by,ball_key,ball_name,brand,coverstock,core_type,weight,rg,diff,int_diff,created_at,official,source_note,weight_specs")),
           cloudRead("ball_confirmations",q=>q.select("submission_id,confirmed_by,vote")),
           cloudRead("ball_groups",q=>q.select("id,bowler_name,name,sort_order")),
@@ -1880,12 +1880,21 @@ export default function BowlingTracker(){
           }
         }
 
-                if(leagueCentersRes.online&&leagueCentersRes.data){
+        // Only this bowler's leagues -- the read above returns every
+        // league (see loadLeagues), and these maps are keyed by NAME, so
+        // another bowler's same-named league would overwrite this one's
+        // dates, center and pattern. No list (offline, or the table not
+        // there yet): the cached maps below, not a polluted one.
+        const myLeagues=await cloudRead("user_leagues",q=>q.select("league_id"));
+        const myLeagueIds=myLeagues.online&&Array.isArray(myLeagues.data)
+          ?new Set(myLeagues.data.map(r=>r&&r.league_id).filter(Boolean))
+          :null;
+                if(leagueCentersRes.online&&leagueCentersRes.data&&myLeagueIds){
           const map={};
           const dateMap={};
           const formatMap={};
           const patternMap={};
-          leagueCentersRes.data.forEach(r=>{
+          leagueCentersRes.data.filter(r=>r&&myLeagueIds.has(r.id)).forEach(r=>{
             if(r.center_id)map[r.name]=r.center_id;
             if(r.start_date||r.end_date)dateMap[r.name]=normalizeLeagueDates({startDate:r.start_date||"",endDate:r.end_date||""});
 
@@ -2070,7 +2079,18 @@ export default function BowlingTracker(){
   // offline load still has something to show instead of nothing.
   useEffect(()=>{
     async function loadLeagues(){
-      const{data,online}=await cloudRead("leagues",q=>q.select("id,name"));
+      // THIS bowler's leagues, from user_leagues -- not every row in
+      // \`leagues\`. That table is readable by everyone on purpose (a shared
+      // league is joined by name), and reading it as "my leagues" listed
+      // every league in the database on every account: a brand-new account
+      // opened on "choose your active league" with someone else's six.
+      // It also mapped names to OTHER bowlers' league ids, and names are
+      // only unique per creator. See 20260924120000_user_leagues.sql.
+      const mine=await cloudRead("user_leagues",q=>q.select("league_id,leagues(id,name)"));
+      const online=mine.online;
+      const data=online&&Array.isArray(mine.data)
+        ?mine.data.map(r=>r&&r.leagues).filter(r=>r&&r.id&&r.name)
+        :null;
       if(online&&data){
         const pending=await getQueuedRecordsForTable("leagues");
         // Practice leagues are stored per-user as "Practice·<id>" because
@@ -2116,10 +2136,11 @@ export default function BowlingTracker(){
           return r.name;
         };
         const names=[...new Set([...data.map(listable),...pending.map(listable)].filter(Boolean))];
-        if(names.length){
-          setLeagues(names);
-          try{await window.storage.set(LEAGUES_KEY,JSON.stringify(names));}catch{}
-        }
+        // Written even when empty. An empty answer from the server is the
+        // truth for a new account, and skipping the write is what left a
+        // previous list sitting in this device's cache.
+        setLeagues(names);
+        try{await window.storage.set(LEAGUES_KEY,JSON.stringify(names));}catch{}
         return;
       }
       try{
@@ -2321,6 +2342,22 @@ export default function BowlingTracker(){
   // through the offline sync queue) for any name not already tracked.
   // Returns the list of names that failed to actually sync, so callers can
   // warn rather than silently trust a write that may never have happened.
+  // Several bowlers can each have a league with the same name. Prefer
+  // this bowler's own row; otherwise the shared one they are joining.
+  function pickLeagueRow(rows){
+    return rows.find(r=>r&&r.created_by&&r.created_by===user?.id)||rows[0];
+  }
+  // Joining a league somebody else created: record it as this bowler's,
+  // so it is in their list before they have logged anything in it. The
+  // triggers cover every later write; this covers the gap. Best effort --
+  // the first session logged in it adds the same row anyway.
+  function adoptLeague(leagueId){
+    if(!leagueId)return;
+    supabase.rpc("add_my_league",{p_league_id:leagueId}).then(({error})=>{
+      if(error)console.error("add_my_league failed:",error.message);
+    },()=>{});
+  }
+
   async function ensureLeaguesInCloud(names){
     const failed=[];
     for(const name of names){
@@ -2340,9 +2377,11 @@ export default function BowlingTracker(){
       //
       // Either way the right move is to adopt the existing id, not to
       // fail the write.
-      const existing=await cloudRead("leagues",q=>q.select("id,name").eq("name",name));
+      const existing=await cloudRead("leagues",q=>q.select("id,name,created_by").eq("name",name));
       if(existing.online&&Array.isArray(existing.data)&&existing.data.length){
-        leagueIdsRef.current[name]=existing.data[0].id;
+        const pick=pickLeagueRow(existing.data);
+        leagueIdsRef.current[name]=pick.id;
+        adoptLeague(pick.id);
         continue;
       }
 
@@ -2375,9 +2414,11 @@ export default function BowlingTracker(){
       // Lost a race between the check above and the insert -- someone
       // else created the same league in between. Re-read rather than
       // reporting a failure the bowler can do nothing about.
-      const after=await cloudRead("leagues",q=>q.select("id,name").eq("name",name));
+      const after=await cloudRead("leagues",q=>q.select("id,name,created_by").eq("name",name));
       if(after.online&&Array.isArray(after.data)&&after.data.length){
-        leagueIdsRef.current[name]=after.data[0].id;
+        const pick=pickLeagueRow(after.data);
+        leagueIdsRef.current[name]=pick.id;
+        adoptLeague(pick.id);
       }else{
         failed.push(name);
       }
@@ -8855,6 +8896,11 @@ export default function BowlingTracker(){
              appear -- History never passed it, so the confirm-and-delete
              flow built into CalendarView was unreachable. */
           <Settings
+            // Keyed on the mode so History and Settings are two instances.
+            // One shared instance kept whichever section it opened on: open
+            // History first and the Settings screen stayed on History's
+            // section, with no Pro card and no settings cards at all.
+            key={view==="history"?"history":"settings"}
             mode={view==="history"?"history":"settings"}
             onOpenNight={openHistoryNight}
             deleteNight={deleteNight}

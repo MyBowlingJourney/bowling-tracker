@@ -308,7 +308,7 @@ export default function TeamManagement({
     // All four reads at once. They were awaited one after another, so
     // the tab waited for four round trips in a row; none needs another's
     // result, so the wait is now the slowest one rather than the sum.
-    const [leaguesRes, teamsRes, membersRes, firstInvites] = await Promise.all([
+    const [leaguesRes, teamsRes, membersRes, firstInvites, myLeaguesRes] = await Promise.all([
       cloudRead("leagues", q => q.select("id,name")),
       // created_by so a team you made can show YOU on its roster even
       // when the membership row has not landed -- see the fallback where
@@ -321,12 +321,23 @@ export default function TeamManagement({
       // migration behind loses the codes rather than the screen.
       cloudRead("pending_invites", q =>
         q.select("id,team_id,invited_name,invited_email,lineup_position,left_handed,is_sub,signup_code").is("accepted_at", null)),
+      // This bowler's own leagues. `leagues` above is every league in the
+      // database (readable by all, so shared leagues can be joined), and
+      // names are only unique per creator -- so only these may be put in
+      // the name -> id map a new team is created from. See
+      // 20260924120000_user_leagues.sql.
+      cloudRead("user_leagues", q => q.select("league_id")),
     ]);
+    const myLeagueIds = myLeaguesRes.online && Array.isArray(myLeaguesRes.data)
+      ? new Set(myLeaguesRes.data.map(r => r && r.league_id).filter(Boolean))
+      : null;
     const leagueNameById = {};
     if (leaguesRes.online && leaguesRes.data) {
       leaguesRes.data.forEach(l => {
+        // Any league can be NAMED (a team you were invited to may sit in
+        // someone else's league), but only yours map a name to an id.
         leagueNameById[l.id] = l.name;
-        leagueIdsRef.current[l.name] = l.id;
+        if (myLeagueIds && myLeagueIds.has(l.id)) leagueIdsRef.current[l.name] = l.id;
       });
     }
 
