@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { C, S, Chip, LockedNote } from "./ui.jsx";
+import { C, S, F, Chip, LockedNote } from "./ui.jsx";
 import { canUseCoaching } from "./domain/entitlements.js";
 import { formatDate } from "./constants.js";
 import {
@@ -7,6 +7,7 @@ import {
   emptyTask, TASK_METRIC_IDS,
 } from "./domain/coaching.js";
 import { GOAL_TYPES, goalTypeFor } from "./domain/goals.js";
+import { normalizePairingCode, isValidPairingCode } from "./domain/signupCodes.js";
 
 function Section({ title, children, subtitle }) {
   return (
@@ -211,7 +212,8 @@ export default function CoachingView({
   setNextCoachingSession, onSetBowlerGoal, sessions, leagues,
   myUserId, relationships, profilesById, tasksByRelationship, notesByRelationship,
   coachViewOn, isCoach, onToggleCoachView,
-  onSearch, searchResults, searching, onRequest, onRespond, onEnd,
+  onCreateCode, onClearCode, onClaimCode, inviteCode = null, codeError = "",
+  onRespond, onEnd,
   onAddTask, onRemoveTask, onCompleteTask, onAttemptTask, onReopenTask,
   onAddNote, leftHandedByUserId = {},
   onSelectBowler, bowlerSnapshots = {}, bowlerBreakdowns = {},
@@ -224,8 +226,9 @@ export default function CoachingView({
   // throwing "rendered fewer hooks than expected".
   const [selectedId, setSelectedId] = useState("");
   const [addingTask, setAddingTask] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [codeEntry, setCodeEntry] = useState("");
   const [requestAsCoach, setRequestAsCoach] = useState(false);
+  const [codeJustClaimed, setCodeJustClaimed] = useState(false);
 
   const { myBowlers, myCoaches, incoming, outgoing } = categorizeCoaching(relationships, myUserId, profilesById);
 
@@ -274,13 +277,12 @@ export default function CoachingView({
   // reason to scroll past it, and the toggle there defaults to "They
   // coach me", which is the wrong direction for a coach. So the roster
   // gets its own way in, and it sets the direction correctly.
-  const searchRef = useRef(null);
+  const connectRef = useRef(null);
   function startAddBowler() {
     setRequestAsCoach(true);
-    const el = searchRef.current;
+    const el = connectRef.current;
     if (!el) return;
     try { el.scrollIntoView({ behavior: "smooth", block: "center" }); } catch { /* older browsers */ }
-    try { el.focus(); } catch { /* nothing to do */ }
   }
   const leftHanded = selected ? !!leftHandedByUserId[selected.userId] : false;
 
@@ -422,9 +424,9 @@ export default function CoachingView({
         <div style={S.card}>
           <div style={S.label}>Your bowlers</div>
           <div style={{ fontSize: "12px", color: C.textMuted, lineHeight: 1.5, marginBottom: "10px" }}>
-            Nobody yet. Search for a bowler by name and send a request — they accept
-            from their own phone, and once they do you'll see their sessions, set
-            tasks and track progress here.
+            Nobody yet. Make a code and read it to them — they enter it on their
+            own phone, and from then on you'll see their sessions, set tasks and
+            track progress here.
           </div>
           <button onClick={startAddBowler}
             style={{ ...S.btn("primary"), width: "100%", padding: "9px", fontSize: "12px" }}>
@@ -447,31 +449,101 @@ export default function CoachingView({
           </div>
         )}
 
-        {/* Searches by display name, the only identifier the profiles
-            table exposes. Email isn't available to look up, and asking for
-            one that can't be matched would just fail silently. */}
-        <div style={{ marginTop: list.length ? "10px" : 0 }}>
+        {/* Pairing, by code.
+          
+            This was a search of the bowler directory by display name.
+            `profiles` carries id and display_name and nothing else, so
+            two people with the same name were indistinguishable rows
+            and a coach chose between them by guessing. The request had
+            to be accepted, so a wrong guess leaked nothing -- but the
+            wrong person could accept it.
+          
+            A code moves the identification off the screen and into the
+            room: the coach reads eight characters to the bowler they
+            are standing next to. Nobody is picked out of a list, and
+            there is nothing to get wrong. */}
+        <div ref={connectRef} style={{ marginTop: list.length ? "10px" : 0 }}>
           <div style={{ ...S.label, marginBottom: "4px" }}>Connect with someone</div>
-          <div style={{ ...S.chips, marginBottom: "6px" }}>
-            <Chip label="They coach me" selected={!requestAsCoach} onToggle={() => setRequestAsCoach(false)} />
-            <Chip label="I coach them" selected={requestAsCoach} onToggle={() => setRequestAsCoach(true)} />
-          </div>
-          <input ref={searchRef} style={{ ...S.input, fontSize: "12px", marginBottom: "6px" }}
-            placeholder="Search by name…"
-            value={searchTerm} onChange={e => { setSearchTerm(e.target.value); onSearch(e.target.value); }} />
-          {searching && <div style={{ fontSize: "11px", color: C.textMuted }}>Searching…</div>}
-          {!searching && searchTerm.trim() && (searchResults || []).length === 0 && (
-            <div style={{ fontSize: "11px", color: C.textMuted }}>Nobody found by that name.</div>
-          )}
-          {(searchResults || []).map(p => (
-            <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0" }}>
-              <span style={{ fontSize: "12px", color: C.text }}>{p.display_name}</span>
-              <button style={{ ...S.btn(), padding: "4px 10px", fontSize: "11px" }}
-                onClick={() => { onRequest(p, requestAsCoach); setSearchTerm(""); onSearch(""); }}>
-                {requestAsCoach ? "Coach them" : "Ask to coach me"}
+
+          {/* Give a code ------------------------------------------- */}
+          {inviteCode ? (
+            <div style={{
+              border: `1px solid ${C.accent}`, borderRadius: "10px",
+              padding: "12px", marginBottom: "10px", textAlign: "center",
+              background: C.accent + "12",
+            }}>
+              <div style={{ fontSize: "11px", color: C.textMuted, marginBottom: "6px" }}>
+                {inviteCode.iAmCoach
+                  ? "Read this to the bowler you're coaching."
+                  : "Read this to your coach."}
+              </div>
+              {/* Big, spaced and selectable: this gets read aloud across
+                  a pair of lanes or typed off a screenshot. */}
+              <div style={{
+                fontFamily: F.num, fontSize: "26px", fontWeight: 700,
+                letterSpacing: "0.12em", color: C.text, userSelect: "all",
+              }}>{inviteCode.code}</div>
+              <div style={{ fontSize: "11px", color: C.textMuted, margin: "8px 0 10px" }}>
+                Works once, for the next 7 days.
+              </div>
+              <button onClick={onClearCode}
+                style={{ ...S.btn(), padding: "6px 12px", fontSize: "11px" }}>
+                Done
               </button>
             </div>
-          ))}
+          ) : (
+            <>
+              <div style={{ ...S.chips, marginBottom: "6px" }}>
+                <Chip label="They coach me" selected={!requestAsCoach} onToggle={() => setRequestAsCoach(false)} />
+                <Chip label="I coach them" selected={requestAsCoach} onToggle={() => setRequestAsCoach(true)} />
+              </div>
+              <button onClick={() => onCreateCode?.(requestAsCoach)}
+                style={{ ...S.btn("primary"), width: "100%", padding: "9px", fontSize: "12px" }}>
+                Create a code
+              </button>
+              <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "6px", lineHeight: 1.5 }}>
+                They enter it on their own phone and you{"\u2019"}re connected — no
+                searching for each other by name.
+              </div>
+            </>
+          )}
+
+          {/* Enter one ---------------------------------------------- */}
+          <div style={{ marginTop: "14px", paddingTop: "12px", borderTop: `1px solid ${C.border}` }}>
+            <div style={{ ...S.label, marginBottom: "4px" }}>Got a code?</div>
+            <div style={{ display: "flex", gap: "6px" }}>
+              <input style={{
+                  ...S.input, flex: 1, fontSize: "14px",
+                  fontFamily: F.num, letterSpacing: "0.08em", textTransform: "uppercase",
+                }}
+                placeholder="ABCD-2345"
+                autoCapitalize="characters" autoCorrect="off" spellCheck={false}
+                inputMode="text" aria-label="Coaching code"
+                value={codeEntry}
+                onChange={e => { setCodeEntry(normalizePairingCode(e.target.value)); setCodeJustClaimed(false); }} />
+              <button
+                disabled={!isValidPairingCode(codeEntry)}
+                onClick={async () => {
+                  const ok = await onClaimCode?.(codeEntry);
+                  if (ok) { setCodeEntry(""); setCodeJustClaimed(true); }
+                }}
+                style={{
+                  ...S.btn(isValidPairingCode(codeEntry) ? "primary" : undefined),
+                  padding: "0 14px", fontSize: "12px",
+                  opacity: isValidPairingCode(codeEntry) ? 1 : 0.5,
+                }}>
+                Connect
+              </button>
+            </div>
+            {codeError && (
+              <div style={{ fontSize: "11px", color: C.miss, marginTop: "6px" }}>{codeError}</div>
+            )}
+            {codeJustClaimed && !codeError && (
+              <div style={{ fontSize: "11px", color: C.strike, marginTop: "6px" }}>
+                Connected. They{"\u2019"}re in the list above.
+              </div>
+            )}
+          </div>
         </div>
       </Section>
 

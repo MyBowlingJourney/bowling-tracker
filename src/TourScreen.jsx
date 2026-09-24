@@ -1150,27 +1150,43 @@ const SCREENS = {
   // Coach screen is open.
   "coach-connect": () => (
     <Phone title="Coach">
-      <Spot>
-        <div style={card}>
-          <div style={label}>Connect with someone</div>
-          <div style={{ display: "flex", gap: "3px", marginBottom: "6px" }}>
-            <span style={chip(false)}>They coach me</span>
-            <span style={chip(true)}>I coach them</span>
-          </div>
-          <div style={{
-            border: `1px solid ${C.border}`, borderRadius: "6px", padding: "4px 8px",
-            fontSize: "10px", color: C.textMuted, fontFamily: F.body, marginBottom: "6px",
-          }}>Search by name…</div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: "11px", color: C.text, fontFamily: F.body }}>Dana Reyes</span>
-            <span style={{
-              border: `1px solid ${C.border}`, borderRadius: "6px", padding: "3px 8px",
-              fontSize: "10px", color: C.text, fontFamily: F.body, background: C.surface,
-            }}>Request</span>
-          </div>
+      <div style={card}>
+        <div style={label}>Connect with someone</div>
+        <div style={{ display: "flex", gap: "3px", marginBottom: "8px" }}>
+          <span style={chip(false)}>They coach me</span>
+          <span style={chip(true)}>I coach them</span>
         </div>
-      </Spot>
-      <Note up={false}>Which way round it goes is the whole setup</Note>
+        {/* The code, drawn the way the screen shows it: big, spaced and
+            meant to be read out loud. */}
+        <Spot>
+          <div style={{
+            border: `1px solid ${C.accent}`, borderRadius: "10px",
+            padding: "10px", textAlign: "center", background: C.accent + "12",
+          }}>
+            <div style={{ ...muted, marginBottom: "4px" }}>Read this to the bowler</div>
+            <div style={{
+              fontFamily: F.num, fontSize: "19px", fontWeight: 700,
+              letterSpacing: "0.12em", color: C.text,
+            }}>7KPQ-2M4R</div>
+            <div style={{ ...muted, marginTop: "4px" }}>Works once, for the next 7 days</div>
+          </div>
+        </Spot>
+      </div>
+      <div style={card}>
+        <div style={label}>Got a code?</div>
+        <div style={{ display: "flex", gap: "4px" }}>
+          <div style={{
+            flex: 1, border: `1px solid ${C.border}`, borderRadius: "6px",
+            padding: "4px 8px", fontSize: "11px", color: C.textMuted,
+            fontFamily: F.num, letterSpacing: "0.08em",
+          }}>ABCD-2345</div>
+          <span style={{
+            borderRadius: "6px", padding: "4px 10px", background: C.accent,
+            color: "#FFFFFF", fontSize: "10px", fontWeight: 700, fontFamily: F.body,
+          }}>Connect</span>
+        </div>
+      </div>
+      <Note up={false}>No names, so no wrong Mike Smith</Note>
       <Nav active={3} />
     </Phone>
   ),

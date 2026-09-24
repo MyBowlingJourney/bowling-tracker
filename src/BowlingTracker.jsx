@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useMemo, Suspense } from "react";
-import { profileSearchPattern } from "./domain/profileSearch.js";
 import appLogo from "../mbj-logo-512.png";
 // lazyScreen instead of React.lazy: a deploy while the app is open
 // replaces every content-hashed chunk, and a page already loaded asks
@@ -48,7 +47,7 @@ import { classifySyncError, cloudRead, cloudReadDelta, cloudWrite, cloudInsert, 
 import { friendlyFunctionError, readFunctionFailure, failureDetail } from "./domain/functionErrors.js";
 import { recordError } from "./errorLogStore.js";
 import { mergeDelta, nextCursor, seedCursor } from "./domain/deltaSync.js";
-import { normalizeSignupCode, isValidSignupCode } from "./domain/signupCodes.js";
+import { normalizeSignupCode, isValidSignupCode, generatePairingCode, normalizePairingCode, isValidPairingCode } from "./domain/signupCodes.js";
 import { shouldOfferShotByShot } from "./domain/trackingPrompt.js";
 import { shouldPromptForTeam, scoresToAdopt } from "./domain/teamPrompt.js";
 import { splitConversionByType, isSplit, isTenPinLeave, isCornerPinLeave, isSinglePinLeave, isWashout, isMakeableSpare } from "./domain/splits.js";
@@ -860,9 +859,11 @@ export default function BowlingTracker(){
     }
   }
   const[coachBowlerShots,setCoachBowlerShots]=useState({});
-  const[coachSearchResults,setCoachSearchResults]=useState([]);
-  const[coachSearching,setCoachSearching]=useState(false);
-  const coachSearchTimer=useRef(null);
+  // The live pairing code this bowler has generated, if any, and
+  // whatever the last claim attempt said. No search state: coaches and
+  // bowlers pair with a code now, not by looking each other up.
+  const[coachInviteCode,setCoachInviteCode]=useState(null);
+  const[coachCodeError,setCoachCodeError]=useState("");
   const[leagueCenters,setLeagueCenters]=useState({});
   // {leagueName: {pokerQuarter, pokerDollar, highGame, threeSixNine}}
   const[leagueBuyIns,setLeagueBuyIns]=useState({});
@@ -3510,37 +3511,68 @@ export default function BowlingTracker(){
     }
   }
 
-  function searchCoachProfiles(term){
-    clearTimeout(coachSearchTimer.current);
-    if(!term.trim()){setCoachSearchResults([]);setCoachSearching(false);return;}
-    setCoachSearching(true);
-    coachSearchTimer.current=setTimeout(async()=>{
-      const pattern=profileSearchPattern(term);
-      if(!pattern){setCoachSearchResults([]);setCoachSearching(false);return;}
-      const{data,online}=await cloudRead("profiles",q=>q.select("id,display_name").ilike("display_name",pattern).limit(8),{paginate:false});
-      setCoachSearchResults((online&&data)?data.filter(p=>p.id!==user?.id):[]);
-      setCoachSearching(false);
-    },300);
-  }
-
-  async function requestCoaching(profile,iAmCoach){
-    if(!user?.id||!profile?.id)return;
-    // Don't send a second request to someone already connected or pending.
-    const existing=coachingRels.find(r=>
-      (r.coach_id===profile.id&&r.bowler_id===user.id)||
-      (r.coach_id===user.id&&r.bowler_id===profile.id));
-    if(existing)return;
+  // ── Pairing a coach and a bowler ────────────────────────────────────
+  //
+  // This was a search of `profiles` by display name. That table exposes
+  // id and display_name and nothing else, so two bowlers with the same
+  // name were one list of identical rows and a coach picked between
+  // them by guessing. A code removes the guess: the two people are
+  // already together when it is handed over.
+  //
+  // Same format as the team-roster codes -- see domain/signupCodes.js.
+  async function createCoachingCode(iAmCoach){
+    if(!user?.id)return;
+    setCoachCodeError("");
+    const code=generatePairingCode();
     const row={
       id:crypto.randomUUID(),
-      coach_id:iAmCoach?user.id:profile.id,
-      bowler_id:iAmCoach?profile.id:user.id,
-      requested_by:user.id,
-      status:"pending",
+      code,
+      created_by:user.id,
+      inviter_is_coach:!!iAmCoach,
     };
-    setCoachingRels(prev=>[...prev,row]);
-    setCoachProfilesById(prev=>({...prev,[profile.id]:profile.display_name}));
-    setCoachSearchResults([]);
-    await cloudWrite("coaching_relationships",row);
+    // Written straight through, NOT via cloudWrite.
+    //
+    // cloudWrite queues a failed write for later and reports
+    // {synced:false,queued:true} rather than an error -- right for a
+    // score logged in a basement with no signal, wrong for this. A code
+    // that is only in the outbox cannot be claimed by anybody, so
+    // showing it would have the coach read out eight characters that do
+    // not work yet, and the bowler told the code is invalid.
+    //
+    // So it is shown only once the row is really there.
+    const{error}=await supabase.from("coaching_invites").insert(row);
+    if(error){
+      setCoachCodeError("Couldn't make a code just now — check your connection and try again.");
+      return;
+    }
+    setCoachInviteCode({code,iAmCoach:!!iAmCoach});
+  }
+
+  function clearCoachingCode(){
+    setCoachInviteCode(null);
+    setCoachCodeError("");
+  }
+
+  async function claimCoachingCode(raw){
+    if(!user?.id)return;
+    setCoachCodeError("");
+    if(!isValidPairingCode(raw)){
+      // Caught here rather than at the server so a mistype says so
+      // immediately, and a wrong-length code is never sent as a
+      // different code entirely (see isValidSignupCode).
+      setCoachCodeError("That code doesn't look right — it's 8 characters.");
+      return false;
+    }
+    const code=normalizePairingCode(raw);
+    const{error}=await supabase.rpc("claim_coaching_code",{code});
+    if(error){
+      // The function's own messages are written for bowlers ("That code
+      // is not valid", "That is your own code"), so they pass through.
+      setCoachCodeError(error.message||"That code is not valid.");
+      return false;
+    }
+    await loadCoaching();
+    return true;
   }
 
   // Only the coach sets this -- see migration_coaching_next_session.sql.
@@ -9068,10 +9100,11 @@ export default function BowlingTracker(){
             sessions={sessions} leagues={leagues}
             isCoach={!!myProfile.isCoach}
             onToggleCoachView={v=>updatePreferences(prev=>setCoachView(prev,v))}
-            onSearch={searchCoachProfiles}
-            searchResults={coachSearchResults}
-            searching={coachSearching}
-            onRequest={requestCoaching}
+            onCreateCode={createCoachingCode}
+            onClearCode={clearCoachingCode}
+            onClaimCode={claimCoachingCode}
+            inviteCode={coachInviteCode}
+            codeError={coachCodeError}
             onRespond={respondCoaching}
             onEnd={endCoaching}
             onAddTask={addCoachingTask}
