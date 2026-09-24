@@ -36,6 +36,10 @@ export default function KeptLeaguePicker({
   leagueIds = {},
   userId = "",
   onSaved,
+  // Opens the Subscribe screen. This card is the moment a free bowler
+  // feels the one-league limit, so the way out of it sits right beside
+  // the choice rather than three screens away in Settings.
+  onUpgrade,
 }) {
   const [choice, setChoice] = useState("");
   const [status, setStatus] = useState("idle");
@@ -121,7 +125,7 @@ export default function KeptLeaguePicker({
       <div style={{ fontSize: "12px", color: C.textMuted, lineHeight: 1.5, marginBottom: "12px" }}>
         A free account follows one league at a time. Pick the one you want to keep
         bowling with — the rest are paused, not deleted, and everything you have
-        logged comes back the moment you subscribe.
+        logged comes back when you subscribe.
       </div>
 
       <div style={{ ...S.row, marginBottom: "12px" }}>
@@ -143,13 +147,23 @@ export default function KeptLeaguePicker({
         </div>
       )}
 
-      <button
-        style={{ ...S.btn("primary"), opacity: status === "saving" || unchanged ? 0.6 : 1 }}
-        onClick={save}
-        disabled={status === "saving" || unchanged}
-      >
-        {status === "saving" ? "Saving…" : unchanged ? "This is your active league" : `Keep ${choice}`}
-      </button>
+      {/* Side by side, not stacked: this card sits on Home, and one row
+          instead of two is what lets Home fit without scrolling. Pro is
+          the filled button; keeping one league is the fallback. */}
+      <div style={{ display: "flex", gap: "8px" }}>
+        <button
+          style={{ ...S.btn(), flex: 1, opacity: status === "saving" || unchanged ? 0.6 : 1 }}
+          onClick={save}
+          disabled={status === "saving" || unchanged}
+        >
+          {status === "saving" ? "Saving…" : unchanged ? "Active league" : "Keep this league"}
+        </button>
+        {typeof onUpgrade === "function" && (
+          <button style={{ ...S.btn("primary"), flex: 1, width: "auto" }} onClick={onUpgrade}>
+            Get Pro
+          </button>
+        )}
+      </div>
 
       {status === "saved" && (
         <div style={{ fontSize: "12px", color: C.accent, lineHeight: 1.5, marginTop: "10px" }}>

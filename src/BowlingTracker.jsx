@@ -8779,6 +8779,7 @@ export default function BowlingTracker(){
             and then switches nights in January needs a way back. */}
         {view==="locker"&&setupTab==="league"&&lockedLeagueNames.length>0&&(
           <KeptLeaguePicker
+            onUpgrade={()=>setView("subscribe")}
             leagues={notUserHidden}
             keptLeagueName={keptLeagueName}
             defaultLeagueName={mostRecentLeagueName}
@@ -9036,6 +9037,7 @@ export default function BowlingTracker(){
             since a paused league is still paused after they choose. */}
         {view==="home"&&!nightLive&&lockedLeagueNames.length>0&&!keptLeagueName&&(
           <KeptLeaguePicker
+            onUpgrade={()=>setView("subscribe")}
             leagues={notUserHidden}
             keptLeagueName={keptLeagueName}
             defaultLeagueName={mostRecentLeagueName}
