@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { C, S, Chip, PinDeck, CollapsibleCard, resultSym, AiNote } from "./ui.jsx";
 import { formatDate, RESULTS, localDateString, PRACTICE_SESSION_KEY, tournamentLeagueCloudName } from "./constants.js";
 import { reconcileTenth } from "./domain/scorecardImport.js";
@@ -330,6 +330,14 @@ export default function ImportScorecard({
   // show frames escalates to the detailed model, and a frame read on a
   // card with no frame detail keeps the scores it got.
   const[cardType,setCardType]=useState("totals");
+  // The read button, so choosing a photo can scroll it into view.
+  //
+  // On a phone the file picker returns to a screen where the button is
+  // below the fold, behind the thumbnails and the size note that only
+  // appear once an image exists -- so the app looked like it had done
+  // nothing, and the next step was somewhere the bowler had to go
+  // looking for.
+  const readBtnRef=useRef(null);
   const[contextTeamId,setContextTeamId]=useState(initialTeam?.id||"");
   const contextTeam=teamsForImport.find(t=>t.id===contextTeamId)||initialTeam||null;
   const selectedTournament=(tournaments||[]).find(t=>t.id===contextTournamentId)||null;
@@ -457,6 +465,10 @@ export default function ImportScorecard({
         return;
       }
       setImages(withData);
+      // After the paint, not with it: the button is only rendered once
+      // images exist, and the thumbnails above it change the page height.
+      requestAnimationFrame(()=>
+        readBtnRef.current?.scrollIntoView({behavior:"smooth",block:"center"}));
     }catch(e){
       setError(e.message||"Couldn't read the selected images.");
     }
@@ -1158,7 +1170,7 @@ export default function ImportScorecard({
                 </div>
               );
             })()}
-            <button style={S.btn("primary")} disabled={!contextLeague||!images.length} onClick={handleExtract}>
+            <button ref={readBtnRef} style={S.btn("primary")} disabled={!contextLeague||!images.length} onClick={handleExtract}>
               {cardType==="frames"?"Read Frames":"Read Scores"}
             </button>
           </div>
