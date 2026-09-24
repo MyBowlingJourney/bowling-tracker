@@ -704,9 +704,37 @@ Deno.serve(async (req) => {
     // Retrying here rather than showing the bowler an error means most
     // spikes never surface at all. Everything else fails immediately;
     // retrying a bad request just wastes the bowler's time.
-    const requestBody = JSON.stringify({
+    // HIGH IMAGE RESOLUTION on the detailed pass.
+    //
+    // Pins came back wrong with the score right -- a lone 10 read as a
+    // lone 4, 3-6-10 read as 2-4-7 -- even with the prompt spelling out
+    // the numbering, warning about mirroring, and cross-checking every
+    // frame against its marks. Wording is not the limit any more. Gemini
+    // does not read the image at the resolution it was sent: it resizes
+    // it to a token budget first, and at the default budget a pin deck
+    // on a phone screenshot is a few dozen pixels of ten dots.
+    //
+    // mediaResolution raises that budget, so the model sees more of the
+    // picture it was sent. (Upscaling the image here was tried first and
+    // taken out before it shipped: the model resizes to its budget
+    // anyway, so extra pixels change nothing, and decoding a phone
+    // screenshot in the function risks its CPU limit.)
+    //
+    // Detailed pass only -- the count and totals reads never look at a
+    // pin deck, and the higher budget costs input tokens.
+    //
+    // IMPORT_MEDIA_RESOLUTION overrides it without a deploy; "off" sends
+    // no setting at all. A model that rejects the field is retried once
+    // without it (see the loop below), so this can never be the reason
+    // an import fails.
+    const mediaSetting = (Deno.env.get("IMPORT_MEDIA_RESOLUTION") ?? "MEDIA_RESOLUTION_HIGH").trim();
+    let mediaResolution: string | null = detailed && !counting && mediaSetting && mediaSetting.toLowerCase() !== "off"
+      ? mediaSetting
+      : null;
+    const buildRequestBody = () => JSON.stringify({
       contents: [{ parts }],
       generationConfig: {
+        ...(mediaResolution ? { mediaResolution } : {}),
         responseMimeType: "application/json",
         responseSchema: counting ? COUNT_SCHEMA : (detailed ? DETAILED_SCHEMA : RESPONSE_SCHEMA),
 
@@ -730,6 +758,7 @@ Deno.serve(async (req) => {
         temperature: 0,
       },
     });
+    let requestBody = buildRequestBody();
 
     const RETRY_DELAYS_MS = [2000, 5000];
     let geminiRes: Response | null = null;
@@ -804,6 +833,18 @@ Deno.serve(async (req) => {
       if (geminiRes.ok) break;
 
       lastErrText = await geminiRes.text();
+
+      // A model that does not accept mediaResolution answers 400 naming
+      // it. Drop the setting and send the same request again, once, as
+      // the import worked before -- a sharper read is worth having, not
+      // worth failing over.
+      if (geminiRes.status === 400 && mediaResolution && /media.?resolution/i.test(lastErrText)) {
+        console.error(`import-scorecard: ${modelForRequest} rejected mediaResolution=${mediaResolution}; retrying without it`);
+        mediaResolution = null;
+        requestBody = buildRequestBody();
+        attempt--;
+        continue;
+      }
 
       // A 429 is TWO different failures wearing one status code.
       //
