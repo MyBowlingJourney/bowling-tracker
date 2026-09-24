@@ -173,16 +173,42 @@ export async function signInWithGoogle() {
     const raw = rawNonce();
     const hashed = await sha256Hex(raw);
 
-    const response = await SocialLogin.login({
-      provider: "google",
-      options: {
-        // Only what's needed to make an account. Asking for more would
-        // push this app into Google's verification review, which takes
-        // weeks and would block launch.
-        scopes: ["email", "profile"],
-        nonce: hashed,
-      },
-    });
+    // Only what's needed to make an account. Asking for more would push
+    // this app into Google's verification review, which takes weeks and
+    // would block launch.
+    const loginOptions = { scopes: ["email", "profile"], nonce: hashed };
+
+    let response;
+    try {
+      response = await SocialLogin.login({ provider: "google", options: loginOptions });
+    } catch (first) {
+      // ── "[16] Account reauth failed": clear, then retry ONCE ──────────
+      //
+      // Android's Credential Manager keeps its own memory of which Google
+      // account was last used with this app. When that memory goes stale
+      // -- the app was reinstalled from Play under a different signing
+      // key, or its Google OAuth settings changed, both of which happened
+      // here -- re-using that account fails with code 16, every time,
+      // even though the SHA-1, package name, web client and test-user
+      // list are all correct. Clearing Credential Manager's state (which
+      // is what the plugin's Google logout does on Android) and asking
+      // again with the full account chooser is the documented recovery.
+      //
+      // Exactly one retry. Anything else, and anything that fails twice,
+      // goes to the catch below and is logged as before.
+      const firstMessage = String(first?.message || first || "");
+      if (!/\[16\]|reauth/i.test(firstMessage)) throw first;
+      recordError({
+        kind: "unhandled",
+        where: "googleAuth.reauthRetry",
+        message: `retrying after: ${firstMessage}`.slice(0, 300),
+      });
+      try { await SocialLogin.logout({ provider: "google" }); } catch { /* nothing signed in to clear -- fine */ }
+      response = await SocialLogin.login({
+        provider: "google",
+        options: { ...loginOptions, style: "standard", filterByAuthorizedAccounts: false },
+      });
+    }
 
     // The plugin has moved this field's position between versions, so
     // check both shapes rather than assuming one. A missing token here
