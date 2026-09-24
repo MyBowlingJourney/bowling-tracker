@@ -51,6 +51,45 @@ export async function recordAiTokens(
   usage: unknown,
   variant?: string,
 ): Promise<void> {
+  const task = writeUsage(req, endpoint, model, usage, variant);
+
+  // Tell the runtime to stay alive for it.
+  //
+  // Fire-and-forget is right for the CALLER -- nobody should wait on
+  // telemetry -- but on Supabase Edge Functions an un-awaited promise is
+  // not a promise the platform keeps alive. The instance is torn down
+  // once the response goes out, and a write still in flight dies with it.
+  //
+  // That is not theoretical. The 114s scorecard read on 23 Sep recorded
+  // no row at all, while shorter calls on the same deploy recorded fine:
+  // the longer the main work runs, the less of the instance's wall-clock
+  // allowance is left for anything trailing it. Which makes the calls we
+  // most want to measure -- the slow, expensive ones -- exactly the calls
+  // that go missing, and leaves the cost of a feature looking cheaper
+  // than it is.
+  //
+  // waitUntil keeps the instance up until the write finishes without
+  // making the bowler wait for it. Guarded because it does not exist off
+  // the edge runtime (tests, local node), where awaiting the returned
+  // promise is enough.
+  try {
+    (globalThis as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } })
+      .EdgeRuntime?.waitUntil?.(task);
+  } catch (e) {
+    console.error(`waitUntil unavailable for ${endpoint}:`, String(e));
+  }
+
+  // Returned as well, so tests can await it.
+  return task;
+}
+
+async function writeUsage(
+  req: Request,
+  endpoint: string,
+  model: string,
+  usage: unknown,
+  variant?: string,
+): Promise<void> {
   try {
     const u = (usage ?? {}) as GeminiUsageMetadata;
 
