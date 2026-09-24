@@ -728,7 +728,7 @@ export default function ImportScorecard({
             const n=Number(body.retries)||0;
             const tried=n>0?` (Already retried ${n} time${n===1?"":"s"}.)`:"";
             detail=`The scorecard reader is busy right now — this happens at peak times and usually clears within a few minutes. `+
-                   `Your images are still selected, so just tap Extract again in a minute.${tried}`;
+                   `Your images are still selected, so just tap ${cardType==="frames"?"Read Frames":"Read Scores"} again in a minute.${tried}`;
             break;
           }
           // "quota" needs its own case. It used to be tested for INSIDE
