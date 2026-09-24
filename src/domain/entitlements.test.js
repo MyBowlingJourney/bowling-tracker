@@ -209,6 +209,14 @@ describe('the paid stats cards', () => {
     }
   });
 
+  // Rank everybody, so they would fail the rule -- free by decision.
+  it('leaves the league fun boards free: Giant Killer, Hung and Hand Up', () => {
+    for (const id of ['giantKiller', 'hung', 'loneFivePin']) {
+      expect(PAID_STATS_CARDS).not.toContain(id);
+      expect(`${id}:${canSeeStatsCard(id, null, o)}`).toBe(`${id}:true`);
+    }
+  });
+
   it('does not gate a card nobody has heard of', () => {
     expect(canSeeStatsCard('somethingNew', null, o)).toBe(true);
   });

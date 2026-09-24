@@ -90,12 +90,16 @@ export const ANNUAL_PROMPT_AFTER_DAYS = 60;
 // A rule rather than a list is what matters here. When card thirty-six
 // arrives, nobody has to relitigate the philosophy; they ask the one
 // question and put it on the right side.
+//
+// ONE DELIBERATE EXCEPTION: the three league-wide fun boards -- Giant
+// Killer, Hung and Hand Up (giantKiller, hung, loneFivePin) -- rank
+// every bowler and so would fail the rule, but they are FREE by Ryan's
+// call (Sep 2026). They are the cards people show each other across the
+// lanes, which makes them the free plan's best advert. Do not "fix" them
+// back onto this list.
 export const PAID_STATS_CARDS = Object.freeze([
   "headToHead",       // you against another bowler
   "teamLeaderboard",  // teammates ranked
-  "giantKiller",      // every bowler ranked by who beat the league's best
-  "hung",             // every bowler ranked by times left hanging
-  "loneFivePin",      // Hand Up: every bowler ranked by lone 5s missed
   "ballPhases",       // strike % by part of the night
   "ballCompare",      // ball against ball
   "byCenter",         // house against house
