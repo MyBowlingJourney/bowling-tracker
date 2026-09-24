@@ -148,6 +148,16 @@ CREATE TABLE IF NOT EXISTS public.closed_seasons (
   closed_at timestamp with time zone DEFAULT now() NOT NULL,
   created_at timestamp with time zone DEFAULT now() NOT NULL
 );
+CREATE TABLE IF NOT EXISTS public.coaching_invites (
+  id uuid DEFAULT gen_random_uuid() NOT NULL,
+  code text,
+  created_by uuid NOT NULL,
+  inviter_is_coach boolean NOT NULL,
+  code_expires_at timestamp with time zone DEFAULT (now() + '7 days'::interval) NOT NULL,
+  accepted_at timestamp with time zone,
+  accepted_user_id uuid,
+  created_at timestamp with time zone DEFAULT now() NOT NULL
+);
 CREATE TABLE IF NOT EXISTS public.coaching_notes (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
   relationship_id uuid NOT NULL,
@@ -543,6 +553,9 @@ ALTER TABLE public.closed_seasons ADD CONSTRAINT closed_seasons_pkey PRIMARY KEY
 ALTER TABLE public.closed_seasons ADD CONSTRAINT closed_seasons_user_id_league_end_date_key UNIQUE (user_id, league, end_date);
 ALTER TABLE public.closed_seasons ADD CONSTRAINT closed_seasons_check CHECK ((end_date >= start_date));
 ALTER TABLE public.closed_seasons ADD CONSTRAINT closed_seasons_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.coaching_invites ADD CONSTRAINT coaching_invites_pkey PRIMARY KEY (id);
+ALTER TABLE public.coaching_invites ADD CONSTRAINT coaching_invites_accepted_user_id_fkey FOREIGN KEY (accepted_user_id) REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE public.coaching_invites ADD CONSTRAINT coaching_invites_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.coaching_notes ADD CONSTRAINT coaching_notes_pkey PRIMARY KEY (id);
 ALTER TABLE public.coaching_notes ADD CONSTRAINT coaching_notes_author_id_fkey FOREIGN KEY (author_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.coaching_notes ADD CONSTRAINT coaching_notes_relationship_id_fkey FOREIGN KEY (relationship_id) REFERENCES coaching_relationships(id) ON DELETE CASCADE;
@@ -646,6 +659,8 @@ CREATE INDEX ball_submissions_key_idx ON public.ball_submissions USING btree (ba
 CREATE UNIQUE INDEX ball_submissions_official_key_idx ON public.ball_submissions USING btree (ball_key) WHERE (official = true);
 CREATE INDEX bowling_centers_name_idx ON public.bowling_centers USING btree (lower(name));
 CREATE INDEX closed_seasons_user_league_idx ON public.closed_seasons USING btree (user_id, league, end_date DESC);
+CREATE UNIQUE INDEX coaching_invites_code_open_idx ON public.coaching_invites USING btree (code) WHERE ((code IS NOT NULL) AND (accepted_at IS NULL));
+CREATE INDEX coaching_invites_created_by_idx ON public.coaching_invites USING btree (created_by);
 CREATE INDEX coaching_notes_relationship_idx ON public.coaching_notes USING btree (relationship_id);
 CREATE INDEX coaching_tasks_relationship_idx ON public.coaching_tasks USING btree (relationship_id);
 CREATE INDEX drills_lookup_idx ON public.drills USING btree (user_id, bowler_name, target);
@@ -696,6 +711,7 @@ ALTER TABLE public.bowler_names ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bowler_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bowling_centers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.closed_seasons ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.coaching_invites ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.coaching_notes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.coaching_relationships ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.coaching_tasks ENABLE ROW LEVEL SECURITY;
@@ -839,6 +855,12 @@ CREATE POLICY 'own closed seasons: insert' ON public.closed_seasons FOR INSERT T
   WITH CHECK ((user_id = auth.uid()));
 CREATE POLICY 'own closed seasons: select' ON public.closed_seasons FOR SELECT TO authenticated
   USING ((user_id = auth.uid()));
+CREATE POLICY 'creators revoke their own coaching invites' ON public.coaching_invites FOR DELETE TO authenticated
+  USING (((created_by = auth.uid()) AND (accepted_at IS NULL)));
+CREATE POLICY 'creators see their own coaching invites' ON public.coaching_invites FOR SELECT TO authenticated
+  USING ((created_by = auth.uid()));
+CREATE POLICY 'users create their own coaching invites' ON public.coaching_invites FOR INSERT TO authenticated
+  WITH CHECK ((created_by = auth.uid()));
 CREATE POLICY 'authors can delete their own notes' ON public.coaching_notes FOR DELETE TO authenticated
   USING ((author_id = auth.uid()));
 CREATE POLICY 'authors can edit their own notes' ON public.coaching_notes FOR UPDATE TO authenticated
