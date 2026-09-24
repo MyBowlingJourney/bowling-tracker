@@ -92,7 +92,7 @@ import TrialBanner from "./TrialBanner.jsx";
 // The yearly figure the banner quotes when it nudges a monthly
 // subscriber. Display only -- what is actually charged is whatever the
 // Stripe price says. See purchase.js.
-import { DISPLAY_PRICES } from "./purchase.js";
+import { DISPLAY_PRICES, reconcilePlayPurchases } from "./purchase.js";
 import { standingAfterFirst, knockedFromSecondLeave, toggleKnocked, secondLeaveFrom, pinCountFrom, isAccidentalSpare } from "./domain/spareAttempt.js";
 import { visibleLeagues, isLeagueHidden, teamsInLeague, describeLeaveImpact, leaveConfirmationText, isContainerLeague } from "./domain/leagueMembership.js";
 import { decodeShare } from "./domain/badgeShare.js";
@@ -539,6 +539,15 @@ export default function BowlingTracker(){
     document.addEventListener("visibilitychange",onVisible);
     return()=>document.removeEventListener("visibilitychange",onVisible);
   },[]);
+  // Paid-for Play purchases that never got confirmed (see
+  // reconcilePlayPurchases): checked once per sign-in, and the
+  // entitlement re-read if any were rescued. Does nothing on the web.
+  useEffect(()=>{
+    if(!user?.id)return;
+    let live=true;
+    reconcilePlayPurchases().then(n=>{ if(live&&n>0)setEntitlementReload(k=>k+1); });
+    return()=>{live=false;};
+  },[user?.id]);
   const[activeBowler,setActiveBowler]=useState("");
   const[newBowlerName,setNewBowlerName]=useState("");
   const[arsenals,setArsenals]=useState({}); // {bowlerName: [ballName,...]}

@@ -1,6 +1,6 @@
 import { useState, useEffect, Suspense } from "react";
 import { nextTap, tapsLeft, readTesterMode, writeTesterMode } from "./domain/testerMode.js";
-import { errorLogSummary, errorLogText, clearErrorLog } from "./errorLogStore.js";
+import { errorLogSummary, errorLogText, clearErrorLog, buildId } from "./errorLogStore.js";
 import { C, S, Chip, CollapsibleCard, LockedNote } from "./ui.jsx";
 import { THEMES, DARK_THEME_IDS, LIGHT_THEME_IDS } from "./domain/themes.js";
 import { EXAMPLE_PATTERN } from "./domain/oilPatterns.js";
@@ -150,6 +150,25 @@ export default function Settings({
   const [testerNote, setTesterNote] = useState("");
   const [diag, setDiag] = useState(null);
   const [diagMsg, setDiagMsg] = useState("");
+  // Which version is on this phone, for "which build are you on?" --
+  // answered today by exporting Diagnostics and reading a file hash.
+  // The Play versionName and versionCode come from the native App plugin,
+  // loaded lazily so the web bundle never pulls it in; on the web there is
+  // no store version, only the build hash.
+  const [appVersion, setAppVersion] = useState("");
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      try {
+        const core = await import("@capacitor/core");
+        if (!core?.Capacitor?.isNativePlatform?.()) return;
+        const { App } = await import("@capacitor/app");
+        const info = await App.getInfo();
+        if (live && info?.version) setAppVersion(`${info.version} (${info.build})`);
+      } catch { /* web, or no plugin: the build hash alone is shown */ }
+    })();
+    return () => { live = false; };
+  }, []);
   function tapPublisher() {
     const next = nextTap(taps, Date.now());
     setTaps(next);
@@ -1749,6 +1768,10 @@ export default function Settings({
           style={{ fontSize: "11px", color: C.textMuted, marginTop: "8px", userSelect: "none",
                    WebkitTapHighlightColor: "transparent" }}>
           {APP_NAME} is published by My Bowling Journey LLC.
+        </div>
+        <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "4px", userSelect: "text" }}>
+          {appVersion ? `Version ${appVersion}` : "Web version"}
+          {buildId() ? ` · ${buildId().replace(/^index-|\.js$/g, "")}` : ""}
         </div>
         {testerNote && (
           <div style={{ fontSize: "11px", color: C.accent, marginTop: "4px" }}>{testerNote}</div>

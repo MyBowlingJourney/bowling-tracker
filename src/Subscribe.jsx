@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { C, S } from "./ui.jsx";
-import { startPurchase, currentRail, DISPLAY_PRICES, openSubscriptionManager, playTrialEligibility } from "./purchase.js";
+import { startPurchase, currentRail, DISPLAY_PRICES, openSubscriptionManager, playOffers } from "./purchase.js";
 import { TRIAL_DAYS, FREE_LEAGUE_LIMIT, hasPaidSubscription, isTestAccount } from "./domain/entitlements.js";
 
 // The one screen where a bowler decides to pay.
@@ -23,9 +23,10 @@ export default function Subscribe({ entitlement, onClose, onPurchased }) {
   const [rail, setRail] = useState("");
   const [manageBusy, setManageBusy] = useState(false);
   const [manageError, setManageError] = useState("");
-  // Play only: which plans still carry the free trial for this Google
-  // account. undefined while asking, null when it could not tell.
-  const [trialOffer, setTrialOffer] = useState(undefined);
+  // Play only: trial eligibility and local prices for this Google
+  // account (see playOffers). undefined while asking, null when it could
+  // not tell.
+  const [offers, setOffers] = useState(undefined);
   // Set when a purchase has just gone through, so the bowler is TOLD it
   // worked rather than silently sent somewhere else.
   const [purchased, setPurchased] = useState(null);
@@ -36,7 +37,7 @@ export default function Subscribe({ entitlement, onClose, onPurchased }) {
   useEffect(() => {
     let live = true;
     currentRail().then(r => { if (live) setRail(r); }).catch(() => {});
-    playTrialEligibility().then(t => { if (live) setTrialOffer(t); }).catch(() => { if (live) setTrialOffer(null); });
+    playOffers().then(o => { if (live) setOffers(o); }).catch(() => { if (live) setOffers(null); });
     return () => { live = false; };
   }, []);
 
@@ -170,9 +171,12 @@ export default function Subscribe({ entitlement, onClose, onPurchased }) {
   // Whether to promise a trial. The web (Stripe) rail always starts one.
   // On Play it is Google's call: promised only when Google lists the
   // trial offer for this account, and not mentioned at all while unknown.
-  const offersTrial = rail !== "play" ? true : (trialOffer ? !!trialOffer[period] : false);
-  const trialUnknown = rail === "play" && !trialOffer;
-  const price = yearly ? DISPLAY_PRICES.year : DISPLAY_PRICES.month;
+  const offersTrial = rail !== "play" ? true : (offers ? !!offers.trial[period] : false);
+  const trialUnknown = rail === "play" && !offers;
+  // Google's own price, in the bowler's currency, whenever Play gave one.
+  // DISPLAY_PRICES (US dollars) only when it did not.
+  const priceFor = p => (offers?.prices?.[p]) || DISPLAY_PRICES[p];
+  const price = priceFor(period);
 
   return (
     <div>
@@ -218,13 +222,13 @@ export default function Subscribe({ entitlement, onClose, onPurchased }) {
             style={{ ...S.chip(yearly), flex: 1, padding: "14px 10px", textAlign: "center" }}
             onClick={() => { setPeriod("year"); setError(""); }}
           >
-            Yearly · {DISPLAY_PRICES.year}
+            Yearly · {priceFor("year")}
           </button>
           <button
             style={{ ...S.chip(!yearly), flex: 1, padding: "14px 10px", textAlign: "center" }}
             onClick={() => { setPeriod("month"); setError(""); }}
           >
-            Monthly · {DISPLAY_PRICES.month}
+            Monthly · {priceFor("month")}
           </button>
         </div>
 
