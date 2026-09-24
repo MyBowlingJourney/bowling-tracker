@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { generateSignupCode, normalizeSignupCode, isValidSignupCode } from './signupCodes.js';
+import {
+  generateSignupCode, normalizeSignupCode, isValidSignupCode,
+  generatePairingCode, normalizePairingCode, isValidPairingCode,
+} from './signupCodes.js';
 
 // A captain at the lanes has four teammates and two email addresses.
 // Requiring an email closed a real hole -- a captain could otherwise
@@ -62,5 +65,38 @@ describe('isValidSignupCode', () => {
     expect(isValidSignupCode('ABCD-EFG0')).toBe(false);
     expect(isValidSignupCode('ABCD-EFGO')).toBe(false);
     expect(isValidSignupCode('1BCD-EFGH')).toBe(false);
+  });
+});
+
+describe('pairing codes (coaching)', () => {
+  // Aliases, not a second implementation -- the point of the test is
+  // that they stay the same function. A coaching code and a roster code
+  // a bowler is handed look identical, so one being validated
+  // differently from the other is a support call nobody can diagnose.
+  it('are the same functions as the signup ones', () => {
+    expect(generatePairingCode).toBe(generateSignupCode);
+    expect(normalizePairingCode).toBe(normalizeSignupCode);
+    expect(isValidPairingCode).toBe(isValidSignupCode);
+  });
+
+  it('round-trip: what is generated is what validates', () => {
+    for (let i = 0; i < 50; i++) {
+      const code = generatePairingCode();
+      expect(isValidPairingCode(code)).toBe(true);
+      expect(normalizePairingCode(code)).toBe(code);
+      // Typed back in without the hyphen, in lower case, with a space.
+      expect(normalizePairingCode(code.replace('-', ' ').toLowerCase())).toBe(code);
+    }
+  });
+
+  it('rejects the things a mistyped code actually looks like', () => {
+    expect(isValidPairingCode('')).toBe(false);
+    expect(isValidPairingCode('ABCD-234')).toBe(false);   // one short
+    expect(isValidPairingCode('ABCD-23456')).toBe(false); // one long
+    // The characters deliberately left out of the alphabet, because a
+    // code read aloud or off a screenshot confuses them.
+    for (const ch of ['0', 'O', '1', 'I', 'L']) {
+      expect(isValidPairingCode(`ABCD-234${ch}`.slice(0, 9))).toBe(false);
+    }
   });
 });

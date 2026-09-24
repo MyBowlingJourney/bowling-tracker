@@ -29,6 +29,20 @@ export function normalizeSignupCode(raw) {
   return cleaned.length > 4 ? `${cleaned.slice(0, 4)}-${cleaned.slice(4, 8)}` : cleaned;
 }
 
+// ── The same format, used to pair a coach with a bowler ────────────────
+//
+// Coaching invites use this exact code: same alphabet, same length,
+// same normalizer (see the coaching_codes migration). Aliased rather
+// than reimplemented, because two eight-character code formats that
+// differ only in some detail is how you get a code that is valid in one
+// screen and rejected in another -- and a bowler cannot tell them
+// apart to know which they were handed.
+//
+// The names below are the honest ones for that use: nobody is signing
+// up when a coach and a bowler pair their accounts.
+export { generateSignupCode as generatePairingCode };
+export { normalizeSignupCode as normalizePairingCode };
+
 export function isValidSignupCode(raw) {
   // Checked against the RAW input, not the normalized form.
   //
@@ -41,3 +55,5 @@ export function isValidSignupCode(raw) {
   if (c.length !== 8) return false;
   return [...c].every(ch => CODE_ALPHABET.includes(ch));
 }
+
+export { isValidSignupCode as isValidPairingCode };

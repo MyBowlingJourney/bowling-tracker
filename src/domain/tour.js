@@ -236,14 +236,14 @@ const ALL_STEPS = [
     track: "coach",
     tab: "improve",
     title: "Linking up",
-    body: "Improve has a Coach button once you're coaching someone or being coached. Search for them by name, say which way round it goes — they coach me, or I coach them — and send the request. It starts working when they accept.",
+    body: "Improve has a Coach button. Say which way round it goes — they coach me, or I coach them — and make a code. Read the eight characters to the other person, they enter it on their own phone, and you're connected. Nobody looks anybody up by name, so there's no wrong Mike Smith to pick.",
   },
   {
     id: "coach-switch",
     track: "coach",
     tab: "improve",
     title: "Both sides, one screen",
-    body: "If you do both, the View chips flip between them: I'm bowling shows what your own coach has sent you, I'm coaching shows your bowlers. A coach sees their pupils' scores without having to add them as a friend.",
+    body: "If you do both, the View chips flip between them: I'm bowling shows what your own coach has sent you, I'm coaching shows your bowlers. A coach sees their pupils' scores without having to add them as a friend, and either of you can end it from your own phone.",
   },
   {
     id: "coach-bowler",
