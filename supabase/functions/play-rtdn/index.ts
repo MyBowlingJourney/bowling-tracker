@@ -216,7 +216,9 @@ Deno.serve(async (req: Request) => {
 
   if (!(await isFromGoogle(req))) {
     // 401 with no detail. Telling an unauthenticated caller WHICH check
-    // failed is telling them how to pass it.
+    // failed is telling them how to pass it. Our own log says it was
+    // refused, though, so a misconfigured push subscription shows up.
+    console.error("rtdn rejected: push was not signed by the configured Pub/Sub service account");
     return new Response("Unauthorized", { status: 401 });
   }
 
@@ -401,5 +403,9 @@ Deno.serve(async (req: Request) => {
   }
 
   await markApplied(userId);
+  // Logged on success too: a silent 200 and a silent rejection looked
+  // identical in the logs, which made the first real renewal impossible
+  // to confirm without a database query.
+  console.log(`rtdn applied: status=${row.status} until=${row.current_period_end ?? "none"}`);
   return ok({ ok: true, status: row.status });
 });

@@ -521,6 +521,24 @@ export default function BowlingTracker(){
   // Bumped after an in-app (Play) purchase so the entitlement is read
   // again. The read below otherwise runs only when the user changes.
   const[entitlementReload,setEntitlementReload]=useState(0);
+  // And again whenever the app comes back to the foreground. A renewal,
+  // cancellation or refund lands in the database while the app sits in
+  // the background (play-rtdn, stripe-webhook); without this the app kept
+  // the answer it read at launch, and a subscriber whose period had just
+  // renewed was shown padlocks until they restarted the app. At most once
+  // a minute -- it is one small query, but switching apps is frequent.
+  useEffect(()=>{
+    if(typeof document==="undefined")return;
+    let last=Date.now();
+    const onVisible=()=>{
+      if(document.visibilityState!=="visible")return;
+      if(Date.now()-last<60_000)return;
+      last=Date.now();
+      setEntitlementReload(n=>n+1);
+    };
+    document.addEventListener("visibilitychange",onVisible);
+    return()=>document.removeEventListener("visibilitychange",onVisible);
+  },[]);
   const[activeBowler,setActiveBowler]=useState("");
   const[newBowlerName,setNewBowlerName]=useState("");
   const[arsenals,setArsenals]=useState({}); // {bowlerName: [ballName,...]}
