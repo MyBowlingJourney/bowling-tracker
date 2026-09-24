@@ -16,7 +16,7 @@ import { TRIAL_DAYS, FREE_LEAGUE_LIMIT, hasPaidSubscription, isTestAccount } fro
 //
 // So: no countdown timers, no "only today", no pre-ticked upsell. If the
 // app is worth $X a month it will still be worth it tomorrow.
-export default function Subscribe({ entitlement, onClose }) {
+export default function Subscribe({ entitlement, onClose, onPurchased }) {
   const [period, setPeriod] = useState("year");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -81,6 +81,15 @@ export default function Subscribe({ entitlement, onClose }) {
     if (!result.ok) {
       setError(result.message || "Something went wrong.");
       setBusy(false);
+      return;
+    }
+    // Play: the purchase finished inside the app and verify-purchase has
+    // already written the row. Nothing is navigating, so the parent has
+    // to re-read the entitlement -- otherwise the screen keeps offering a
+    // buy button to somebody who has just paid.
+    if (result.purchased) {
+      setBusy(false);
+      onPurchased?.();
     }
   }
 

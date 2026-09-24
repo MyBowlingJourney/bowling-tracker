@@ -13,6 +13,13 @@ import { supabase } from "./supabaseClient.js";
 import { isNative } from "./nativeAuth.js";
 import { paymentRail } from "./domain/billing.js";
 import { isBowlerFacing } from "./domain/functionErrors.js";
+import { recordError } from "./errorLogStore.js";
+// The SAME constants verify-purchase and play-rtdn map with, imported
+// from the one file rather than copied, so the id the app buys and the id
+// the server recognises cannot drift apart.
+import {
+  PLAY_PRODUCT_ID, PLAY_BASE_PLAN_MONTHLY, PLAY_BASE_PLAN_YEARLY,
+} from "../supabase/functions/_shared/play.ts";
 
 // ⚠️ DISPLAY ONLY, AND PLACEHOLDERS. ⚠️
 //
@@ -129,42 +136,90 @@ export async function openSubscriptionManager() {
 
 // ── Play ────────────────────────────────────────────────────────────
 //
-// NOT IMPLEMENTED YET, DELIBERATELY AND VISIBLY.
-//
-// @capgo/native-purchases is not in package.json. nativeAuth.js loads
-// @capacitor/core with a dynamic import inside a try/catch, which works
-// because that package IS installed -- an unresolvable dynamic import is
-// a BUILD failure in Vite, not a runtime one caught by the catch. So
-// writing the real call now would break every build until the dependency
-// is added, including builds of the web app, which does not use Play at
-// all.
-//
-// When the Play Console exists and the plugin is installed, this becomes
-// roughly:
-//
-//   const { NativePurchases } = await import("@capgo/native-purchases");
-//   const { transaction } = await NativePurchases.purchaseProduct({
-//     productIdentifier: PLAY_PRODUCT_ID,
-//     planIdentifier: period === "year" ? BASE_PLAN_YEARLY : BASE_PLAN_MONTHLY,
-//   });
-//   const { data, error } = await supabase.functions.invoke("verify-purchase", {
-//     body: { purchaseToken: transaction.purchaseToken },
-//   });
-//
-// with the exact field names checked against the plugin's own types
-// rather than against this comment -- I have not been able to install it
-// and will not pretend to know its shape.
-//
-// The important half is already true and must stay true: the token goes
-// to verify-purchase and the SERVER decides what was bought. Nothing the
+// Buy through Google Play, then hand the purchase token to
+// verify-purchase and let the SERVER decide what was bought. Nothing the
 // plugin returns about price, plan or entitlement is trusted.
-async function startPlay(_period) {
-  return {
-    ok: false,
-    reason: "play-not-available",
-    message: "In-app purchases are not available in this build yet.",
-  };
+//
+// @capgo/native-purchases v7 (it tracks Capacitor's major version). The
+// field names below were read from that version's Android source, not
+// guessed:
+//
+//   - purchaseProduct resolves with { purchaseToken, ... } on success.
+//   - It rejects "Purchase is pending" for a pending payment (cash,
+//     some bank methods) and "Purchase is not purchased" for EVERYTHING
+//     else -- the bowler backing out and a real billing error look
+//     identical from here. So the message is "wasn't completed", which is
+//     true for both, and the raw text goes to Diagnostics.
+//   - It picks the first offer on the requested base plan; v7 cannot be
+//     told which. With a free-trial offer on the plan, Play only lists it
+//     for bowlers still eligible for a trial.
+//
+// autoAcknowledgePurchases: false, on purpose. verify-purchase
+// acknowledges AFTER it has written the entitlement row. If the plugin
+// acknowledged here instead, a bowler whose verification then failed
+// would have paid, been acknowledged, and been given nothing.
+async function startPlay(period) {
+  let NativePurchases, PURCHASE_TYPE;
+  try {
+    ({ NativePurchases, PURCHASE_TYPE } = await import("@capgo/native-purchases"));
+  } catch (e) {
+    recordError({ kind: "unhandled", where: "purchase.play.load", message: String(e?.message || e) });
+    return { ok: false, reason: "play-not-available", message: "In-app purchases aren't available in this build." };
+  }
+
+  let transaction;
+  try {
+    transaction = await NativePurchases.purchaseProduct({
+      productIdentifier: PLAY_PRODUCT_ID,
+      planIdentifier: period === "year" ? PLAY_BASE_PLAN_YEARLY : PLAY_BASE_PLAN_MONTHLY,
+      productType: PURCHASE_TYPE.SUBS,
+      quantity: 1,
+      autoAcknowledgePurchases: false,
+    });
+  } catch (e) {
+    const raw = String(e?.message || e || "");
+    recordError({ kind: "unhandled", where: "purchase.play.buy", message: raw.slice(0, 300) });
+    if (/pending/i.test(raw)) {
+      return {
+        ok: false, reason: "pending",
+        message: "Your payment is pending. Pro unlocks once Google Play finishes processing it.",
+      };
+    }
+    return { ok: false, reason: "not-completed", message: "The purchase wasn't completed. You haven't been charged." };
+  }
+
+  const purchaseToken = transaction?.purchaseToken;
+  if (!purchaseToken) {
+    recordError({ kind: "unhandled", where: "purchase.play.buy", message: "purchase resolved with no purchaseToken" });
+    return { ok: false, reason: "verify-failed", message: VERIFY_LATER };
+  }
+
+  // Twice, a few seconds apart: a bowler who has just paid and loses
+  // signal on the way back should not be left on the free plan by one
+  // dropped request. play-rtdn is the durable backstop after that.
+  let lastMessage = "";
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (attempt) await new Promise(r => setTimeout(r, 3000));
+    const { data, error } = await supabase.functions.invoke("verify-purchase", { body: { purchaseToken } });
+    if (!error && data?.ok) return { ok: true, purchased: true, plan: data.plan, status: data.status };
+    let body = null;
+    try { const res = error?.context; if (res && typeof res.json === "function") body = await res.json(); } catch { /* not JSON */ }
+    lastMessage = `${error?.context?.status || ""} ${body?.error || error?.message || "no ok in response"}`.trim();
+    // 409: that token belongs to another account. Retrying cannot change it.
+    if (error?.context?.status === 409) {
+      recordError({ kind: "unhandled", where: "purchase.play.verify", message: lastMessage.slice(0, 300) });
+      return { ok: false, reason: "other-account", message: body?.error || "That purchase is already linked to another account." };
+    }
+  }
+  recordError({ kind: "unhandled", where: "purchase.play.verify", message: lastMessage.slice(0, 300) });
+  return { ok: false, reason: "verify-failed", message: VERIFY_LATER };
 }
+
+// Said when Google has taken the money but our server has not confirmed
+// it yet. Never "try again" -- a second tap would try to buy twice.
+const VERIFY_LATER =
+  "Your purchase went through, but we couldn't confirm it just yet. Pro will unlock shortly -- " +
+  "reopen the app in a few minutes. You won't be charged twice.";
 
 // ── The one entry point ─────────────────────────────────────────────
 //

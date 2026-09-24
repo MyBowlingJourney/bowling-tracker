@@ -518,6 +518,9 @@ export default function BowlingTracker(){
   // subscriber is locked out while the query is in flight. See
   // ENTITLEMENT_UNKNOWN in domain/entitlements.js.
   const[entitlement,setEntitlement]=useState(ENTITLEMENT_UNKNOWN);
+  // Bumped after an in-app (Play) purchase so the entitlement is read
+  // again. The read below otherwise runs only when the user changes.
+  const[entitlementReload,setEntitlementReload]=useState(0);
   const[activeBowler,setActiveBowler]=useState("");
   const[newBowlerName,setNewBowlerName]=useState("");
   const[arsenals,setArsenals]=useState({}); // {bowlerName: [ballName,...]}
@@ -1437,7 +1440,7 @@ export default function BowlingTracker(){
       }
     })();
     return()=>{live=false;};
-  },[user?.id]);
+  },[user?.id,entitlementReload]);
 
   useEffect(()=>{
     if(!user?.id)return;
@@ -8864,7 +8867,7 @@ export default function BowlingTracker(){
         )}
 
         {view==="subscribe"&&(
-          <Subscribe entitlement={entitlement} onClose={()=>setView("settings")}/>
+          <Subscribe entitlement={entitlement} onClose={()=>setView("settings")} onPurchased={()=>{setEntitlementReload(n=>n+1);setView("settings");}}/>
         )}
 
         {/* Practice and casual: nothing to ask. The container league is

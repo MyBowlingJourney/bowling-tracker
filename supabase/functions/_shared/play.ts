@@ -31,26 +31,27 @@
 // entry points do the same thing -- fetch the purchase, map the state
 // below, write the result -- so order of arrival stops mattering.
 
-// ── Placeholders ────────────────────────────────────────────────────
+// ── Play Console IDs ────────────────────────────────────────────────
 //
-// ⚠️ EVERY ID BELOW IS A PLACEHOLDER. ⚠️
+// These must match Play Console EXACTLY: Monetize with Play > Products >
+// Subscriptions. A base plan id that is one character off does not throw
+// -- it falls through to null and the bowler silently gets no billing
+// period. The app imports these same constants (src/purchase.js), so
+// the client and the server cannot disagree about them.
 //
-// There is no Play Console yet, so none of these exist. They are written
-// to be obviously wrong rather than plausibly right, on the same
-// principle as the appId in capacitor.config.ts: a placeholder you could
-// mistake for real is one that ships.
-//
-// When the Play Console exists these must match it exactly. A base plan
-// id that is one character off does not throw -- it falls through to
-// null and the bowler silently gets no billing period.
-export const PLAY_PRODUCT_ID = "PLACEHOLDER_product_plus";
-export const PLAY_BASE_PLAN_MONTHLY = "PLACEHOLDER-monthly";
-export const PLAY_BASE_PLAN_YEARLY = "PLACEHOLDER-yearly";
+//   subscription (product) id   plus
+//   base plans                  monthly, yearly
+//   free-trial offer            freetrial30 (on BOTH base plans -- the
+//                               subscribe screen promises a trial on
+//                               either)
+export const PLAY_PRODUCT_ID = "plus";
+export const PLAY_BASE_PLAN_MONTHLY = "monthly";
+export const PLAY_BASE_PLAN_YEARLY = "yearly";
 
 // The 30-day free trial, configured in Play as an offer on the monthly
 // base plan. Play reports a trial as an ACTIVE subscription, so the
 // offer id is the only thing separating "trialing" from "paying".
-export const PLAY_TRIAL_OFFER_ID = "PLACEHOLDER-freetrial30";
+export const PLAY_TRIAL_OFFER_ID = "freetrial30";
 
 export const BASE_PLAN_PERIODS: Readonly<Record<string, "month" | "year">> = Object.freeze({
   [PLAY_BASE_PLAN_MONTHLY]: "month",
