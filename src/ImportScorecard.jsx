@@ -716,7 +716,30 @@ export default function ImportScorecard({
         // entry to the function logs.
         const failure=await readFunctionFailure(fnError);
         const body=failure.body||{};
-        recordError({kind:"function",where:"import-scorecard",message:body.error||failure.message,detail:failureDetail(failure)});
+        // EVERYTHING the function said, in the MESSAGE.
+        //
+        // It went into `detail` before, and the diagnostics export prints
+        // kind, where and message only -- so a failed import exported as
+        // the bare words "Gemini API error" with the reason, the upstream
+        // status, the model and Google's own text all sitting in a field
+        // nothing rendered. Three rounds of debugging went past that,
+        // reading dashboard logs to find what the app already knew.
+        //
+        // The same shape the escalation note uses, which has always
+        // exported readably.
+        const bits=[
+          body.reason?`reason=${body.reason}`:null,
+          body.upstreamStatus?`upstream=${body.upstreamStatus}`:null,
+          failure.status?`fn=${failure.status}`:null,
+          body.model?`model=${body.model}`:null,
+          Array.isArray(body.skipped)&&body.skipped.length?`skipped=${body.skipped.join("|")}`:null,
+          body.retries?`retries=${body.retries}`:null,
+          body.requestId?`req=${body.requestId}`:null,
+          body.detail?`detail=${String(body.detail).slice(0,400)}`:null,
+        ].filter(Boolean);
+        recordError({kind:"function",where:"import-scorecard",
+          message:`${body.error||failure.message}${bits.length?` — ${bits.join(" ")}`:""}`,
+          detail:failureDetail(failure)});
         let detail="";
         let retryable=false;
         switch(body.reason){
