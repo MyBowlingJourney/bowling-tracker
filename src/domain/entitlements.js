@@ -59,6 +59,9 @@ export const BILLING_LIVE = true;
 
 export const FREE_LEAGUE_LIMIT = 1;
 export const FREE_TEAM_LIMIT = 1;
+// Bags: one of EACH type on the free plan -- a league bag and a
+// tournament bag. Every additional bag is Pro.
+export const FREE_BAGS_PER_TYPE = 1;
 
 // The trial takes a card and converts to the monthly plan. Thirty days
 // covers four league nights, which is roughly the first point the app has
@@ -301,6 +304,11 @@ export function leagueLimit(entitlement, opts) {
 
 export function teamLimit(entitlement, opts) {
   return featureUnlocked(entitlement, opts) ? Infinity : FREE_TEAM_LIMIT;
+}
+
+// Per bag TYPE, not in total: see FREE_BAGS_PER_TYPE.
+export function bagLimit(entitlement, opts) {
+  return featureUnlocked(entitlement, opts) ? Infinity : FREE_BAGS_PER_TYPE;
 }
 
 // ── Which leagues a free bowler can still see ───────────────────────

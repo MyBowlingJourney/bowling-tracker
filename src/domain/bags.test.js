@@ -3,7 +3,9 @@ import {
   emptyBag, normalizeBag, bagCapacity, bagHasRoom, describeCapacity,
   availableBalls, bagsForEnvironment, unassignedBalls, bagToRow, bagFromRow,
   toggleBallInBag, isBallInBag, removeBagMemberships, ballsByBagFor, bagsForBall,
+  lockedBagIds,
 } from './bags.js';
+import { bagLimit, FREE_BAGS_PER_TYPE } from './entitlements.js';
 
 describe('capacity and the plastic rule', () => {
   const fiveBag = { id: 'b1', bowlerName: 'Ryan', name: 'Short 5', bagType: 'tournament', ballLimit: '5', includesPlastic: false };
@@ -160,5 +162,36 @@ describe('a ball can live in many bags', () => {
     m = toggleBallInBag(m, 'Ryan', 'A', 'b2');
     const bags = [{ id: 'b1', name: 'League' }, { id: 'b2', name: 'Short 5' }];
     expect(bagsForBall(m, 'Ryan', 'A', bags).map(b => b.name)).toEqual(['League', 'Short 5']);
+  });
+});
+
+describe('free plan: one bag of each type', () => {
+  const L1 = { id: 'l1', bagType: 'league', name: 'League bag' };
+  const L2 = { id: 'l2', bagType: 'league', name: 'Test 3' };
+  const T1 = { id: 't1', bagType: 'tournament', name: 'Tournament bag' };
+  const T2 = { id: 't2', bagType: 'tournament', name: 'Test' };
+
+  it('keeps the first bag of EACH type and locks the rest', () => {
+    const locked = lockedBagIds([L1, T1, T2, L2], FREE_BAGS_PER_TYPE);
+    expect([...locked].sort()).toEqual(['l2', 't2']);
+  });
+
+  it('locks nothing when the limit is Infinity (Pro)', () => {
+    expect(lockedBagIds([L1, L2, T1, T2], Infinity).size).toBe(0);
+  });
+
+  it('locks nothing with one bag per type', () => {
+    expect(lockedBagIds([L1, T1], 1).size).toBe(0);
+  });
+
+  it('treats a bag with no type as league, and survives junk rows', () => {
+    expect([...lockedBagIds([L1, { id: 'x' }, null, 'junk'], 1)]).toEqual(['x']);
+  });
+
+  it('is one per type for a free bowler, unlimited for Pro and for an unknown entitlement', () => {
+    expect(bagLimit(null)).toBe(1);
+    expect(bagLimit({ plan: 'free', status: 'none' })).toBe(1);
+    expect(bagLimit('unknown')).toBe(Infinity);
+    expect(bagLimit({ plan: 'plus', status: 'active', current_period_end: new Date(Date.now() + 864e5).toISOString() })).toBe(Infinity);
   });
 });

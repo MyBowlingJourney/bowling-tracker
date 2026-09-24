@@ -71,7 +71,7 @@ import { normalizeImportRecord, effectiveScores, approve as approveImport, rejec
   correctAsTeammate, canCorrect as canCorrectImportRecord, isConfirmed,
   pendingFor as pendingForImport, needingReentry as needingImportReentry, shouldSupersede, supersede } from "./domain/importVerification.js";
 import { coachViewActive, setCoachView, applyEnvironment, setTrackingMode, toggleStatsCardHidden, unhideStatsCards } from "./domain/preferences.js";
-import { emptyBag, normalizeBag, bagToRow, bagFromRow, availableBalls, bagsForEnvironment, plasticLast, bagHasRoom, toggleBallInBag, removeBagMemberships, ballsByBagFor, membershipKey } from "./domain/bags.js";
+import { emptyBag, normalizeBag, bagToRow, bagFromRow, availableBalls, bagsForEnvironment, plasticLast, bagHasRoom, toggleBallInBag, removeBagMemberships, ballsByBagFor, membershipKey, lockedBagIds } from "./domain/bags.js";
 import { DEFAULT_BALL_GROUPS, emptyBallSpecs, normalizeBallSpecs, specsToRow, specsFromRow, groupToRow, groupFromRow } from "./domain/ballSpecs.js";
 import { ballKey, catalogState, bestEntry, rejectedBallsFor, clearedSpecsAfterRejection, canVote } from "./domain/ballCatalog.js";
 import { normalizeCenter, centerToRow, centerFromRow, findExistingCenter, statsByCenter, statsByRackType } from "./domain/centers.js";
@@ -84,7 +84,7 @@ import { archiveOnNewStart, compareSeasons, describeSeasonChange } from "./domai
 import { sessionsForFigures, isBaker, bakerBowlerFor, bakerAlternates } from "./domain/tournamentFormats.js";
 import { emptyDrill, normalizeDrill, drillToRow, drillFromRow } from "./domain/drills.js";
 import { scorekeepingOptions, allowsOtherBowlers, normalizeGuests, addGuest, removeGuest } from "./domain/scorekeeping.js";
-import { allowedLeagues, lockedLeagues, ENTITLEMENT_UNKNOWN } from "./domain/entitlements.js";
+import { allowedLeagues, lockedLeagues, ENTITLEMENT_UNKNOWN, bagLimit } from "./domain/entitlements.js";
 // Not lazy: it is one small card, it is rendered conditionally already,
 // and a Suspense boundary around a prompt this short would flash.
 import KeptLeaguePicker from "./KeptLeaguePicker.jsx";
@@ -1562,7 +1562,7 @@ export default function BowlingTracker(){
           cloudRead("ball_submissions",q=>q.select("id,submitted_by,ball_key,ball_name,brand,coverstock,core_type,weight,rg,diff,int_diff,created_at,official,source_note,weight_specs")),
           cloudRead("ball_confirmations",q=>q.select("submission_id,confirmed_by,vote")),
           cloudRead("ball_groups",q=>q.select("id,bowler_name,name,sort_order")),
-          cloudRead("bags",q=>q.select("id,bowler_name,name,bag_type,ball_limit,includes_plastic")),
+          cloudRead("bags",q=>q.select("id,bowler_name,name,bag_type,ball_limit,includes_plastic").order("created_at",{ascending:true})),
           cloudRead("manual_scores",q=>q.select("bowler_name,league_id,date,game,score,ball,surface,session_seq")),
           cloudRead("matches",q=>q.select("*")),
           cloudRead("lane_patterns",q=>q.select("*")),
@@ -7635,7 +7635,11 @@ export default function BowlingTracker(){
     guests,
   });
 
-  const bowlerBags=bags.filter(b=>b.bowlerName===activeBowler);
+  // Locked bags (past the free plan's one-per-type) are not offered when
+  // logging. Same ordering rule as BagManager, via lockedBagIds.
+  const allBowlerBags=bags.filter(b=>b.bowlerName===activeBowler);
+  const lockedBags=lockedBagIds(allBowlerBags,bagLimit(entitlement));
+  const bowlerBags=allBowlerBags.filter(b=>!lockedBags.has(b.id));
   const envBags=bagsForEnvironment(bowlerBags,preferences.environment);
   // A selected bag from another environment or another bowler isn't in
   // envBags -- resolve it to "nothing selected" rather than letting the
@@ -8674,7 +8678,7 @@ export default function BowlingTracker(){
             profiles={profiles} setProfile={setProfile} teams={teams}
             arsenals={arsenals} ballLayouts={ballLayouts} setBallLayout={setBallLayout} removeBall={removeBall}
             newBallName={newBallName} ballAddMessage={ballAddMessage} retiredBalls={retiredBalls} setBallRetired={setBallRetired} setNewBallName={setNewBallName} addBall={addBall}
-            bags={bags} ballBags={ballBags} saveBag={saveBag} deleteBag={deleteBag} toggleBallBag={toggleBallBag}
+            bags={bags} ballBags={ballBags} saveBag={saveBag} deleteBag={deleteBag} toggleBallBag={toggleBallBag} entitlement={entitlement}
             centers={centers} ensureCenter={ensureCenter} searchCenters={searchCenters}
             ballSpecs={ballSpecs} setBallSpec={setBallSpec} ballGroups={ballGroups}
             saveBallGroup={saveBallGroup} deleteBallGroup={deleteBallGroup} seedDefaultGroups={seedDefaultGroups}

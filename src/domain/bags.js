@@ -124,6 +124,29 @@ export function plasticLast(balls, plastic) {
   return [...list.filter(b => b !== plastic), ...(list.includes(plastic) ? [plastic] : [])];
 }
 
+// Bags a free bowler has lost the use of, as a Set of ids.
+//
+// The limit is PER TYPE (one league bag and one tournament bag on the
+// free plan). Within a type the FIRST bags in the list are kept, and the
+// list arrives in creation order (the cloud read orders by created_at),
+// so what survives is the bag they made first -- almost always the main
+// one -- and it does not change from one load to the next.
+//
+// Locked, never deleted: the bag, and every ball packed in it, comes
+// straight back on Pro. Same rule as leagues.
+export function lockedBagIds(bags, limitPerType) {
+  const locked = new Set();
+  if (!Number.isFinite(limitPerType)) return locked;
+  const seen = {};
+  for (const b of Array.isArray(bags) ? bags : []) {
+    if (!b || typeof b !== "object" || !b.id) continue;
+    const t = b.bagType || "league";
+    seen[t] = (seen[t] || 0) + 1;
+    if (seen[t] > limitPerType) locked.add(b.id);
+  }
+  return locked;
+}
+
 export function bagsForEnvironment(bags, environment) {
   const list = Array.isArray(bags) ? bags : [];
   if (environment === "tournament") return list.filter(b => b.bagType === "tournament");

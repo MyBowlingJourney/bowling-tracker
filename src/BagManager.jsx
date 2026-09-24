@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { C, S, Chip, CollapsibleCard } from "./ui.jsx";
+import { C, S, Chip, CollapsibleCard, LockedNote } from "./ui.jsx";
 import {
   BAG_TYPES, BAG_TYPE_LABELS, emptyBag, describeCapacity, bagCapacity,
-  bagHasRoom, unassignedBalls, isBallInBag, ballsByBagFor,
+  bagHasRoom, unassignedBalls, isBallInBag, ballsByBagFor, lockedBagIds,
 } from "./domain/bags.js";
+import { bagLimit, FREE_BAGS_PER_TYPE } from "./domain/entitlements.js";
 import { formatLayout } from "./domain/layouts.js";
 
 function BagEditor({ bag, onChange, onSave, onCancel }) {
@@ -61,7 +62,7 @@ function BagEditor({ bag, onChange, onSave, onCancel }) {
 
 export default function BagManager({
   activeBowler, bags, balls, ballBags, ballLayouts,
-  saveBag, deleteBag, toggleBallBag,
+  saveBag, deleteBag, toggleBallBag, entitlement = null,
 }) {
   balls = Array.isArray(balls) ? balls : [];
   // Bags arrive from the cloud; an absent list is an empty one.
@@ -74,6 +75,15 @@ export default function BagManager({
   const bowlerBags = (Array.isArray(bags) ? bags : []).filter(b => b && typeof b === "object" && b.bowlerName === activeBowler);
   const ballsByBag = ballsByBagFor(ballBags, activeBowler, balls);
   const loose = unassignedBalls(balls, ballsByBag);
+
+  // Free plan: one league bag and one tournament bag. Extra bags stay,
+  // locked -- visible, deletable, but not editable or packable, and not
+  // offered when logging. See lockedBagIds.
+  const limit = bagLimit(entitlement);
+  const locked = lockedBagIds(bowlerBags, limit);
+  const countOf = t => bowlerBags.filter(b => (b.bagType || "league") === t).length;
+  const canAdd = t => countOf(t) < limit;
+  const usableBags = bowlerBags.filter(b => !locked.has(b.id));
 
   function startNew(type) {
     setEditing({ ...emptyBag(activeBowler, type) });
@@ -99,10 +109,17 @@ export default function BagManager({
             What you carry to league differs from what you carry to a tournament — and tournaments often cap how many balls you may bring, so you can keep several.
           </div>
           <div style={S.chips}>
-            <Chip label="+ League Bag" onToggle={() => startNew("league")} />
-            <Chip label="+ Tournament Bag" onToggle={() => startNew("tournament")} />
+            {canAdd("league") && <Chip label="+ League Bag" onToggle={() => startNew("league")} />}
+            {canAdd("tournament") && <Chip label="+ Tournament Bag" onToggle={() => startNew("tournament")} />}
           </div>
         </div>
+      )}
+      {!editing && (!canAdd("league") || !canAdd("tournament")) && (
+        <LockedNote title="More bags">
+          The free plan covers {FREE_BAGS_PER_TYPE} league bag and {FREE_BAGS_PER_TYPE} tournament bag.
+          Extra bags — a short-pattern tournament bag, a sport shot bag — are part of the paid plan.
+          Nothing you have already packed goes anywhere.
+        </LockedNote>
       )}
 
       <CollapsibleCard title="Bags"
@@ -116,8 +133,9 @@ export default function BagManager({
         const inBag = (ballsByBag && ballsByBag[bag.id]) || [];
         const capacity = bagCapacity(bag);
         const full = capacity !== null && inBag.length >= capacity;
+        const isLocked = locked.has(bag.id);
         return (
-          <div key={bag.id} style={S.card}>
+          <div key={bag.id} style={{ ...S.card, ...(isLocked ? { opacity: 0.6 } : null) }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "6px" }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: "13px", fontWeight: 600 }}>{bag.name}</div>
@@ -127,8 +145,10 @@ export default function BagManager({
                   {bag.includesPlastic ? " · plastic planned" : ""}
                 </div>
               </div>
-              <button style={{ ...S.btn(), padding: "4px 10px", fontSize: "11px" }}
-                onClick={() => setEditing({ ...bag })}>Edit</button>
+              {!isLocked && (
+                <button style={{ ...S.btn(), padding: "4px 10px", fontSize: "11px" }}
+                  onClick={() => setEditing({ ...bag })}>Edit</button>
+              )}
               {confirmDelete === bag.id ? (
                 <>
                   <button style={{ ...S.btn("warn"), padding: "4px 10px", fontSize: "11px", width: "auto" }}
@@ -142,7 +162,13 @@ export default function BagManager({
               )}
             </div>
 
-            {full && (
+            {isLocked && (
+              <div style={{ fontSize: "11px", color: C.accent, marginBottom: "6px" }}>
+                🔒 Pro — kept exactly as packed, and back the moment you subscribe.
+              </div>
+            )}
+
+            {full && !isLocked && (
               <div style={{ fontSize: "11px", color: C.spare, marginBottom: "6px" }}>
                 Full — remove a ball before adding another.
               </div>
@@ -155,9 +181,10 @@ export default function BagManager({
                 {inBag.map(ball => {
                   const layout = formatLayout(ballLayouts?.[`${activeBowler}|${ball}`]);
                   return (
-                    <Chip key={ball} label={layout ? `${ball} · ${layout}  ×` : `${ball}  ×`}
+                    <Chip key={ball}
+                      label={isLocked ? (layout ? `${ball} · ${layout}` : ball) : (layout ? `${ball} · ${layout}  ×` : `${ball}  ×`)}
                       selected color={C.accent}
-                      onToggle={() => toggleBallBag(activeBowler, ball, bag.id)} />
+                      onToggle={() => { if (!isLocked) toggleBallBag(activeBowler, ball, bag.id); }} />
                   );
                 })}
               </div>
@@ -167,7 +194,7 @@ export default function BagManager({
       })}
       </CollapsibleCard>
 
-      {balls.length > 0 && bowlerBags.length > 0 && (
+      {balls.length > 0 && usableBags.length > 0 && (
         <div style={S.card}>
           <div style={S.label}>Add Balls to a Bag</div>
           <div style={{ fontSize: "11px", color: C.textMuted, marginBottom: "10px" }}>
@@ -177,7 +204,7 @@ export default function BagManager({
           </div>
           {balls.map(ball => {
             const layout = formatLayout(ballLayouts?.[`${activeBowler}|${ball}`]);
-            const inAny = bowlerBags.some(bag => isBallInBag(ballBags, activeBowler, ball, bag.id));
+            const inAny = usableBags.some(bag => isBallInBag(ballBags, activeBowler, ball, bag.id));
             return (
               <div key={ball} style={{ marginBottom: "12px" }}>
                 <div style={{ fontSize: "12px", fontWeight: 600 }}>{ball}</div>
@@ -188,7 +215,7 @@ export default function BagManager({
                 <div style={S.chips}>
                   {/* A ball can be in several bags at once -- these are
                       independent toggles, not a single choice. */}
-                  {bowlerBags.map(bag => {
+                  {usableBags.map(bag => {
                     const isIn = isBallInBag(ballBags, activeBowler, ball, bag.id);
                     const noRoom = !isIn && !bagHasRoom(bag, ballsByBag);
                     return (

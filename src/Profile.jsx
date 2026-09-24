@@ -42,7 +42,7 @@ export default function Profile({
   arsenals, ballLayouts, setBallLayout, removeBall,
   newBallName, setNewBallName, addBall, ballAddMessage = "",
   retiredBalls = {}, setBallRetired, shots = [],
-  bags, ballBags, saveBag, deleteBag, toggleBallBag,
+  bags, ballBags, saveBag, deleteBag, toggleBallBag, entitlement = null,
   centers, ensureCenter, searchCenters,
   ballSpecs, setBallSpec, ballGroups, saveBallGroup, deleteBallGroup, seedDefaultGroups,
   catalogEntries, catalogAck, userId, publishBallSpecs, voteOnEntry, acknowledgeRejection,
@@ -523,7 +523,8 @@ export default function Profile({
           ballLayouts={ballLayouts || {}}
           saveBag={saveBag}
           deleteBag={deleteBag}
-          toggleBallBag={toggleBallBag} />
+          toggleBallBag={toggleBallBag}
+          entitlement={entitlement} />
       )}
 
       {/* The Notes card is gone from the profile. Existing notes are
