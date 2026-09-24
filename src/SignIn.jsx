@@ -1,6 +1,23 @@
 import { useState, useRef, useEffect } from 'react';
 import { APP_NAME } from "./constants.js";
 import { useAuth } from './AuthProvider.jsx';
+import { supabase } from './supabaseClient.js';
+
+// ── Password sign-in, hidden: for the Google Play reviewer ──────────
+//
+// Bowlers never have a password -- they sign up through Google or an
+// email code -- so password sign-in only works for accounts created in
+// the Supabase dashboard with one. That is the Play reviewer's account:
+// a Google account is no good for review, because Google challenges a
+// sign-in from the reviewer's unfamiliar device with phone verification
+// they cannot complete, and the app is rejected as "couldn't sign in".
+//
+// Hidden behind five quick taps on the app name, so bowlers never see a
+// password field they have no password for. The reviewer instructions in
+// Play Console say where it is. It only signs in; it never creates an
+// account, so it opens no new way to sign up.
+const PASSWORD_TAPS = 5;
+const PASSWORD_TAP_WINDOW_MS = 3000;
 
 // How many digits the code is.
 //
@@ -52,6 +69,35 @@ export default function SignIn() {
   const [status, setStatus] = useState("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const codeRef = useRef(null);
+  const [passwordMode, setPasswordMode] = useState(false);
+  const [password, setPassword] = useState("");
+  const taps = useRef([]);
+  function tapTitle() {
+    const now = Date.now();
+    taps.current = [...taps.current.filter(t => now - t < PASSWORD_TAP_WINDOW_MS), now];
+    if (taps.current.length >= PASSWORD_TAPS) {
+      taps.current = [];
+      setPasswordMode(true);
+      setStatus("idle");
+      setErrorMsg("");
+    }
+  }
+  async function handlePassword(e) {
+    e.preventDefault();
+    if (!email || !password || status === "sending" || !supabase) return;
+    setStatus("sending");
+    setErrorMsg("");
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    if (error) {
+      setStatus("error");
+      setErrorMsg(/invalid/i.test(error.message || "")
+        ? "Wrong email or password."
+        : (error.message || "Couldn't sign in."));
+      return;
+    }
+    // Success lands through onAuthStateChange, like every other door.
+    setStatus("idle");
+  }
 
   // Keep the button above the keyboard.
   //
@@ -196,9 +242,10 @@ export default function SignIn() {
         width: "100%", maxWidth: "360px", backgroundColor: C.card,
         borderRadius: "12px", padding: "28px 24px", border: `1px solid ${C.border}`,
       }}>
-        <div style={{
+        <div onClick={tapTitle} style={{
           fontSize: "16px", fontWeight: 700, letterSpacing: "0.05em",
           color: C.accent, textTransform: "uppercase", textAlign: "center", marginBottom: "6px",
+          userSelect: "none", WebkitTapHighlightColor: "transparent",
         }}>
           🎳 {APP_NAME}
         </div>
@@ -206,7 +253,56 @@ export default function SignIn() {
           Sign in to log your own games and see the team's stats.
         </div>
 
-        {status === "sent" || status === "verifying" ? (
+        {passwordMode ? (
+          <form onSubmit={handlePassword}>
+            <input
+              type="email" required autoComplete="username"
+              placeholder="Email" value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              style={{
+                width: "100%", backgroundColor: C.surface, border: `1px solid ${C.border}`,
+                borderRadius: "8px", padding: "12px", color: C.text, fontSize: "14px",
+                boxSizing: "border-box", outline: "none", marginBottom: "10px",
+              }}
+            />
+            <input
+              type="password" required autoComplete="current-password"
+              placeholder="Password" value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              style={{
+                width: "100%", backgroundColor: C.surface, border: `1px solid ${C.border}`,
+                borderRadius: "8px", padding: "12px", color: C.text, fontSize: "14px",
+                boxSizing: "border-box", outline: "none", marginBottom: "12px",
+              }}
+            />
+            <button
+              type="submit"
+              disabled={status === "sending"}
+              style={{
+                width: "100%", padding: "12px 20px", borderRadius: "10px", border: "none",
+                cursor: status === "sending" ? "default" : "pointer",
+                fontSize: "14px", fontWeight: 700, backgroundColor: C.accent, color: "#fff",
+                opacity: status === "sending" ? 0.6 : 1, WebkitTapHighlightColor: "transparent",
+              }}
+            >
+              {status === "sending" ? "Signing in…" : "Sign In"}
+            </button>
+            {status === "error" && errorMsg && (
+              <div style={{ fontSize: "12px", color: C.miss, marginTop: "10px", textAlign: "center" }}>
+                {errorMsg}
+              </div>
+            )}
+            <div style={{ textAlign: "center", marginTop: "14px" }}>
+              <button
+                type="button"
+                onClick={() => { setPasswordMode(false); setPassword(""); setStatus("idle"); setErrorMsg(""); }}
+                style={{ background: "none", border: "none", color: C.accent, fontSize: "12px", cursor: "pointer" }}
+              >
+                Back
+              </button>
+            </div>
+          </form>
+        ) : status === "sent" || status === "verifying" ? (
           <div>
             <div style={{ textAlign: "center", marginBottom: "18px" }}>
               <div style={{ fontSize: "28px", marginBottom: "10px" }}>📬</div>
