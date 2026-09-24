@@ -425,6 +425,9 @@ column,tournaments,tracking_mode,text
 column,tournaments,updated_at,timestamp with time zone NOT NULL
 column,tournaments,user_id,uuid
 column,tournaments,winnings,numeric
+column,user_leagues,created_at,timestamp with time zone NOT NULL
+column,user_leagues,league_id,uuid NOT NULL
+column,user_leagues,user_id,uuid NOT NULL
 column,user_preferences,preferences,jsonb NOT NULL
 column,user_preferences,updated_at,timestamp with time zone
 column,user_preferences,user_id,uuid NOT NULL
@@ -568,10 +571,14 @@ constraint,tournaments,tournaments_match_play_next_round_check,"CHECK (((match_p
 constraint,tournaments,tournaments_pkey,PRIMARY KEY (id)
 constraint,tournaments,tournaments_placement_check,"CHECK (((placement IS NULL) OR (placement = ANY (ARRAY['won'::text, 'runnerUp'::text, 'topFive'::text, 'cashed'::text, 'madeCut'::text, 'none'::text]))))"
 constraint,tournaments,tournaments_user_id_fkey,FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+constraint,user_leagues,user_leagues_league_id_fkey,FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE
+constraint,user_leagues,user_leagues_pkey,"PRIMARY KEY (user_id, league_id)"
+constraint,user_leagues,user_leagues_user_id_fkey,FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
 constraint,user_preferences,user_preferences_pkey,PRIMARY KEY (user_id)
 constraint,user_preferences,user_preferences_user_id_fkey,FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
 constraint,user_preferences,user_preferences_user_id_key,UNIQUE (user_id)
 function,accept_team_invite,invite_id uuid,boolean security definer
+function,add_my_league,p_league_id uuid,void security definer
 function,are_friends,other_user uuid,boolean security definer
 function,check_api_rate_limit,"p_endpoint text, p_limit integer, p_window interval",boolean security definer
 function,claim_coaching_code,code text,uuid security definer
@@ -592,6 +599,7 @@ function,record_tombstone,"",trigger security definer
 function,report_error,"p_signature text, p_kind text, p_where text, p_code text, p_mes",void security definer
 function,set_updated_at,"",trigger security invoker
 function,teammate_bowler_profiles,"","TABLE(bowler_name text, left_handed boolean, backup_ball boolean, two_handed boolean, aliases jsonb) security definer"
+function,user_leagues_from_row,"",trigger security definer
 grant,ai_token_usage,REFERENCES,"called_at, endpoint, id, model, output_tokens, prompt_tokens, total_tokens, user_id, variant"
 grant,ai_token_usage_daily,REFERENCES,"calls, day, endpoint, model, output_tokens, prompt_tokens, total_tokens, variant"
 grant,arsenals,INSERT,"ball, bowler_name, core_type, coverstock, created_at, created_by, diff, group_id, id, int_diff, layout_system, layout_values, retired_on, rg, weight"
@@ -720,6 +728,9 @@ grant,tournaments,INSERT,"baker_alternate, baker_partner, baker_starter, bowler_
 grant,tournaments,REFERENCES,"baker_alternate, baker_partner, baker_starter, bowler_name, buy_in, center, created_at, days, format, handicap, id, match_play, match_play_next_round, name, notes, pin_format, placement, placement_note, play_style, scoring_basis, scoring_format, side_pots, stepladder, tracking_mode, updated_at, user_id, winnings"
 grant,tournaments,SELECT,"baker_alternate, baker_partner, baker_starter, bowler_name, buy_in, center, created_at, days, format, handicap, id, match_play, match_play_next_round, name, notes, pin_format, placement, placement_note, play_style, scoring_basis, scoring_format, side_pots, stepladder, tracking_mode, updated_at, user_id, winnings"
 grant,tournaments,UPDATE,"baker_alternate, baker_partner, baker_starter, bowler_name, buy_in, center, created_at, days, format, handicap, id, match_play, match_play_next_round, name, notes, pin_format, placement, placement_note, play_style, scoring_basis, scoring_format, side_pots, stepladder, tracking_mode, updated_at, user_id, winnings"
+grant,user_leagues,INSERT,"created_at, league_id, user_id"
+grant,user_leagues,REFERENCES,"created_at, league_id, user_id"
+grant,user_leagues,SELECT,"created_at, league_id, user_id"
 grant,user_preferences,INSERT,"preferences, updated_at, user_id"
 grant,user_preferences,REFERENCES,"preferences, updated_at, user_id"
 grant,user_preferences,SELECT,"preferences, updated_at, user_id"
@@ -830,6 +841,8 @@ index,teams,teams_league_id_idx,CREATE INDEX teams_league_id_idx ON public.teams
 index,teams,teams_pkey,CREATE UNIQUE INDEX teams_pkey ON public.teams USING btree (id)
 index,tournaments,tournaments_pkey,CREATE UNIQUE INDEX tournaments_pkey ON public.tournaments USING btree (id)
 index,tournaments,tournaments_user_bowler_idx,"CREATE INDEX tournaments_user_bowler_idx ON public.tournaments USING btree (user_id, bowler_name)"
+index,user_leagues,user_leagues_league_id_idx,CREATE INDEX user_leagues_league_id_idx ON public.user_leagues USING btree (league_id)
+index,user_leagues,user_leagues_pkey,"CREATE UNIQUE INDEX user_leagues_pkey ON public.user_leagues USING btree (user_id, league_id)"
 index,user_preferences,user_preferences_pkey,CREATE UNIQUE INDEX user_preferences_pkey ON public.user_preferences USING btree (user_id)
 index,user_preferences,user_preferences_user_id_key,CREATE UNIQUE INDEX user_preferences_user_id_key ON public.user_preferences USING btree (user_id)
 policy,arsenals,teammates can view each other's arsenal entries,"SELECT :: using (EXISTS ( SELECT 1
@@ -1010,6 +1023,9 @@ policy,tournaments,users can delete their own tournaments,DELETE :: using (user_
 policy,tournaments,users can insert their own tournaments,INSERT :: no using :: check (user_id = auth.uid()) :: to authenticated
 policy,tournaments,users can update their own tournaments,UPDATE :: using (user_id = auth.uid()) :: check (user_id = auth.uid()) :: to authenticated
 policy,tournaments,users can view their own tournaments,SELECT :: using (user_id = auth.uid()) :: check none :: to authenticated
+policy,user_leagues,bowlers add to their own league list,INSERT :: no using :: check (user_id = auth.uid()) :: to authenticated
+policy,user_leagues,bowlers remove from their own league list,DELETE :: using (user_id = auth.uid()) :: check none :: to authenticated
+policy,user_leagues,bowlers see their own league list,SELECT :: using (user_id = auth.uid()) :: check none :: to authenticated
 policy,user_preferences,users can insert their own preferences,INSERT :: no using :: check (user_id = auth.uid()) :: to authenticated
 policy,user_preferences,users can update their own preferences,UPDATE :: using (user_id = auth.uid()) :: check (user_id = auth.uid()) :: to authenticated
 policy,user_preferences,users can view their own preferences,SELECT :: using (user_id = auth.uid()) :: check none :: to authenticated
@@ -1050,9 +1066,14 @@ rls,sync_tombstones,enabled,""
 rls,team_members,enabled,""
 rls,teams,enabled,""
 rls,tournaments,enabled,""
+rls,user_leagues,enabled,""
 rls,user_preferences,enabled,""
 trigger,entitlements,entitlements_set_updated_at,set_updated_at
+trigger,leagues,leagues_add_creator,user_leagues_from_row
+trigger,manual_scores,manual_scores_add_league,user_leagues_from_row
+trigger,sessions,sessions_add_league,user_leagues_from_row
 trigger,sessions,sessions_record_tombstone,record_tombstone
 trigger,sessions,sessions_set_updated_at,set_updated_at
 trigger,shots,shots_record_tombstone,record_tombstone
 trigger,shots,shots_set_updated_at,set_updated_at
+trigger,team_members,team_members_add_league,user_leagues_from_row

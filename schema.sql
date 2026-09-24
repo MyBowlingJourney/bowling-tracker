@@ -501,6 +501,11 @@ CREATE TABLE IF NOT EXISTS public.tournaments (
   match_play_next_round text,
   baker_alternate boolean DEFAULT true NOT NULL
 );
+CREATE TABLE IF NOT EXISTS public.user_leagues (
+  user_id uuid NOT NULL,
+  league_id uuid NOT NULL,
+  created_at timestamp with time zone DEFAULT now() NOT NULL
+);
 CREATE TABLE IF NOT EXISTS public.user_preferences (
   user_id uuid NOT NULL,
   preferences jsonb DEFAULT '{}'::jsonb NOT NULL,
@@ -646,6 +651,9 @@ ALTER TABLE public.tournaments ADD CONSTRAINT tournaments_pkey PRIMARY KEY (id);
 ALTER TABLE public.tournaments ADD CONSTRAINT tournaments_match_play_next_round_check CHECK (((match_play_next_round IS NULL) OR (match_play_next_round = ANY (ARRAY['match'::text, 'stepladder'::text, 'na'::text]))));
 ALTER TABLE public.tournaments ADD CONSTRAINT tournaments_placement_check CHECK (((placement IS NULL) OR (placement = ANY (ARRAY['won'::text, 'runnerUp'::text, 'topFive'::text, 'cashed'::text, 'madeCut'::text, 'none'::text]))));
 ALTER TABLE public.tournaments ADD CONSTRAINT tournaments_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.user_leagues ADD CONSTRAINT user_leagues_pkey PRIMARY KEY (user_id, league_id);
+ALTER TABLE public.user_leagues ADD CONSTRAINT user_leagues_league_id_fkey FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE;
+ALTER TABLE public.user_leagues ADD CONSTRAINT user_leagues_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.user_preferences ADD CONSTRAINT user_preferences_pkey PRIMARY KEY (user_id);
 ALTER TABLE public.user_preferences ADD CONSTRAINT user_preferences_user_id_key UNIQUE (user_id);
 ALTER TABLE public.user_preferences ADD CONSTRAINT user_preferences_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
@@ -698,6 +706,7 @@ CREATE INDEX sync_tombstones_lookup_idx ON public.sync_tombstones USING btree (t
 CREATE INDEX team_members_user_id_idx ON public.team_members USING btree (user_id);
 CREATE INDEX teams_league_id_idx ON public.teams USING btree (league_id);
 CREATE INDEX tournaments_user_bowler_idx ON public.tournaments USING btree (user_id, bowler_name);
+CREATE INDEX user_leagues_league_id_idx ON public.user_leagues USING btree (league_id);
 ALTER TABLE public.ai_token_usage ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.api_usage ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.arsenals ENABLE ROW LEVEL SECURITY;
@@ -735,6 +744,7 @@ ALTER TABLE public.sync_tombstones ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.team_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.teams ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tournaments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_leagues ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_preferences ENABLE ROW LEVEL SECURITY;
 CREATE POLICY 'teammates can view each other''s arsenal entries' ON public.arsenals FOR SELECT TO authenticated
   USING ((EXISTS ( SELECT 1
@@ -1084,6 +1094,12 @@ CREATE POLICY 'users can update their own tournaments' ON public.tournaments FOR
   WITH CHECK ((user_id = auth.uid()));
 CREATE POLICY 'users can view their own tournaments' ON public.tournaments FOR SELECT TO authenticated
   USING ((user_id = auth.uid()));
+CREATE POLICY 'bowlers add to their own league list' ON public.user_leagues FOR INSERT TO authenticated
+  WITH CHECK ((user_id = auth.uid()));
+CREATE POLICY 'bowlers remove from their own league list' ON public.user_leagues FOR DELETE TO authenticated
+  USING ((user_id = auth.uid()));
+CREATE POLICY 'bowlers see their own league list' ON public.user_leagues FOR SELECT TO authenticated
+  USING ((user_id = auth.uid()));
 CREATE POLICY 'users can insert their own preferences' ON public.user_preferences FOR INSERT TO authenticated
   WITH CHECK ((user_id = auth.uid()));
 CREATE POLICY 'users can update their own preferences' ON public.user_preferences FOR UPDATE TO authenticated
@@ -1092,7 +1108,11 @@ CREATE POLICY 'users can update their own preferences' ON public.user_preference
 CREATE POLICY 'users can view their own preferences' ON public.user_preferences FOR SELECT TO authenticated
   USING ((user_id = auth.uid()));
 CREATE TRIGGER entitlements_set_updated_at BEFORE UPDATE ON public.entitlements FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER leagues_add_creator AFTER INSERT ON public.leagues FOR EACH ROW EXECUTE FUNCTION user_leagues_from_row();
+CREATE TRIGGER manual_scores_add_league AFTER INSERT OR UPDATE OF league_id ON public.manual_scores FOR EACH ROW EXECUTE FUNCTION user_leagues_from_row();
+CREATE TRIGGER sessions_add_league AFTER INSERT OR UPDATE OF league_id ON public.sessions FOR EACH ROW EXECUTE FUNCTION user_leagues_from_row();
 CREATE TRIGGER sessions_record_tombstone AFTER DELETE ON public.sessions FOR EACH ROW EXECUTE FUNCTION record_tombstone();
 CREATE TRIGGER sessions_set_updated_at BEFORE UPDATE ON public.sessions FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER shots_record_tombstone AFTER DELETE ON public.shots FOR EACH ROW EXECUTE FUNCTION record_tombstone();
 CREATE TRIGGER shots_set_updated_at BEFORE UPDATE ON public.shots FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER team_members_add_league AFTER INSERT ON public.team_members FOR EACH ROW EXECUTE FUNCTION user_leagues_from_row();
