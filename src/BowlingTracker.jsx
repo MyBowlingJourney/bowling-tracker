@@ -9064,6 +9064,7 @@ export default function BowlingTracker(){
               // "between seasons" instead of labelling every league night
               // ever bowled as the current one.
               leagueDates={leagueDates}
+              leagueFormats={leagueFormats}
 
               today={localDateString()}
               onPickMode={env=>{

@@ -283,3 +283,28 @@ describe('activeSeasonWindow', () => {
     expect(w.label).toBe('Thursday');
   });
 });
+
+describe('seasonFigures: 9-pin no-tap leagues', () => {
+  const nights = [
+    { bowler: 'Ryan', league: 'Tuesday Classic', date: '2026-09-01', scores: [279, 240, 229] },
+    { bowler: 'Ryan', league: 'No Tap Night', date: '2026-09-02', scores: [300, 290, 280] },
+  ];
+
+  // A no-tap 300 is not a 300.
+  it('keeps no-tap games out of high game and high series', () => {
+    const f = seasonFigures(nights, { bowler: 'Ryan', noTapLeagues: ['No Tap Night'] });
+    expect(f.highGame).toBe(279);
+    expect(f.highSeries).toBe(748);
+  });
+
+  it('still counts them in the league average', () => {
+    const f = seasonFigures(nights, { bowler: 'Ryan', noTapLeagues: ['No Tap Night'] });
+    expect(f.games).toBe(6);
+    expect(f.average).toBe(269.6);
+  });
+
+  it('treats every league as ten-pin when no formats are given', () => {
+    const f = seasonFigures(nights, { bowler: 'Ryan' });
+    expect(f.highGame).toBe(300);
+  });
+});

@@ -43,6 +43,9 @@ export default function HomeView({
   sessions = [], shots = [], tournaments = [], bowler = "",
   leagues = [], onOpenJourney, onOpenStats, onPickMode, badgeCount = 0,
   today = "", onOpenNight, leagueDates = {}, userId = "",
+  // { leagueName: "tenpin" | "notap9" } -- no-tap leagues are left out of
+  // high game and high series (seasonFigures).
+  leagueFormats = {},
 }) {
   // Home fits between the header and the bottom nav, with no scrolling.
   //
@@ -168,6 +171,7 @@ export default function HomeView({
     // different discipline -- but a scratch ten-pin event can hold the
     // record, and a three-game one can hold the series too.
     tournamentRecords: scratchRecordLeagues(tournaments, userId),
+    noTapLeagues: Object.keys(leagueFormats || {}).filter(n => leagueFormats[n] === "notap9"),
   });
   // Distinct seasons behind a career figure, for "96 games - 4 seasons".
   const careerSeasons = seasonWindow.inSeason ? 0 : (() => {
@@ -188,7 +192,11 @@ export default function HomeView({
   const scopeLabel = seasonWindow.inSeason
     ? (seasonWindow.label || "League season")
     : (seasonWindow.configured ? "Between seasons" : "All league play");
-  const averageCaption = seasonWindow.inSeason ? "season average" : "lifetime average";
+  // The heading says LEAGUE average, because that is all it is: practice,
+  // open bowling and tournaments never count toward it (seasonFigures).
+  // High game and series beside it can come from a scratch ten-pin
+  // tournament too, so the word belongs on the average alone.
+  const averageCaption = seasonWindow.inSeason ? "this season" : "career";
   const countLabel = !figures.games ? "No games yet"
     : seasonWindow.inSeason ? `${figures.games} games logged`
     : `${figures.games} games${careerSeasons > 1 ? ` · ${careerSeasons} seasons` : ""}`;
@@ -265,7 +273,7 @@ export default function HomeView({
                 hold "HIGH SERIES" on one line; stacked, its number sat
                 lower than High game's and the pair no longer lined up. */}
             <div style={{minWidth:0,flex:"1 1 0"}}>
-              <div style={{fontSize:"11px",fontWeight:800,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted}}>Average</div>
+              <div style={{fontSize:"11px",fontWeight:800,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted}}>League average</div>
               <div style={{fontFamily:"Roboto Condensed, Archivo, system-ui, sans-serif",fontSize:density>=2?"30px":density===1?"35px":"40px",fontWeight:800,lineHeight:.95,letterSpacing:"-0.045em",color:C.text}}>{figures.average ?? "—"}</div>
               <div style={{fontSize:"12px",color:C.textMuted,marginTop:"3px"}}>{averageCaption}</div>
             </div>

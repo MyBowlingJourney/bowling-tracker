@@ -53,8 +53,12 @@ export function sessionIsLive(shots, opts) {
 // Returns nulls rather than zeroes when there is nothing yet. A zero
 // average reads as terrible bowling; a blank reads as a new season.
 export function seasonFigures(sessions, opts) {
-  const { bowler, leagues, since, until, tournamentRecords } =
+  const { bowler, leagues, since, until, tournamentRecords, noTapLeagues } =
     (opts && typeof opts === "object") ? opts : {};
+  // 9-pin no-tap leagues count toward the league average but never toward
+  // high game or high series: a no-tap 300 is not a 300. Records are
+  // ten-pin only, the same rule tournaments already follow.
+  const noTap = new Set((noTapLeagues ? [...noTapLeagues] : []).map(clean));
   const who = clean(bowler);
   const inScope = rows(sessions).filter(s => {
     if (who && clean(s.bowler) !== who) return false;
@@ -111,8 +115,9 @@ export function seasonFigures(sessions, opts) {
   // tournament games that qualify. The AVERAGE below still uses `games`
   // alone -- a scratch block averaged into a house-shot season produces
   // a number that describes neither.
+  const tenPinLeagueNights = inScope.filter(s => !noTap.has(clean(s.league)));
   const recordGames = [
-    ...games,
+    ...tenPinLeagueNights.flatMap(scoresOf),
     ...tournamentScope
       .filter(s => eligible(recordSets?.forGame, s.league))
       .flatMap(scoresOf),
@@ -124,7 +129,7 @@ export function seasonFigures(sessions, opts) {
     };
   }
 
-  const seriesTotals = [...inScope, ...tournamentScope.filter(s => eligible(recordSets?.forSeries, s.league))]
+  const seriesTotals = [...tenPinLeagueNights, ...tournamentScope.filter(s => eligible(recordSets?.forSeries, s.league))]
     .map(s => scoresOf(s))
     // A series is a full night, not a partial one -- a two-game night
     // would otherwise look like a poor three-game series.
