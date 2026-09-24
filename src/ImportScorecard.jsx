@@ -338,6 +338,7 @@ export default function ImportScorecard({
   // nothing, and the next step was somewhere the bowler had to go
   // looking for.
   const readBtnRef=useRef(null);
+  const hadImages=useRef(false);
   const[contextTeamId,setContextTeamId]=useState(initialTeam?.id||"");
   const contextTeam=teamsForImport.find(t=>t.id===contextTeamId)||initialTeam||null;
   const selectedTournament=(tournaments||[]).find(t=>t.id===contextTournamentId)||null;
@@ -465,14 +466,35 @@ export default function ImportScorecard({
         return;
       }
       setImages(withData);
-      // After the paint, not with it: the button is only rendered once
-      // images exist, and the thumbnails above it change the page height.
-      requestAnimationFrame(()=>
-        readBtnRef.current?.scrollIntoView({behavior:"smooth",block:"center"}));
     }catch(e){
       setError(e.message||"Couldn't read the selected images.");
     }
   }
+
+  // Bring the read button into view once there is something to read.
+  //
+  // Only on the 0 -> some transition: scrolling again when a second photo
+  // is added, or when one is removed, would yank the page while the
+  // bowler is working through their thumbnails.
+  //
+  // The timeout is for the webview, not for React. Returning from the
+  // system file picker, Android restores the scroll position it left --
+  // sometimes after the next paint -- so a scroll issued in the same
+  // frame gets undone. A beat later it sticks.
+  useEffect(()=>{
+    const has=images.length>0;
+    const was=hadImages.current;
+    hadImages.current=has;
+    if(!has||was)return;
+    const t=setTimeout(()=>{
+      const el=readBtnRef.current;
+      if(!el||typeof el.scrollIntoView!=="function")return;
+      const reduced=typeof window!=="undefined"&&window.matchMedia
+        ?window.matchMedia("(prefers-reduced-motion: reduce)").matches:false;
+      el.scrollIntoView({behavior:reduced?"auto":"smooth",block:"center"});
+    },150);
+    return()=>clearTimeout(t);
+  },[images.length]);
 
   // Converts ONE bowler's column into this app's shot/score records.
   //
