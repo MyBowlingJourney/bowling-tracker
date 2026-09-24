@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { C, F } from "./ui.jsx";
 
 // The header's ☰ menu: help search at the top, then Profile and Settings.
@@ -11,6 +12,15 @@ import { C, F } from "./ui.jsx";
 // The search box is live the moment the menu opens. Enter (or the
 // arrow) opens Help with what was typed already searched; an empty
 // submit opens Help's full index, which is what the old 🔍 button did.
+// ── Portalled to <body>, on purpose ─────────────────────────────────
+//
+// This renders inside the app header, and the header has a
+// backdrop-filter (its frosted blur). backdrop-filter makes an element
+// the CONTAINING BLOCK for every position:fixed descendant -- so the
+// "full-screen" tap-to-close layer was only ever as big as the header.
+// Tapping the screen below went straight through to the app, and the
+// panel stayed open on top of it. Rendering the overlay at the root of
+// the document puts it back in the viewport, where fixed means fixed.
 export default function HeaderMenu({ onSearch, onOpenProfile, onOpenSettings }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -72,7 +82,7 @@ export default function HeaderMenu({ onSearch, onOpenProfile, onOpenSettings }) 
         </svg>
       </button>
 
-      {open && (
+      {open && typeof document !== "undefined" && createPortal(
         <>
           {/* Tap anywhere else to close. Dimmed lightly so the menu reads
               as on top of the screen, not part of it. */}
@@ -105,7 +115,8 @@ export default function HeaderMenu({ onSearch, onOpenProfile, onOpenSettings }) 
             <Row icon="⚙️" label="Settings" detail="Theme, stats cards, account"
               onClick={() => go(onOpenSettings)} />
           </div>
-        </>
+        </>,
+        document.body
       )}
     </>
   );

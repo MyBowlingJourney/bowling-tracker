@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { C, S, AiNote } from "./ui.jsx";
 import { reviewAiOutput, overreachNote } from "./domain/aiGuard.js";
 
@@ -254,15 +255,22 @@ export default function BowlingGenie({
           Transparent rather than dimmed: this is a small panel over a
           working screen, not a modal, and darkening everything would
           overstate it. */}
-      {open && (
+      {/* Both the tap-away layer and the panel are portalled to <body>.
+          The lamp sits in the app header, whose backdrop-filter makes it
+          the containing block for position:fixed children -- so the
+          "full-screen" layer only covered the header, taps below it
+          reached the app, and the panel never closed. At the document
+          root, fixed means the viewport again. */}
+      {open && typeof document !== "undefined" && createPortal(
         <div
           onClick={() => setOpen(false)}
           aria-hidden="true"
           style={{ position: "fixed", inset: 0, zIndex: 199 }}
-        />
+        />,
+        document.body
       )}
 
-      {open && (
+      {open && typeof document !== "undefined" && createPortal(
         <div style={{
           position: "fixed", left: "12px", right: "12px",
           ...(inHeader ? {
@@ -382,6 +390,8 @@ export default function BowlingGenie({
             </div>
           )}
         </div>
+        ,
+        document.body
       )}
     </>
   );
