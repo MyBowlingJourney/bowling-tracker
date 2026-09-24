@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { C, S, Chip, PinDeck, CollapsibleCard, resultSym, AiNote } from "./ui.jsx";
 import { formatDate, RESULTS, localDateString, PRACTICE_SESSION_KEY, tournamentLeagueCloudName } from "./constants.js";
 import { reconcileTenth } from "./domain/scorecardImport.js";
@@ -330,15 +330,6 @@ export default function ImportScorecard({
   // show frames escalates to the detailed model, and a frame read on a
   // card with no frame detail keeps the scores it got.
   const[cardType,setCardType]=useState("totals");
-  // The read button, so choosing a photo can scroll it into view.
-  //
-  // On a phone the file picker returns to a screen where the button is
-  // below the fold, behind the thumbnails and the size note that only
-  // appear once an image exists -- so the app looked like it had done
-  // nothing, and the next step was somewhere the bowler had to go
-  // looking for.
-  const readBtnRef=useRef(null);
-  const hadImages=useRef(false);
   const[contextTeamId,setContextTeamId]=useState(initialTeam?.id||"");
   const contextTeam=teamsForImport.find(t=>t.id===contextTeamId)||initialTeam||null;
   const selectedTournament=(tournaments||[]).find(t=>t.id===contextTournamentId)||null;
@@ -470,31 +461,6 @@ export default function ImportScorecard({
       setError(e.message||"Couldn't read the selected images.");
     }
   }
-
-  // Bring the read button into view once there is something to read.
-  //
-  // Only on the 0 -> some transition: scrolling again when a second photo
-  // is added, or when one is removed, would yank the page while the
-  // bowler is working through their thumbnails.
-  //
-  // The timeout is for the webview, not for React. Returning from the
-  // system file picker, Android restores the scroll position it left --
-  // sometimes after the next paint -- so a scroll issued in the same
-  // frame gets undone. A beat later it sticks.
-  useEffect(()=>{
-    const has=images.length>0;
-    const was=hadImages.current;
-    hadImages.current=has;
-    if(!has||was)return;
-    const t=setTimeout(()=>{
-      const el=readBtnRef.current;
-      if(!el||typeof el.scrollIntoView!=="function")return;
-      const reduced=typeof window!=="undefined"&&window.matchMedia
-        ?window.matchMedia("(prefers-reduced-motion: reduce)").matches:false;
-      el.scrollIntoView({behavior:reduced?"auto":"smooth",block:"center"});
-    },150);
-    return()=>clearTimeout(t);
-  },[images.length]);
 
   // Converts ONE bowler's column into this app's shot/score records.
   //
@@ -1192,10 +1158,42 @@ export default function ImportScorecard({
                 </div>
               );
             })()}
-            <button ref={readBtnRef} style={S.btn("primary")} disabled={!contextLeague||!images.length} onClick={handleExtract}>
-              {cardType==="frames"?"Read Frames":"Read Scores"}
-            </button>
+            {/* Inline ONLY while there is nothing to read.
+                
+                Once an image is chosen the button moves to the fixed bar
+                below, so it is never below the fold. Scrolling to it was
+                tried twice and did not hold: the file picker returns with
+                Android restoring its own scroll position, and a page that
+                jumps on its own is the wrong answer to "where did the
+                button go" anyway. A bar that is always there needs no
+                timing at all. */}
+            {!images.length&&(
+              <button style={S.btn("primary")} disabled onClick={handleExtract}>
+                {cardType==="frames"?"Read Frames":"Read Scores"}
+              </button>
+            )}
           </div>
+
+          {/* Clears the fixed bar, so the last card is not under it. */}
+          {images.length>0&&<div style={{height:"76px"}}/>}
+
+          {/* ABOVE the bottom nav, not under it.
+              
+              The nav is fixed at bottom:0 with zIndex 100, so a bar also
+              at bottom:0 renders behind it and the button looks like it
+              vanished -- the trap LogView's own sticky bar documents.
+              64px clears the nav; the safe-area inset clears the home
+              indicator underneath it. */}
+          {images.length>0&&(
+            <div style={{position:"fixed",bottom:"calc(64px + env(safe-area-inset-bottom, 0px))",
+              left:0,right:0,zIndex:50,padding:"10px 14px",
+              backgroundColor:C.bg,borderTop:`1px solid ${C.border}`}}>
+              <button style={{...S.btn("primary"),width:"100%"}}
+                disabled={!contextLeague} onClick={handleExtract}>
+                {cardType==="frames"?"Read Frames":"Read Scores"}
+              </button>
+            </div>
+          )}
         </>
       )}
 
