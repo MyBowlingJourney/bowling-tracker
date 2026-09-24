@@ -120,6 +120,14 @@ column,closed_seasons,id,uuid NOT NULL
 column,closed_seasons,league,text NOT NULL
 column,closed_seasons,start_date,date NOT NULL
 column,closed_seasons,user_id,uuid NOT NULL
+column,coaching_invites,accepted_at,timestamp with time zone
+column,coaching_invites,accepted_user_id,uuid
+column,coaching_invites,code,text
+column,coaching_invites,code_expires_at,timestamp with time zone NOT NULL
+column,coaching_invites,created_at,timestamp with time zone NOT NULL
+column,coaching_invites,created_by,uuid NOT NULL
+column,coaching_invites,id,uuid NOT NULL
+column,coaching_invites,inviter_is_coach,boolean NOT NULL
 column,coaching_notes,author_id,uuid NOT NULL
 column,coaching_notes,body,text NOT NULL
 column,coaching_notes,created_at,timestamp with time zone NOT NULL
@@ -467,6 +475,9 @@ constraint,closed_seasons,closed_seasons_check,CHECK ((end_date >= start_date))
 constraint,closed_seasons,closed_seasons_pkey,PRIMARY KEY (id)
 constraint,closed_seasons,closed_seasons_user_id_fkey,FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
 constraint,closed_seasons,closed_seasons_user_id_league_end_date_key,"UNIQUE (user_id, league, end_date)"
+constraint,coaching_invites,coaching_invites_accepted_user_id_fkey,FOREIGN KEY (accepted_user_id) REFERENCES auth.users(id) ON DELETE SET NULL
+constraint,coaching_invites,coaching_invites_created_by_fkey,FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE CASCADE
+constraint,coaching_invites,coaching_invites_pkey,PRIMARY KEY (id)
 constraint,coaching_notes,coaching_notes_author_id_fkey,FOREIGN KEY (author_id) REFERENCES auth.users(id) ON DELETE CASCADE
 constraint,coaching_notes,coaching_notes_pkey,PRIMARY KEY (id)
 constraint,coaching_notes,coaching_notes_relationship_id_fkey,FOREIGN KEY (relationship_id) REFERENCES coaching_relationships(id) ON DELETE CASCADE
@@ -563,6 +574,7 @@ constraint,user_preferences,user_preferences_user_id_key,UNIQUE (user_id)
 function,accept_team_invite,invite_id uuid,boolean security definer
 function,are_friends,other_user uuid,boolean security definer
 function,check_api_rate_limit,"p_endpoint text, p_limit integer, p_window interval",boolean security definer
+function,claim_coaching_code,code text,uuid security definer
 function,claim_signup_code,code text,uuid security definer
 function,cleanup_orphaned_groups,"","TABLE(deleted_teams integer, deleted_leagues integer) security definer"
 function,coached_bowler_handedness,"","TABLE(bowler_user_id uuid, bowler_name text, left_handed boolean) security definer"
@@ -625,6 +637,7 @@ grant,bowling_centers,UPDATE,"address, city, country, created_at, created_by, fr
 grant,closed_seasons,INSERT,"closed_at, created_at, end_date, id, league, start_date, user_id"
 grant,closed_seasons,REFERENCES,"closed_at, created_at, end_date, id, league, start_date, user_id"
 grant,closed_seasons,SELECT,"closed_at, created_at, end_date, id, league, start_date, user_id"
+grant,coaching_invites,REFERENCES,"accepted_at, accepted_user_id, code, code_expires_at, created_at, created_by, id, inviter_is_coach"
 grant,coaching_notes,INSERT,"author_id, body, created_at, id, relationship_id"
 grant,coaching_notes,REFERENCES,"author_id, body, created_at, id, relationship_id"
 grant,coaching_notes,SELECT,"author_id, body, created_at, id, relationship_id"
@@ -744,6 +757,9 @@ index,bowling_centers,bowling_centers_pkey,CREATE UNIQUE INDEX bowling_centers_p
 index,closed_seasons,closed_seasons_pkey,CREATE UNIQUE INDEX closed_seasons_pkey ON public.closed_seasons USING btree (id)
 index,closed_seasons,closed_seasons_user_id_league_end_date_key,"CREATE UNIQUE INDEX closed_seasons_user_id_league_end_date_key ON public.closed_seasons USING btree (user_id, league, end_date)"
 index,closed_seasons,closed_seasons_user_league_idx,"CREATE INDEX closed_seasons_user_league_idx ON public.closed_seasons USING btree (user_id, league, end_date DESC)"
+index,coaching_invites,coaching_invites_code_open_idx,CREATE UNIQUE INDEX coaching_invites_code_open_idx ON public.coaching_invites USING btree (code) WHERE ((code IS NOT NULL) AND (accepted_at IS NULL))
+index,coaching_invites,coaching_invites_created_by_idx,CREATE INDEX coaching_invites_created_by_idx ON public.coaching_invites USING btree (created_by)
+index,coaching_invites,coaching_invites_pkey,CREATE UNIQUE INDEX coaching_invites_pkey ON public.coaching_invites USING btree (id)
 index,coaching_notes,coaching_notes_pkey,CREATE UNIQUE INDEX coaching_notes_pkey ON public.coaching_notes USING btree (id)
 index,coaching_notes,coaching_notes_relationship_idx,CREATE INDEX coaching_notes_relationship_idx ON public.coaching_notes USING btree (relationship_id)
 index,coaching_relationships,coaching_relationships_coach_id_bowler_id_key,"CREATE UNIQUE INDEX coaching_relationships_coach_id_bowler_id_key ON public.coaching_relationships USING btree (coach_id, bowler_id)"
@@ -878,6 +894,9 @@ policy,bowling_centers,signed-in users can add centers,INSERT :: no using :: che
 policy,closed_seasons,own closed seasons: delete,DELETE :: using (user_id = auth.uid()) :: check none :: to authenticated
 policy,closed_seasons,own closed seasons: insert,INSERT :: no using :: check (user_id = auth.uid()) :: to authenticated
 policy,closed_seasons,own closed seasons: select,SELECT :: using (user_id = auth.uid()) :: check none :: to authenticated
+policy,coaching_invites,creators revoke their own coaching invites,DELETE :: using ((created_by = auth.uid()) AND (accepted_at IS NULL)) :: check none :: to authenticated
+policy,coaching_invites,creators see their own coaching invites,SELECT :: using (created_by = auth.uid()) :: check none :: to authenticated
+policy,coaching_invites,users create their own coaching invites,INSERT :: no using :: check (created_by = auth.uid()) :: to authenticated
 policy,coaching_notes,authors can delete their own notes,DELETE :: using (author_id = auth.uid()) :: check none :: to authenticated
 policy,coaching_notes,authors can edit their own notes,UPDATE :: using (author_id = auth.uid()) :: check (author_id = auth.uid()) :: to authenticated
 policy,coaching_notes,both sides can view notes,"SELECT :: using (EXISTS ( SELECT 1
@@ -1007,6 +1026,7 @@ rls,bowler_names,enabled,""
 rls,bowler_profiles,enabled,""
 rls,bowling_centers,enabled,""
 rls,closed_seasons,enabled,""
+rls,coaching_invites,enabled,""
 rls,coaching_notes,enabled,""
 rls,coaching_relationships,enabled,""
 rls,coaching_tasks,enabled,""
