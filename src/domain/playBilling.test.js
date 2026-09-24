@@ -95,7 +95,10 @@ describe('billing period', () => {
   // A base plan id one character off must be null, not a guess. Null
   // makes shouldOfferAnnual() silent; a guess makes it wrong.
   it('is null for anything else', () => {
-    expect(billingPeriodFor('monthly')).toBe(null);
+    // Near misses of the real ids: case, a trailing space, a truncation.
+    expect(billingPeriodFor('Monthly')).toBe(null);
+    expect(billingPeriodFor('monthly ')).toBe(null);
+    expect(billingPeriodFor('month')).toBe(null);
     expect(billingPeriodFor('')).toBe(null);
     expect(billingPeriodFor(null)).toBe(null);
     expect(billingPeriodFor('constructor')).toBe(null);
