@@ -1186,7 +1186,7 @@ const SCREENS = {
           }}>Connect</span>
         </div>
       </div>
-      <Note up={false}>No names, so no wrong Mike Smith</Note>
+      <Note up={false}>Works once, on their phone</Note>
       <Nav active={3} />
     </Phone>
   ),
