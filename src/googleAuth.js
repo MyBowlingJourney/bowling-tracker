@@ -203,6 +203,15 @@ export async function signInWithGoogle() {
       // RAW here, hashed above. Not interchangeable -- see the header.
       nonce: raw,
     });
+    // Google said yes and Supabase said no -- a nonce or audience mismatch
+    // lands here, not in the catch below. Logged for the same reason.
+    if (error) {
+      recordError({
+        kind: "unhandled",
+        where: "googleAuth.signInWithIdToken",
+        message: `${error.status ? `${error.status}: ` : ""}${error.message || String(error)}`.slice(0, 300),
+      });
+    }
     return { error: error || null };
   } catch (e) {
     // A cancelled sign-in is not an error worth showing. The bowler

@@ -4,7 +4,7 @@
 // domain/errorLog.js and is tested there. This file is only the parts
 // that need a browser: storage, window handlers, and working out which
 // build is running.
-import { addEntry, formatForCopy, summarise } from "./domain/errorLog.js";
+import { addEntry, formatForCopy, summarise, signatureOf } from "./domain/errorLog.js";
 import { reportError } from "./errorReport.js";
 
 // Scoped per user by the storage wrapper, like every other key. One
@@ -27,14 +27,55 @@ export function buildId() {
   } catch { return ""; }
 }
 
+function parseList(row) {
+  if (!row) return [];
+  try {
+    const parsed = JSON.parse(row.value);
+    return Array.isArray(parsed) ? parsed.filter(e => e && typeof e === "object") : [];
+  } catch { return []; }
+}
+
+// This user's log only -- what recordError reads before merging a new
+// entry in, so writes never copy pre-sign-in entries into a user's scope.
 async function readRaw() {
   if (typeof window === "undefined" || !window.storage) return [];
-  try {
-    const row = await window.storage.get(ERROR_LOG_KEY);
-    if (!row) return [];
-    const parsed = JSON.parse(row.value);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch { return []; }
+  try { return parseList(await window.storage.get(ERROR_LOG_KEY)); }
+  catch { return []; }
+}
+
+// Errors recorded while nobody is signed in.
+//
+// With no active user the storage wrapper writes to the plain, unscoped
+// key -- there is no one to scope it to. The moment anyone signs in,
+// every read goes through u:<id>:bowling-error-log-v1 instead, and those
+// entries became invisible.
+//
+// That hid exactly the errors that matter most on the sign-in screen: a
+// failed Google sign-in is recorded signed-out by definition, and the
+// bowler then gets in by email code and opens Diagnostics to find
+// "entries: 0". Read here, straight from the unwrapped store, so they
+// show up alongside the signed-in user's own.
+//
+// Read-only. Moving them into a user's scope is adoptLegacyData's job,
+// once per device; doing it here as well would race that.
+async function readSignedOut() {
+  if (typeof window === "undefined" || !window.storage) return [];
+  const base = window.storage.__base;
+  // No wrapper (tests, or before install): window.storage IS the plain
+  // store, and readRaw already returned these.
+  if (!base || base === window.storage || typeof base.get !== "function") return [];
+  try { return parseList(await base.get(ERROR_LOG_KEY)); }
+  catch { return []; }
+}
+
+// Both logs, newest first. Signed out, the two reads hit the same key, so
+// the signature check keeps one copy of each entry rather than two.
+async function readAll() {
+  const [mine, signedOut] = await Promise.all([readRaw(), readSignedOut()]);
+  if (!signedOut.length) return mine;
+  const seen = new Set(mine.map(signatureOf));
+  return [...mine, ...signedOut.filter(e => !seen.has(signatureOf(e)))]
+    .sort((a, b) => (b.last || 0) - (a.last || 0));
 }
 
 // Writes are serialised through this chain.
@@ -93,7 +134,7 @@ async function settled() {
 
 export async function readErrorLog() {
   await settled();
-  return readRaw();
+  return readAll();
 }
 
 export async function errorLogSummary() {
@@ -111,6 +152,12 @@ export async function clearErrorLog() {
   try {
     if (typeof window === "undefined" || !window.storage) return;
     await window.storage.delete(ERROR_LOG_KEY);
+    // And the signed-out log, or cleared entries reappear on the next
+    // read (see readSignedOut).
+    const base = window.storage.__base;
+    if (base && base !== window.storage && typeof base.delete === "function") {
+      await base.delete(ERROR_LOG_KEY);
+    }
   } catch { /* nothing to do */ }
 }
 
