@@ -1,4 +1,5 @@
 {
   "accepted_at": "Database column on pending_invites, set server-side when an invite is claimed. Read from rows in inbox.js and TeamManagement.jsx; nothing in src/ writes it, and nothing should. A true false positive.",
-  "readAsDataURL": "Not an app data field -- a method on the browser's built-in FileReader, called in src/ShareButton.jsx to convert a rendered share card into base64 for Capacitor's Filesystem plugin. Nothing 'writes' it because there is nothing to write; it ships with every browser."
+  "readAsDataURL": "Not an app data field -- a method on the browser's built-in FileReader, called in src/ShareButton.jsx to convert a rendered share card into base64 for Capacitor's Filesystem plugin. Nothing 'writes' it because there is nothing to write; it ships with every browser.",
+  "mine_to_answer": "Computed column returned by the my_team_requests() database function (20260925140000_team_joining.sql): true when the open team request or invite is this bowler's to answer. Read in src/TeamManagement.jsx and src/domain/inbox.js; the database computes it, so nothing in src/ writes it. A true false positive."
 }
