@@ -60,3 +60,30 @@ describe("using a note", () => {
     expect(out.games[1].frames[0].balls[2].pinsStanding).toEqual(["4"]);
   });
 });
+
+describe("two screenshots, one note each, no bowler named", () => {
+  const tenth = pins => [B(1, false, ["6"]), B(2, false, []), B(3, false, pins)];
+  it("gives each bowler's game 3 its own 4", () => {
+    const rob = { gameNumber: 3, bowlerName: "Rob Thurs 9/24", frames: [{ frameNumber: 10, balls: tenth(["10"]) }] };
+    const tom = { gameNumber: 3, bowlerName: "Tommy Thurs 9/24", frames: [{ frameNumber: 10, balls: tenth(["10"]) }] };
+    const rob1 = { gameNumber: 1, bowlerName: "Rob Thurs 9/24", frames: [{ frameNumber: 10, balls: [B(1, false, ["8", "10"]), B(2, false, []), B(3, false, ["7", "8", "9"])] }] };
+    const out = applyWrittenNotes([rob1, rob, tom], [
+      { text: "1-3-6", gameNumber: 1 }, { text: "4", gameNumber: 3 }, { text: "4", gameNumber: 3 },
+    ]);
+    expect(out.used).toBe(3);
+    expect(out.games[1].frames[0].balls[2].pinsStanding).toEqual(["4"]);
+    expect(out.games[2].frames[0].balls[2].pinsStanding).toEqual(["4"]);
+  });
+  it("matches a short bowler name", () => {
+    const rob = { gameNumber: 3, bowlerName: "Rob Thurs 9/24", frames: [{ frameNumber: 10, balls: tenth(["10"]) }] };
+    const tom = { gameNumber: 3, bowlerName: "Tommy Thurs 9/24", frames: [{ frameNumber: 10, balls: tenth(["10"]) }] };
+    const out = applyWrittenNotes([rob, tom], [{ text: "4", gameNumber: 3, bowlerName: "Tommy" }]);
+    expect(out.games[0].frames[0].balls[2].pinsStanding).toEqual(["10"]);
+    expect(out.games[1].frames[0].balls[2].pinsStanding).toEqual(["4"]);
+  });
+  it("does not guess with one note and two bowlers who could both take it", () => {
+    const rob = { gameNumber: 3, bowlerName: "Rob", frames: [{ frameNumber: 10, balls: tenth(["10"]) }] };
+    const tom = { gameNumber: 3, bowlerName: "Tommy", frames: [{ frameNumber: 10, balls: tenth(["10"]) }] };
+    expect(applyWrittenNotes([rob, tom], [{ text: "4", gameNumber: 3 }]).used).toBe(0);
+  });
+});
