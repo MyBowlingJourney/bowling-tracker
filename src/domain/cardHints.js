@@ -56,8 +56,8 @@ export const CARD_HINTS = {
   gameByGame: "First, second and third game. Log a few full nights.",
 
   // ── Money ──
-  money: "What you won and paid in. Turn on money games and record a night.",
-  threeSixNine: "3-6-9 and jackpot. Turn on money games and record a night.",
+  money: "What you won and paid in. Turn on side games and record a night.",
+  threeSixNine: "3-6-9 and jackpot. Turn on side games and record a night.",
 
   headlineStats: "Your season at a glance. Log a night.",
 };

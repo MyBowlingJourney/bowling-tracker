@@ -1547,7 +1547,7 @@ anyMoneyGameShown(preferences)&&(()=>{
                   const fmt=v=>`${v<0?"−":""}$${Math.abs(v).toFixed(2)}`;
                   return(
                     <div style={S.card}>
-                      <div style={S.label}>{isTeamView?"Team Money Games":"Money Games"}</div>
+                      <div style={S.label}>{isTeamView?"Team Side Games":"Side Games"}</div>
                       <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"10px"}}>
                         Season totals across every side game — what came in, what it cost to play, and what actually stuck.
                       </div>

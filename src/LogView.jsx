@@ -1250,7 +1250,7 @@ export default function LogView({
                         if(!pots.length)return null;
                         return(
                           <div style={{marginBottom:"12px"}}>
-                            <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"6px"}}>Money games tonight</div>
+                            <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"6px"}}>Side games tonight</div>
                             <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"8px"}}>
                               Tap the ones you're in. Buy-ins are saved for {String(cs.league||"this league").replace(" House Shot","")} — you won't need to enter them again.
                             </div>

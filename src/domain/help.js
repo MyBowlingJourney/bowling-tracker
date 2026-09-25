@@ -58,8 +58,8 @@ export const HELP = [
   {
     id: "money-games",
     view: "log",
-    title: "Money games and buy-ins",
-    keywords: ["poker", "brackets", "side pot", "3-6-9", "high game", "buy in", "winnings"],
+    title: "Side games and buy-ins",
+    keywords: ["poker", "brackets", "side pot", "3-6-9", "high game", "buy in", "winnings", "money", "money games"],
     body: "Buy-ins are saved per league — enter them once and they apply every week. Each night, tap the pots you're actually in; sitting one out costs you nothing. Hide pots your house doesn't run in Settings.",
   },
 
@@ -290,7 +290,7 @@ export const HELP = [
     view: "settings",
     title: "Appearance and settings",
     keywords: ["theme", "dark", "light", "colour", "color", "settings", "reset"],
-    body: "Change the theme in Settings, along with which stats cards you see, which money games are shown, and whether frame tracking fields like ball speed and rev rate appear.",
+    body: "Change the theme in Settings, along with which stats cards you see, which side games are shown, and whether frame tracking fields like ball speed and rev rate appear.",
   },
 ];
 

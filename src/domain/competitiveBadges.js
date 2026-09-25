@@ -90,9 +90,9 @@ export const COMPETITIVE_BADGES = [
 
   // ── League: money ─────────────────────────────────────────────────
   { id: "cashed", emoji: "\u{1F4B5}", name: "Cashed",
-    blurb: "Won a money game.", modes: [LEAGUE] },
+    blurb: "Won a side game.", modes: [LEAGUE] },
   { id: "money-bags", emoji: "\u{1F4B0}", name: "Money bags",
-    blurb: "$100 won in money games, all-time.", modes: [LEAGUE] },
+    blurb: "$100 won in side games, all-time.", modes: [LEAGUE] },
   { id: "locked-in", emoji: "\u{1F512}", name: "Locked in",
     blurb: "Your book average was confirmed at season end.", modes: [LEAGUE] },
 

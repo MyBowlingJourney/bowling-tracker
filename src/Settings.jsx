@@ -1665,7 +1665,7 @@ export default function Settings({
           the next field, so having them present costs little. */}
 
       {showCard("moneyGames") && (
-      <CollapsibleCard title="Money Games" summary={preferences.showMoneyGames ? "Shown" : "Hidden"}
+      <CollapsibleCard title="Side Games" summary={preferences.showMoneyGames ? "Shown" : "Hidden"}
         expanded={expanded.moneyGames} onToggle={() => toggle("moneyGames")}>
         <div style={{ fontSize: "12px", color: C.textMuted, marginBottom: "10px" }}>
           Poker, 3-6-9, and High Game Pot tracking cards on the Log and Data tabs.

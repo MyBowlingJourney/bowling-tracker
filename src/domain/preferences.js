@@ -110,7 +110,7 @@ export const STATS_CARDS = [
   { id: "consistency", label: "Score Consistency" },
   { id: "scoreDistribution", label: "Score Distribution" },
   { id: "gameByGame", label: "Game-by-Game Averages" },
-  { id: "money", label: "Money Games" },
+  { id: "money", label: "Side Games" },
   { id: "threeSixNine", label: "3-6-9 Tracker" },
 ];
 
@@ -327,7 +327,7 @@ export const ENVIRONMENT_DESCRIPTIONS = {
 
   practice: "For working on your game. Drills, frame tracking and every detail field are available, and practice scores stay out of your league averages.",
 
-  league: "For your weekly team night. Your team roster and standings are available, along with money games.",
+  league: "For your weekly team night. Your team roster and standings are available, along with side games.",
 
   tournament: "For higher-stakes competition. Blocks, squads, side pots, brackets, match play and the cut line are all available.",
 

@@ -1910,7 +1910,7 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
       {tab === "brackets" && !canUseBracketsAndSidePots(entitlement) && (
         <LockedNote title="Brackets and side pots">
           Working out brackets and side pots as you go is part of the paid plan.
-          Money games in league stay free.
+          Side games in league stay free.
         </LockedNote>
       )}
       {tab === "brackets" && canUseBracketsAndSidePots(entitlement) && (<>
