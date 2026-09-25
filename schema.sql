@@ -976,6 +976,13 @@ CREATE POLICY 'team members can update their team''s lane patterns' ON public.la
   WITH CHECK (((team_id IS NOT NULL) AND is_team_member(team_id)));
 CREATE POLICY 'team members can view their team''s lane patterns' ON public.lane_patterns FOR SELECT TO authenticated
   USING (((team_id IS NOT NULL) AND is_team_member(team_id)));
+CREATE POLICY 'bowlers in the league can update it' ON public.leagues FOR UPDATE TO authenticated
+  USING ((EXISTS ( SELECT 1
+   FROM user_leagues ul
+  WHERE ((ul.league_id = leagues.id) AND (ul.user_id = auth.uid())))))
+  WITH CHECK ((EXISTS ( SELECT 1
+   FROM user_leagues ul
+  WHERE ((ul.league_id = leagues.id) AND (ul.user_id = auth.uid())))));
 CREATE POLICY 'league members or its creator can update it' ON public.leagues FOR UPDATE TO authenticated
   USING ((is_league_member(id) OR (created_by = auth.uid())))
   WITH CHECK ((is_league_member(id) OR (created_by = auth.uid())));
@@ -1131,6 +1138,7 @@ CREATE POLICY 'users can view their own preferences' ON public.user_preferences 
   USING ((user_id = auth.uid()));
 CREATE TRIGGER entitlements_set_updated_at BEFORE UPDATE ON public.entitlements FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER leagues_add_creator AFTER INSERT ON public.leagues FOR EACH ROW EXECUTE FUNCTION user_leagues_from_row();
+CREATE TRIGGER leagues_rename_guard BEFORE UPDATE OF name ON public.leagues FOR EACH ROW EXECUTE FUNCTION leagues_rename_guard();
 CREATE TRIGGER manual_scores_add_league AFTER INSERT OR UPDATE OF league_id ON public.manual_scores FOR EACH ROW EXECUTE FUNCTION user_leagues_from_row();
 CREATE TRIGGER sessions_add_league AFTER INSERT OR UPDATE OF league_id ON public.sessions FOR EACH ROW EXECUTE FUNCTION user_leagues_from_row();
 CREATE TRIGGER sessions_record_tombstone AFTER DELETE ON public.sessions FOR EACH ROW EXECUTE FUNCTION record_tombstone();
@@ -1138,3 +1146,4 @@ CREATE TRIGGER sessions_set_updated_at BEFORE UPDATE ON public.sessions FOR EACH
 CREATE TRIGGER shots_record_tombstone AFTER DELETE ON public.shots FOR EACH ROW EXECUTE FUNCTION record_tombstone();
 CREATE TRIGGER shots_set_updated_at BEFORE UPDATE ON public.shots FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER team_members_add_league AFTER INSERT ON public.team_members FOR EACH ROW EXECUTE FUNCTION user_leagues_from_row();
+CREATE TRIGGER team_members_one_per_league AFTER INSERT ON public.team_members FOR EACH ROW EXECUTE FUNCTION team_members_one_per_league();

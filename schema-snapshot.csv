@@ -609,11 +609,13 @@ function,is_accepted_coach_of,target_bowler_id uuid,boolean security definer
 function,is_league_member,check_league_id uuid,boolean security definer
 function,is_subscriber,"",boolean security invoker
 function,is_team_member,check_team_id uuid,boolean security definer
-function,join_team_with_code,p_code text,"TABLE(team_id uuid, team_name text, league_id uuid, league_name text) security definer"
+function,join_team_with_code,"p_code text, p_confirm boolean","TABLE(team_id uuid, team_name text, league_id uuid, league_name text, switched_from text, needs_confirm boolean) security definer"
 function,league_matches,p_name text,"TABLE(id uuid, name text, center_id uuid, center_name text, center_city text, center_state text, bowlers integer, mine boolean) security definer"
 function,league_teams,p_league_id uuid,"TABLE(id uuid, name text, bowlers integer, is_member boolean, requested boolean) security definer"
+function,leagues_rename_guard,"",trigger security invoker
 function,merge_into_league,"p_from uuid, p_to uuid",uuid security definer
-function,my_team_requests,"","TABLE(id uuid, team_id uuid, team_name text, league_id uuid, league_name text, user_id uuid, bowler_name text, kind text, created_at timestamp with time zone, mine_to_answer boolean) security definer"
+function,my_team_in_league,"p_user uuid, p_league uuid, p_except uuid",text security definer
+function,my_team_requests,"","TABLE(id uuid, team_id uuid, team_name text, league_id uuid, league_name text, user_id uuid, bowler_name text, kind text, created_at timestamp with time zone, mine_to_answer boolean, current_team text) security definer"
 function,new_team_code,"",text security definer
 function,next_lineup_position,p_team_id uuid,integer security definer
 function,prune_ai_token_usage,"",integer security definer
@@ -628,6 +630,7 @@ function,reset_team_code,p_team_id uuid,text security definer
 function,set_center_pins,"p_center_id uuid, p_rack_type text, p_freefall_lanes integer[]",void security definer
 function,set_kept_league,p_league_id uuid,uuid security definer
 function,set_updated_at,"",trigger security invoker
+function,team_members_one_per_league,"",trigger security definer
 function,teammate_bowler_profiles,"","TABLE(bowler_name text, left_handed boolean, backup_ball boolean, two_handed boolean, aliases jsonb) security definer"
 function,user_leagues_from_row,"",trigger security definer
 grant,ai_token_usage,REFERENCES,"called_at, endpoint, id, model, output_tokens, prompt_tokens, total_tokens, user_id, variant"
@@ -989,6 +992,11 @@ policy,lane_patterns,team members can delete their team's lane patterns,DELETE :
 policy,lane_patterns,team members can log lane patterns for their team,INSERT :: no using :: check ((team_id IS NOT NULL) AND is_team_member(team_id)) :: to authenticated
 policy,lane_patterns,team members can update their team's lane patterns,UPDATE :: using ((team_id IS NOT NULL) AND is_team_member(team_id)) :: check ((team_id IS NOT NULL) AND is_team_member(team_id)) :: to authenticated
 policy,lane_patterns,team members can view their team's lane patterns,SELECT :: using ((team_id IS NOT NULL) AND is_team_member(team_id)) :: check none :: to authenticated
+policy,leagues,bowlers in the league can update it,"UPDATE :: using (EXISTS ( SELECT 1
+   FROM user_leagues ul
+  WHERE ((ul.league_id = leagues.id) AND (ul.user_id = auth.uid())))) :: check (EXISTS ( SELECT 1
+   FROM user_leagues ul
+  WHERE ((ul.league_id = leagues.id) AND (ul.user_id = auth.uid())))) :: to authenticated"
 policy,leagues,league members or its creator can update it,UPDATE :: using (is_league_member(id) OR (created_by = auth.uid())) :: check (is_league_member(id) OR (created_by = auth.uid())) :: to authenticated
 policy,leagues,leagues are viewable by any authenticated user,SELECT :: using true :: check none :: to authenticated
 policy,leagues,users can create leagues as themselves,INSERT :: no using :: check (created_by = auth.uid()) :: to authenticated
@@ -1106,6 +1114,7 @@ rls,user_leagues,enabled,""
 rls,user_preferences,enabled,""
 trigger,entitlements,entitlements_set_updated_at,set_updated_at
 trigger,leagues,leagues_add_creator,user_leagues_from_row
+trigger,leagues,leagues_rename_guard,leagues_rename_guard
 trigger,manual_scores,manual_scores_add_league,user_leagues_from_row
 trigger,sessions,sessions_add_league,user_leagues_from_row
 trigger,sessions,sessions_record_tombstone,record_tombstone
@@ -1113,3 +1122,4 @@ trigger,sessions,sessions_set_updated_at,set_updated_at
 trigger,shots,shots_record_tombstone,record_tombstone
 trigger,shots,shots_set_updated_at,set_updated_at
 trigger,team_members,team_members_add_league,user_leagues_from_row
+trigger,team_members,team_members_one_per_league,team_members_one_per_league
