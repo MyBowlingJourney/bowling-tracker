@@ -885,6 +885,13 @@ CREATE OR REPLACE FUNCTION public.record_tombstone()
  SET search_path TO 'public'
 AS $function$
 begin
+  -- When the whole account is being deleted, the sessions and shots go
+  -- with it and there is no one left to sync the deletion to. Recording a
+  -- tombstone then would point at a user that no longer exists and make
+  -- the account deletion fail ("Database error deleting user").
+  if not exists (select 1 from auth.users where id = old.user_id) then
+    return old;
+  end if;
   insert into sync_tombstones (table_name, row_id, user_id)
   values (TG_TABLE_NAME, old.id, old.user_id);
   return old;
