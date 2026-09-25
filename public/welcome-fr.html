@@ -47,7 +47,13 @@
   main{max-width:720px;margin:0 auto}
   .brand{font-size:13px;color:var(--muted);letter-spacing:.02em;margin-bottom:6px}
   .brand-sub{font-size:14px;color:var(--muted);margin:-6px 0 10px}
-  .lang{float:right;font-size:13px;margin-left:12px}
+  .lang{float:right;font-size:13px;margin-left:12px;display:flex;align-items:center;gap:12px}
+  .pro{
+    display:inline-block;background:var(--accent);color:#fff;text-decoration:none;
+    font-weight:600;font-size:13px;line-height:1;padding:8px 12px;border-radius:999px;
+  }
+  @media (prefers-color-scheme: dark){ .pro{color:#0E1512} }
+  .plan .cta{display:block;text-align:center;margin:12px 0 0;padding:12px 16px;font-size:15px}
   h1{font-size:30px;line-height:1.2;margin:0 0 10px;letter-spacing:-0.015em}
   h2{font-size:19px;margin:34px 0 10px;padding-top:18px;border-top:1px solid var(--border)}
   h3{font-size:16px;margin:0 0 6px}
@@ -79,7 +85,7 @@
 <body>
 <main>
 
-  <div class="lang"><a href="/" hreflang="en" lang="en">English</a></div>
+  <div class="lang"><a href="/" hreflang="en" lang="en">English</a><a class="pro" href="#pricing">Passer à Pro</a></div>
   <div class="brand">MY BOWLING JOURNEY</div>
   <div class="brand-sub">Suivi de quilles</div>
   <h1>Chaque lancer, pas seulement chaque pointage.</h1>
@@ -130,21 +136,29 @@
     </p>
   </div>
 
-  <h2>Combien ça coûte</h2>
+  <h2 id="pricing">Combien ça coûte</h2>
   <div class="plans">
     <div class="plan">
       <h3>Annuel</h3>
       <!-- PRICE: the Play Canada yearly base plan price (CAD). Must match the CAD option on the Stripe price too. -->
       <div class="price">69,99&nbsp;$&nbsp;CA</div>
       <div class="per">par année</div>
+      <a class="cta" href="/app/?subscribe=year">S'abonner à l'année</a>
     </div>
     <div class="plan">
       <h3>Mensuel</h3>
       <!-- PRICE: the Play Canada monthly base plan price (CAD). Must match the CAD option on the Stripe price too. -->
       <div class="price">9,99&nbsp;$&nbsp;CA</div>
       <div class="per">par mois</div>
+      <a class="cta" href="/app/?subscribe=month">S'abonner au mois</a>
     </div>
   </div>
+  <p class="fine">
+    L'abonnement se fait dans l'application&nbsp;: connectez-vous ou créez votre
+    compte, puis passez au paiement. À votre premier abonnement, un essai
+    gratuit de 30&nbsp;jours commence au paiement, et rien n'est facturé avant
+    qu'il se termine.
+  </p>
 
   <div class="card">
     <h3>Avant de vous abonner</h3>

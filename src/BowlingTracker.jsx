@@ -94,6 +94,7 @@ import TrialBanner from "./TrialBanner.jsx";
 // subscriber. Display only -- what is actually charged is whatever the
 // Stripe price says. See purchase.js.
 import { reconcilePlayPurchases } from "./purchase.js";
+import { takePendingSubscribe } from "./pendingSubscribe.js";
 import { standingAfterFirst, knockedFromSecondLeave, toggleKnocked, secondLeaveFrom, pinCountFrom, isAccidentalSpare } from "./domain/spareAttempt.js";
 import { visibleLeagues, isLeagueHidden, teamsInLeague, describeLeaveImpact, leaveConfirmationText, isContainerLeague } from "./domain/leagueMembership.js";
 import { decodeShare } from "./domain/badgeShare.js";
@@ -489,6 +490,9 @@ export default function BowlingTracker(){
   // that league, since teams.league_id references leagues.id).
   const leagueIdsRef=useRef({});
   const[view,setView]=useState("home");
+  // Which plan the Subscribe screen opens on. Set from the welcome page's
+  // Subscribe buttons (see pendingSubscribe.js); yearly otherwise.
+  const[subscribePeriod,setSubscribePeriod]=useState("year");
   // Setup: Gear and Team as one screen with four tabs. The view id stays
   // "locker"; the old "teams" view and "setup-team" are entry points that
   // land on the right tab (see the effect below).
@@ -1134,6 +1138,21 @@ export default function BowlingTracker(){
   useEffect(()=>{
     try{window.scrollTo(0,0);}catch{ /* not a browser */ }
   },[view,showOnboarding]);
+
+  // Came from a Subscribe button on the welcome page: open the Subscribe
+  // screen on the plan they picked. Waits until onboarding, the welcome
+  // screen and any walkthrough are all done -- the walkthrough moves
+  // between screens itself and ends on Home, which would bury Subscribe
+  // underneath it. So a brand-new bowler sets up first and is taken to
+  // Subscribe straight after.
+  const firstRunBusy=(showOnboarding&&!onboarded)||showWelcome||!!activeTour;
+  useEffect(()=>{
+    if(firstRunBusy)return;
+    const period=takePendingSubscribe();
+    if(!period)return;
+    setSubscribePeriod(period);
+    setView("subscribe");
+  },[firstRunBusy]);
   const[newBallName,setNewBallName]=useState("");
   const[retiredBalls,setRetiredBalls]=useState({});
   const[ballAddMessage,setBallAddMessage]=useState("");
@@ -9204,7 +9223,7 @@ export default function BowlingTracker(){
         )}
 
         {view==="subscribe"&&(
-          <Subscribe entitlement={entitlement} onClose={()=>setView("settings")} onPurchased={()=>setEntitlementReload(n=>n+1)}/>
+          <Subscribe entitlement={entitlement} initialPeriod={subscribePeriod} onClose={()=>setView("settings")} onPurchased={()=>setEntitlementReload(n=>n+1)}/>
         )}
 
         {/* Practice and casual: nothing to ask. The container league is

@@ -2737,7 +2737,8 @@ export const FR_CA = {
 "tile::League average": "Moy. de ligue",
 "All nights": "Toutes",
 "placeholder::board #": "pl.",
-"placeholder::degrees": "°"
+"placeholder::degrees": "°",
+"Google Play shows whether a free trial applies to your account before you confirm, then it renews on its own until you cancel.": "Google Play indique si un essai gratuit s'applique à votre compte avant que vous confirmiez, puis l'abonnement se renouvelle automatiquement jusqu'à ce que vous l'annuliez."
 },
 "patterns": [
 [
@@ -5415,6 +5416,22 @@ export const FR_CA = {
 [
 "{0} max",
 "{0} max."
+],
+[
+"Your {0}-day free trial starts today. When it ends, the {1} plan starts at {2} and renews on its own until you cancel.",
+"Votre essai gratuit de {0} {0|jour|jours} commence aujourd'hui. À la fin de l'essai, le forfait {1} commence à {2} et se renouvelle automatiquement jusqu'à ce que vous l'annuliez."
+],
+[
+"The {0} plan is {1}. Google Play shows whether a free trial applies to your account before you confirm, then it renews on its own until you cancel.",
+"Le forfait {0} coûte {1}. Google Play indique si un essai gratuit s'applique à votre compte avant que vous confirmiez, puis l'abonnement se renouvelle automatiquement jusqu'à ce que vous l'annuliez."
+],
+[
+"The {0} plan is {1}.",
+"Le forfait {0} coûte {1}."
+],
+[
+"You have already had the free trial, so the {0} plan starts today at {1} and renews on its own until you cancel.",
+"Vous avez déjà profité de l'essai gratuit, donc le forfait {0} commence aujourd'hui à {1} et se renouvelle automatiquement jusqu'à ce que vous l'annuliez."
 ]
 ],
 "fragments": [

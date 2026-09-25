@@ -46,7 +46,13 @@
   }
   main{max-width:720px;margin:0 auto}
   .brand{font-size:13px;color:var(--muted);letter-spacing:.02em;margin-bottom:6px}
-  .lang{float:right;font-size:13px;margin-left:12px}
+  .lang{float:right;font-size:13px;margin-left:12px;display:flex;align-items:center;gap:12px}
+  .pro{
+    display:inline-block;background:var(--accent);color:#fff;text-decoration:none;
+    font-weight:600;font-size:13px;line-height:1;padding:8px 12px;border-radius:999px;
+  }
+  @media (prefers-color-scheme: dark){ .pro{color:#0E1512} }
+  .plan .cta{display:block;text-align:center;margin:12px 0 0;padding:12px 16px;font-size:15px}
   h1{font-size:30px;line-height:1.2;margin:0 0 10px;letter-spacing:-0.015em}
   h2{font-size:19px;margin:34px 0 10px;padding-top:18px;border-top:1px solid var(--border)}
   h3{font-size:16px;margin:0 0 6px}
@@ -78,7 +84,7 @@
 <body>
 <main>
 
-  <div class="lang"><a href="/fr/" hreflang="fr-CA" lang="fr-CA">Français</a></div>
+  <div class="lang"><a href="/fr/" hreflang="fr-CA" lang="fr-CA">Français</a><a class="pro" href="#pricing">Get Pro</a></div>
   <div class="brand">MY BOWLING JOURNEY</div>
   <h1>Every shot, not just every score.</h1>
   <p class="lead">
@@ -123,21 +129,28 @@
     </p>
   </div>
 
-  <h2>What it costs</h2>
+  <h2 id="pricing">What it costs</h2>
   <div class="plans">
     <div class="plan">
       <h3>Yearly</h3>
       <!-- PRICE: must match the Stripe yearly price and the Play yearly base plan (the script at the bottom swaps in CAD for Canada) -->
       <div class="price" data-price="year">$49.99</div>
       <div class="per">per year</div>
+      <a class="cta" href="/app/?subscribe=year">Subscribe yearly</a>
     </div>
     <div class="plan">
       <h3>Monthly</h3>
       <!-- PRICE: must match the Stripe monthly price and the Play monthly base plan (the script at the bottom swaps in CAD for Canada) -->
       <div class="price" data-price="month">$6.99</div>
       <div class="per">per month</div>
+      <a class="cta" href="/app/?subscribe=month">Subscribe monthly</a>
     </div>
   </div>
+  <p class="fine">
+    Subscribing opens the app: sign in or create your account, then check out.
+    On your first subscription a 30-day free trial starts at checkout, and
+    nothing is charged until it ends.
+  </p>
 
   <div class="card">
     <h3>Before you subscribe</h3>

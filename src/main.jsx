@@ -16,6 +16,9 @@ try {
     window.history.replaceState(null, "", u.toString());
   }
 } catch { /* older browsers: the parameter is harmless */ }
+// "Subscribe" on the welcome page: note it before sign-in can lose it.
+import { capturePendingSubscribe } from './pendingSubscribe.js';
+capturePendingSubscribe();
 import { installErrorHandlers } from './errorLogStore.js';
 import React from 'react';
 import { createRoot } from 'react-dom/client';

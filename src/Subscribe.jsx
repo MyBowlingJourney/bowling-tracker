@@ -16,8 +16,10 @@ import { TRIAL_DAYS, FREE_LEAGUE_LIMIT, hasPaidSubscription, isTestAccount } fro
 //
 // So: no countdown timers, no "only today", no pre-ticked upsell. If the
 // app is worth $X a month it will still be worth it tomorrow.
-export default function Subscribe({ entitlement, onClose, onPurchased }) {
-  const [period, setPeriod] = useState("year");
+export default function Subscribe({ entitlement, onClose, onPurchased, initialPeriod = "year" }) {
+  // initialPeriod: the plan picked on the welcome page, when they came
+  // from there. Yearly otherwise.
+  const [period, setPeriod] = useState(initialPeriod === "month" ? "month" : "year");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [rail, setRail] = useState("");
