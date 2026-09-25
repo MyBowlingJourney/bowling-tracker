@@ -526,8 +526,13 @@ export default function Settings({
               of it. The colours ARE the filter. */}
           {historyTab === "calendar" && (
             <div className="mbj-history-calendar">
+            {/* shots too: a night with frames but no saved session row
+                (an approved import, a night never ended) was missing
+                from the month. CalendarView already builds those nights
+                from frames -- it was just never handed any. */}
             <CalendarView
               sessions={sessions || []}
+              shots={shots || []}
               tournaments={tournaments || []}
               onDeleteNight={deleteNight ? n => deleteNight(statsBowler || activeBowler, n.league, n.date) : undefined}
               onOpenNight={onOpenNight}

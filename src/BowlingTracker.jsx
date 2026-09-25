@@ -2457,6 +2457,38 @@ export default function BowlingTracker(){
     try{window.location.reload();}catch{setResyncBusy(false);}
   }
 
+  // Your name changed on the server (set_display_name): every shot,
+  // session and score there now carries the new name, and everything
+  // cached on this phone still carries the old one. Carry the one piece
+  // of state that is keyed by name and lives only here -- the session
+  // counter -- across, then reload from the cloud.
+  const forceResyncRef=useRef(null);
+  forceResyncRef.current=forceResync;
+  useEffect(()=>{
+    function onRenamed(e){
+      const from=String(e?.detail?.from||"");
+      const to=String(e?.detail?.to||"");
+      if(from&&to&&from!==to){
+        try{
+          const raw=readLocal("bowling-session-seq-v1",uid);
+          const map=raw?JSON.parse(raw):{};
+          const next={};
+          for(const[k,v]of Object.entries(map||{})){
+            const parts=k.split("||");
+            if(parts[0]===from)parts[0]=to;
+            const nk=parts.join("||");
+            next[nk]=Math.max(Number(next[nk])||0,Number(v)||0);
+          }
+          writeLocal("bowling-session-seq-v1",uid,JSON.stringify(next));
+        }catch{}
+      }
+      forceResyncRef.current?.();
+    }
+    window.addEventListener("mbj:bowler-renamed",onRenamed);
+    return()=>window.removeEventListener("mbj:bowler-renamed",onRenamed);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[uid]);
+
   const[syncingNow,setSyncingNow]=useState(false);
   async function handleSyncNow(){
     setSyncingNow(true);
@@ -7494,6 +7526,10 @@ export default function BowlingTracker(){
   // removes an existing bowler, since guests and teammates live in the
   // same list.
   const nameSyncedRef=useRef("");
+  // "" (not tried), "running", "merged" (reloading) or "local" (the
+  // server couldn't; merge on this phone instead).
+  const serverMergeRef=useRef("");
+  const[serverMergeTick,setServerMergeTick]=useState(0);
   const clean=v=>String(v??"").trim();
   useEffect(()=>{
     if(!displayName)return;
@@ -7509,6 +7545,29 @@ export default function BowlingTracker(){
     // else.
     if(hasDuplicateIdentity(bowlers,user?.email,displayName)){
       const email=user?.email;
+      // On the server, when it can: merge_bowlers moves every row of the
+      // handle's history onto you in one step, numbers any night you both
+      // have so neither overwrites the other, and keeps the handle as an
+      // alias. Then this phone reloads. The local merge below is only for
+      // a database that doesn't have merge_bowlers yet.
+      // Anything but a real server merge (offline, no such bowler there,
+      // an older database) falls through to the local merge, once.
+      if(serverMergeRef.current!=="local"){
+        if(serverMergeRef.current)return; // running, or merged and reloading
+        serverMergeRef.current="running";
+        const bump=()=>setServerMergeTick(t=>t+1);
+        supabase.rpc("merge_bowlers",{p_from_name:handleFromEmail(email),p_into_name:displayName})
+          .then(({data,error})=>{
+            if(!error&&data&&data.merged){
+              serverMergeRef.current="merged";
+              window.dispatchEvent(new CustomEvent("mbj:bowler-renamed",{detail:{from:handleFromEmail(email),to:displayName}}));
+              return;
+            }
+            serverMergeRef.current="local";bump();
+          })
+          .catch(()=>{serverMergeRef.current="local";bump();});
+        return;
+      }
       saveBowlers(mergedBowlers(bowlers,email,displayName));
       const movedShots=movedRecords(shots,email,displayName);
       if(movedShots!==shots)saveShots(movedShots);
@@ -7570,7 +7629,7 @@ export default function BowlingTracker(){
   // They load asynchronously, so an effect that ran only on displayName
   // would merge the bowler list against records that had not arrived and
   // leave the history behind under the old name.
-  },[displayName,bowlers.length,user?.email,shots.length,sessions.length,tournaments.length,drills.length,bags.length]);
+  },[displayName,bowlers.length,user?.email,shots.length,sessions.length,tournaments.length,drills.length,bags.length,serverMergeTick]);
 
   // A new SESSION starts with no ball chosen. A new GAME does not.
   //

@@ -331,15 +331,54 @@ export function AuthProvider({ children }) {
     }
   }
 
+  // Changes your name EVERYWHERE, in one step on the server.
+  //
+  // Your history is filed under a bowler, and the bowler under an id
+  // (20260927120000_bowler_identity.sql). set_display_name renames that
+  // bowler, relabels every shot, session, score, ball and goal of yours,
+  // and keeps the old name as an alias -- so a phone that was offline
+  // and still sends the old name files it under the new one. It used to
+  // write only profiles.display_name, which left the whole history under
+  // the old name and the app looking for it under the new one.
+  //
+  // Online only, on purpose: a rename half-applied on this phone and not
+  // the server is exactly the split this replaces.
+  //
+  // When the name really changed, the app reloads its data (the
+  // 'mbj:bowler-renamed' event), because everything cached on this phone
+  // still carries the old name.
   async function updateDisplayName(newName) {
-    const clean = newName.trim();
+    const clean = String(newName || '').trim();
     if (!clean || !session?.user?.id) return { error: new Error('Not signed in or name is empty') };
-    setDisplayName(clean); // optimistic, matches the rest of the app's pattern
-    const result = await cloudWrite('profiles', { id: session.user.id, display_name: clean });
-    if (!result.synced) {
-      return { error: new Error(`Name change hasn't reached the cloud yet (${result.reason || 'unknown reason'}) — teammates won't be able to find you until it syncs.`) };
+    let res;
+    try {
+      res = await supabase.rpc('set_display_name', { p_name: clean });
+    } catch (e) {
+      res = { error: e };
     }
-    return { error: null };
+    const code = res?.error?.code;
+    // A database without the migration yet: the old way, so nothing breaks
+    // between deploying the app and running the SQL.
+    if (code === 'PGRST202' || code === '42883') {
+      setDisplayName(clean);
+      const result = await cloudWrite('profiles', { id: session.user.id, display_name: clean });
+      if (!result.synced) {
+        return { error: new Error(`Name change hasn't reached the cloud yet (${result.reason || 'unknown reason'}) — teammates won't be able to find you until it syncs.`) };
+      }
+      return { error: null };
+    }
+    if (res?.error) {
+      const offline = !code || /fetch|network|timeout/i.test(String(res.error.message || ''));
+      return { error: new Error(offline
+        ? "Couldn't change your name without a connection. Try again when you're back online."
+        : "Couldn't change your name. Try again in a moment.") };
+    }
+    setDisplayName(clean);
+    const out = res?.data || {};
+    if (out.changed || out.merged) {
+      try { window.dispatchEvent(new CustomEvent('mbj:bowler-renamed', { detail: { from: out.old_name || '', to: clean } })); } catch { /* no window */ }
+    }
+    return { error: null, renamedFrom: out.changed ? out.old_name : null };
   }
 
   // Accepts either a full preferences object or an updater function
