@@ -60,6 +60,65 @@ AS $function$
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.answer_team_request(p_request_id uuid, p_accept boolean)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  me uuid := auth.uid();
+  r record;
+  on_team boolean;
+begin
+  if me is null then
+    raise exception 'not signed in' using errcode = '42501';
+  end if;
+  select * into r from public.team_join_requests where id = p_request_id for update;
+  if not found or r.status <> 'pending' then
+    raise exception 'that request is no longer open' using errcode = 'P0002';
+  end if;
+
+  on_team := public.is_team_member(r.team_id)
+    or exists (select 1 from public.teams where id = r.team_id and created_by = me);
+
+  if r.kind = 'request' then
+    if p_accept and not on_team then
+      raise exception 'only the team can approve this' using errcode = '42501';
+    end if;
+    if not p_accept and not (on_team or me = r.user_id) then
+      raise exception 'not yours to answer' using errcode = '42501';
+    end if;
+  else
+    if p_accept and me <> r.user_id then
+      raise exception 'only the invited bowler can accept' using errcode = '42501';
+    end if;
+    if not p_accept and not (on_team or me = r.user_id) then
+      raise exception 'not yours to answer' using errcode = '42501';
+    end if;
+  end if;
+
+  if p_accept then
+    insert into public.team_members (team_id, user_id, lineup_position)
+    values (r.team_id, r.user_id, public.next_lineup_position(r.team_id))
+    on conflict do nothing;
+  end if;
+
+  update public.team_join_requests
+     set status = case
+                    when p_accept then 'accepted'
+                    when me = r.user_id and r.kind = 'request' then 'canceled'
+                    when me <> r.user_id and r.kind = 'invite' then 'canceled'
+                    else 'declined'
+                  end,
+         decided_by = me,
+         decided_at = now()
+   where id = r.id;
+  return p_accept;
+end;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.are_friends(other_user uuid)
  RETURNS boolean
  LANGUAGE sql
@@ -326,6 +385,50 @@ AS $function$
                                                                                                                         $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.invite_to_team(p_team_id uuid, p_user_id uuid)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  me uuid := auth.uid();
+  rid uuid;
+begin
+  if me is null then
+    raise exception 'not signed in' using errcode = '42501';
+  end if;
+  if not (public.is_team_member(p_team_id)
+          or exists (select 1 from public.teams where id = p_team_id and created_by = me)) then
+    raise exception 'not on this team' using errcode = '42501';
+  end if;
+  if not exists (select 1 from auth.users where id = p_user_id) then
+    raise exception 'no such bowler' using errcode = 'P0002';
+  end if;
+  if exists (select 1 from public.team_members where team_id = p_team_id and user_id = p_user_id) then
+    raise exception 'already on this team' using errcode = 'P0001', hint = 'already_member';
+  end if;
+
+  -- They already asked: inviting them is the team saying yes.
+  select id into rid from public.team_join_requests
+   where team_id = p_team_id and user_id = p_user_id and status = 'pending' and kind = 'request';
+  if found then
+    perform public.answer_team_request(rid, true);
+    return rid;
+  end if;
+
+  select id into rid from public.team_join_requests
+   where team_id = p_team_id and user_id = p_user_id and status = 'pending';
+  if found then return rid; end if;
+
+  insert into public.team_join_requests (team_id, user_id, kind, created_by)
+  values (p_team_id, p_user_id, 'invite', me)
+  returning id into rid;
+  return rid;
+end;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.is_accepted_coach_of(target_bowler_id uuid)
  RETURNS boolean
  LANGUAGE sql
@@ -393,6 +496,174 @@ AS $function$
     select 1 from public.team_members
     where team_id = check_team_id and user_id = auth.uid()
   );
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.join_team_with_code(p_code text)
+ RETURNS TABLE(team_id uuid, team_name text, league_id uuid, league_name text)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  me uuid := auth.uid();
+  cleaned text := upper(regexp_replace(coalesce(p_code, ''), '[^A-Za-z0-9]', '', 'g'));
+  formatted text;
+  t record;
+  inv record;
+begin
+  if me is null then
+    raise exception 'not signed in' using errcode = '42501';
+  end if;
+  -- Codes are 8 characters from a 31-letter alphabet; this keeps anyone
+  -- from walking through them.
+  if not public.check_api_rate_limit('join_team_with_code', 20, interval '1 hour') then
+    raise exception 'Too many tries. Wait a little and try again.' using errcode = 'P0001';
+  end if;
+  -- A wrong code returns NO ROWS rather than raising. Raising rolls the
+  -- whole call back -- including the attempt check_api_rate_limit just
+  -- recorded -- so failed guesses would never count toward the limit,
+  -- which is the only case the limit exists for.
+  if length(cleaned) <> 8 then
+    return;
+  end if;
+  formatted := substr(cleaned, 1, 4) || '-' || substr(cleaned, 5, 4);
+
+  select tm.id, tm.name, tm.league_id into t
+  from public.teams tm where tm.join_code = formatted;
+
+  if found then
+    insert into public.team_members (team_id, user_id, lineup_position)
+    values (t.id, me, public.next_lineup_position(t.id))
+    on conflict do nothing;
+  else
+    -- Wrong, used and expired all look the same (no rows) -- saying which
+    -- helps someone guess at real codes.
+    select * into inv
+    from public.pending_invites
+    where upper(signup_code) = formatted
+      and accepted_at is null
+      and (code_expires_at is null or code_expires_at > now())
+    limit 1;
+    if not found then
+      return;
+    end if;
+
+    insert into public.team_members (team_id, user_id, lineup_position)
+    values (inv.team_id, me, coalesce(inv.lineup_position, public.next_lineup_position(inv.team_id)))
+    on conflict do nothing;
+    update public.pending_invites
+       set accepted_at = now(), accepted_user_id = me, signup_code = null
+     where id = inv.id;
+
+    select tm.id, tm.name, tm.league_id into t
+    from public.teams tm where tm.id = inv.team_id;
+  end if;
+
+  -- Anything left open between this bowler and this team is settled.
+  update public.team_join_requests
+     set status = 'accepted', decided_by = me, decided_at = now()
+   where team_join_requests.team_id = t.id and user_id = me and status = 'pending';
+
+  return query
+    select t.id, t.name, t.league_id, (select l.name from public.leagues l where l.id = t.league_id);
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.league_matches(p_name text)
+ RETURNS TABLE(id uuid, name text, center_id uuid, center_name text, center_city text, center_state text, bowlers integer, mine boolean)
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select l.id, l.name, l.center_id, c.name, c.city, c.state,
+         (select count(*)::int from public.user_leagues ul where ul.league_id = l.id),
+         exists (select 1 from public.user_leagues ul
+                  where ul.league_id = l.id and ul.user_id = auth.uid())
+    from public.leagues l
+    left join public.bowling_centers c on c.id = l.center_id
+   where auth.uid() is not null
+     and lower(btrim(l.name)) = lower(btrim(coalesce(p_name, '')))
+     and position('·' in l.name) = 0
+   order by 7 desc, c.name nulls last
+   limit 20;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.league_teams(p_league_id uuid)
+ RETURNS TABLE(id uuid, name text, bowlers integer, is_member boolean, requested boolean)
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select t.id, t.name,
+         (select count(*)::int from public.team_members m where m.team_id = t.id),
+         exists (select 1 from public.team_members m where m.team_id = t.id and m.user_id = auth.uid()),
+         exists (select 1 from public.team_join_requests r
+                  where r.team_id = t.id and r.user_id = auth.uid() and r.status = 'pending')
+    from public.teams t
+   where t.league_id = p_league_id
+     and exists (select 1 from public.user_leagues ul
+                  where ul.user_id = auth.uid() and ul.league_id = p_league_id)
+   order by t.name;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.my_team_requests()
+ RETURNS TABLE(id uuid, team_id uuid, team_name text, league_id uuid, league_name text, user_id uuid, bowler_name text, kind text, created_at timestamp with time zone, mine_to_answer boolean)
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select r.id, r.team_id, t.name, t.league_id, l.name,
+         r.user_id, coalesce(p.display_name, 'A bowler'), r.kind, r.created_at,
+         case when r.kind = 'invite' then r.user_id = auth.uid()
+              else public.is_team_member(r.team_id) or t.created_by = auth.uid() end
+    from public.team_join_requests r
+    join public.teams t on t.id = r.team_id
+    left join public.leagues l on l.id = t.league_id
+    left join public.profiles p on p.id = r.user_id
+   where r.status = 'pending'
+     and (r.user_id = auth.uid()
+          or public.is_team_member(r.team_id)
+          or t.created_by = auth.uid())
+   order by r.created_at;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.new_team_code()
+ RETURNS text
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  alphabet constant text := 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  raw text;
+  candidate text;
+begin
+  loop
+    raw := '';
+    for i in 1..8 loop
+      raw := raw || substr(alphabet, 1 + floor(random() * length(alphabet))::int, 1);
+    end loop;
+    candidate := substr(raw, 1, 4) || '-' || substr(raw, 5, 4);
+    exit when not exists (select 1 from public.teams where join_code = candidate);
+  end loop;
+  return candidate;
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.next_lineup_position(p_team_id uuid)
+ RETURNS integer
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select coalesce(max(lineup_position) + 1, 0)
+  from public.team_members where team_id = p_team_id;
 $function$
 ;
 
@@ -569,6 +840,72 @@ begin
   -- race does nothing rather than failing, which would be logged as an
   -- error about failing to log an error.
   on conflict (user_id, signature) do nothing;
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.request_to_join_team(p_team_id uuid)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  me uuid := auth.uid();
+  lg uuid;
+  rid uuid;
+begin
+  if me is null then
+    raise exception 'not signed in' using errcode = '42501';
+  end if;
+  select league_id into lg from public.teams where id = p_team_id;
+  if lg is null then
+    raise exception 'no such team' using errcode = 'P0002';
+  end if;
+  if not exists (select 1 from public.user_leagues where user_id = me and league_id = lg) then
+    raise exception 'join the league first' using errcode = '42501';
+  end if;
+  if exists (select 1 from public.team_members where team_id = p_team_id and user_id = me) then
+    raise exception 'already on this team' using errcode = 'P0001', hint = 'already_member';
+  end if;
+
+  -- An invite already waiting for this bowler: asking is the same as
+  -- saying yes to it.
+  select id into rid from public.team_join_requests
+   where team_id = p_team_id and user_id = me and status = 'pending' and kind = 'invite';
+  if found then
+    perform public.answer_team_request(rid, true);
+    return rid;
+  end if;
+
+  select id into rid from public.team_join_requests
+   where team_id = p_team_id and user_id = me and status = 'pending';
+  if found then return rid; end if;
+
+  insert into public.team_join_requests (team_id, user_id, kind, created_by)
+  values (p_team_id, me, 'request', me)
+  returning id into rid;
+  return rid;
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.reset_team_code(p_team_id uuid)
+ RETURNS text
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  fresh text;
+begin
+  if not (public.is_team_member(p_team_id)
+          or exists (select 1 from public.teams where id = p_team_id and created_by = auth.uid())) then
+    raise exception 'not on this team' using errcode = '42501';
+  end if;
+  fresh := public.new_team_code();
+  update public.teams set join_code = fresh where id = p_team_id;
+  return fresh;
 end;
 $function$
 ;
@@ -1167,6 +1504,17 @@ CREATE TABLE IF NOT EXISTS public.sync_tombstones (
   user_id uuid NOT NULL,
   deleted_at timestamp with time zone DEFAULT now() NOT NULL
 );
+CREATE TABLE IF NOT EXISTS public.team_join_requests (
+  id uuid DEFAULT gen_random_uuid() NOT NULL,
+  team_id uuid NOT NULL,
+  user_id uuid NOT NULL,
+  kind text NOT NULL,
+  created_by uuid DEFAULT auth.uid(),
+  created_at timestamp with time zone DEFAULT now() NOT NULL,
+  status text DEFAULT 'pending'::text NOT NULL,
+  decided_by uuid,
+  decided_at timestamp with time zone
+);
 CREATE TABLE IF NOT EXISTS public.team_members (
   team_id uuid NOT NULL,
   user_id uuid NOT NULL,
@@ -1180,7 +1528,8 @@ CREATE TABLE IF NOT EXISTS public.teams (
   name text NOT NULL,
   league_id uuid NOT NULL,
   created_by uuid DEFAULT auth.uid(),
-  created_at timestamp with time zone DEFAULT now() NOT NULL
+  created_at timestamp with time zone DEFAULT now() NOT NULL,
+  join_code text DEFAULT new_team_code() NOT NULL
 );
 CREATE TABLE IF NOT EXISTS public.tournaments (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -1351,6 +1700,13 @@ ALTER TABLE public.subscription_events ADD CONSTRAINT subscription_events_source
 ALTER TABLE public.subscription_events ADD CONSTRAINT subscription_events_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.sync_tombstones ADD CONSTRAINT sync_tombstones_pkey PRIMARY KEY (id);
 ALTER TABLE public.sync_tombstones ADD CONSTRAINT sync_tombstones_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.team_join_requests ADD CONSTRAINT team_join_requests_pkey PRIMARY KEY (id);
+ALTER TABLE public.team_join_requests ADD CONSTRAINT team_join_requests_kind_check CHECK ((kind = ANY (ARRAY['request'::text, 'invite'::text])));
+ALTER TABLE public.team_join_requests ADD CONSTRAINT team_join_requests_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'accepted'::text, 'declined'::text, 'canceled'::text])));
+ALTER TABLE public.team_join_requests ADD CONSTRAINT team_join_requests_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE public.team_join_requests ADD CONSTRAINT team_join_requests_decided_by_fkey FOREIGN KEY (decided_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE public.team_join_requests ADD CONSTRAINT team_join_requests_team_id_fkey FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE;
+ALTER TABLE public.team_join_requests ADD CONSTRAINT team_join_requests_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.team_members ADD CONSTRAINT team_members_pkey PRIMARY KEY (team_id, user_id);
 ALTER TABLE public.team_members ADD CONSTRAINT team_members_team_id_fkey FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE;
 ALTER TABLE public.team_members ADD CONSTRAINT team_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE;
@@ -1413,7 +1769,10 @@ CREATE INDEX shots_user_id_idx ON public.shots USING btree (user_id);
 CREATE INDEX shots_user_updated_idx ON public.shots USING btree (user_id, updated_at);
 CREATE UNIQUE INDEX subscription_events_source_event_uniq ON public.subscription_events USING btree (source, event_id);
 CREATE INDEX sync_tombstones_lookup_idx ON public.sync_tombstones USING btree (table_name, user_id, deleted_at);
+CREATE UNIQUE INDEX team_join_requests_one_open ON public.team_join_requests USING btree (team_id, user_id) WHERE (status = 'pending'::text);
+CREATE INDEX team_join_requests_user_idx ON public.team_join_requests USING btree (user_id);
 CREATE INDEX team_members_user_id_idx ON public.team_members USING btree (user_id);
+CREATE UNIQUE INDEX teams_join_code_key ON public.teams USING btree (join_code);
 CREATE INDEX teams_league_id_idx ON public.teams USING btree (league_id);
 CREATE INDEX tournaments_user_bowler_idx ON public.tournaments USING btree (user_id, bowler_name);
 CREATE INDEX user_leagues_league_id_idx ON public.user_leagues USING btree (league_id);
@@ -1451,6 +1810,7 @@ ALTER TABLE public.sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.shots ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.subscription_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sync_tombstones ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.team_join_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.team_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.teams ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tournaments ENABLE ROW LEVEL SECURITY;
@@ -1758,6 +2118,8 @@ CREATE POLICY 'users can view their own shots' ON public.shots FOR SELECT TO aut
   USING ((user_id = auth.uid()));
 CREATE POLICY 'user can read their own tombstones' ON public.sync_tombstones FOR SELECT TO authenticated
   USING ((user_id = auth.uid()));
+CREATE POLICY 'see requests about you or your team' ON public.team_join_requests FOR SELECT TO authenticated
+  USING (((user_id = auth.uid()) OR is_team_member(team_id)));
 CREATE POLICY 'leave a team, or the creator removes a member' ON public.team_members FOR DELETE TO authenticated
   USING (((user_id = auth.uid()) OR (EXISTS ( SELECT 1
    FROM teams t

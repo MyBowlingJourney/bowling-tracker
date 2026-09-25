@@ -457,6 +457,17 @@ CREATE TABLE IF NOT EXISTS public.sync_tombstones (
   user_id uuid NOT NULL,
   deleted_at timestamp with time zone DEFAULT now() NOT NULL
 );
+CREATE TABLE IF NOT EXISTS public.team_join_requests (
+  id uuid DEFAULT gen_random_uuid() NOT NULL,
+  team_id uuid NOT NULL,
+  user_id uuid NOT NULL,
+  kind text NOT NULL,
+  created_by uuid DEFAULT auth.uid(),
+  created_at timestamp with time zone DEFAULT now() NOT NULL,
+  status text DEFAULT 'pending'::text NOT NULL,
+  decided_by uuid,
+  decided_at timestamp with time zone
+);
 CREATE TABLE IF NOT EXISTS public.team_members (
   team_id uuid NOT NULL,
   user_id uuid NOT NULL,
@@ -470,7 +481,8 @@ CREATE TABLE IF NOT EXISTS public.teams (
   name text NOT NULL,
   league_id uuid NOT NULL,
   created_by uuid DEFAULT auth.uid(),
-  created_at timestamp with time zone DEFAULT now() NOT NULL
+  created_at timestamp with time zone DEFAULT now() NOT NULL,
+  join_code text DEFAULT new_team_code() NOT NULL
 );
 CREATE TABLE IF NOT EXISTS public.tournaments (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -641,6 +653,13 @@ ALTER TABLE public.subscription_events ADD CONSTRAINT subscription_events_source
 ALTER TABLE public.subscription_events ADD CONSTRAINT subscription_events_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.sync_tombstones ADD CONSTRAINT sync_tombstones_pkey PRIMARY KEY (id);
 ALTER TABLE public.sync_tombstones ADD CONSTRAINT sync_tombstones_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.team_join_requests ADD CONSTRAINT team_join_requests_pkey PRIMARY KEY (id);
+ALTER TABLE public.team_join_requests ADD CONSTRAINT team_join_requests_kind_check CHECK ((kind = ANY (ARRAY['request'::text, 'invite'::text])));
+ALTER TABLE public.team_join_requests ADD CONSTRAINT team_join_requests_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'accepted'::text, 'declined'::text, 'canceled'::text])));
+ALTER TABLE public.team_join_requests ADD CONSTRAINT team_join_requests_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE public.team_join_requests ADD CONSTRAINT team_join_requests_decided_by_fkey FOREIGN KEY (decided_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE public.team_join_requests ADD CONSTRAINT team_join_requests_team_id_fkey FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE;
+ALTER TABLE public.team_join_requests ADD CONSTRAINT team_join_requests_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.team_members ADD CONSTRAINT team_members_pkey PRIMARY KEY (team_id, user_id);
 ALTER TABLE public.team_members ADD CONSTRAINT team_members_team_id_fkey FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE;
 ALTER TABLE public.team_members ADD CONSTRAINT team_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE;
@@ -703,7 +722,10 @@ CREATE INDEX shots_user_id_idx ON public.shots USING btree (user_id);
 CREATE INDEX shots_user_updated_idx ON public.shots USING btree (user_id, updated_at);
 CREATE UNIQUE INDEX subscription_events_source_event_uniq ON public.subscription_events USING btree (source, event_id);
 CREATE INDEX sync_tombstones_lookup_idx ON public.sync_tombstones USING btree (table_name, user_id, deleted_at);
+CREATE UNIQUE INDEX team_join_requests_one_open ON public.team_join_requests USING btree (team_id, user_id) WHERE (status = 'pending'::text);
+CREATE INDEX team_join_requests_user_idx ON public.team_join_requests USING btree (user_id);
 CREATE INDEX team_members_user_id_idx ON public.team_members USING btree (user_id);
+CREATE UNIQUE INDEX teams_join_code_key ON public.teams USING btree (join_code);
 CREATE INDEX teams_league_id_idx ON public.teams USING btree (league_id);
 CREATE INDEX tournaments_user_bowler_idx ON public.tournaments USING btree (user_id, bowler_name);
 CREATE INDEX user_leagues_league_id_idx ON public.user_leagues USING btree (league_id);
@@ -741,6 +763,7 @@ ALTER TABLE public.sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.shots ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.subscription_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sync_tombstones ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.team_join_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.team_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.teams ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tournaments ENABLE ROW LEVEL SECURITY;
@@ -1048,6 +1071,8 @@ CREATE POLICY 'users can view their own shots' ON public.shots FOR SELECT TO aut
   USING ((user_id = auth.uid()));
 CREATE POLICY 'user can read their own tombstones' ON public.sync_tombstones FOR SELECT TO authenticated
   USING ((user_id = auth.uid()));
+CREATE POLICY 'see requests about you or your team' ON public.team_join_requests FOR SELECT TO authenticated
+  USING (((user_id = auth.uid()) OR is_team_member(team_id)));
 CREATE POLICY 'leave a team, or the creator removes a member' ON public.team_members FOR DELETE TO authenticated
   USING (((user_id = auth.uid()) OR (EXISTS ( SELECT 1
    FROM teams t
