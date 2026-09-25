@@ -612,6 +612,7 @@ function,is_team_member,check_team_id uuid,boolean security definer
 function,join_team_with_code,p_code text,"TABLE(team_id uuid, team_name text, league_id uuid, league_name text) security definer"
 function,league_matches,p_name text,"TABLE(id uuid, name text, center_id uuid, center_name text, center_city text, center_state text, bowlers integer, mine boolean) security definer"
 function,league_teams,p_league_id uuid,"TABLE(id uuid, name text, bowlers integer, is_member boolean, requested boolean) security definer"
+function,merge_into_league,"p_from uuid, p_to uuid",uuid security definer
 function,my_team_requests,"","TABLE(id uuid, team_id uuid, team_name text, league_id uuid, league_name text, user_id uuid, bowler_name text, kind text, created_at timestamp with time zone, mine_to_answer boolean) security definer"
 function,new_team_code,"",text security definer
 function,next_lineup_position,p_team_id uuid,integer security definer
