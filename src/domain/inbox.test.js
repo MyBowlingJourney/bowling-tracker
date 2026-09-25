@@ -127,3 +127,24 @@ describe('team invites', () => {
     expect(item.detail).toContain('import your scores');
   });
 });
+
+describe('team join requests', () => {
+  const rows = [
+    { id: 'r1', kind: 'request', team_name: 'Split Happens', bowler_name: 'Bob', mine_to_answer: true },
+    { id: 'r2', kind: 'invite', team_name: 'Pin Pals', league_name: 'Monday North', mine_to_answer: true },
+    { id: 'r3', kind: 'request', team_name: 'Split Happens', bowler_name: 'Me', mine_to_answer: false },
+  ];
+
+  it('lists only the ones this bowler can answer', () => {
+    const items = buildInbox({ bowler: 'Ryan', userId: 'u1', teamRequests: rows }).filter(i => i.type === 'teamJoin');
+    expect(items.map(i => i.id)).toEqual(['team-join-r1', 'team-join-r2']);
+    expect(items[0].title).toBe('Bob wants to join Split Happens');
+    expect(items[1].title).toBe('Invitation to join Pin Pals');
+    expect(items.every(i => i.view === 'team')).toBe(true);
+  });
+
+  it('ignores damaged rows and a missing list', () => {
+    expect(buildInbox({ bowler: 'Ryan', userId: 'u1', teamRequests: [null, {}, 'x'] })).toEqual([]);
+    expect(buildInbox({ bowler: 'Ryan', userId: 'u1', teamRequests: null })).toEqual([]);
+  });
+});

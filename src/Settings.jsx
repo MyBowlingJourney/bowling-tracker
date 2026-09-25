@@ -39,6 +39,10 @@ import {
 
 export default function Settings({
   onAddLeague,
+  // Same-named leagues already on the app, and joining one. Adding a
+  // league checks these first, so a bowler joins the league their
+  // teammates are in rather than starting a copy of it.
+  findLeagueMatches = null, onJoinLeague = null,
   // History > Sessions: opens a saved night's results when its row is
   // tapped. Absent, the rows are plain text as before.
   onOpenNight,
@@ -254,6 +258,78 @@ export default function Settings({
   // pattern and teams meant scrolling past all of it to reach one.
   const [shownLeague, setShownLeague] = useState("");
   const [leagueDraft, setLeagueDraft] = useState("");
+  // Same-named leagues found when adding one: {name, list} or null.
+  const [leagueMatches, setLeagueMatches] = useState(null);
+  const [leagueBusy, setLeagueBusy] = useState(false);
+
+  // Adding a league looks for the same name first. If other bowlers
+  // already have it, the bowler chooses: join one of those (shown with its
+  // center, so they pick the one at their house) or make their own.
+  async function startAddLeague(name) {
+    if (leagueBusy) return;
+    if (findLeagueMatches && onJoinLeague) {
+      setLeagueBusy(true);
+      const found = await findLeagueMatches(name);
+      setLeagueBusy(false);
+      if (found.length) { setLeagueMatches({ name, list: found }); return; }
+    }
+    await createOwnLeague(name);
+  }
+  async function createOwnLeague(name) {
+    setLeagueMatches(null);
+    await onAddLeague(name);
+    setShownLeague(name);
+    setNewLeagueName("");
+  }
+  async function joinMatch(m) {
+    setLeagueBusy(true);
+    const ok = await onJoinLeague(m);
+    setLeagueBusy(false);
+    if (!ok) return;
+    setLeagueMatches(null);
+    setShownLeague(m.name);
+    setNewLeagueName("");
+  }
+  const leagueMatchPanel = leagueMatches && (
+    <div style={{ border: `1px solid ${C.accent}55`, borderRadius: "14px", padding: "12px", marginBottom: "12px" }}>
+      <div style={{ fontSize: "14px", fontWeight: 700, color: C.text, marginBottom: "4px" }}>
+        “{leagueMatches.name}” is already here
+      </div>
+      <div style={{ fontSize: "12px", color: C.textMuted, lineHeight: 1.5, marginBottom: "10px" }}>
+        Is one of these your league? Joining it puts you in the same league as the
+        bowlers already there, so you can find their teams and they can find yours.
+      </div>
+      {leagueMatches.list.map(m => {
+        const where = m.center_name
+          ? [m.center_name, [m.center_city, m.center_state].filter(Boolean).join(", ")].filter(Boolean).join(" · ")
+          : "No bowling center set";
+        return (
+          <div key={m.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 0", borderTop: `1px solid ${C.border}` }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: "14px", color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{where}</div>
+              <div style={{ fontSize: "11px", color: C.textMuted }}>
+                {m.bowlers} {m.bowlers === 1 ? "bowler" : "bowlers"}
+              </div>
+            </div>
+            <button style={{ ...S.btn(), width: "auto", flexShrink: 0, padding: "8px 14px", fontSize: "13px" }}
+              disabled={leagueBusy} onClick={() => joinMatch(m)}>
+              Join
+            </button>
+          </div>
+        );
+      })}
+      <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
+        <button style={{ ...S.btn(), flex: 1, fontSize: "13px" }} disabled={leagueBusy}
+          onClick={() => createOwnLeague(leagueMatches.name)}>
+          None of these — create mine
+        </button>
+        <button style={{ ...S.btn(), width: "auto", fontSize: "13px" }} disabled={leagueBusy}
+          onClick={() => setLeagueMatches(null)}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
 
   async function commitRename(oldName) {
     const next = leagueDraft.trim();
@@ -645,9 +721,7 @@ export default function Settings({
                   if (e.key !== "Enter") return;
                   const name = newLeagueName.trim();
                   if (!name) return;
-                  await onAddLeague(name);
-                  setShownLeague(name);
-                  setNewLeagueName("");
+                  await startAddLeague(name);
                 }}
                 placeholder="League name, e.g. Tuesday Night Mixed" />
               <button style={{ ...S.btn("primary"), width: "auto", flexShrink: 0, padding: "9px 16px", fontSize: "13px" }}
@@ -659,14 +733,13 @@ export default function Settings({
                   // asks for one thing: the name. Season dates at this
                   // moment are the "admin before first value" problem the
                   // whole change exists to remove.
-                  await onAddLeague(name);
-                  setShownLeague(name);
-                  setNewLeagueName("");
+                  await startAddLeague(name);
                 }}>
                 Add
               </button>
             </div>
           )}
+          {leagueMatchPanel}
           </div>
           {(() => {
             const real = (leagues || []).filter(l => !isContainerLeague(l));
@@ -1069,9 +1142,7 @@ export default function Settings({
                   if (e.key !== "Enter") return;
                   const name = newLeagueName.trim();
                   if (!name) return;
-                  await onAddLeague(name);
-                  setShownLeague(name);
-                  setNewLeagueName("");
+                  await startAddLeague(name);
                 }}
                 placeholder="League name, e.g. Tuesday Night Mixed" />
               <button style={{ ...S.btn("primary"), width: "auto", flexShrink: 0, padding: "9px 16px", fontSize: "13px" }}
@@ -1083,14 +1154,13 @@ export default function Settings({
                   // asks for one thing: the name. Season dates at this
                   // moment are the "admin before first value" problem the
                   // whole change exists to remove.
-                  await onAddLeague(name);
-                  setShownLeague(name);
-                  setNewLeagueName("");
+                  await startAddLeague(name);
                 }}>
                 Add
               </button>
             </div>
           )}
+          {leagueMatchPanel}
           {/* Practice and Just Bowling are filtered out.
           
               They're containers that exist so scores have somewhere to

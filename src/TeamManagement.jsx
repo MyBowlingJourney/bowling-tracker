@@ -4,6 +4,7 @@ import { useAuth } from "./AuthProvider.jsx";
 import { cloudUpdate, cloudRead, cloudWrite, cloudInsert, cloudDelete } from "./syncQueue.js";
 import { generateSignupCode } from "./domain/signupCodes.js";
 import { APP_NAME } from "./constants.js";
+import { supabase } from "./supabaseClient.js";
 
 // Pure roster-management functions, extracted so they're testable without
 // rendering the component. Each takes the current `teams` array plus
@@ -169,6 +170,19 @@ const S = new Proxy({}, {
     boxSizing:"border-box",
     outline:"none",
   },
+  // Dropdowns. Same box as an input; the arrow on the right comes from
+  // the global select rule in styles.css.
+  sel:{
+    width:"100%",
+    backgroundColor:C.surface,
+    border:`1px solid ${C.border}`,
+    borderRadius:"8px",
+    padding:"10px 12px",
+    color:C.text,
+    fontSize:"14px",
+    boxSizing:"border-box",
+    outline:"none",
+  },
   button:{
     backgroundColor:C.surface,
     color:C.text,
@@ -210,6 +224,11 @@ export default function TeamManagement({
   // League tab is easy to miss, so "Add team" here asks for the league it
   // belongs to and hands off to the same function. Absent: no button.
   onCreateTeam = null,
+  // Told when this bowler joins a team -- by code, or by accepting an
+  // invite -- with the team's league id, so the parent can add the league
+  // to their list. And when a request is answered, to refresh the inbox.
+  onJoinedTeam = null,
+  onRequestsChanged = null,
 }) {
   const{user,displayName,updateDisplayName}=useAuth();
   // Maps league name -> its Supabase row id, built from its own small fetch
@@ -285,6 +304,16 @@ export default function TeamManagement({
   const[myNameInput, setMyNameInput] = useState("");
   // Per-team invite-by-email form: {[teamId]: {name, email}}
   const[inviteForm, setInviteForm] = useState({});
+  // ── Joining ──────────────────────────────────────────────────────────
+  // Open requests and invites involving this bowler (my_team_requests()).
+  const[requests, setRequests] = useState([]);
+  const[busyId, setBusyId] = useState(null);
+  const[joinCode, setJoinCode] = useState("");
+  const[joinBusy, setJoinBusy] = useState(false);
+  const[joinMsg, setJoinMsg] = useState(null);
+  const[findLeague, setFindLeague] = useState("");
+  const[leagueTeams, setLeagueTeams] = useState(null);
+  const[copiedTeamId, setCopiedTeamId] = useState(null);
   // Per-placeholder "link to an account" search, keyed by invite id:
   // {[inviteId]: {term, results, searching}}
   // Self-claim: invites addressed to this account's own verified email,
@@ -308,12 +337,12 @@ export default function TeamManagement({
     // All four reads at once. They were awaited one after another, so
     // the tab waited for four round trips in a row; none needs another's
     // result, so the wait is now the slowest one rather than the sum.
-    const [leaguesRes, teamsRes, membersRes, firstInvites, myLeaguesRes] = await Promise.all([
+    const [leaguesRes, firstTeams, membersRes, firstInvites, myLeaguesRes] = await Promise.all([
       cloudRead("leagues", q => q.select("id,name")),
       // created_by so a team you made can show YOU on its roster even
       // when the membership row has not landed -- see the fallback where
       // members are assembled below.
-      cloudRead("teams", q => q.select("id,name,league_id,created_by")),
+      cloudRead("teams", q => q.select("id,name,league_id,created_by,join_code")),
       cloudRead("team_members", q => q.select("team_id,user_id,lineup_position,left_handed,is_sub,profiles(display_name)")),
       // Selecting signup_code fails outright if migration_signup_codes.sql
       // hasn't been run -- and a failed select here blanks the whole Team
@@ -340,6 +369,14 @@ export default function TeamManagement({
         if (myLeagueIds && myLeagueIds.has(l.id)) leagueIdsRef.current[l.name] = l.id;
       });
     }
+
+    // join_code arrives with 20260925140000_team_joining.sql. A database
+    // one migration behind loses the codes, not the whole tab.
+    let teamsRes = firstTeams;
+    if (!teamsRes.online || teamsRes.error) {
+      teamsRes = await cloudRead("teams", q => q.select("id,name,league_id,created_by"));
+    }
+    loadRequests();
 
     let invitesRes = firstInvites;
     if (!invitesRes.online || invitesRes.error) {
@@ -392,6 +429,8 @@ export default function TeamManagement({
         return {
           id: t.id,
           name: t.name,
+          leagueId: t.league_id,
+          joinCode: t.join_code || "",
           league: leagueNameById[t.league_id] || "",
           members,
           pendingInvites: invitesByTeam[t.id] || [],
@@ -459,6 +498,107 @@ export default function TeamManagement({
 
 
 
+  // ── Joining ──────────────────────────────────────────────────────────
+
+  async function loadRequests() {
+    if (!supabase || !user?.id) return;
+    try {
+      const { data, error } = await supabase.rpc("my_team_requests");
+      if (!error && Array.isArray(data)) setRequests(data);
+    } catch { /* offline: keep what is shown */ }
+  }
+
+  // After anything that changes membership: re-read the roster and the
+  // requests here, and tell the parent (inbox badge, league list).
+  async function afterMembershipChange(leagueId) {
+    await loadAll();
+    await loadRequests();
+    if (leagueId && onJoinedTeam) onJoinedTeam(leagueId);
+    else onRequestsChanged?.();
+  }
+
+  async function joinWithCode() {
+    const code = joinCode.trim();
+    if (!code || !supabase) return;
+    setJoinBusy(true);
+    setJoinMsg(null);
+    try {
+      const { data, error } = await supabase.rpc("join_team_with_code", { p_code: code });
+      const row = Array.isArray(data) ? data[0] : null;
+      if (error) {
+        setJoinMsg({ ok: false, text: /too many/i.test(error.message || "")
+          ? "Too many tries. Wait a little and try again."
+          : "Couldn't join just now. Check your connection and try again." });
+      } else if (!row) {
+        setJoinMsg({ ok: false, text: "That code didn't match a team. Check it with whoever sent it." });
+      } else {
+        setJoinCode("");
+        setJoinMsg({ ok: true, text: `You're on ${row.team_name}${row.league_name ? ` (${row.league_name})` : ""}.` });
+        setShownTeamId(row.team_id);
+        await afterMembershipChange(row.league_id);
+      }
+    } catch {
+      setJoinMsg({ ok: false, text: "Couldn't join just now. Check your connection and try again." });
+    }
+    setJoinBusy(false);
+  }
+
+  async function answer(request, accept) {
+    if (!supabase) return;
+    setBusyId(request.id);
+    try {
+      const { error } = await supabase.rpc("answer_team_request", { p_request_id: request.id, p_accept: accept });
+      if (error) alert("Couldn't do that just now. It may already have been answered — pull down to refresh.");
+      const joinedMyself = accept && !error && request.kind === "invite" && request.user_id === user?.id;
+      if (joinedMyself) setShownTeamId(request.team_id);
+      await afterMembershipChange(joinedMyself ? request.league_id : null);
+      if (findLeague) await loadLeagueTeams(findLeague);
+    } catch { /* nothing to undo */ }
+    setBusyId(null);
+  }
+
+  async function loadLeagueTeams(leagueName) {
+    setFindLeague(leagueName);
+    setLeagueTeams(null);
+    const id = leagueIdsRef.current[leagueName];
+    if (!id || !supabase) { setLeagueTeams([]); return; }
+    try {
+      const { data, error } = await supabase.rpc("league_teams", { p_league_id: id });
+      setLeagueTeams(!error && Array.isArray(data) ? data : []);
+    } catch { setLeagueTeams([]); }
+  }
+
+  async function askToJoin(team) {
+    if (!supabase) return;
+    setBusyId(team.id);
+    try {
+      const { error } = await supabase.rpc("request_to_join_team", { p_team_id: team.id });
+      if (error && error.hint !== "already_member") {
+        alert("Couldn't send that just now. Check your connection and try again.");
+      }
+      await loadLeagueTeams(findLeague);
+      await afterMembershipChange(null);
+    } catch { /* nothing to undo */ }
+    setBusyId(null);
+  }
+
+  async function copyCode(team) {
+    try {
+      await navigator.clipboard.writeText(team.joinCode);
+      setCopiedTeamId(team.id);
+      setTimeout(() => setCopiedTeamId(null), 2000);
+    } catch { /* clipboard blocked: the code is on screen to read out */ }
+  }
+
+  async function newCode(team) {
+    if (!supabase) return;
+    if (!confirm("Make a new code? The old one stops working, so anyone you sent it to will need the new one.")) return;
+    try {
+      const { data, error } = await supabase.rpc("reset_team_code", { p_team_id: team.id });
+      if (!error && data) setTeams(prev => prev.map(t => t.id === team.id ? { ...t, joinCode: data } : t));
+    } catch { /* keep the old code on screen */ }
+  }
+
   function startRename(team) {
     setEditingTeamId(team.id);
     setEditingName(team.name);
@@ -517,20 +657,24 @@ export default function TeamManagement({
     }, 300);
   }
 
-  function addMember(teamId, profile) {
+  // Picking someone from the search INVITES them; they accept from their
+  // inbox. It used to write their team_members row directly, which the
+  // database refuses -- you can only add yourself -- so it failed without
+  // a word. Membership lets teammates see each other's scores, so the
+  // person being added has to say yes.
+  async function addMember(teamId, profile) {
     const team = teams.find(t => t.id === teamId);
-    if (!team || team.members.some(m => m.userId === profile.id)) return;
-    setTeams(prev => addTeamMember(prev, teamId, profile));
-    setSearchState(prev => ({ ...prev, [teamId]: { term: "", results: [], searching: false } }));
-    // cloudInsert, not cloudWrite: an upsert here compiles to ON CONFLICT
-    // DO UPDATE SET team_id=..., user_id=..., and those columns are no
-    // longer updatable. A duplicate means they are already on the roster,
-    // which cloudInsert treats as success.
-    // idempotent: the constraint is (team_id, user_id), so a duplicate
-    // means this membership already exists -- which is what the caller
-    // wanted. Declared here rather than assumed inside cloudInsert,
-    // because only the call site knows what the constraint means.
-    cloudInsert("team_members", { team_id: teamId, user_id: profile.id, lineup_position: team.members.length }, { idempotent: true });
+    if (!team || team.members.some(m => m.userId === profile.id) || !supabase) return;
+    setBusyId(profile.id);
+    try {
+      const { error } = await supabase.rpc("invite_to_team", { p_team_id: teamId, p_user_id: profile.id });
+      if (error && error.hint !== "already_member") {
+        alert("Couldn't send the invitation just now. Check your connection and try again.");
+      }
+      setSearchState(prev => ({ ...prev, [teamId]: { term: "", results: [], searching: false } }));
+      await afterMembershipChange(null);
+    } catch { /* nothing to undo */ }
+    setBusyId(null);
   }
 
   function removeMember(teamId, userId) {
@@ -728,6 +872,92 @@ export default function TeamManagement({
         </div>
       )}
 
+      {/* Joining a team someone else runs: invitations waiting for this
+          bowler, a team code, or finding the team in one of their leagues
+          and asking. Every way in has a yes from the team or the bowler. */}
+      {!loading && (() => {
+        const invitesToMe = requests.filter(r => r.kind === "invite" && r.user_id === user?.id);
+        const myAsks = requests.filter(r => r.kind === "request" && r.user_id === user?.id);
+        const myLeagueNames = (leagues || []).filter(l => leagueIdsRef.current[l]);
+        return (
+          <div style={S.card}>
+            <div style={S.label}>Join a team</div>
+
+            {invitesToMe.map(r => (
+              <div key={r.id} style={{ display:"flex", alignItems:"center", gap:"8px", padding:"8px 0", borderBottom:`1px solid ${C.border}` }}>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:"14px", fontWeight:600, color:C.text }}>You're invited to {r.team_name}</div>
+                  {r.league_name && <div style={{ fontSize:"11px", color:C.textMuted }}>{r.league_name}</div>}
+                </div>
+                <button style={S.primary} disabled={busyId===r.id} onClick={()=>answer(r,true)}>Join</button>
+                <button style={S.button} disabled={busyId===r.id} onClick={()=>answer(r,false)}>No thanks</button>
+              </div>
+            ))}
+
+            <div style={{ fontSize:"12px", color:C.textMuted, margin:"10px 0 6px" }}>
+              Got a team code from a teammate? Enter it here.
+            </div>
+            <div style={{ display:"flex", gap:"8px" }}>
+              <input id="team-join-code" style={{ ...S.input, flex:1, minWidth:0, textTransform:"uppercase", letterSpacing:"0.08em" }}
+                value={joinCode} onChange={e=>{ setJoinCode(e.target.value); setJoinMsg(null); }}
+                onKeyDown={e=>{ if(e.key==="Enter") joinWithCode(); }}
+                placeholder="ABCD-1234" autoCapitalize="characters" autoComplete="off" />
+              <button style={S.primary} disabled={joinBusy || !joinCode.trim()} onClick={joinWithCode}>
+                {joinBusy ? "Joining…" : "Join"}
+              </button>
+            </div>
+            {joinMsg && (
+              <div style={{ fontSize:"12px", marginTop:"6px", color: joinMsg.ok ? C.accent : C.danger }}>{joinMsg.text}</div>
+            )}
+
+            {myLeagueNames.length > 0 && (
+              <div style={{ marginTop:"14px", paddingTop:"12px", borderTop:`1px solid ${C.border}` }}>
+                <div style={{ fontSize:"12px", color:C.textMuted, marginBottom:"6px" }}>
+                  No code? Find your team in your league and ask to join. Anyone on the team can approve you.
+                </div>
+                <select id="team-find-league" style={{ ...S.sel, width:"100%" }}
+                  value={findLeague} onChange={e=>{ if(e.target.value) loadLeagueTeams(e.target.value); else { setFindLeague(""); setLeagueTeams(null); } }}>
+                  <option value="">Pick a league</option>
+                  {myLeagueNames.map(l => <option key={l} value={l}>{String(l).replace(" House Shot","")}</option>)}
+                </select>
+                {findLeague && leagueTeams === null && (
+                  <div style={{ fontSize:"12px", color:C.textMuted, marginTop:"8px" }}>Looking…</div>
+                )}
+                {findLeague && Array.isArray(leagueTeams) && leagueTeams.length === 0 && (
+                  <div style={{ fontSize:"12px", color:C.textMuted, marginTop:"8px" }}>
+                    No teams in this league yet. You can make one with Add team.
+                  </div>
+                )}
+                {Array.isArray(leagueTeams) && leagueTeams.map(t => (
+                  <div key={t.id} style={{ display:"flex", alignItems:"center", gap:"8px", padding:"8px 0", borderBottom:`1px solid ${C.border}` }}>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:"14px", color:C.text }}>{t.name}</div>
+                      <div style={{ fontSize:"11px", color:C.textMuted }}>{t.bowlers} {t.bowlers===1?"bowler":"bowlers"}</div>
+                    </div>
+                    {t.is_member ? (
+                      <span style={{ fontSize:"12px", color:C.accent }}>Your team</span>
+                    ) : t.requested ? (
+                      <span style={{ fontSize:"12px", color:C.textMuted }}>Asked</span>
+                    ) : (
+                      <button style={S.button} disabled={busyId===t.id} onClick={()=>askToJoin(t)}>Ask to join</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {myAsks.map(r => (
+              <div key={r.id} style={{ display:"flex", alignItems:"center", gap:"8px", paddingTop:"10px" }}>
+                <div style={{ flex:1, minWidth:0, fontSize:"12px", color:C.textMuted }}>
+                  Asked to join {r.team_name} — waiting for someone on the team to approve.
+                </div>
+                <button style={S.button} disabled={busyId===r.id} onClick={()=>answer(r,false)}>Withdraw</button>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
       {!loading && !loadError && teams.length===0 && !adding && (
         <div style={S.card}>
           <div style={{color:C.textMuted,textAlign:"center",padding:"12px 0"}}>
@@ -788,6 +1018,27 @@ export default function TeamManagement({
               </div>
             </div>
           )}
+
+          {team.joinCode && (
+            <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"12px", padding:"10px 12px", borderRadius:"10px", border:`1px dashed ${C.border}` }}>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:"11px", color:C.textMuted }}>Team code — text it to teammates so they can join</div>
+                <div style={{ fontSize:"18px", fontWeight:700, letterSpacing:"0.12em", color:C.text, fontVariantNumeric:"tabular-nums" }}>{team.joinCode}</div>
+              </div>
+              <button style={S.button} onClick={()=>copyCode(team)}>{copiedTeamId===team.id ? "Copied" : "Copy"}</button>
+              <button style={S.button} onClick={()=>newCode(team)} title="Make a new code; the old one stops working">New</button>
+            </div>
+          )}
+
+          {requests.filter(r => r.team_id === team.id && r.kind === "request" && r.mine_to_answer).map(r => (
+            <div key={r.id} style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"8px", padding:"10px 12px", borderRadius:"10px", border:`1px solid ${C.accent}55` }}>
+              <div style={{ flex:1, minWidth:0, fontSize:"13px", color:C.text }}>
+                <strong>{r.bowler_name}</strong> wants to join
+              </div>
+              <button style={S.primary} disabled={busyId===r.id} onClick={()=>answer(r,true)}>Approve</button>
+              <button style={S.button} disabled={busyId===r.id} onClick={()=>answer(r,false)}>Decline</button>
+            </div>
+          ))}
 
           <div style={S.label}>Roster / Bowling Order</div>
           {/* Directive, not a dead statement.
@@ -873,8 +1124,14 @@ export default function TeamManagement({
           <div style={{marginTop:"12px",paddingTop:"12px",borderTop:`1px solid ${C.border}`}}>
             <div style={S.label}>Add a Teammate</div>
             <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"8px"}}>
-              Search only finds people who've actually signed in at least once.
+              For someone already on {APP_NAME}. They get an invitation and join when they accept. Or just text them the team code above.
             </div>
+            {requests.filter(r => r.team_id === team.id && r.kind === "invite").map(r => (
+              <div key={r.id} style={{display:"flex",alignItems:"center",gap:"8px",padding:"4px 0"}}>
+                <span style={{flex:1,minWidth:0,fontSize:"12px",color:C.textMuted}}>{r.bowler_name} — invited, waiting for them to accept</span>
+                <button style={S.button} disabled={busyId===r.id} onClick={()=>answer(r,false)}>Withdraw</button>
+              </div>
+            ))}
             <input
               value={searchState[team.id]?.term || ""}
               onChange={e=>handleSearchChange(team.id, e.target.value)}
@@ -891,7 +1148,9 @@ export default function TeamManagement({
                   .map(p => (
                     <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0"}}>
                       <span style={{color:C.text}}>{p.display_name}</span>
-                      <button style={S.button} onClick={()=>addMember(team.id, p)}>Add</button>
+                      {requests.some(r => r.team_id === team.id && r.user_id === p.id)
+                        ? <span style={{fontSize:"12px",color:C.textMuted}}>Invited</span>
+                        : <button style={S.button} disabled={busyId===p.id} onClick={()=>addMember(team.id, p)}>Invite</button>}
                     </div>
                   ))}
               </div>

@@ -685,6 +685,12 @@ export default function BowlingTracker(){
   // level for the same reason friend requests are: the invitee has no
   // other screen to find them on.
   const[myTeamInvites,setMyTeamInvites]=useState([]);
+  // Bumped to re-read the league list -- after joining a league, or a team
+  // in a league this bowler was not in yet.
+  const[leaguesReload,setLeaguesReload]=useState(0);
+  // Open team requests and invites involving this bowler -- see
+  // my_team_requests() in 20260925140000_team_joining.sql.
+  const[teamRequests,setTeamRequests]=useState([]);
   const[inviteBusyId,setInviteBusyId]=useState(null);
   // Held locally while onboarding runs, then committed once. Writing to
   // the real profile on every keystroke would create a bowler named "R"
@@ -1518,9 +1524,17 @@ export default function BowlingTracker(){
     loadImportedScores();
     loadFriendRequests();
     loadTeamInvites();
+    loadTeamRequests();
     loadFriends();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   },[user?.id]);
+
+  // Re-checked when the inbox opens: a teammate may have asked to join, or
+  // been approved, since the app started.
+  useEffect(()=>{
+    if(view==="inbox")loadTeamRequests();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[view]);
 
   useEffect(()=>{
     async function load(){
@@ -2195,7 +2209,7 @@ export default function BowlingTracker(){
       }catch{}
     }
     loadLeagues();
-  },[]);
+  },[leaguesReload]);
 
   // Live count of writes sitting in the offline queue, not yet confirmed
   // synced to Supabase. Surfaced in the header so "is my data actually
@@ -2385,10 +2399,16 @@ export default function BowlingTracker(){
   // through the offline sync queue) for any name not already tracked.
   // Returns the list of names that failed to actually sync, so callers can
   // warn rather than silently trust a write that may never have happened.
-  // Several bowlers can each have a league with the same name. Prefer
-  // this bowler's own row; otherwise the shared one they are joining.
+  // Several bowlers can each have a league with the same name. Only this
+  // bowler's OWN row is ever picked up by name.
+  //
+  // It used to fall back to rows[0] -- whichever same-named league the
+  // database returned first, at any bowling center -- so typing "Monday
+  // Night" quietly joined a stranger's league in another town. Joining
+  // someone else's league is now a choice the bowler makes from a list
+  // that shows each one's center (league_matches, joinExistingLeague).
   function pickLeagueRow(rows){
-    return rows.find(r=>r&&r.created_by&&r.created_by===user?.id)||rows[0];
+    return rows.find(r=>r&&r.created_by&&r.created_by===user?.id)||null;
   }
   // Joining a league somebody else created: record it as this bowler's,
   // so it is in their list before they have logged anything in it. The
@@ -2421,10 +2441,10 @@ export default function BowlingTracker(){
       // Either way the right move is to adopt the existing id, not to
       // fail the write.
       const existing=await cloudRead("leagues",q=>q.select("id,name,created_by").eq("name",name));
-      if(existing.online&&Array.isArray(existing.data)&&existing.data.length){
-        const pick=pickLeagueRow(existing.data);
-        leagueIdsRef.current[name]=pick.id;
-        adoptLeague(pick.id);
+      const own=existing.online&&Array.isArray(existing.data)?pickLeagueRow(existing.data):null;
+      if(own){
+        leagueIdsRef.current[name]=own.id;
+        adoptLeague(own.id);
         continue;
       }
 
@@ -2458,10 +2478,10 @@ export default function BowlingTracker(){
       // else created the same league in between. Re-read rather than
       // reporting a failure the bowler can do nothing about.
       const after=await cloudRead("leagues",q=>q.select("id,name,created_by").eq("name",name));
-      if(after.online&&Array.isArray(after.data)&&after.data.length){
-        const pick=pickLeagueRow(after.data);
-        leagueIdsRef.current[name]=pick.id;
-        adoptLeague(pick.id);
+      const ownAfter=after.online&&Array.isArray(after.data)?pickLeagueRow(after.data):null;
+      if(ownAfter){
+        leagueIdsRef.current[name]=ownAfter.id;
+        adoptLeague(ownAfter.id);
       }else{
         failed.push(name);
       }
@@ -2563,6 +2583,60 @@ export default function BowlingTracker(){
       cloudWrite("hidden_leagues",{id:crypto.randomUUID(),user_id:user?.id||null,league_id:casualId},{onConflict:"user_id,league_id"});
     }
     return casualId;
+  }
+
+  // ── Joining a league or team someone else set up ────────────────────
+  //
+  // Same-named leagues already on the app, with their center and how many
+  // bowlers are in each, so the bowler can pick the one at THEIR house.
+  // Leagues they already belong to are left out.
+  async function findLeagueMatches(name){
+    const clean=String(name||"").trim();
+    if(!clean||!supabase)return[];
+    try{
+      const{data,error}=await supabase.rpc("league_matches",{p_name:clean});
+      if(error||!Array.isArray(data))return[];
+      return data.filter(m=>m&&m.id&&!m.mine);
+    }catch{return[];}
+  }
+
+  // Pulls one league's row into every name-keyed map (id, center, dates,
+  // format, pattern) and re-reads the league list, so a league joined a
+  // moment ago -- directly, or by joining a team in it -- shows up
+  // complete without a restart.
+  async function absorbLeague(leagueId){
+    if(!leagueId)return;
+    const res=await cloudRead("leagues",q=>q.select("id,name,center_id,start_date,end_date,format,pattern_name").eq("id",leagueId),{paginate:false});
+    const r=res.online&&Array.isArray(res.data)?res.data[0]:null;
+    if(r&&r.name){
+      leagueIdsRef.current[r.name]=r.id;
+      if(r.center_id)setLeagueCenters(prev=>({...prev,[r.name]:r.center_id}));
+      if(r.start_date||r.end_date)setLeagueDates(prev=>({...prev,[r.name]:normalizeLeagueDates({startDate:r.start_date||"",endDate:r.end_date||""})}));
+      if(r.format)setLeagueFormats(prev=>({...prev,[r.name]:leagueFormat(r.format)}));
+      if(r.pattern_name)setLeaguePatterns(prev=>({...prev,[r.name]:String(r.pattern_name)}));
+    }
+    setLeaguesReload(n=>n+1);
+  }
+
+  // Joins a league another bowler created. The league's own row -- its
+  // center, dates, format -- is shared, so this bowler sees what the
+  // league already has rather than starting a parallel copy of it.
+  async function joinExistingLeague(match){
+    const name=String(match?.name||"").trim();
+    if(!match?.id||!name)return false;
+    if(leagues.some(l=>l.toLowerCase()===name.toLowerCase())){
+      alert("You already have a league with that name. Rename yours first, then join this one.");
+      return false;
+    }
+    const{error}=await supabase.rpc("add_my_league",{p_league_id:match.id});
+    if(error){
+      alert("Couldn't join that league just now. Check your connection and try again.");
+      return false;
+    }
+    leagueIdsRef.current[name]=match.id;
+    await saveLeagues([name,...leagues]);
+    await absorbLeague(match.id);
+    return true;
   }
 
   async function addLeague(name,startDate,endDate){
@@ -3272,6 +3346,16 @@ export default function BowlingTracker(){
   function teamMemberName(m){
     if(typeof m==="string")return m;
     return m?.displayName||m?.bowlerName||"";
+  }
+
+  async function loadTeamRequests(){
+    if(!user?.id||!supabase)return;
+    try{
+      const{data,error}=await supabase.rpc("my_team_requests");
+      // Before the migration runs the function does not exist; the inbox
+      // simply has nothing from it rather than an error.
+      if(!error&&Array.isArray(data))setTeamRequests(data);
+    }catch{}
   }
 
   async function loadTeamInvites(){
@@ -7694,6 +7778,7 @@ export default function BowlingTracker(){
     unreadResponses,
     friendRequests:incomingFriendRequests,
     teamInvites:myTeamInvites,
+    teamRequests,
     bookAverageDue:bookAverageCheck,
     catalogRejections:rejectedBallsFor(arsenals[displayName||activeBowler]||[],catalogEntries,catalogAck),
     coachViewOn,
@@ -8742,6 +8827,8 @@ export default function BowlingTracker(){
               // the Coach tab on the bowling side rather than dropping
               // them into coach view looking at their own bowlers.
               if(item.type==="coachTask")updatePreferences(prev=>setCoachView(prev,false));
+              // Team requests are answered on Setup > Team.
+              if(item.view==="team"){setSetupTab("team");setView("locker");return;}
               setView(item.view);
             }}/>
             <ImportedScoresInbox
@@ -8851,7 +8938,7 @@ export default function BowlingTracker(){
              they have, not what the plan happens to show. */
           <Settings
             mode="leagues"
-            onCreateTeam={createTeamForLeague} onAddLeague={addLeague}
+            onCreateTeam={createTeamForLeague} onAddLeague={addLeague} findLeagueMatches={findLeagueMatches} onJoinLeague={joinExistingLeague}
             restartOnboarding={restartOnboarding} replayTour={replayTour} isCoach={showCoachingTab}
             showBackup={showBackup} setShowBackup={setShowBackup}
             backupStatus={backupStatus} setBackupStatus={setBackupStatus}
@@ -8904,6 +8991,10 @@ export default function BowlingTracker(){
             onTeamsChange={persistTeams}
             focusTeamId={focusTeamId}
             onCreateTeam={createTeamForLeague}
+            // Joining a team can put the bowler in a league they were not
+            // in, so the league list and its details are re-read.
+            onJoinedTeam={leagueId=>{absorbLeague(leagueId);loadTeamRequests();}}
+            onRequestsChanged={loadTeamRequests}
           />
         )}
 

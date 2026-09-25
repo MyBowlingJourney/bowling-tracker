@@ -22,6 +22,7 @@ export const INBOX_PRIORITY = [
   "coachingRequest",
   "friendRequest",
   "teamInvite",
+  "teamJoin",
   "importedScores",
   "coachTask",
   "teammateResponse",
@@ -55,6 +56,9 @@ export function buildInbox(options) {
   unreadResponses = {},
   friendRequests = [],
   teamInvites = [],
+  // Open team requests and invites that are this bowler's to answer, from
+  // the my_team_requests() database function.
+  teamRequests = [],
   bookAverageDue = null,
   catalogRejections = [],
   coachViewOn = false,
@@ -192,6 +196,28 @@ export function buildInbox(options) {
   }
 
   // ── Housekeeping the app noticed ──
+  for (const r of Array.isArray(teamRequests) ? teamRequests : []) {
+    if (!r || typeof r !== "object" || !r.id || !r.mine_to_answer) continue;
+    const team = r.team_name || "a team";
+    items.push(r.kind === "invite"
+      ? {
+          id: `team-join-${r.id}`,
+          type: "teamJoin",
+          title: `Invitation to join ${team}`,
+          detail: `${r.league_name ? r.league_name + " · " : ""}Accept or decline on the Team tab.`,
+          count: 1,
+          view: "team",
+        }
+      : {
+          id: `team-join-${r.id}`,
+          type: "teamJoin",
+          title: `${r.bowler_name || "A bowler"} wants to join ${team}`,
+          detail: "Anyone on the team can approve it on the Team tab.",
+          count: 1,
+          view: "team",
+        });
+  }
+
   if (bookAverageDue?.needed) {
     items.push({
       id: "book-average",
