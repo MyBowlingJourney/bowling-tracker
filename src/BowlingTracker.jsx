@@ -3588,7 +3588,9 @@ export default function BowlingTracker(){
         id:crypto.randomUUID(),
         // Null when the teammate has no account yet -- their scores still
         // belong on the team's card, they just have nobody to confirm them.
-        bowler_user_id:member?.userId||null,
+        // The import reads the roster itself and sends the id; the team
+        // here usually has no members loaded (see ImportScorecard).
+        bowler_user_id:e.bowlerUserId||member?.userId||null,
         bowler_name:e.bowler,
         uploaded_by:user.id,
         // Locally-created teams have a generated id, not a UUID -- see

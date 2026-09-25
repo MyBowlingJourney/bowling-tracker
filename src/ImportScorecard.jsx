@@ -10,6 +10,7 @@ import Scoresheet from "./Scoresheet.jsx";
 import { findExistingShotSlot } from "./domain/sessions.js";
 import { isValidGameScore, invalidScoreIndexes } from "./domain/importVerification.js";
 import { supabase } from "./supabaseClient.js";
+import { validTeamId } from "./domain/supabaseMapping.js";
 import { recordError } from "./errorLogStore.js";
 import { readPinDecks, applyPinDecks } from "./domain/pinDeckPixels.js";
 
@@ -387,9 +388,6 @@ export default function ImportScorecard({
   const[columns,setColumns]=useState([]);
 
   // The names the matcher can suggest, so the dropdown can offer them.
-  const teamRosterNames=(contextTeam?.members||[])
-    .map(m=>(typeof m==="string"?m:(m?.bowlerName||m?.name||m?.bowler||"")))
-    .map(n=>String(n).trim()).filter(Boolean);
 
   // "Add as a new bowler" is carried in the dropdown value as
   // __new__<name>, because a <select> can only hold a string. This turns
@@ -413,6 +411,45 @@ export default function ImportScorecard({
   const[teammateScores,setTeammateScores]=useState({}); // columnIndex -> [score strings]
 
   const teamId=contextTeam?.id||"";
+
+  // The chosen team's roster, read here.
+  //
+  // The app loads team NAMES at startup and leaves members empty -- the
+  // Team screen reads the roster for itself when it opens. So unless the
+  // bowler happened to open Team first, the import had no teammates at
+  // all: the "Who's who" dropdown offered none, a card could not be sent
+  // to one, and nothing matched. Members with an account come with their
+  // user id (so they can confirm what is sent); placeholders without one
+  // come by name, and their scores wait on the team's card.
+  const[rosterByTeam,setRosterByTeam]=useState({});
+  useEffect(()=>{
+    if(!teamId||!validTeamId(teamId)||rosterByTeam[teamId])return;
+    let live=true;
+    (async()=>{
+      try{
+        const[mem,inv]=await Promise.all([
+          supabase.from("team_members").select("user_id,lineup_position,profiles(display_name)").eq("team_id",teamId),
+          supabase.from("pending_invites").select("invited_name,lineup_position").eq("team_id",teamId).is("accepted_at",null),
+        ]);
+        const members=[
+          ...(mem.data||[]).map(r=>({userId:r.user_id,displayName:r.profiles?.display_name||"",lineupPosition:r.lineup_position??0})),
+          ...(inv.data||[]).map(r=>({userId:null,displayName:r.invited_name||"",lineupPosition:r.lineup_position??0})),
+        ].filter(m=>m.displayName).sort((a,b)=>a.lineupPosition-b.lineupPosition);
+        if(live&&!mem.error)setRosterByTeam(prev=>({...prev,[teamId]:members}));
+      }catch{/* the roster stays whatever the team already carried */}
+    })();
+    return()=>{live=false;};
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[teamId]);
+  const rosterMembers=(teamId&&rosterByTeam[teamId]?.length?rosterByTeam[teamId]:null)||contextTeam?.members||[];
+  // displayName first: that is what cloud-loaded members carry. Reading
+  // only bowlerName/name/bowler found nobody on a real team, so the
+  // "Who's who" dropdown never offered a teammate and a card could not be
+  // sent to one -- the same slip the matcher below and
+  // submitTeammateScores had already been fixed for.
+  const teamRosterNames=rosterMembers
+    .map(m=>(typeof m==="string"?m:(m?.displayName||m?.bowlerName||m?.name||m?.bowler||"")))
+    .map(n=>String(n).trim()).filter(Boolean);
 
   // Images are sent as-is. Nothing is resized or re-encoded.
   //
@@ -901,12 +938,11 @@ export default function ImportScorecard({
           detail:{images:images.length,requestId:data?.validation?.requestId||null}});
         throw new Error("Found games but couldn't read any scores or frame detail. Try a clearer screenshot.");
       }
-      const team=teams.find(t=>t.id===teamId);
       // Cloud members carry displayName, not bowlerName -- reading only
       // bowlerName produced a roster of empty names, so every column
       // fell through to manual matching even when the team was known.
       const memberName=m=>(typeof m==="string"?m:(m?.displayName||m?.bowlerName||""));
-      const roster=(team?.members||[]).map(m=>({
+      const roster=rosterMembers.map(m=>({
         bowler:memberName(m),
         aliases:(profiles?.[memberName(m)]?.aliases)||[],
         lineupPosition:m.lineupPosition??0,
@@ -1105,6 +1141,8 @@ export default function ImportScorecard({
     if(teammateColumns.length&&onSubmitTeammateScores){
       await onSubmitTeammateScores(teammateColumns.map(({column,index,bowler})=>({
         bowler,
+        // Their account, so they can confirm it. Null for a placeholder.
+        bowlerUserId:(rosterMembers.find(m=>(typeof m==="string"?m:(m?.displayName||m?.bowlerName||""))===bowler)||{}).userId||null,
         league:contextLeague,
         date:contextDate,
         teamId,
