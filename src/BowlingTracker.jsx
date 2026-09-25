@@ -5709,6 +5709,12 @@ export default function BowlingTracker(){
       if(score===null&&had!==null){
         cloudDelete("manual_scores",{bowler_name:bowler,league_id:leagueId,date,game,session_seq:seq});
       }
+      // Nothing to save: a blank box that was already blank. This used to
+      // fall through to the write below and upsert an EMPTY row -- the
+      // import clears each game's box, so every imported night got three
+      // null "typed scores" in the cloud. Equipment still saves through
+      // updateGameEquipment, which writes the row itself.
+      else if(score===null){ /* nothing */ }
       // Keyed by the natural (user, bowler, league, date, game, session)
       // tuple, so correcting a typed score updates instead of colliding
       // -- and so the SECOND session of a day gets its own row rather

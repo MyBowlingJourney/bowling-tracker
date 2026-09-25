@@ -148,3 +148,14 @@ describe('team join requests', () => {
     expect(buildInbox({ bowler: 'Ryan', userId: 'u1', teamRequests: null })).toEqual([]);
   });
 });
+
+describe('teammates\' unconfirmed scores', () => {
+  it('are not an inbox item for someone else', () => {
+    const items = buildInbox({
+      bowler: 'Ryan Everett', userId: 'me',
+      importedScores: [{ id: 'x', bowler: 'Tommy Dick', league: 'L', date: '2026-09-10', status: 'pending', importedScores: [151, 158, 145] }],
+      sessions: [{ bowler: 'Ryan Everett', league: 'L', date: '2026-09-17', scores: [200] }],
+    });
+    expect(items.some(i => i.type === 'staleTeammateScores')).toBe(false);
+  });
+});

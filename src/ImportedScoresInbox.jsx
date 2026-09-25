@@ -191,8 +191,9 @@ export default function ImportedScoresInbox({
   const reentry = needingReentry(records).filter(r => r.bowler === bowler);
   // Teammates' records this bowler may be able to fix, because the person
   // they belong to never responded.
-  const stale = (records || []).filter(r =>
-    r.bowler !== bowler && r.status === "pending" && canCorrect && canCorrect(r).allowed);
+  // Not shown in the inbox any more: other people's scores are not this
+  // bowler's to confirm (see domain/inbox.js).
+  const stale = [];
 
   if (!mine.length && !reentry.length && !stale.length && !teamInvites.length) return null;
 

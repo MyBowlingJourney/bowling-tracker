@@ -102,23 +102,11 @@ export function buildInbox(options) {
     });
   }
 
-  // A teammate's unconfirmed night this bowler is now allowed to fix.
-  const stale = importedScores.filter(r =>
-    r && r.bowler !== bowler && r.status === "pending" &&
-    canCorrect(r, bowler, { sessions, verifiedTeammates: importedScores
-      .filter(x => x.league === r.league && x.date === r.date &&
-        (x.status === "verified" || x.status === "corrected"))
-      .map(x => x.bowler) }).allowed);
-  if (stale.length) {
-    items.push({
-      id: "stale-teammate-scores",
-      type: "staleTeammateScores",
-      title: `${stale.length} teammate score${stale.length === 1 ? "" : "s"} unconfirmed`,
-      detail: "Nobody confirmed these and a session has since finished. You can correct them.",
-      count: stale.length,
-      view: "inbox",
-    });
-  }
+  // Teammates' unconfirmed nights are NOT an inbox item. The inbox is for
+  // what needs THIS bowler; asking them to correct other people's scores
+  // after every import (most teammates have no account and never
+  // confirm) filled it with work that was not theirs. Correcting a
+  // teammate is still possible from the team's scores.
 
   // ── Coaching ──
   const coaching = categorizeCoaching(coachingRelationships, userId, coachingProfilesById);
