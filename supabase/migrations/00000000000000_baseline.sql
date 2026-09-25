@@ -573,6 +573,80 @@ end;
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.set_center_pins(p_center_id uuid, p_rack_type text, p_freefall_lanes integer[])
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  rt text := nullif(btrim(coalesce(p_rack_type, '')), '');
+  lanes integer[];
+begin
+  if auth.uid() is null then
+    raise exception 'not signed in' using errcode = '42501';
+  end if;
+  if rt is not null and rt not in ('string', 'freefall', 'mixed') then
+    raise exception 'unknown pin type: %', rt using errcode = '22023';
+  end if;
+  -- Lane numbers only mean something for a mixed house; anywhere else a
+  -- stale list would silently re-split the next time it became mixed.
+  if rt = 'mixed' then
+    select array_agg(distinct l order by l) into lanes
+    from unnest(coalesce(p_freefall_lanes, '{}'::integer[])) l
+    where l between 1 and 200;
+  end if;
+
+  update public.bowling_centers
+     set rack_type = rt,
+         freefall_lanes = lanes
+   where id = p_center_id;
+  if not found then
+    raise exception 'no such center' using errcode = 'P0002';
+  end if;
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.set_kept_league(p_league_id uuid)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  me uuid := auth.uid();
+  current_pick uuid;
+begin
+  if me is null then
+    raise exception 'not signed in' using errcode = '42501';
+  end if;
+  if not exists (select 1 from public.user_leagues
+                 where user_id = me and league_id = p_league_id) then
+    raise exception 'not one of your leagues' using errcode = '22023';
+  end if;
+
+  insert into public.entitlements (user_id) values (me)
+  on conflict (user_id) do nothing;
+
+  select kept_league_id into current_pick
+  from public.entitlements where user_id = me
+  for update;
+
+  if current_pick is not null and current_pick <> p_league_id then
+    raise exception 'active league already chosen'
+      using errcode = 'P0001', hint = 'kept_league_locked';
+  end if;
+
+  update public.entitlements
+     set kept_league_id = p_league_id
+   where user_id = me and kept_league_id is null;
+
+  return p_league_id;
+end;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.set_updated_at()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -1553,9 +1627,6 @@ CREATE POLICY 'users manage their own drills' ON public.drills FOR ALL TO authen
   WITH CHECK ((user_id = auth.uid()));
 CREATE POLICY 'read own entitlement' ON public.entitlements FOR SELECT TO authenticated
   USING ((auth.uid() = user_id));
-CREATE POLICY 'set own kept league' ON public.entitlements FOR UPDATE TO authenticated
-  USING ((auth.uid() = user_id))
-  WITH CHECK ((auth.uid() = user_id));
 CREATE POLICY 'either side can delete a friendship' ON public.friendships FOR DELETE TO authenticated
   USING (((requester_id = auth.uid()) OR (addressee_id = auth.uid())));
 CREATE POLICY 'only the addressee can answer a friend request' ON public.friendships FOR UPDATE TO authenticated
