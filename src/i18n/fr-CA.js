@@ -2775,7 +2775,9 @@ export const FR_CA = {
 "Your home centers": "Vos salles de quilles habituelles",
 "Somewhere else?": "Ailleurs?",
 "Reserves their spot on the roster now — you can start logging their scores under their name right away via Who's Bowling, no account needed yet. Either way they claim the spot themselves and everything you've logged is already there: with a code, you get one to text them and they enter it when they sign up; with their email, they're linked the moment they sign in with that exact address.": "Réserve sa place dans la liste des joueurs dès maintenant — vous pouvez commencer tout de suite à enregistrer ses pointages sous son nom dans « Pointage tenu pour », sans qu'un compte soit nécessaire pour l'instant. Dans les deux cas, la personne réclame elle-même sa place et tout ce que vous avez enregistré s'y trouve déjà : avec un code, vous en recevez un à lui envoyer par texto et elle l'entre au moment de s'inscrire; avec son courriel, elle y est liée dès qu'elle se connecte avec cette adresse exacte.",
-"Filled in from your note — check it's the right game.": "Rempli à partir de votre note — vérifiez que c'est la bonne partie."
+"Filled in from your note — check it's the right game.": "Rempli à partir de votre note — vérifiez que c'est la bonne partie.",
+"(pending)": "(en attente)",
+"Couldn't tell which league this night belongs to. Reload the app and try again.": "Impossible de savoir à quelle ligue appartient cette soirée. Rechargez l'application et réessayez."
 },
 "patterns": [
 [
@@ -5517,6 +5519,10 @@ export const FR_CA = {
 [
 "Sign in as {0}?",
 "Se connecter en tant que {0}?"
+],
+[
+"{0} (pending)",
+"{0} (en attente)"
 ]
 ],
 "fragments": [

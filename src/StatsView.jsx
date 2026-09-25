@@ -111,7 +111,7 @@ export default function StatsView({
   preferences = { trackedFields: {} },
   view, shots = [], sessions = [], bowlers = [], teams, leagues: allLeagues = [], arsenals, saved,
   statsBowler, setStatsBowler = () => {}, compareBowler, setCompareBowler = () => {},
-  compareFriendId, setCompareFriendId = () => {}, friends=[], onLoadFriendData, onOpenFriends, compareSessions, displayName="",
+  compareFriendId, setCompareFriendId = () => {}, friends=[], onLoadFriendData, teamRosters=[], onLoadTeammateData, onOpenFriends, compareSessions, displayName="",
   statsLeague, setStatsLeague = () => {},
   compareLeague, setCompareLeague = () => {}, matches,
   FRAME_POSITION_RELIABILITY_THRESHOLD, allFirstBalls = [], bStats, bowlerLeagueCount,
@@ -133,6 +133,20 @@ export default function StatsView({
   // filing cabinet. Filtered once here rather than at each of the five
   // places leagues are listed below.
   const leagues = (allLeagues || []).filter(l => !isContainerLeague(l));
+  // Everyone whose numbers are in this data -- the local roster, plus
+  // anyone who only arrives through the data itself: a teammate's
+  // imported scorecard column, a pending teammate the captain scores for.
+  // The team cards listed `bowlers` (the local roster) alone, so a
+  // roster that hadn't signed up yet left every team card with one
+  // bowler, or none.
+  const teamBowlers = [...new Set([
+    ...(bowlers || []),
+    ...(sessions || []).map(x => x && x.bowler),
+    ...(shots || []).map(x => x && x.bowler),
+  ].filter(Boolean))];
+  // A friend who's also on one of your teams is listed under that team.
+  const teamMateIds = new Set((teamRosters || []).flatMap(r => r.members.map(m => m.userId)));
+  const friendsOffTeam = (friends || []).filter(f => !teamMateIds.has(f.userId));
 
   // Fixed cards keep anchored positions: "Viewing" is the selector that
   // controls everything below it, and "Danger Zone" holds destructive
@@ -212,7 +226,11 @@ export default function StatsView({
                 // boxes grouped inside it travel with it as one unit.
                 const byId = {};
                 byId["viewing"] = (
-bowlers.length>1&&(
+                // Shown whenever there's anyone to view or compare against.
+                // It needed two names in the LOCAL roster, so a bowler whose
+                // teammates live only on the team's roster never saw
+                // Compare To at all.
+(bowlers.length>1||friends.length>0||teamRosters.length>0||leagues.length>0)&&(
                   // Viewing and Compare To side by side: two halves of one
                   // question -- whose numbers, against whose. Stacked, they
                   // read as two separate settings.
@@ -292,7 +310,8 @@ bowlers.length>1&&(
                             Grouped options do both -- fixed height, and the
                             grouping itself explains what each option means. */}
                         <select style={{...S.sel,gridColumn:2,gridRow:2,width:"100%",minWidth:0}} value={
-                            compareFriendId?`friend:${compareFriendId}`
+                            compareFriendId?.startsWith("mate:")?compareFriendId
+                            :compareFriendId?`friend:${compareFriendId}`
                             :compareBowler?`bowler:${compareBowler}`
                             :compareLeague?`team:${compareLeague}`
                             :""
@@ -318,6 +337,16 @@ bowlers.length>1&&(
                               // until someone actually wants to compare
                               // against them.
                               onLoadFriendData?.(id);
+                            } else if(kind==="mate"){
+                              // A teammate, active or pending: "mate:team:name",
+                              // plus the account id when they have one.
+                              const [teamId,name]=id.split(/:(.*)/s);
+                              const r=teamRosters.find(x=>x.teamId===teamId);
+                              const m=r?.members.find(x=>x.name===name);
+                              setCompareBowler(name);
+                              setCompareFriendId(v);
+                              setCompareLeague("");
+                              onLoadTeammateData?.(teamId,m?.userId||"",name);
                             } else if(kind==="team"){
                               setCompareLeague(id);
                               setCompareBowler("");
@@ -338,9 +367,24 @@ bowlers.length>1&&(
                               connection, and teammates become friends
                               automatically, so the people worth comparing
                               to are all reachable here. */}
-                          {friends.length>0&&(
+                          {/* Each team's roster -- members with an account
+                              and pending ones not signed up yet. A pending
+                              teammate is never a friend, so without this
+                              they couldn't be compared to at all. */}
+                          {teamRosters.map(r=>(
+                            <optgroup key={r.teamId} label={r.teamName}>
+                              {r.members.map(m=>(
+                                <option key={m.userId} value={["mate",r.teamId,m.name].join(":")}>{m.name}</option>
+                              ))}
+                              {r.pending.map(p=>(
+                                <option key={p.id} value={["mate",r.teamId,p.name].join(":")}>{p.name} (pending)</option>
+                              ))}
+                            </optgroup>
+                          ))}
+                          {/* Friends who aren't already listed under a team. */}
+                          {friendsOffTeam.length>0&&(
                             <optgroup label="Friends">
-                              {friends.map(f=>(
+                              {friendsOffTeam.map(f=>(
                                 <option key={f.userId} value={`friend:${f.userId}`}>{f.displayName}</option>
                               ))}
                             </optgroup>
@@ -359,7 +403,7 @@ bowlers.length>1&&(
                             state, and a lone "None" reads as broken.
                             Teammates become friends automatically, so the
                             fix is usually to finish setting up the team. */}
-                        {friends.length===0&&leagues.filter(l=>l!==statsLeague).length===0&&(
+                        {friends.length===0&&teamRosters.length===0&&leagues.filter(l=>l!==statsLeague).length===0&&(
                           <div style={{gridColumn:"1 / -1",fontSize:"11px",color:C.textMuted,marginTop:"6px",lineHeight:1.4}}>
                             Nobody to compare against yet. Add a friend, or set up your team — teammates
                             are added as friends automatically.
@@ -598,7 +642,7 @@ teamCardsVisible&&(()=>{
                 })()
                 );
                 byId["teamLeaderboard"] = (
-teamCardsVisible&&bowlers.length>1&&(()=>{
+teamCardsVisible&&teamBowlers.length>1&&(()=>{
                   // Who is ON the leaderboard: anyone with GAMES in this league.
                   //
                   // This filtered on shots, which meant a bowler who logs
@@ -609,7 +653,7 @@ teamCardsVisible&&bowlers.length>1&&(()=>{
                   // Shots are still what the strike-rate tag needs, so
                   // that shows only for bowlers who have them.
                   const inLeague=x=>!statsLeague||x.league===statsLeague;
-                  const leagueBowlers=bowlers.filter(b=>
+                  const leagueBowlers=teamBowlers.filter(b=>
                     sessions.some(x=>x&&x.bowler===b&&inLeague(x))
                     ||shots.some(x=>x&&x.bowler===b&&inLeague(x)));
                   if(!leagueBowlers.length)return null;
@@ -643,7 +687,7 @@ teamCardsVisible&&bowlers.length>1&&(()=>{
                 })()
                 );
                 byId["giantKiller"] = (
-teamCardsVisible&&bowlers.length>1&&(()=>{
+teamCardsVisible&&teamBowlers.length>1&&(()=>{
                   if(!statsLeague)return(
                     <div style={S.card}>
                       <div style={S.label}>Giant Killer</div>
@@ -686,7 +730,7 @@ teamCardsVisible&&bowlers.length>1&&(()=>{
                 })()
                 );
                 byId["hung"] = (
-teamCardsVisible&&bowlers.length>1&&(()=>{
+teamCardsVisible&&teamBowlers.length>1&&(()=>{
                   if(!statsLeague)return(
                     <div style={S.card}>
                       <div style={S.label}>🎣 Hung</div>
@@ -694,7 +738,7 @@ teamCardsVisible&&bowlers.length>1&&(()=>{
                     </div>
                   );
                   const counts=hungCounts(shots,statsLeague);
-                  const leagueBowlers=bowlers.filter(b=>shots.some(s=>s.bowler===b&&s.league===statsLeague));
+                  const leagueBowlers=teamBowlers.filter(b=>shots.some(s=>s.bowler===b&&s.league===statsLeague));
                   const rows=leagueBowlers.map(b=>({bowler:b,count:counts[b]||0})).sort((a,b)=>b.count-a.count);
                   if(!rows.some(r=>r.count>0))return(
                     <div style={S.card}>
@@ -719,7 +763,7 @@ teamCardsVisible&&bowlers.length>1&&(()=>{
                 })()
                 );
                 byId["teamSeries"] = (
-teamCardsVisible&&bowlers.length>1&&(()=>{
+teamCardsVisible&&teamBowlers.length>1&&(()=>{
                   // Team Series: sum each bowler's session total for dates where 2+ bowlers share a league+date
                   const byKey={};
                   sessions.filter(s=>!statsLeague||s.league===statsLeague).forEach(s=>{
@@ -928,7 +972,10 @@ teamCardsVisible&&bowlers.length>1&&(()=>{
                       <StatRows>
                         {!isTeamView&&(<>
                           <StatRow label="Weak 10s" value={wk} fill={wkPct} color={C.miss}/>
-                          <StatRow label="Ringing 10s" value={rng} fill={100-wkPct} color={C.spare}/>
+                          {/* The two bars split the 10s that were classified between them;
+                              with none classified, both are empty (100-0 drew a
+                              full Ringing bar next to a 0). */}
+                          <StatRow label="Ringing 10s" value={rng} fill={(wk+rng)>0?100-wkPct:0} color={C.spare}/>
                         </>)}
                         <StatRow label="Ten-pin leave rate" value={`${rate}%`} color={C.textMuted} last
                           badge={showTeamCompare?<CompareBadge value={rate} teamValue={teamTenPinRate} lowerIsBetter label={compareLabel}/>:null}/>
@@ -969,7 +1016,7 @@ teamCardsVisible&&bowlers.length>1&&(()=>{
                 </LeaveBreakdown>
                 );
                 byId["loneFivePin"] = (
-teamCardsVisible&&bowlers.length>1&&(()=>{
+teamCardsVisible&&teamBowlers.length>1&&(()=>{
                   // Hand up: miss the lone 5 and you owe everyone with a
                   // hand up a drink. A count, not a rate -- nobody buys a
                   // round for a percentage.
@@ -981,7 +1028,7 @@ teamCardsVisible&&bowlers.length>1&&(()=>{
                     </div>
                   );
                   const counts=handUpCounts(shots,statsLeague);
-                  const leagueBowlers=bowlers.filter(b=>shots.some(s=>s.bowler===b&&s.league===statsLeague));
+                  const leagueBowlers=teamBowlers.filter(b=>shots.some(s=>s.bowler===b&&s.league===statsLeague));
                   const rows=leagueBowlers.map(b=>({bowler:b,count:counts[b]||0}))
                     .sort((a,b)=>b.count-a.count||a.bowler.localeCompare(b.bowler));
                   if(!rows.some(r=>r.count>0))return(

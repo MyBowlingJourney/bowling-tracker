@@ -57,6 +57,7 @@ import { maxPossibleScore,
   freshRackShots, theoreticalFillBallValue, tenthBall3Earned,
 } from "./domain/scoring.js";
 import { emptyShot, computeSessionStats, findExistingShotSlot } from "./domain/sessions.js";
+import { teammateImportRows } from "./domain/teamImports.js";
 import { buyInsForLeague, costArraysFor } from "./domain/money.js";
 import { normalizeLayout } from "./domain/layouts.js";
 import { profileFromRow, profileToRow, emptyProfile, normalizeProfile, resolveHandedness, effectiveLeftHanded, suggestBookAverage, resolveHomeCenters } from "./domain/profiles.js";
@@ -947,6 +948,83 @@ export default function BowlingTracker(){
       setFriendShots(prev=>({...prev,[friendUserId]:shotRes.data.map(row=>shotFromSupabaseRow(row,nameById))}));
     }
   }
+  // Everyone on your teams, for Compare To in Stats: members with an
+  // account AND pending ones (invited or name-only, not signed up yet).
+  //
+  // Compare To only offered friends, and a teammate became a friend only
+  // after joining -- so a pending teammate could never be compared to,
+  // and neither could an active one whose friendship hadn't been made
+  // yet. The startup team list carries names only, so the roster is read
+  // here: team_members for accounts, pending_invites for the rest.
+  // [{teamId, teamName, league, members:[{userId,name}], pending:[{id,name}]}]
+  const[teamRosters,setTeamRosters]=useState([]);
+  const teamIdKey=(teams||[]).map(t=>t.id).filter(Boolean).sort().join(",");
+  useEffect(()=>{
+    if(!user?.id||!teamIdKey)return;
+    let cancelled=false;
+    (async()=>{
+      const[memRes,invRes]=await Promise.all([
+        cloudRead("team_members",q=>q.select("team_id,user_id,lineup_position,profiles(display_name)")),
+        cloudRead("pending_invites",q=>q.select("id,team_id,invited_name,lineup_position").is("accepted_at",null)),
+      ]);
+      if(cancelled||!memRes.online||!Array.isArray(memRes.data))return;
+      const invites=invRes.online&&Array.isArray(invRes.data)?invRes.data:[];
+      const byPos=(a,b)=>(a.pos??99)-(b.pos??99);
+      setTeamRosters((teams||[]).filter(t=>t.id).map(t=>({
+        teamId:t.id,teamName:t.name,league:t.league,
+        members:memRes.data.filter(m=>m.team_id===t.id&&m.user_id!==user.id)
+          .map(m=>({userId:m.user_id,name:(m.profiles?.display_name||"").trim(),pos:m.lineup_position}))
+          .filter(m=>m.name).sort(byPos),
+        pending:invites.filter(i=>i.team_id===t.id)
+          .map(i=>({id:i.id,name:(i.invited_name||"").trim(),pos:i.lineup_position}))
+          .filter(i=>i.name).sort(byPos),
+      })).filter(r=>r.members.length||r.pending.length));
+    })();
+    return()=>{cancelled=true;};
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[user?.id,teamIdKey]);
+
+  // One teammate's numbers, for comparing against. Stored in the same
+  // friendShots/friendSessions maps under a "mate:team:name" key, so the
+  // comparison math needs nothing new.
+  //
+  // Filtered to that bowler's NAME, from three places:
+  //  - rows the team can see under that name (a captain logging a pending
+  //    teammate stores them under the captain's account, with the team);
+  //  - an active member's own rows under their name;
+  //  - rows this device logged for them.
+  // A friend's fetch takes everything under their account, which for a
+  // captain would blend in every teammate they log for -- so it isn't
+  // reused here.
+  async function loadTeammateData(teamId,userId,name){
+    const key=["mate",teamId,name].join(":");
+    if(!teamId||!name)return key;
+    const nameById={};
+    Object.entries(leagueIdsRef.current||{}).forEach(([n,id])=>{nameById[id]=n;});
+    const same=v=>String(v||"").trim().toLowerCase()===name.toLowerCase();
+    const reads=[
+      cloudRead("shots",q=>q.select("*").eq("team_id",teamId).eq("bowler_name",name)),
+      cloudRead("sessions",q=>q.select("*").eq("team_id",teamId).eq("bowler_name",name)),
+    ];
+    if(userId){
+      reads.push(
+        cloudRead("shots",q=>q.select("*").eq("user_id",userId).eq("bowler_name",name)),
+        cloudRead("sessions",q=>q.select("*").eq("user_id",userId).eq("bowler_name",name)),
+      );
+    }
+    const res=await Promise.all(reads);
+    const rows=i=>res[i]&&res[i].online&&Array.isArray(res[i].data)?res[i].data:[];
+    const byId=(list)=>{const m=new Map();list.forEach(r=>{if(r&&r.id&&!m.has(r.id))m.set(r.id,r);});return [...m.values()];};
+    const cloudShots=[...rows(0),...rows(2)].map(r=>shotFromSupabaseRow(r,nameById));
+    const cloudSessions=[...rows(1),...rows(3)].map(r=>sessionFromSupabaseRow(r,nameById));
+    // Imported scorecard columns count too -- for a teammate who hasn't
+    // signed up, they're usually all there is.
+    const mateShots=byId([...shots.filter(s=>same(s.bowler)),...cloudShots,...teamImports.shots.filter(s=>same(s.bowler))]);
+    const mateSessions=byId([...sessions.filter(s=>same(s.bowler)),...cloudSessions,...teamImports.sessions.filter(s=>same(s.bowler))]);
+    setFriendShots(prev=>({...prev,[key]:mateShots}));
+    setFriendSessions(prev=>({...prev,[key]:mateSessions}));
+    return key;
+  }
   const[coachBowlerShots,setCoachBowlerShots]=useState({});
   // The live pairing code this bowler has generated, if any, and
   // whatever the last claim attempt said. No search state: coaches and
@@ -1686,7 +1764,11 @@ export default function BowlingTracker(){
           cloudRead("bowler_goals",q=>q.select("bowler_name,goals")),
           cloudRead("tournaments",q=>q.select("id,bowler_name,name,center,days,buy_in,winnings,side_pots,match_play,stepladder,match_play_next_round,placement,placement_note,notes,handicap,baker_partner,baker_starter,baker_alternate,scoring_basis,pin_format,play_style")),
           cloudRead("leagues",q=>q.select("id,name,center_id,start_date,end_date,format,pattern_name")),
-          cloudRead("ball_submissions",q=>q.select("id,submitted_by,ball_key,ball_name,brand,coverstock,core_type,weight,rg,diff,int_diff,created_at,official,source_note,weight_specs")),
+          // A longer wait than the default: the catalog is a thousand balls
+          // with per-weight specs, and on a slow signal one page could run
+          // past 6s -- which threw the whole read away and left search
+          // with nothing.
+          cloudRead("ball_submissions",q=>q.select("id,submitted_by,ball_key,ball_name,brand,coverstock,core_type,weight,rg,diff,int_diff,created_at,official,source_note,weight_specs").order("id",{ascending:true}),{timeoutMs:20000}),
           cloudRead("ball_confirmations",q=>q.select("submission_id,confirmed_by,vote")),
           cloudRead("ball_groups",q=>q.select("id,bowler_name,name,sort_order")),
           cloudRead("bags",q=>q.select("id,bowler_name,name,bag_type,ball_limit,includes_plastic").order("created_at",{ascending:true})),
@@ -3565,6 +3647,18 @@ export default function BowlingTracker(){
     if(!res.online||!Array.isArray(res.data))return;
     const nameById={};
     Object.entries(leagueIdsRef.current||{}).forEach(([name,id])=>{nameById[id]=name;});
+    // League names straight from the leagues table.
+    //
+    // This runs at sign-in, alongside the league load that fills
+    // leagueIdsRef -- so the ref was often still empty, every record came
+    // back with no league, and approving one filed its frames under no
+    // league at all. That is how the 9/10 night never reached the
+    // calendar.
+    const missing=[...new Set(res.data.map(r=>r.league_id).filter(id=>id&&!nameById[id]))];
+    if(missing.length){
+      const lg=await cloudRead("leagues",q=>q.select("id,name").in("id",missing));
+      if(lg.online&&Array.isArray(lg.data))lg.data.forEach(l=>{if(l&&l.id)nameById[l.id]=l.name;});
+    }
     setImportedScores(res.data.map(r=>normalizeImportRecord({
       id:r.id,
       bowler:r.bowler_name,
@@ -3702,14 +3796,49 @@ export default function BowlingTracker(){
   },[importedScores,sessions,activeBowler]);
 
   async function approveImportedScores(record){
+    // Filed under no league, a night reaches nothing that groups by
+    // league -- the calendar, the season, the team. Better to stop than
+    // to write it there.
+    const mine=record.bowler===activeBowler||record.bowler===displayName;
+    if(mine&&!record.league){
+      window.alert("Couldn't tell which league this night belongs to. Reload the app and try again.");
+      return;
+    }
     const approved=approveImport(record);
     replaceImportRecord(approved);
+    // Frames and scores go into history only for this account's own
+    // bowler -- under the account's name or the one selected in Who's
+    // Bowling.
+    if(!mine)return;
 
     const frames=record.correctedShots?.length?record.correctedShots:record.importedShots;
-    if(!Array.isArray(frames)||!frames.length)return;
-    // Frames go into history only for this account's own bowler -- under
-    // the account's name or the one selected in Who's Bowling.
-    if(record.bowler!==activeBowler&&record.bowler!==displayName)return;
+    const added=Array.isArray(frames)&&frames.length?await addApprovedFrames(record,frames):[];
+    await fileApprovedNight(record,added);
+  }
+
+  // The night's session row: its scores, series and average.
+  //
+  // Approving used to write only the frames, so a night came back as
+  // "in progress" with no scores -- and a card with totals but no frames
+  // wrote nothing at all. A night the bowler already filed is left alone.
+  async function fileApprovedNight(record,addedShots){
+    const scores=(effectiveScores(record)||[]).filter(v=>v!=null);
+    if(!scores.length)return;
+    const exists=sessions.some(x=>x&&x.bowler===record.bowler&&x.league===record.league&&x.date===record.date);
+    if(exists)return;
+    const night=[...shots,...addedShots].filter(sh=>sh.bowler===record.bowler&&sh.league===record.league&&sh.date===record.date);
+    const total=scores.reduce((a,b)=>a+b,0);
+    const session={
+      id:crypto.randomUUID(),bowler:record.bowler,teamId:night[0]?.teamId||"",league:record.league,date:record.date,
+      scores,sessionSeq:1,notes:"",total,average:Math.floor(total/scores.length),
+      pokerQuarter:[0,0,0],pokerDollar:[0,0,0],threeSixNineWinnings:0,jackpotWinnings:0,
+      highGameWinnings:[0,0,0],pokerQuarterCost:[0,0,0],pokerDollarCost:[0,0,0],highGameCost:[0,0,0],threeSixNineCost:0,
+      ...computeSessionStats(night),
+    };
+    await saveSessions([...sessions,session]);
+  }
+
+  async function addApprovedFrames(record,frames){
 
     // Don't duplicate: if this bowler already has shots for this
     // league/date/game, the import has already been applied (or they
@@ -3731,11 +3860,13 @@ export default function BowlingTracker(){
           game:String(g.gameNumber),
           ball:sh.ball||g.ballUsed||"",
           importedFrom:record.id,
+          sessionSeq:1,
         });
       }
     }
-    if(!newShots.length)return;
+    if(!newShots.length)return [];
     await saveShots([...shots,...newShots]);
+    return newShots;
   }
   function rejectImportedScores(record,corrected){replaceImportRecord(rejectImport(record,corrected,{by:record.bowler}));}
   function correctTeammateScores(record,corrected){
@@ -7247,6 +7378,26 @@ export default function BowlingTracker(){
     // eslint-disable-next-line react-hooks/exhaustive-deps
   },[sessions,visibleLeagueKey]);
 
+  // Stats count teammates' imported scorecard columns too -- pending ones
+  // included, which is the rule (see domain/teamImports.js). A captain
+  // scoring for a roster that hasn't signed up yet otherwise has team
+  // cards with one bowler on them. Stats only: these are never saved, and
+  // History, the calendar and Journey stay this account's own.
+  const teamImports=useMemo(()=>teammateImportRows(importedScores,{shots,sessions}),[importedScores,shots,sessions]);
+  const statsPoolShots=useMemo(()=>teamImports.shots.length?[...shots,...teamImports.shots]:shots,[shots,teamImports]);
+  const statsVisibleShots=useMemo(()=>{
+    if(!teamImports.shots.length)return visibleShots;
+    const ok=new Set(visibleLeagueNames);
+    return [...visibleShots,...teamImports.shots.filter(s=>ok.has(s.league))];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[visibleShots,teamImports,visibleLeagueKey]);
+  const statsVisibleSessions=useMemo(()=>{
+    if(!teamImports.sessions.length)return visibleSessions;
+    const ok=new Set(visibleLeagueNames);
+    return [...visibleSessions,...teamImports.sessions.filter(s=>ok.has(s.league))];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[visibleSessions,teamImports,visibleLeagueKey]);
+
   const leaguesWithCenters=leagues.map(name=>({name,centerId:leagueCenters[name]}));
   const centerStats=statsByCenter(sessions,leaguesWithCenters,centers,statsBowler||activeBowler,shots);
   // Computed HERE, beside centerStats, and for the same reason.
@@ -8170,7 +8321,7 @@ export default function BowlingTracker(){
 
   // ── Stats ─────────────────────────────────────────────────────────────────
   // statsBowler === "" means Team/combined (everyone's shots together)
-  const statsShots=shots.filter(s=>(statsBowler?s.bowler===statsBowler:true)&&(statsLeague?s.league===statsLeague:true));
+  const statsShots=statsPoolShots.filter(s=>(statsBowler?s.bowler===statsBowler:true)&&(statsLeague?s.league===statsLeague:true));
   // History > Shots shows only THIS bowler's own shots.
   //
   // It used to list everything in the local array, which includes shots
@@ -8484,7 +8635,7 @@ export default function BowlingTracker(){
   // array rather than merged into the primary `sessions`, for the same
   // reason: no path by which a friend's nights become part of this
   // account's own season record.
-  const compareSessions=compareFriendId?(friendSessions[compareFriendId]||[]):sessions;
+  const compareSessions=compareFriendId?(friendSessions[compareFriendId]||[]):[...sessions,...teamImports.sessions];
 
   // A friend's shots live in the cloud under THEIR user_id, fetched
   // separately into friendShots -- never merged into this account's own
@@ -8494,9 +8645,9 @@ export default function BowlingTracker(){
   const compareShots=compareFriendId
   ?(friendShots[compareFriendId]||[])
   :compareBowler
-    ?shots.filter(s=>s.bowler===compareBowler)
+    ?statsPoolShots.filter(s=>s.bowler===compareBowler)
     :compareLeague
-      ?shots.filter(s=>s.league===compareLeague)
+      ?statsPoolShots.filter(s=>s.league===compareLeague)
       :shots; // unused when showTeamCompare is false
   const teamTot=compareShots.length;
   const teamStkR=teamTot?Math.round((compareShots.filter(s=>s.result==="Strike").length/teamTot)*100):0;
@@ -9630,7 +9781,10 @@ export default function BowlingTracker(){
 
         {view==="data"&&dataTab==="trends"&&(
           <TrendsView
-            sessions={visibleSessions} shots={visibleShots} bowlers={bowlers} leagues={leagues} teams={teams}
+            // With teammates' imported columns, like Stats: a team's
+            // trend was drawn from this account's own rows alone, so it
+            // came out identical to your own.
+            sessions={statsVisibleSessions} shots={statsVisibleShots} bowlers={bowlers} leagues={leagues} teams={teams}
             arsenals={arsenals} gameEquipment={gameEquipment}
             statsBowler={statsBowler} setStatsBowler={chooseStatsBowler}
             statsLeague={statsLeague} setStatsLeague={chooseStatsLeague}
@@ -9665,10 +9819,10 @@ export default function BowlingTracker(){
 
             closedSeasons={closedSeasons} leagueDates={leagueDates}
             rackTypeStats={rackTypeStats} rackTypeDetail={rackTypeDetailStats}
-            view={view} entitlement={entitlement} shots={visibleShots} sessions={visibleSessions} bowlers={bowlers} teams={teams} leagues={leagues} arsenals={arsenals} saved={saved}
+            view={view} entitlement={entitlement} shots={statsVisibleShots} sessions={statsVisibleSessions} bowlers={bowlers} teams={teams} leagues={leagues} arsenals={arsenals} saved={saved}
             statsBowler={statsBowler} setStatsBowler={chooseStatsBowler} compareBowler={compareBowler} setCompareBowler={setCompareBowler}
             compareFriendId={compareFriendId} setCompareFriendId={setCompareFriendId}
-            friends={friends} onLoadFriendData={loadFriendData} onOpenFriends={()=>setView("social")} compareSessions={compareSessions} displayName={displayName}
+            friends={friends} onLoadFriendData={loadFriendData} teamRosters={teamRosters} onLoadTeammateData={loadTeammateData} onOpenFriends={()=>setView("social")} compareSessions={compareSessions} displayName={displayName}
             statsLeague={statsLeague} setStatsLeague={chooseStatsLeague}
             compareLeague={compareLeague} setCompareLeague={setCompareLeague}
             matches={matches}
