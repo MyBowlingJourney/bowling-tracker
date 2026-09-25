@@ -49,6 +49,9 @@ const DB_VERSION = 1;
 // and only ever when classifySyncError says canDiscard. See the flush
 // loop for why this is not 1.
 export const PERMANENT_ATTEMPTS = 3;
+const QUEUED_BEHIND = 'queued behind an earlier write for this row';
+// Flushes an UNCLASSIFIED error is retried in order before it is skipped.
+export const UNKNOWN_ATTEMPTS = 5;
 
 const STORE_NAME = 'pending_writes';
 
@@ -256,10 +259,13 @@ async function queueWrite(table, operation, payload, reason, onConflict, errorCo
   //
   // Names are schema, already in the repo. Values are bowlers' names and
   // ids and stay out, exactly as in the redaction rules.
-  recordError({
-    kind: 'write-failed', where: `${table}.${operation}`, code: errorCode || '',
-    message: `${reason || ''}${payloadColumns(payload)}`,
-  });
+  // Not a failure: a newer write waiting its turn behind an older one.
+  if (reason !== QUEUED_BEHIND) {
+    recordError({
+      kind: 'write-failed', where: `${table}.${operation}`, code: errorCode || '',
+      message: `${reason || ''}${payloadColumns(payload)}`,
+    });
+  }
   // idempotent travels with the item for the same reason onConflict does:
   // the replay has to resolve the duplicate the way the original call
   // meant it, and it has no other way to know.
@@ -344,6 +350,65 @@ export async function adoptLegacyQueueItems(userId) {
 // name, say -- and silently reporting success would hide a real
 // conflict from the user. So the caller has to say it means the safe
 // thing, at the call site, where the constraint is known.
+// Rows with an identity besides their id.
+//
+// A shot is "game 1, frame 3, ball 1 of this bowler's night" whatever id
+// it carries, and the database enforces that (shots_identity_uniq,
+// sessions_user_id_bowler_name_league_id_date_seq_key). When the same
+// slot was first saved under another id -- a slow write retried, a night
+// re-imported -- the upsert fails with 23505 and the new content never
+// lands. This used to be reported as "saved", so every later edit to that
+// shot was silently lost too.
+//
+// Instead, the existing row adopts this write: same slot, updated content,
+// and this device's id, so later edits and deletes by id reach it.
+const NATURAL_KEYS = {
+  shots: ['user_id', 'bowler_name', 'league_id', 'league_name', 'date', 'game', 'frame', 'ball_num', 'session_seq'],
+  sessions: ['user_id', 'bowler_name', 'league_id', 'date', 'session_seq'],
+};
+
+async function adoptExistingRow(table, record, timeoutMs = 6000) {
+  const cols = NATURAL_KEYS[table];
+  if (!cols || !record || typeof record !== 'object') return false;
+  let query = supabase.from(table).update(record, { count: 'exact' });
+  for (const c of cols) {
+    const v = record[c];
+    // The index treats a missing ball number as ball 1.
+    if (c === 'ball_num' && (v == null || Number(v) === 1)) query = query.or('ball_num.is.null,ball_num.eq.1');
+    else if (v == null) query = query.is(c, null);
+    else query = query.eq(c, v);
+  }
+  const { error, count } = await withTimeout(query, timeoutMs);
+  if (error) throw error;
+  return count === 1;
+}
+
+// Whether a write for this exact row is still waiting in the queue.
+//
+// A direct write that lands while an OLDER write for the same row is still
+// queued gets overwritten when the queue flushes -- rename a team offline,
+// rename it again online, and the next flush puts the old name back. So a
+// newer write for a queued row joins the queue behind it instead.
+async function rowIsQueued(table, match) {
+  const id = match && typeof match === 'object' ? match.id : match;
+  if (!id) return false;
+  try {
+    const items = await myItems();
+    // Only an item that is still going to be sent. One parked for good (a
+    // denied write kept for a policy fix, an unrecognised error past its
+    // retries) is skipped by every flush, so waiting behind it would
+    // leave every later edit of that row unsynced forever.
+    const live = item => {
+      const cls = classifySyncError({ code: item.errorCode || '', message: item.reason || '' }, item.table);
+      return cls.kind !== 'permanent' && (Number(item.attempts) || 0) < UNKNOWN_ATTEMPTS;
+    };
+    return items.some(item => item.table === table && live(item) && (
+      item.payload?.id === id || item.payload?.match?.id === id));
+  } catch {
+    return false;
+  }
+}
+
 export async function cloudInsert(table, record, { timeoutMs = 6000, idempotent = false } = {}) {
   try {
     const { error } = await withTimeout(
@@ -370,6 +435,11 @@ export async function cloudInsert(table, record, { timeoutMs = 6000, idempotent 
 }
 
 export async function cloudWrite(table, record, { timeoutMs = 6000, onConflict } = {}) {
+  if (await rowIsQueued(table, record)) {
+    await queueWrite(table, 'upsert', record, QUEUED_BEHIND, onConflict, '');
+    flushPendingQueue();
+    return { synced: false, queued: true, reason: QUEUED_BEHIND };
+  }
   try {
     const { error } = await withTimeout(
       onConflict
@@ -389,6 +459,14 @@ export async function cloudWrite(table, record, { timeoutMs = 6000, onConflict }
     // so re-importing the same scorecard now returns 23505 where it used
     // to create a second row.
     if (err?.code === '23505') {
+      if (NATURAL_KEYS[table]) {
+        try {
+          if (await adoptExistingRow(table, record, timeoutMs)) return { synced: true, queued: false, adopted: true };
+        } catch { /* reported below */ }
+        recordError({ kind: 'write-failed', where: `${table}.upsert`, code: '23505',
+          message: `duplicate slot could not be merged${payloadColumns(record)}` });
+        return { synced: false, queued: false, duplicate: true, reason: formatError(err) };
+      }
       return { synced: true, queued: false, duplicate: true };
     }
     await queueWrite(table, 'upsert', record, formatError(err), onConflict, err?.code || '');
@@ -444,6 +522,11 @@ function noteIfNothingChanged(table, operation, matchObj, count) {
 
 export async function cloudUpdate(table, match, changes, { timeoutMs = 6000 } = {}) {
   const matchObj = (typeof match === 'object' && match !== null) ? match : { id: match };
+  if (await rowIsQueued(table, matchObj)) {
+    await queueWrite(table, 'update', { match: matchObj, changes }, QUEUED_BEHIND, undefined, '');
+    flushPendingQueue();
+    return { synced: false, queued: true, reason: QUEUED_BEHIND };
+  }
   try {
     let query = supabase.from(table).update(changes, { count: 'exact' });
     Object.entries(matchObj).forEach(([k, v]) => { query = query.eq(k, v); });
@@ -463,6 +546,11 @@ export async function cloudUpdate(table, match, changes, { timeoutMs = 6000 } = 
 // no single `id` column at all.
 export async function cloudDelete(table, match, { timeoutMs = 6000 } = {}) {
   const matchObj = (typeof match === 'object' && match !== null) ? match : { id: match };
+  if (await rowIsQueued(table, matchObj)) {
+    await queueWrite(table, 'delete', matchObj, QUEUED_BEHIND, undefined, '');
+    flushPendingQueue();
+    return { synced: false, queued: true, reason: QUEUED_BEHIND };
+  }
   try {
     let query = supabase.from(table).delete({ count: 'exact' });
     Object.entries(matchObj).forEach(([k, v]) => { query = query.eq(k, v); });
@@ -616,7 +704,18 @@ export async function getQueuedRecordsForTable(table) {
 // earlier one already existing (e.g. editing a shot that hasn't synced
 // yet), so preserving order matters more than clearing whatever happens to
 // succeed fastest.
-export async function flushPendingQueue() {
+// One flush at a time. The online event, the 30-second timer, sign-in and
+// Force resync can all start one; two running together sent the same
+// item twice, and one's retry bookkeeping could put back an item the
+// other had just finished.
+let flushInFlight = null;
+export function flushPendingQueue() {
+  if (flushInFlight) return flushInFlight;
+  flushInFlight = runFlush().finally(() => { flushInFlight = null; });
+  return flushInFlight;
+}
+
+async function runFlush() {
   const db = await getDb();
   // Only this user's writes, and nothing at all when signed out. The
   // periodic 30s timer below fires regardless of who is signed in, which
@@ -632,14 +731,17 @@ export async function flushPendingQueue() {
       if (item.operation === 'delete') {
         let query = supabase.from(item.table).delete();
         Object.entries(item.payload).forEach(([k, v]) => { query = query.eq(k, v); });
-        ({ error } = await query);
+        // Every replay is bounded: flushes run one at a time now, so a
+        // request that never answers would otherwise hold up every later
+        // flush until the app restarts.
+        ({ error } = await withTimeout(query, 15000));
       } else if (item.operation === 'update') {
         // Replay a partial update as a partial update. Retrying it as an
         // upsert would replace the whole row with just the few columns
         // that were being changed -- erasing everything else on it.
         let query = supabase.from(item.table).update(item.payload.changes);
         Object.entries(item.payload.match).forEach(([k, v]) => { query = query.eq(k, v); });
-        ({ error } = await query);
+        ({ error } = await withTimeout(query, 15000));
       } else if (item.operation === 'insert') {
         // Replayed as a plain INSERT, not folded into the upsert branch
         // below.
@@ -649,15 +751,18 @@ export async function flushPendingQueue() {
         // the retry upsert instead would reintroduce the failure on the
         // exact path most likely to hit a conflict -- a replay happens
         // BECAUSE the first attempt may already have landed.
-        ({ error } = await supabase.from(item.table).insert(item.payload));
+        ({ error } = await withTimeout(supabase.from(item.table).insert(item.payload), 15000));
         // Only swallowed when the original call declared it safe. A
         // replay cannot know the constraint's meaning any better than the
         // call site did, so it defers to the same flag.
         if (error?.code === '23505' && item.idempotent) error = null;
       } else {
         ({ error } = item.onConflict
-          ? await supabase.from(item.table).upsert(item.payload, { onConflict: item.onConflict })
-          : await supabase.from(item.table).upsert(item.payload));
+          ? await withTimeout(supabase.from(item.table).upsert(item.payload, { onConflict: item.onConflict }), 15000)
+          : await withTimeout(supabase.from(item.table).upsert(item.payload), 15000));
+        // Same slot saved under another id: merge into it (see NATURAL_KEYS).
+        if (error?.code === '23505' && NATURAL_KEYS[item.table]
+            && await adoptExistingRow(item.table, item.payload, 15000)) error = null;
       }
       if (error) throw error;
       await db.delete(STORE_NAME, item.queueId);
@@ -733,6 +838,19 @@ export async function flushPendingQueue() {
         recordError({
           kind: 'write-failed', where: `${item.table}.${item.operation}`, code: err?.code || '',
           message: `permanent, skipped so it cannot wedge the queue — ${formatError(err)}${payloadColumns(item.payload)}`,
+        });
+        continue;
+      }
+
+      // An error nobody has classified yet. Treated as temporary at first,
+      // to keep the order -- but not forever: after a few flushes it is
+      // skipped like a permanent one, so a single odd row (a column the
+      // server does not have, a value too long) cannot hold every later
+      // write hostage.
+      if (cls.kind === 'unknown' && attempts >= UNKNOWN_ATTEMPTS) {
+        recordError({
+          kind: 'write-failed', where: `${item.table}.${item.operation}`, code: err?.code || '',
+          message: `unrecognised error, skipped so it cannot wedge the queue — ${formatError(err)}${payloadColumns(item.payload)}`,
         });
         continue;
       }

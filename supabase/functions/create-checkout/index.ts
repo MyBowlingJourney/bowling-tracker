@@ -29,6 +29,8 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import {
   stripeConfigured, stripeRequest, priceIdForLookupKey,
   customerHasAnySubscription,
+  customerHasLiveSubscription,
+  expireOpenCheckouts,
   LOOKUP_MONTHLY, LOOKUP_YEARLY,
 } from "../_shared/stripeApi.ts";
 
@@ -177,7 +179,7 @@ Deno.serve(async (req: Request) => {
   // subscriptions and a support email nobody can untangle.
   const { data: existing, error: readErr } = await admin
     .from("entitlements")
-    .select("stripe_customer_id,status,plan")
+    .select("stripe_customer_id,status,plan,trial_end,source")
     .eq("user_id", user!.id)
     .maybeSingle();
   if (readErr) {
@@ -236,6 +238,16 @@ Deno.serve(async (req: Request) => {
   // once and closed the tab -- AND who hits a Stripe outage on their
   // second attempt. Rare, recoverable (they can be comped), and the
   // other direction is unlimited free months for anyone who notices.
+  if (!isNewCustomer) {
+    // Already billing on this customer, whatever our row says -- send
+    // them to manage it, not to a second subscription.
+    if (await customerHasLiveSubscription(customerId) === true) {
+      return json({ error: "You already have a subscription.", alreadySubscribed: true }, cors, 409);
+    }
+    // One open checkout at a time: this new one replaces any other.
+    await expireOpenCheckouts(customerId);
+  }
+
   let grantTrial = true;
   if (!isNewCustomer) {
     const hadOne = await customerHasAnySubscription(customerId);
@@ -246,6 +258,10 @@ Deno.serve(async (req: Request) => {
       grantTrial = !hadOne;
     }
   }
+
+  // A trial already used on the other rail counts. Without this a bowler
+  // whose Play trial ran out got a second 30 free days on the web.
+  if (existing?.trial_end || existing?.source === "play") grantTrial = false;
 
   const sessionParams: Record<string, unknown> = {
     mode: "subscription",

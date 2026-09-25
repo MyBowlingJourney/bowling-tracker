@@ -20,6 +20,12 @@ const PERMANENT_CODES = new Set([
   "23514", // check constraint
   "42501", // insufficient privilege (RLS/grant)
   "22P02", // invalid text representation
+  "22001", // value too long for its column
+  "22003", // number out of range
+  "22007", "22008", // invalid date/time
+  "42703", // column does not exist (app ahead of the database)
+  "42P01", // table does not exist
+  "PGRST204", // PostgREST: column not in its schema cache
 ]);
 
 // Shared reference tables, where an RLS denial means the write was never
@@ -27,7 +33,10 @@ const PERMANENT_CODES = new Set([
 // real change goes some other way. bowling_centers: pin type is saved
 // through set_center_pins(); a queued whole-row upsert of a looked-up
 // center can never land, and keeping it only retries forever.
-const DISCARDABLE_WHEN_DENIED = new Set(["bowling_centers"]);
+// friendships: older app versions inserted teammate friendships as
+// already accepted; the database now refuses that (they are made by
+// befriend_teammates instead), so a refused copy left in a queue can go.
+const DISCARDABLE_WHEN_DENIED = new Set(["bowling_centers", "friendships"]);
 
 export function classifySyncError(err, table = "") {
   const code = err?.code || "";
@@ -92,6 +101,19 @@ export function classifySyncError(err, table = "") {
       // Needs a real fix, not a discard -- except on a shared reference
       // table, where it can never succeed (see above).
       canDiscard: DISCARDABLE_WHEN_DENIED.has(table),
+    };
+  }
+
+  // The app is ahead of the database -- a column or table it writes has
+  // not been created yet. Skipped so it cannot block the queue, but never
+  // thrown away: running the migration lets it through.
+  if (code === "42703" || code === "42P01" || code === "PGRST204") {
+    return {
+      kind: "permanent",
+      title: "Waiting for an app update to finish",
+      detail: "The cloud isn't ready for this yet. Nothing is lost on this phone; it will upload once the update is complete.",
+      canRetry: true,
+      canDiscard: false,
     };
   }
 

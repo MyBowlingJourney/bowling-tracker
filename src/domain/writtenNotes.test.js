@@ -137,6 +137,6 @@ describe("placing a note on a team card", () => {
   });
   it("says where each note went, without names", () => {
     const out = applyWrittenNotes(night(), [{ text: "4", gameNumber: 3, imageNumber: 2 }], { imageOf });
-    expect(out.outcomes).toEqual(['"4" img2 g3 -> bowler 2 G3F10 ball 3']);
+    expect(out.outcomes).toEqual(['"4" img2 g3 -> bowler 2 G3F10B3']);
   });
 });

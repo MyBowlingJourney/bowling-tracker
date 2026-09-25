@@ -54,6 +54,8 @@ function fakeQuery(run) {
   const filters = {};
   const q = {
     eq(k, v) { filters[k] = v; return q; },
+    is(k, v) { filters[k] = v; return q; },
+    or(expr) { filters.__or = expr; return q; },
     gte(k, v) { filters[k] = v; return q; },
     // select/gte are here because cloudRead and cloudReadDelta use them.
     // Nothing below tests those yet -- but a mock that silently lacks a
@@ -449,5 +451,63 @@ describe('cloudInsert never upserts', () => {
     supabaseState.insert = async () => ({ error: { code: '42501', message: 'permission denied' } });
     const res = await cloudInsert('team_members', { team_id: 't', user_id: 'u' });
     expect(res.queued).toBe(true);
+  });
+});
+
+describe('hardening from the full QA pass', () => {
+  it('a shot whose slot already exists under another id is merged into it, not reported as saved', async () => {
+    supabaseState.upsert = async () => ({ error: { code: '23505', message: 'duplicate key value violates unique constraint "shots_identity_uniq"' } });
+    const seen = [];
+    supabaseState.update = async (table, filters, changes) => { seen.push({ table, filters, changes }); return { error: null, count: 1 }; };
+    const row = { id: 'new-id', user_id: 'u', bowler_name: 'Ryan', league_id: null, league_name: 'Practice', date: '2026-09-24', game: 1, frame: 3, ball_num: null, session_seq: 1 };
+    const res = await cloudWrite('shots', row, { timeoutMs: 100 });
+    expect(res.synced).toBe(true);
+    expect(res.adopted).toBe(true);
+    expect(seen[0].changes.id).toBe('new-id');
+    expect(seen[0].filters.__or).toBe('ball_num.is.null,ball_num.eq.1');
+    expect(seen[0].filters.league_id).toBe(null);
+  });
+
+  it('a duplicate that cannot be merged is NOT reported as saved', async () => {
+    supabaseState.upsert = async () => ({ error: { code: '23505', message: 'dup' } });
+    supabaseState.update = async () => ({ error: null, count: 0 });
+    const res = await cloudWrite('sessions', { id: 's1', user_id: 'u', bowler_name: 'R', league_id: 'l', date: '2026-09-24', session_seq: 1 }, { timeoutMs: 100 });
+    expect(res.synced).toBe(false);
+    expect(res.duplicate).toBe(true);
+  });
+
+  it('a newer write for a row still in the queue waits behind it instead of being overwritten by it', async () => {
+    supabaseState.upsert = async () => ({ error: { code: '08006', message: 'network failure' } });
+    await cloudWrite('teams', { id: 't1', name: 'Old' }, { timeoutMs: 100 });
+    expect(await getPendingCount()).toBe(1);
+    const sent = [];
+    supabaseState.upsert = async (_t, rec) => { sent.push(rec.name); return { error: null }; };
+    const res = await cloudWrite('teams', { id: 't1', name: 'New' }, { timeoutMs: 100 });
+    expect(res.queued).toBe(true);
+    await flushPendingQueue();
+    expect(sent).toEqual(['Old', 'New']);
+    expect(await getPendingCount()).toBe(0);
+  });
+
+  it('two flushes at once send each item once', async () => {
+    supabaseState.upsert = async () => ({ error: { code: '08006', message: 'network failure' } });
+    await cloudWrite('shots', { id: 'x1' }, { timeoutMs: 100 });
+    let calls = 0;
+    supabaseState.upsert = async () => { calls++; await delay(20); return { error: null }; };
+    await Promise.all([flushPendingQueue(), flushPendingQueue(), flushPendingQueue()]);
+    expect(calls).toBe(1);
+  });
+
+  it('an unrecognised error stops blocking the queue after a few tries', async () => {
+    supabaseState.upsert = async () => ({ error: { code: '08006', message: 'network failure' } });
+    await cloudWrite('shots', { id: 'bad' }, { timeoutMs: 100 });
+    await cloudWrite('shots', { id: 'good' }, { timeoutMs: 100 });
+    const sent = [];
+    supabaseState.upsert = async (_t, rec) => {
+      if (rec.id === 'bad') return { error: { code: 'XX999', message: 'something odd' } };
+      sent.push(rec.id); return { error: null };
+    };
+    for (let i = 0; i < 6; i++) await flushPendingQueue();
+    expect(sent).toContain('good');
   });
 });

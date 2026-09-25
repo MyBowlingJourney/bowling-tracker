@@ -49,6 +49,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { entitlementFromPlayPurchase } from "../_shared/play.ts";
 import { configured, fetchPurchase, acknowledge } from "../_shared/playApi.ts";
+import { shouldApply } from "../_shared/railGuard.ts";
 
 const PUBSUB_AUDIENCE = Deno.env.get("PLAY_PUBSUB_AUDIENCE")?.trim() || "";
 const PUBSUB_SERVICE_ACCOUNT = Deno.env.get("PLAY_PUBSUB_SERVICE_ACCOUNT")?.trim() || "";
@@ -329,9 +330,28 @@ Deno.serve(async (req: Request) => {
   if (notification.voidedPurchaseNotification) {
     const token = notification.voidedPurchaseNotification.purchaseToken || "";
     if (!token) return ok({ ok: false, reason: "voided without token" });
+    // A refund of ONE renewal does not have to end the subscription.
+    // Ask Google what the subscription is now and apply that; only when
+    // it cannot say (the purchase is gone) is access revoked outright.
+    const still = await fetchPurchase(token);
+    const revokedRow = { plan: "free", status: "expired", current_period_end: null, trial_end: null,
+      source: "play", play_purchase_token: token };
+    const next = still ? entitlementFromPlayPurchase(still, { purchaseToken: token }) : revokedRow;
+    const { data: holders } = await db
+      .from("entitlements")
+      .select("user_id,plan,status,current_period_end,source,stripe_subscription_id,play_purchase_token")
+      .eq("play_purchase_token", token)
+      .limit(1);
+    const holder = holders?.[0];
+    if (holder && !shouldApply(holder, next)) {
+      console.log("voided play purchase ignored: the bowler is entitled through another subscription");
+      await markApplied(holder.user_id);
+      return ok({ ok: true, voided: true, keptOtherSubscription: true });
+    }
+    const { play_purchase_token: _t, ...nextWithoutToken } = next as Record<string, unknown>;
     const { data: revoked, error } = await db
       .from("entitlements")
-      .update({ plan: "free", status: "expired", current_period_end: null, trial_end: null })
+      .update(still ? nextWithoutToken : { plan: "free", status: "expired", current_period_end: null, trial_end: null })
       .eq("play_purchase_token", token)
       .select("user_id");
     if (error) {
@@ -364,7 +384,7 @@ Deno.serve(async (req: Request) => {
   // genuinely do not own would go on for a week.
   const { data: rows, error: lookupErr } = await db
     .from("entitlements")
-    .select("user_id")
+    .select("user_id,plan,status,current_period_end,source,stripe_subscription_id,play_purchase_token,last_event_at")
     .eq("play_purchase_token", token)
     .limit(1);
   if (lookupErr) {
@@ -385,10 +405,28 @@ Deno.serve(async (req: Request) => {
   }
 
   const row = entitlementFromPlayPurchase(purchase, { purchaseToken: token });
-  const { error: writeErr } = await db
+
+  // Never let this token take away access a different subscription is
+  // paying for (a web subscription taken out while Play was on hold).
+  if (!shouldApply(rows?.[0], row)) {
+    console.log("rtdn not applied: the bowler is entitled through another subscription");
+    await markApplied(userId);
+    return ok({ ok: true, keptOtherSubscription: true });
+  }
+
+  // Ordered like the Stripe webhook: an older notification whose fetch
+  // happens to land last must not overwrite a newer one's result.
+  const { data: wrote, error: writeErr } = await db
     .from("entitlements")
-    .update(row)
-    .eq("user_id", userId);
+    .update({ ...row, last_event_at: eventTime })
+    .eq("user_id", userId)
+    .or(`last_event_at.is.null,last_event_at.lte.${eventTime}`)
+    .select("user_id");
+  if (!writeErr && !(wrote?.length)) {
+    console.log("rtdn not applied: a newer event already updated this bowler");
+    await markApplied(userId);
+    return ok({ ok: true, stale: true });
+  }
   if (writeErr) {
     console.error("entitlement write failed:", writeErr.message);
     return new Response("Write failed", { status: 500 });

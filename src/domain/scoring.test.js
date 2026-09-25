@@ -871,3 +871,24 @@ describe('ballNum type tolerance in the tenth frame', () => {
     expect(total(perfect('1', '2', '3'))).toBe(total(perfect(1, 2, 3)));
   });
 });
+
+
+// Full QA pass: a tenth of strike, then a non-strike whose follow-up sits
+// on the same ball-2 record (X 7 2, X 9 /) is a finished game.
+describe("maxPossibleScore: X then open or spare in the tenth", () => {
+const X10=(f,b=null)=>({frame:String(f),ballNum:b,result:"Strike",otherLeave:[],spareMade:"",pinCount:""});
+const L=(f,b,leave,made,pc)=>({frame:String(f),ballNum:b,result:"Other Leave",otherLeave:leave,spareMade:made,pinCount:pc,secondLeave:[]});
+it("X 7 2 tenth is a finished game", ()=>{
+  const g=[...[1,2,3,4,5,6,7,8,9].map(f=>X10(f)),X10(10,1),{...L(10,2,[7,8,9],"No","9"),secondLeave:[8]}];
+  expect(maxPossibleScore(g)).toBe(null);
+});
+it("X 9 / tenth is finished", ()=>{
+  const g=[...[1,2,3,4,5,6,7,8,9].map(f=>X10(f)),X10(10,1),L(10,2,[10],"Yes","9")];
+  expect(maxPossibleScore(g)).toBe(null);
+});
+it("X then ball 2 pending is not finished", ()=>{
+  const g=[...[1,2,3,4,5,6,7,8,9].map(f=>X10(f)),X10(10,1)];
+  expect(maxPossibleScore(g)).toBe(300);
+});
+
+});

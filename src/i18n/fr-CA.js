@@ -2765,7 +2765,16 @@ export const FR_CA = {
 "This frame couldn't be read from the image.": "Ce carreau n'a pas pu être lu à partir de l'image.",
 "▾ Hide frames": "▾ Masquer les carreaux",
 "▸ Check frames": "▸ Vérifier les carreaux",
-"✓ This is right": "✓ C'est exact"
+"✓ This is right": "✓ C'est exact",
+"Waiting for an app update to finish": "En attente de la fin d'une mise à jour de l'appli",
+"The cloud isn't ready for this yet. Nothing is lost on this phone; it will upload once the update is complete.": "Le nuage n'est pas encore prêt pour ceci. Rien n'est perdu sur ce téléphone; l'envoi se fera une fois la mise à jour terminée.",
+"queued behind an earlier write for this row": "en attente derrière une modification précédente de cet élément",
+"The free plan covers one team, and you're already on one. Upgrade to Pro to add another?": "Le forfait gratuit comprend une équipe, et vous en faites déjà partie d'une. Passer à Pro pour en ajouter une autre?",
+"Sign in with this link?": "Se connecter avec ce lien?",
+"Text": "Texto",
+"Your home centers": "Vos salles de quilles habituelles",
+"Somewhere else?": "Ailleurs?",
+"Reserves their spot on the roster now — you can start logging their scores under their name right away via Who's Bowling, no account needed yet. Either way they claim the spot themselves and everything you've logged is already there: with a code, you get one to text them and they enter it when they sign up; with their email, they're linked the moment they sign in with that exact address.": "Réserve sa place dans la liste des joueurs dès maintenant — vous pouvez commencer tout de suite à enregistrer ses pointages sous son nom dans « Pointage tenu pour », sans qu'un compte soit nécessaire pour l'instant. Dans les deux cas, la personne réclame elle-même sa place et tout ce que vous avez enregistré s'y trouve déjà : avec un code, vous en recevez un à lui envoyer par texto et elle l'entre au moment de s'inscrire; avec son courriel, elle y est liée dès qu'elle se connecte avec cette adresse exacte."
 },
 "patterns": [
 [
@@ -5499,6 +5508,14 @@ export const FR_CA = {
 [
 "({0} settled by the printed total)",
 ""
+],
+[
+"That sign-in link is for {0}, not the account you're signed in to. Sign out first if you meant to switch.",
+"Ce lien de connexion est pour {0}, pas pour le compte auquel vous êtes connecté. Déconnectez-vous d'abord si vous vouliez changer de compte."
+],
+[
+"Sign in as {0}?",
+"Se connecter en tant que {0}?"
 ]
 ],
 "fragments": [

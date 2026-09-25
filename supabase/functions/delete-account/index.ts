@@ -43,7 +43,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 // Cancelling whatever they are paying for, before the row that knows
 // about it is deleted along with them.
 import { fetchPurchase, cancelSubscription, configured as playConfigured } from "../_shared/playApi.ts";
-import { cancelSubscriptionNow, stripeConfigured } from "../_shared/stripeApi.ts";
+import { cancelSubscriptionNow, cancelAllForCustomer, stripeConfigured } from "../_shared/stripeApi.ts";
 
 // Allowed origins from the ALLOWED_ORIGINS secret.
 //
@@ -168,21 +168,26 @@ Deno.serve(async (req: Request) => {
   try {
     const { data: ent } = await admin
       .from("entitlements")
-      .select("play_purchase_token,stripe_subscription_id,status,plan")
+      .select("play_purchase_token,stripe_subscription_id,stripe_customer_id,status,plan")
       .eq("user_id", user.id)
       .maybeSingle();
 
-    const live = ent && ent.plan === "plus"
-      && ["active", "trialing", "grace", "canceled"].includes(String(ent.status));
-
-    if (live && ent?.stripe_subscription_id && stripeConfigured()) {
-      const done = await cancelSubscriptionNow(String(ent.stripe_subscription_id));
-      if (done) console.log("delete-account: cancelled stripe subscription");
-      else console.error("delete-account: FAILED to cancel stripe subscription",
-        ent.stripe_subscription_id, "-- cancel it by hand in the Stripe dashboard");
+    // Not gated on the status we have stored. A paused or on-hold Play
+    // subscription resumes and charges; a Stripe subscription our row
+    // does not point at still bills. Cancelling something already over
+    // is harmless -- the provider just says so.
+    if (ent?.stripe_customer_id && stripeConfigured()) {
+      const r = await cancelAllForCustomer(String(ent.stripe_customer_id));
+      console.log("delete-account: stripe subscriptions cancelled", r.cancelled, "failed", r.failed);
+      if (r.failed) console.error("delete-account: FAILED to cancel", r.failed,
+        "stripe subscription(s) for customer", ent.stripe_customer_id, "-- cancel by hand in the Stripe dashboard");
+    }
+    if (ent?.stripe_subscription_id && stripeConfigured()) {
+      // Also by id, in case the customer lookup found nothing.
+      await cancelSubscriptionNow(String(ent.stripe_subscription_id));
     }
 
-    if (live && ent?.play_purchase_token && playConfigured()) {
+    if (ent?.play_purchase_token && playConfigured()) {
       const token = String(ent.play_purchase_token);
       // The product id is not stored on the row, and the cancel endpoint
       // needs it, so the purchase is read back to find it.

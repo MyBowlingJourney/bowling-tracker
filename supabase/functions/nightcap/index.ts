@@ -234,7 +234,11 @@ function corsFor(req) {
 // every existing bowler, because nobody has an entitlement row yet. Set
 // the secret BILLING_LIVE to "true" in the same release that ships Play
 // Billing and Stripe -- and not one release earlier.
-const BILLING_LIVE = (Deno.env.get("BILLING_LIVE") || "").trim().toLowerCase() === "true";
+// Defaults to ON now that billing is live in the app (src/domain/
+// entitlements.js hard-codes it). Off only if the secret says "false":
+// an unset secret used to leave Insights, Brooklyn and the Nightcap open
+// to every signed-in account on the server side.
+const BILLING_LIVE = (Deno.env.get("BILLING_LIVE") || "true").trim().toLowerCase() !== "false";
 
 // FAILS OPEN, deliberately -- the opposite of the rate limit above, and
 // worth understanding before anyone "fixes" it.

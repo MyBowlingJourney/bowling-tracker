@@ -12,7 +12,7 @@ import { currentLanguage } from "./i18n/index.js";
 // Manual entry is always available, not a fallback for errors only. Small
 // houses are genuinely missing from HERE's data, and a league at one must
 // still be recordable.
-export default function CenterPicker({ leagueName, currentCenter, onSelect, onSearch, onSetRackType, onSetFreefallLanes }) {
+export default function CenterPicker({ leagueName, currentCenter, onSelect, onSearch, onSetRackType, onSetFreefallLanes, homeCenters = [] }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [status, setStatus] = useState("idle");
@@ -136,6 +136,22 @@ export default function CenterPicker({ leagueName, currentCenter, onSelect, onSe
                 ? "Where do you usually bowl for fun? Setting it lets you compare how you score house to house."
                 : `Where does ${leagueName || "this league"} bowl? Set once per season — it lets you compare how you score house to house.`}
           </div>
+
+          {/* The bowler's own houses first -- the ones they named during
+              setup. Most leagues bowl at one of them, so the usual answer
+              is one tap instead of a search. */}
+          {(Array.isArray(homeCenters) ? homeCenters : []).filter(c => c && c.name).length > 0 && (
+            <div style={{ marginBottom: "10px" }}>
+              <div style={{ fontSize: "11px", color: C.textMuted, marginBottom: "4px" }}>Your home centers</div>
+              <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                {homeCenters.filter(c => c && c.name).map(c => (
+                  <Chip key={c.id || c.name} label={centerLabel(c)} dense
+                    onToggle={() => onSelect(c)} />
+                ))}
+              </div>
+              <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "8px" }}>Somewhere else?</div>
+            </div>
+          )}
 
           <input style={S.input} placeholder="Search by name, e.g. Arsenal Bowl"
             value={query} onChange={e => handleQueryChange(e.target.value)} />

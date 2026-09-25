@@ -160,7 +160,11 @@ export function tenthBall3Pins(f10b1,f10b2,f10b3){
   return null;
 }
 
-export function nextState(savedShots, bowler, league, date, game, frame, ballNum){
+export function nextState(savedShots, bowler, league, date, game, frame, ballNum, sessionSeq){
+  // Which session of the day, when the caller knows it. Two practices on
+  // one date both have a game 1; without this the second one's tenth
+  // could be steered by the first one's.
+  const sameSession = s => sessionSeq == null || (Number(s.sessionSeq) || 1) === (Number(sessionSeq) || 1);
   // Guarded for TYPE, not just null. HANDOFF 4.4: `{}` and `[]` and a
   // number all pass a truthiness check and then throw on .filter.
   savedShots = (Array.isArray(savedShots) ? savedShots : []).filter(x => x && typeof x === "object");
@@ -183,7 +187,7 @@ export function nextState(savedShots, bowler, league, date, game, frame, ballNum
   // skipped entirely.
   if(!ballNum||Number(ballNum)===1){
     // Just saved ball 1
-    const f10shots=savedShots.filter(s=>s.bowler===bowler&&s.league===league&&s.date===date&&s.game===String(g)&&parseInt(s.frame)===10);
+    const f10shots=savedShots.filter(s=>s.bowler===bowler&&s.league===league&&s.date===date&&s.game===String(g)&&parseInt(s.frame)===10&&sameSession(s));
     const b1=f10shots.find(s=>(!s.ballNum||Number(s.ballNum)===1));
     if(!b1) return{game:String(g),frame:"10",ballNum:2};
 
@@ -208,7 +212,7 @@ export function nextState(savedShots, bowler, league, date, game, frame, ballNum
     // struck, the rack reset again and a genuine 3rd ball is still owed. If
     // ball 2 was NOT a strike, it bundles its own spare attempt (Spare Made
     // Yes/No) just like any other frame — the frame is complete right here.
-    const f10shots=savedShots.filter(s=>s.bowler===bowler&&s.league===league&&s.date===date&&s.game===String(g)&&parseInt(s.frame)===10);
+    const f10shots=savedShots.filter(s=>s.bowler===bowler&&s.league===league&&s.date===date&&s.game===String(g)&&parseInt(s.frame)===10&&sameSession(s));
     const b2=f10shots.find(s=>Number(s.ballNum)===2);
     if(b2&&isStk(b2)){
       return{game:String(g),frame:"10",ballNum:3};
@@ -562,7 +566,11 @@ export function maxPossibleScore(shots) {
   const tenthDone =
     (f10b1 && !isStk(f10b1) && f10b1.spareMade === "No") ||          // open tenth
     (f10b3 != null) ||                                               // three balls thrown
-    (f10b1 && !isStk(f10b1) && f10b1.spareMade === "Yes" && f10b3);  // spare + fill
+    (f10b1 && !isStk(f10b1) && f10b1.spareMade === "Yes" && f10b3) || // spare + fill
+    // Strike, then a non-strike whose follow-up is recorded on the same
+    // ball-2 record (X 7 2, X 9 /, X 8 -): the frame is over in two records.
+    (f10b1 && isStk(f10b1) && f10b2 && !isStk(f10b2)
+      && f10b2.spareMade != null && String(f10b2.spareMade) !== "");
   if (tenthDone) return null;
 
   // A strike, in the shape the scorer expects.

@@ -73,7 +73,11 @@ export function findExistingShotSlot(shots,candidate){
   return shots.find(s=>
     s.bowler===c.bowler&&s.league===c.league&&s.date===c.date&&
     s.game===c.game&&s.frame===c.frame&&
-    slot(s.ballNum)===slot(c.ballNum)
+    slot(s.ballNum)===slot(c.ballNum)&&
+    // Which session of the day. The database's identity includes it, so
+    // a second practice's game 1, frame 1 is a different slot -- without
+    // this, saving it overwrote the first practice's shot.
+    (Number(s.sessionSeq)||1)===(Number(c.sessionSeq)||1)
   );
 }
 

@@ -166,3 +166,21 @@ describe('prebowlConflict', () => {
     expect(prebowlConflict(sessions, 'Ryan', 'Thursday House Shot', '2026-09-22', '2026-09-15')).toBe('');
   });
 });
+
+describe('two sessions on one day', () => {
+  it('a second practice\'s game 1, frame 1 is its own slot', async () => {
+    const { findExistingShotSlot } = await import('./sessions.js');
+    const first = { id: 'a', bowler: 'Ryan', league: 'Practice', date: '2026-09-24', game: '1', frame: '1', ballNum: null, sessionSeq: 1 };
+    const probe = { bowler: 'Ryan', league: 'Practice', date: '2026-09-24', game: '1', frame: '1', ballNum: null };
+    expect(findExistingShotSlot([first], { ...probe, sessionSeq: 2 })).toBeUndefined();
+    expect(findExistingShotSlot([first], { ...probe, sessionSeq: 1 })).toBe(first);
+    expect(findExistingShotSlot([first], probe)).toBe(first);
+  });
+  it('nextState reads the tenth of THIS session only', async () => {
+    const { nextState } = await import('./scoring.js');
+    const s1 = { bowler: 'R', league: 'P', date: 'd', game: '1', frame: '10', ballNum: 1, result: 'Strike', sessionSeq: 1 };
+    const s2 = { bowler: 'R', league: 'P', date: 'd', game: '1', frame: '10', ballNum: 1, result: 'Other Leave', spareMade: 'No', sessionSeq: 2 };
+    expect(nextState([s1, s2], 'R', 'P', 'd', '1', '10', 1, 2)).toEqual({ game: '2', frame: '1', ballNum: null });
+    expect(nextState([s1, s2], 'R', 'P', 'd', '1', '10', 1, 1)).toEqual({ game: '1', frame: '10', ballNum: 2 });
+  });
+});

@@ -49,6 +49,30 @@ export function moveTeamMember(teams, teamId, index, direction) {
 // email is optional — a blank one creates a name-only "placeholder" roster
 // slot rather than an error. Duplicate-checking only applies when an email
 // is actually given, since multiple email-less placeholders are allowed.
+// Hand an invite code to the phone's messaging: the native share sheet
+// in the app (Capacitor Share -- navigator.share does not exist in the
+// Android WebView), the browser's share sheet on the web, and a plain
+// SMS link as the last resort.
+async function textInviteCode(message) {
+  try {
+    const { Capacitor } = await import("@capacitor/core");
+    if (Capacitor?.isNativePlatform?.()) {
+      const { Share } = await import("@capacitor/share");
+      await Share.share({ text: message });
+      return;
+    }
+  } catch { /* not native, or the plugin is missing */ }
+  try {
+    if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+      await navigator.share({ text: message });
+      return;
+    }
+  } catch (e) {
+    if (e && e.name === "AbortError") return;   // they closed the sheet
+  }
+  try { window.location.href = `sms:?&body=${encodeURIComponent(message)}`; } catch { /* nothing left to try */ }
+}
+
 export function createTeamInvite(teams, teamId, id, name, email, useCode = false) {
   const cleanName = (name || "").trim();
   const cleanEmail = (email || "").trim().toLowerCase();
@@ -659,7 +683,7 @@ export default function TeamManagement({
   function createInvite(teamId) {
     const form = inviteForm[teamId] || {};
     const id = crypto.randomUUID();
-    const { teams: newTeams, invite, error } = createTeamInvite(teams, teamId, id, form.name, form.email, !!form.useCode);
+    const { teams: newTeams, invite, error } = createTeamInvite(teams, teamId, id, form.name, form.email, form.useCode !== false);
     if (error === "duplicate") {
       alert("There's already a pending invite for that email on this team.");
       return;
@@ -1078,6 +1102,11 @@ export default function TeamManagement({
                           letterSpacing:"1px",color:C.accent,
                         }}>{invite.signupCode}</span>
                         <button
+                          onClick={()=>textInviteCode(`Join our team on ${APP_NAME} — sign up and enter code ${invite.signupCode}`)}
+                          style={{...S.button,padding:"3px 8px",fontSize:"10px",color:C.accent,borderColor:C.accent}}>
+                          Text
+                        </button>
+                        <button
                           onClick={()=>{
                             const msg=`Join our team on ${APP_NAME} — sign up and enter code ${invite.signupCode}`;
                             try{navigator.clipboard?.writeText(msg);}catch{}
@@ -1128,7 +1157,7 @@ export default function TeamManagement({
                   their sessions and shots. */}
               <div style={S.label}>Add Someone Not Signed Up Yet</div>
               <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"8px"}}>
-                Reserves their spot on the roster now — you can start logging their scores under their name right away via Who's Bowling, no account needed yet. Either way they claim the spot themselves and everything you've logged is already there: with their email, they're linked the moment they sign in with that exact address; with a code, you get one to text them and they enter it when they sign up.
+                Reserves their spot on the roster now — you can start logging their scores under their name right away via Who's Bowling, no account needed yet. Either way they claim the spot themselves and everything you've logged is already there: with a code, you get one to text them and they enter it when they sign up; with their email, they're linked the moment they sign in with that exact address.
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
                 <input
@@ -1151,11 +1180,14 @@ export default function TeamManagement({
                     and two email addresses needs the second option to be
                     as visible as the first. */}
                 <div style={{display:"flex",gap:"8px"}}>
+                  {/* Code first, and the default: at the lanes a captain
+                      rarely has everyone's email, and a code can go in a
+                      text straight away. */}
                   {[
-                    {code:false,label:"I have their email"},
                     {code:true, label:"Text them a code"},
+                    {code:false,label:"I have their email"},
                   ].map(opt=>{
-                    const on=!!inviteForm[team.id]?.useCode===opt.code;
+                    const on=(inviteForm[team.id]?.useCode!==false)===opt.code;
                     return (
                       <button key={String(opt.code)}
                         onClick={()=>setInviteForm(prev=>({...prev,[team.id]:{
@@ -1175,7 +1207,7 @@ export default function TeamManagement({
                   })}
                 </div>
 
-                {!inviteForm[team.id]?.useCode && (
+                {inviteForm[team.id]?.useCode===false && (
                   <input
                     value={inviteForm[team.id]?.email || ""}
                     onChange={e=>setInviteForm(prev=>({...prev,[team.id]:{...prev[team.id],email:e.target.value}}))}
@@ -1184,7 +1216,7 @@ export default function TeamManagement({
                     style={S.input}
                   />
                 )}
-                {inviteForm[team.id]?.useCode && (
+                {inviteForm[team.id]?.useCode!==false && (
                   <div style={{fontSize:"11px",color:C.textMuted}}>
                     They will get a code to enter when they sign up. It links them to this spot the same way an email invite does.
                   </div>

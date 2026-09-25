@@ -40,6 +40,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { entitlementFromStripeSubscription, type StripeSubscription } from "../_shared/stripe.ts";
 import { stripeConfigured, fetchSubscription, timingSafeEqual } from "../_shared/stripeApi.ts";
+import { shouldApply } from "../_shared/railGuard.ts";
 
 const WEBHOOK_SECRET = Deno.env.get("STRIPE_WEBHOOK_SECRET")?.trim() || "";
 // Five minutes, which is Stripe's own recommended tolerance. It is what
@@ -289,6 +290,22 @@ Deno.serve(async (req: Request) => {
   }
 
   const row = entitlementFromStripeSubscription(fresh);
+
+  // A second subscription (an old checkout tab finished later) ending, or
+  // a web subscription lapsing while Play pays, must not take away access
+  // another subscription is paying for.
+  {
+    const { data: current } = await db
+      .from("entitlements")
+      .select("plan,status,current_period_end,source,stripe_subscription_id,play_purchase_token")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (!shouldApply(current, row)) {
+      console.log("stripe event not applied: the bowler is entitled through another subscription");
+      await markApplied(userId);
+      return ok({ received: true, keptOtherSubscription: true });
+    }
+  }
 
   // ── A write that cannot go backwards ──────────────────────────────
   //

@@ -79,7 +79,7 @@ export default function Settings({
   filterBowler, setFilterBowler, filterBall, setFilterBall,
   filterResult, setFilterResult, filtered, ballUniverse,
   startEdit, deleteShot,
-  centers, leagueCenters, setLeagueCenter, searchCenters,
+  centers, leagueCenters, setLeagueCenter, searchCenters, homeCenters = [],
   leagueDates, setLeagueDates, renameLeague,
   leagueFormats = {}, setLeagueFormat,
   leaguePatterns = {}, setLeaguePattern, oilPatterns = [],
@@ -909,6 +909,7 @@ export default function Settings({
                   onSelect={candidate => setLeagueCenter(league, candidate)}
                   onSetRackType={(c, rackType) => updateCenter(c.id, { rackType })}
                   onSetFreefallLanes={(c, freefallLanes) => updateCenter(c.id, { freefallLanes })}
+                  homeCenters={homeCenters}
                   onSearch={searchCenters} />
 
                 {/* Season dates, editable here in case they were skipped
@@ -1360,6 +1361,7 @@ export default function Settings({
                   onSelect={candidate => setLeagueCenter(league, candidate)}
                   onSetRackType={(c, rackType) => updateCenter(c.id, { rackType })}
                   onSetFreefallLanes={(c, freefallLanes) => updateCenter(c.id, { freefallLanes })}
+                  homeCenters={homeCenters}
                   onSearch={searchCenters} />
 
                 {/* Season dates, editable here in case they were skipped

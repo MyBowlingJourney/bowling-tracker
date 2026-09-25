@@ -95,7 +95,7 @@ export function applyWrittenNotes(games, notes, opts = {}) {
     }
     return out;
   };
-  const where = hit => `${label(hit.gi)}F${hit.frame.frameNumber} ball ${hit.balls.map(b => b.ballIndex ?? 1).join("+")}`;
+  const where = hit => `${label(hit.gi)}F${hit.frame.frameNumber}B${hit.balls.map(b => b.ballIndex ?? 1).join("+")}`;
   const apply = (hit, pins) => {
     for (const b of hit.balls) b.pinsStanding = pins.map(String);
     hit.frame.fromNote = [...new Set([...(hit.frame.fromNote || []), ...hit.balls.map(b => b.ballIndex ?? 1)])];
@@ -136,6 +136,9 @@ export function applyWrittenNotes(games, notes, opts = {}) {
     return [...best.values()];
   };
 
+  // Diagnostics only (never shown to the bowler), keyed by note index.
+  const outcomes = new Map();
+
   // Pass 1: every note on its own.
   const pending = [];
   notes.forEach((note, n) => {
@@ -151,13 +154,13 @@ export function applyWrittenNotes(games, notes, opts = {}) {
       const up = fitsIn(scope.above, pins);
       if (up.length === 1) { idx = scope.above; fits = up; }
     }
-    if (!idx.length) { result.outcomes[n] = `${tag}: no such game`; return; }
+    if (!idx.length) { outcomes.set(n, `${tag}: no such game`); return; }
     if (fits.length > 1 && !gameKnown) {
       const last = fitsIn(lastGames(idx), pins);
       if (last.length === 1) fits = last;
     }
-    if (fits.length === 1) { apply(fits[0], pins); result.outcomes[n] = `${tag} -> ${where(fits[0])}`; return; }
-    result.outcomes[n] = fits.length ? `${tag}: ${fits.length} places fit` : `${tag}: no ball with ${pins.length} pin(s) standing`;
+    if (fits.length === 1) { apply(fits[0], pins); outcomes.set(n, `${tag} -> ${where(fits[0])}`); return; }
+    outcomes.set(n, fits.length ? `${tag}: ${fits.length} places fit` : `${tag}: no ball with ${pins.length} pin(s) standing`);
     if (fits.length) pending.push({ n, tag, pins, idx, gameKnown });
   });
 
@@ -177,16 +180,16 @@ export function applyWrittenNotes(games, notes, opts = {}) {
     if (list.length > 1 && sets.every(s => sig(s) === sig(sets[0])) && sets[0].length === list.length) {
       sets[0].forEach((hit, j) => {
         apply(hit, list[j].pins);
-        result.outcomes[list[j].n] = `${list[j].tag} -> ${where(hit)} (paired)`;
+        outcomes.set(list[j].n, `${list[j].tag} -> ${where(hit)} (paired)`);
       });
       continue;
     }
     for (const p of list) {
       const fits = fitsIn(p.idx, p.pins);
-      if (fits.length === 1) { apply(fits[0], p.pins); result.outcomes[p.n] = `${p.tag} -> ${where(fits[0])}`; }
+      if (fits.length === 1) { apply(fits[0], p.pins); outcomes.set(p.n, `${p.tag} -> ${where(fits[0])}`); }
     }
   }
-  result.outcomes = result.outcomes.filter(Boolean);
+  result.outcomes = [...outcomes.keys()].sort((a, b) => a - b).map(k => outcomes.get(k));
   result.games = copy;
   return result;
 }

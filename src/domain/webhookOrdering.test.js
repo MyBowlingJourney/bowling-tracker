@@ -189,7 +189,10 @@ describe('the real webhook writes in order', () => {
     // eventTime comes from event.created. A Date.now() or new Date()
     // anywhere in the ordering is the same class of bug as seeding a
     // sync cursor from the phone's clock.
-    const guard = src.slice(src.indexOf('const ordered ='), src.indexOf('await markApplied'));
+    // From the ordered write to the markApplied that follows IT (the
+    // cross-rail guard earlier in the handler has its own).
+    const from = src.indexOf('const ordered =');
+    const guard = src.slice(from, src.indexOf('await markApplied', from));
     expect(guard).not.toContain('Date.now');
     expect(guard).not.toContain('new Date');
     expect(guard).toContain('eventTime');

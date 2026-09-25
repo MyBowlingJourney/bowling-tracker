@@ -161,6 +161,48 @@ export async function cancelSubscriptionNow(subscriptionId: string): Promise<boo
   return !!res;
 }
 
+// Is anything on this customer still billing? Our row holds one
+// subscription; Stripe knows them all.
+export async function customerHasLiveSubscription(customerId: string): Promise<boolean | null> {
+  if (!customerId) return null;
+  const res = await stripeRequest(`/subscriptions?customer=${encodeURIComponent(customerId)}&status=all&limit=100`);
+  const data = (res as { data?: Array<{ status?: string }> } | null)?.data;
+  if (!Array.isArray(data)) return null;
+  return data.some(sub => ["active", "trialing", "past_due", "unpaid", "paused"].includes(String(sub?.status)));
+}
+
+// Close any checkout this customer left open. A checkout stays payable
+// for 24 hours, so an abandoned phone tab finished after paying on a
+// laptop made a second subscription.
+export async function expireOpenCheckouts(customerId: string): Promise<void> {
+  if (!customerId) return;
+  const res = await stripeRequest(`/checkout/sessions?customer=${encodeURIComponent(customerId)}&status=open&limit=100`);
+  const data = (res as { data?: Array<{ id?: string }> } | null)?.data;
+  if (!Array.isArray(data)) return;
+  for (const cs of data) {
+    if (cs?.id) await stripeRequest(`/checkout/sessions/${encodeURIComponent(cs.id)}/expire`, {}, "POST");
+  }
+}
+
+// Every subscription on a customer that could still charge them.
+//
+// A second checkout tab finished later, or a web subscription started
+// while Play was on hold, leaves a subscription the entitlements row does
+// not point at. Deleting an account has to stop all of them, not only the
+// one we happen to have stored.
+export async function cancelAllForCustomer(customerId: string): Promise<{ cancelled: number; failed: number }> {
+  const out = { cancelled: 0, failed: 0 };
+  if (!customerId) return out;
+  const res = await stripeRequest(`/subscriptions?customer=${encodeURIComponent(customerId)}&status=all&limit=100`);
+  const data = (res as { data?: Array<{ id?: string; status?: string }> } | null)?.data;
+  if (!Array.isArray(data)) return out;
+  for (const sub of data) {
+    if (!sub?.id || ["canceled", "incomplete_expired"].includes(String(sub.status))) continue;
+    if (await cancelSubscriptionNow(sub.id)) out.cancelled++; else out.failed++;
+  }
+  return out;
+}
+
 // Has this customer EVER had a subscription with us?
 //
 // The trial runs from checkout rather than from sign-up, which is what

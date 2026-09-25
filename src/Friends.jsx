@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { profileSearchPattern } from "./domain/profileSearch.js";
 import { useAuth } from "./AuthProvider.jsx";
-import { cloudRead, cloudWrite, cloudDelete } from "./syncQueue.js";
+import { cloudRead, cloudWrite, cloudUpdate, cloudDelete } from "./syncQueue.js";
 import QRCode from "qrcode";
 
 // Pure functions, extracted so they're testable without rendering the
@@ -161,7 +161,11 @@ export default function Friends({ onRequestsChanged } = {}) {
   async function acceptRequest(entry) {
     setIncoming(prev=>prev.filter(f=>f.friendshipId!==entry.friendshipId));
     setFriends(prev=>[...prev,entry]);
-    await cloudWrite("friendships",{id:entry.friendshipId,status:"accepted"});
+    // An UPDATE, not an upsert: an upsert is an INSERT first, and the
+    // insert check (requester = me, status pending) fails on a row that
+    // carries only an id and a status -- so accepting never reached the
+    // server and sat in the queue forever.
+    await cloudUpdate("friendships",{id:entry.friendshipId},{status:"accepted"});
     onRequestsChanged?.();
   }
 

@@ -59,7 +59,7 @@ import { maxPossibleScore,
 import { emptyShot, computeSessionStats, findExistingShotSlot } from "./domain/sessions.js";
 import { buyInsForLeague, costArraysFor } from "./domain/money.js";
 import { normalizeLayout } from "./domain/layouts.js";
-import { profileFromRow, profileToRow, emptyProfile, normalizeProfile, resolveHandedness, effectiveLeftHanded, suggestBookAverage } from "./domain/profiles.js";
+import { profileFromRow, profileToRow, emptyProfile, normalizeProfile, resolveHandedness, effectiveLeftHanded, suggestBookAverage, resolveHomeCenters } from "./domain/profiles.js";
 import { emptyTournament, normalizeTournament, tournamentToRow, tournamentFromRow, scratchExcludedLeagues } from "./domain/tournaments.js";
 import { todaysRoutine, shouldShowLaunchPrompt } from "./domain/launchPrompt.js";
 import { normalizeGoals, goalsToRow, goalsFromRow, measurementsFor } from "./domain/goals.js";
@@ -747,6 +747,21 @@ export default function BowlingTracker(){
       window.alert("A team with that name already exists in this league.");
       return;
     }
+    // The free plan covers one team. Settings enforced that; the Team
+    // tab's "+ Add team" went straight here and did not. Counted from the
+    // cloud roster, because the startup team list carries names only.
+    // A team in THIS league doesn't count: a new one replaces it.
+    if(!featureUnlocked(entitlement)&&user?.id){
+      const mine=await cloudRead("team_members",q=>q.select("team_id").eq("user_id",user.id));
+      if(mine.online&&Array.isArray(mine.data)){
+        const leagueOf=new Map((teams||[]).map(t=>[t.id,t.league]));
+        const elsewhere=mine.data.filter(r=>leagueOf.has(r.team_id)&&leagueOf.get(r.team_id)!==leagueName);
+        if(elsewhere.length>=1){
+          if(window.confirm("The free plan covers one team, and you're already on one. Upgrade to Pro to add another?"))setView("subscribe");
+          return;
+        }
+      }
+    }
     // One team per bowler per league: making a new team moves you onto it
     // (the database takes you off the other one), so say so first.
     const inLeague=await fetchLeagueTeams(leagueName);
@@ -879,39 +894,15 @@ export default function BowlingTracker(){
   async function syncTeammateFriendships(existing){
     const myId=user?.id;
     if(!myId)return existing;
-
-    const already=new Set(existing.map(f=>
-      f.requester_id===myId?f.addressee_id:f.requester_id));
-
-    // Read team_members directly rather than from `teams`.
-    //
-    // The startup teams fetch is NAMES ONLY -- members stay [] until the
-    // Teams screen is opened. This function walked that empty array and
-    // created nothing, which is why teammates never became friends and
-    // why the Stats and Trends pickers had nobody to list.
-    const myTeamIds=(teams||[]).map(t=>t.id).filter(Boolean);
-    if(!myTeamIds.length)return existing;
-    const memRes=await cloudRead("team_members",q=>
-      q.select("team_id,user_id").in("team_id",myTeamIds));
-    if(!memRes.online||!Array.isArray(memRes.data))return existing;
-
-    const teammateIds=new Set();
-    for(const row of memRes.data){
-      const id=row.user_id;
-      if(id&&id!==myId&&!already.has(id))teammateIds.add(id);
-    }
-    if(!teammateIds.size)return existing;
-
-    const created=[];
-    for(const otherId of teammateIds){
-      const row={id:crypto.randomUUID(),requester_id:myId,addressee_id:otherId,status:"accepted"};
-      const res=await cloudWrite("friendships",row);
-      // A failure here is not worth surfacing: the friendship is a
-      // convenience, and the queue retries. Nothing the bowler did has
-      // failed.
-      if(res.synced!==false)created.push(row);
-    }
-    return [...existing,...created];
+    // Done by the database (befriend_teammates), for people who share a
+    // team with this bowler. The app used to insert ACCEPTED rows itself,
+    // and the policy that allowed that let anyone make themselves a
+    // "friend" of anyone -- and friends can read each other's shots.
+    const{data:made,error}=await supabase.rpc("befriend_teammates");
+    if(error||!made)return existing;
+    const again=await cloudRead("friendships",q=>q.select("id,requester_id,addressee_id,status"));
+    if(!again.online||!Array.isArray(again.data))return existing;
+    return again.data.filter(f=>f.requester_id===myId||f.addressee_id===myId);
   }
 
   async function loadFriends(){
@@ -1423,11 +1414,13 @@ export default function BowlingTracker(){
   function migrateShots(rawShots){
     const lastIndexForKey=new Map();
     rawShots.forEach((s,idx)=>{
-      const key=`${s.bowler}|${s.league}|${s.date}|${s.game}|${s.frame}|${s.ballNum||""}`;
+      // Two sessions on one day (a second practice) are different slots:
+      // the session number is part of the key, as it is in the database.
+      const key=`${s.bowler}|${s.league}|${s.date}|${Number(s.sessionSeq)||1}|${s.game}|${s.frame}|${s.ballNum||""}`;
       lastIndexForKey.set(key,idx);
     });
     return rawShots.filter((s,idx)=>{
-      const key=`${s.bowler}|${s.league}|${s.date}|${s.game}|${s.frame}|${s.ballNum||""}`;
+      const key=`${s.bowler}|${s.league}|${s.date}|${Number(s.sessionSeq)||1}|${s.game}|${s.frame}|${s.ballNum||""}`;
       return lastIndexForKey.get(key)===idx;
     });
   }
@@ -1436,10 +1429,10 @@ export default function BowlingTracker(){
   function migrateSessions(rawSessions){
     const lastIndexForSessionKey=new Map();
     rawSessions.forEach((s,idx)=>{
-      lastIndexForSessionKey.set(`${s.bowler}|${s.league}|${s.date}`,idx);
+      lastIndexForSessionKey.set(`${s.bowler}|${s.league}|${s.date}|${Number(s.sessionSeq)||1}`,idx);
     });
     return rawSessions.filter((s,idx)=>
-      lastIndexForSessionKey.get(`${s.bowler}|${s.league}|${s.date}`)===idx
+      lastIndexForSessionKey.get(`${s.bowler}|${s.league}|${s.date}|${Number(s.sessionSeq)||1}`)===idx
     );
   }
 
@@ -1529,7 +1522,17 @@ export default function BowlingTracker(){
       try{
         const cached=await window.storage.get(ENTITLEMENT_CACHE_KEY);
         if(cached?.value&&live){
-          const parsed=JSON.parse(cached.value);
+          let parsed=JSON.parse(cached.value);
+          // A renewing subscription whose cached period just ended has
+          // almost certainly renewed -- we simply have not been able to
+          // ask. Three days' grace on the CACHED copy only, so a
+          // subscriber opening the app offline at the lanes the morning
+          // after their renewal is not locked out. The fresh read below
+          // replaces it the moment the network answers.
+          if(parsed&&typeof parsed==="object"&&["active","trialing"].includes(parsed.status)&&parsed.current_period_end){
+            const ends=Date.parse(parsed.current_period_end);
+            if(Number.isFinite(ends))parsed={...parsed,current_period_end:new Date(ends+3*864e5).toISOString()};
+          }
           // null is a legitimate cached answer: "asked, they are free".
           setEntitlement(parsed);
           hadCache=true;
@@ -1714,7 +1717,16 @@ export default function BowlingTracker(){
           const pendingIds=new Set(pending.map(p=>p.id));
           const cloudShots=shotsRes.data.filter(row=>!pendingIds.has(row.id)).map(row=>shotFromSupabaseRow(row,leagueNameById));
           const pendingShots=pending.map(row=>shotFromSupabaseRow(row,leagueNameById));
-          migratedShots=migrateShots([...cloudShots,...pendingShots]);
+          // Guest shots never go to the cloud, so a full fetch cannot bring
+          // them back -- keep the ones already on this device, or a Force
+          // resync (or a long absence) wipes every guest's night.
+          let guestShots=[];
+          try{
+            const prev=await window.storage.get(STORAGE_KEY);
+            const arr=prev?JSON.parse(prev.value):[];
+            if(Array.isArray(arr))guestShots=arr.filter(x=>x&&x.localOnly===true);
+          }catch{}
+          migratedShots=migrateShots([...cloudShots,...guestShots,...pendingShots]);
           setShots(migratedShots);
           try{await window.storage.set(STORAGE_KEY,JSON.stringify(migratedShots));}catch{}
           // A completed full sync -- from here on, later opens can ask
@@ -4460,15 +4472,26 @@ export default function BowlingTracker(){
     // Resume this bowler at their own next unplayed frame for tonight's
     // league/date, instead of leaving them wherever the previous bowler was.
     if(sessionLeague){
-      const bShots=shots.filter(s=>s.bowler===name&&s.league===effectiveSessionLeague&&s.date===sessionDate&&(!s.ballNum||s.ballNum===1));
-      if(bShots.length){
-        const last=[...bShots].sort((a,b)=>{
+      // This bowler's own session number for tonight (each bowler has one).
+      const bSeq=sessionSeqMap[sessionSeqKey(name,
+        preferences.environment==="practice"?PRACTICE_SESSION_KEY:
+        preferences.environment==="casual"?CASUAL_SESSION_KEY:
+        (sessionLeague||""),sessionDate)]||1;
+      const allBShots=shots.filter(s=>s.bowler===name&&s.league===effectiveSessionLeague&&s.date===sessionDate
+        &&(Number(s.sessionSeq)||1)===bSeq);
+      if(allBShots.length){
+        // Resume from the LAST ball bowled, tenth-frame balls 2 and 3
+        // included. Looking only at ball 1 sent a bowler who had finished
+        // the game with X X X back to ball 2 of that tenth -- and the next
+        // save overwrote the ball that was already there.
+        const last=[...allBShots].sort((a,b)=>{
           const ga=parseInt(a.game),gb=parseInt(b.game);
           if(ga!==gb)return ga-gb;
-          return parseInt(a.frame)-parseInt(b.frame);
+          const fa=parseInt(a.frame),fb=parseInt(b.frame);
+          if(fa!==fb)return fa-fb;
+          return (Number(a.ballNum)||1)-(Number(b.ballNum)||1);
         }).pop();
-        const allBShots=shots.filter(s=>s.bowler===name&&s.league===effectiveSessionLeague&&s.date===sessionDate);
-        const{game:ng,frame:nf,ballNum:nb}=nextState(allBShots,name,sessionLeague,sessionDate,last.game,last.frame,last.ballNum);
+        const{game:ng,frame:nf,ballNum:nb}=nextState(allBShots,name,effectiveSessionLeague,sessionDate,last.game,last.frame,last.ballNum,bSeq);
         setForm(f=>({...f,...resetFields,bowler:name,teamId,league:effectiveSessionLeague,date:sessionDate,game:ng,frame:nf,ballNum:nb}));
         return;
       }
@@ -4591,8 +4614,16 @@ export default function BowlingTracker(){
       if(leagueId){
         for(const k of Object.keys(manualScores||{})){
           if(!k.startsWith(prefix))continue;
-          const game=k.slice(prefix.length);
-          await cloudDelete("manual_scores",{bowler_name:bowler,league_id:leagueId,date,game});
+          // The key's tail is "game|session" (older keys: just "game").
+          // Sending the whole tail as the game was a 22P02 on the integer
+          // column, discarded after three tries -- and the typed scores
+          // came back on the next load.
+          const[gamePart,seqPart]=k.slice(prefix.length).split("|");
+          const game=parseInt(gamePart,10);
+          if(!Number.isFinite(game))continue;
+          const match={bowler_name:bowler,league_id:leagueId,date,game};
+          if(seqPart!==undefined&&Number.isFinite(parseInt(seqPart,10)))match.session_seq=parseInt(seqPart,10);
+          await cloudDelete("manual_scores",match);
         }
       }
 
@@ -5283,11 +5314,11 @@ export default function BowlingTracker(){
       if(parseInt(shotData.frame)===10){
         const here=s=>s&&s.bowler===shotData.bowler&&s.league===shotData.league
           &&s.date===shotData.date&&String(s.game)===String(shotData.game)
-          &&parseInt(s.frame)===10;
+          &&parseInt(s.frame)===10&&(Number(s.sessionSeq)||1)===(Number(shotData.sessionSeq)||1);
         let cursor=shotBallNum;
         for(let step=0;step<3;step++){
           const ns=nextState(updated,shotData.bowler,shotData.league,shotData.date,
-                             String(shotData.game),"10",cursor);
+                             String(shotData.game),"10",cursor,Number(shotData.sessionSeq)||1);
           if(!(ns&&String(ns.frame)==="10"&&String(ns.game)===String(shotData.game)))break;
           const filled=updated.some(s=>here(s)&&Number(s.ballNum)===Number(ns.ballNum));
           if(!filled){owed=ns;break;}
@@ -5327,7 +5358,7 @@ export default function BowlingTracker(){
       // already-played 10th-frame ball), overwrite it rather than adding a
       // second shot for the same slot — a duplicate would corrupt frame lookups
       // in strictPartial, which expects exactly one shot per slot.
-      const existingSlot=findExistingShotSlot(shots,{...form,league:shotLeague,date:shotDate,ballNum:shotBallNum});
+      const existingSlot=findExistingShotSlot(shots,{...form,league:shotLeague,date:shotDate,ballNum:shotBallNum,sessionSeq:currentSessionSeq});
       // Every standing pin tapped means the spare was made, whatever the
       // Spare made chip still says.
       //
@@ -5388,7 +5419,7 @@ export default function BowlingTracker(){
       // found nothing, and returned "game 1, frame 1" -- so the form
       // reset to the start of the game instead of advancing. Nothing
       // visibly happened, and the next shot overwrote frame 1.
-      const{game:ng,frame:nf,ballNum:nb}=nextState(updated,form.bowler,shotLeague,shotDate,form.game,form.frame,form.ballNum);
+      const{game:ng,frame:nf,ballNum:nb}=nextState(updated,form.bowler,shotLeague,shotDate,form.game,form.frame,form.ballNum,currentSessionSeq);
 
 
       // Auto-fill line for next shot
@@ -5702,6 +5733,24 @@ export default function BowlingTracker(){
       {onConflict:"user_id,bowler_name,league_id,date,game,session_seq"});
   }
 
+  // Game numbers with anything in them for one session: frames or a
+  // typed score. At least 1-3, the usual league night.
+  function nightGameNumbers(bowler,league,date,seq,shotList=shots,scoreMap=manualScoresRef.current){
+    const found=new Set([1,2,3]);
+    for(const sh of shotList||[]){
+      if(sh&&sh.bowler===bowler&&sh.league===league&&String(sh.date)===String(date)
+        &&(Number(sh.sessionSeq)||1)===seq){const g=parseInt(sh.game);if(g>0)found.add(g);}
+    }
+    const prefix=`${bowler}|${league}|${date}|`;
+    for(const k of Object.keys(scoreMap||{})){
+      if(!k.startsWith(prefix))continue;
+      const[gPart,sPart]=k.slice(prefix.length).split("|");
+      if((parseInt(sPart,10)||1)!==seq)continue;
+      const g=parseInt(gPart,10);if(g>0)found.add(g);
+    }
+    return [...found].sort((a,b)=>a-b);
+  }
+
   function getSessionTotal(){
     // Guard on the SAME identity the line below computes with.
     //
@@ -5712,7 +5761,11 @@ export default function BowlingTracker(){
     // night this is.
     if(!nightLeague||!nightBowler)return null;
 
-    const scores=[1,2,3].map(g=>getGameStrict(nightBowler,nightLeague,nightDate,g));
+    // Tonight's session only (a second practice has its own game 1), and
+    // every game bowled -- practice can run past three.
+    const seq=currentSessionSeq;
+    const games=nightGameNumbers(nightBowler,nightLeague,nightDate,seq);
+    const scores=games.map(g=>getGameStrict(nightBowler,nightLeague,nightDate,g,seq));
     const valid=scores.filter(s=>s!=null);
     return valid.length?valid.reduce((a,b)=>a+b,0):null;
   }
@@ -5757,17 +5810,23 @@ export default function BowlingTracker(){
     const existing=sessions.find(s=>s.bowler===bowler&&s.league===league&&String(s.date)===String(date)
       &&(Number(s.sessionSeq)||1)===seq);
     if(existing){
-      const idx=(existing.scores||[]).length-1;
-      // Games are NOT renumbered elsewhere in this file, but a session
-      // row's scores array has no game numbers of its own -- it is a
-      // plain list in bowled order. Position g-1 is only right when
-      // nothing before it was already missing; safe here because a
-      // filed row and an in-progress night cannot both have gaps.
-      const trimmed=(existing.scores||[]).filter((_,i)=>i!==g-1);
+      // Rebuilt from the games that are left, the way fileNight builds
+      // it. Removing position g-1 was wrong once any earlier game had
+      // been deleted: the list has no game numbers, so the positions had
+      // already shifted and the wrong score went (or none did).
+      const nightShots=keep.filter(sh=>sh&&sh.bowler===bowler&&sh.league===league
+        &&String(sh.date)===String(date)&&(Number(sh.sessionSeq)||1)===seq);
+      const scoreMap={...(manualScoresRef.current||{})};
+      delete scoreMap[`${bowler}|${league}|${date}|${g}|${seq}`];
+      const trimmed=nightGameNumbers(bowler,league,date,seq,nightShots,scoreMap)
+        .filter(n=>n!==g)
+        .map(n=>resolveGameScore(scoreMap,bowler,league,date,n,
+          strictPartial(nightShots.filter(sh=>String(sh.game)===String(n))),seq))
+        .filter(v=>v!=null);
       if(!trimmed.length){
         await saveSessions(sessions.filter(s=>s.id!==existing.id));
       }else{
-        const ss=shots.filter(sh=>sh.bowler===bowler&&sh.league===league&&sh.date===date);
+        const ss=nightShots;
         const updated={...existing,scores:trimmed,
           total:trimmed.reduce((a,b)=>a+b,0),
           average:Math.floor(trimmed.reduce((a,b)=>a+b,0)/trimmed.length),
@@ -6040,7 +6099,10 @@ export default function BowlingTracker(){
       // momentarily blank would erase real standings data on a false
       // read.
       const stale=preferences.environment==="practice"
-        &&sessions.find(s=>s.bowler===activeBowler&&s.league===effectiveSessionLeague&&s.date===sessionDate);
+        &&sessions.find(s=>s.bowler===activeBowler&&s.league===effectiveSessionLeague&&s.date===sessionDate
+          // THIS practice's row only. Without the session number, saving
+          // an empty second practice deleted the first one's filed night.
+          &&(Number(s.sessionSeq)||1)===fileSeq);
       if(stale){
         await saveSessions(sessions.filter(s=>s.id!==stale.id));
         return true;
@@ -6075,7 +6137,10 @@ export default function BowlingTracker(){
       &&(preferences.environment==="tournament"
         ?tournamentBaseLeagueName(s.league)===fileLeague
         :s.league===fileLeague)
-      &&s.date===sessionDate);
+      &&s.date===sessionDate
+      // This session's frames only: a second practice the same day has
+      // its own strike and spare numbers.
+      &&(Number(s.sessionSeq)||1)===fileSeq);
     // A session is uniquely identified by bowler+league+date. If one already
     // exists (e.g. a double-tap on Save), update it in place rather than
     // adding a duplicate — a duplicate would silently double-count this
@@ -6226,9 +6291,11 @@ export default function BowlingTracker(){
 
   function ensureSessionRow(){
     const existing=sessionsRef.current.find(s=>s.bowler===nightBowler
-      &&s.league===nightLeague&&s.date===nightDate);
+      &&s.league===nightLeague&&s.date===nightDate
+      &&(Number(s.sessionSeq)||1)===currentSessionSeq);
     if(existing)return existing.id;
-    if(pendingSessionIdRef.current)return pendingSessionIdRef.current;
+    if(pendingSessionIdRef.current&&pendingSessionRowRef.current
+      &&(Number(pendingSessionRowRef.current.sessionSeq)||1)===currentSessionSeq)return pendingSessionIdRef.current;
     if(!nightBowler||!nightLeague||!nightDate)return "";
     const row={
       id:crypto.randomUUID(),
@@ -7110,6 +7177,14 @@ export default function BowlingTracker(){
   // everything in both cases -- so it is the whole visibility condition
   // and no separate BILLING_LIVE check is needed at the call site.
   const lockedLeagueNames=lockedLeagues(leagues||[],leaguePickOpts).filter(n=>notUserHidden.includes(n));
+  // What the Log screen offers to bowl in: the free plan's league only.
+  // It used to offer every league, so a free bowler who logged Tuesday one
+  // week and Thursday the next swapped which one was "theirs" each time --
+  // two leagues on the free plan, forever.
+  const logLeagues=activeLeagues.filter(n=>!lockedLeagueNames.includes(n));
+  // The houses this bowler named as home during setup, offered first
+  // whenever a league's center is being chosen.
+  const myHomeCenters=resolveHomeCenters(profiles?.[displayName]||profiles?.[activeBowler]||null,centers);
   // Applied locally rather than re-read from the server. The picker only
   // calls this after its update came back without an error and with a
   // row, so the value is already known good -- and a round trip here
@@ -7121,7 +7196,12 @@ export default function BowlingTracker(){
     // Guarded on typeof: prev can be the ENTITLEMENT_UNKNOWN string, and
     // spreading a string would produce {0:"u",1:"n",...} -- an object that
     // is truthy, has no plan, and reads as a locked-out free bowler.
-    setEntitlement(prev=>(prev&&typeof prev==="object")?{...prev,kept_league_id:id}:prev);
+    // null ("asked, they are free") is the usual case for a first pick:
+    // set_kept_league has just created their row, so the pick is
+    // reflected at once instead of the picker staying up until the next
+    // entitlement reload.
+    setEntitlement(prev=>(prev&&typeof prev==="object")?{...prev,kept_league_id:id}
+      :prev===null?{plan:"free",status:"none",kept_league_id:id}:prev);
   };
   const visibleLeagueKey=visibleLeagueNames.join("\u0001");
   // Memoised: these run over the bowler's whole history, and this
@@ -9149,7 +9229,7 @@ export default function BowlingTracker(){
             filterResult={filterResult} setFilterResult={setFilterResult}
             filtered={filtered} ballUniverse={ballUniverse}
             startEdit={startEdit} deleteShot={deleteShot}
-            centers={centers} leagueCenters={leagueCenters} setLeagueCenter={setLeagueCenter} searchCenters={searchCenters}
+            centers={centers} leagueCenters={leagueCenters} setLeagueCenter={setLeagueCenter} searchCenters={searchCenters} homeCenters={myHomeCenters}
             leagueDates={leagueDates} setLeagueDates={saveLeagueDates}
             leagueFormats={leagueFormats} setLeagueFormat={saveLeagueFormat} updateCenter={updateCenter} renameLeague={renameLeague}
             leaguePatterns={leaguePatterns} setLeaguePattern={saveLeaguePattern}
@@ -9272,7 +9352,7 @@ export default function BowlingTracker(){
             filterResult={filterResult} setFilterResult={setFilterResult}
             filtered={filtered} ballUniverse={ballUniverse}
             startEdit={startEdit} deleteShot={deleteShot}
-            centers={centers} leagueCenters={leagueCenters} setLeagueCenter={setLeagueCenter} searchCenters={searchCenters}
+            centers={centers} leagueCenters={leagueCenters} setLeagueCenter={setLeagueCenter} searchCenters={searchCenters} homeCenters={myHomeCenters}
             leagueDates={leagueDates} setLeagueDates={saveLeagueDates} renameLeague={renameLeague}
             hiddenLeagues={hiddenLeagues} leagueIds={leagueIdsRef.current} toggleLeagueHidden={toggleLeagueHidden}
             shots={shots}
@@ -9455,7 +9535,7 @@ export default function BowlingTracker(){
             ):null}
             sessionNotes={sessionNotes} setSessionNotes={setSessionNotes}
             entitlement={entitlement}
-            shots={visibleShots} sessions={visibleSessions} bowlers={bowlers} footerHeight={footerHeight} footerRef={footerRef} teams={teams} leagues={activeLeagues} startEdit={startEdit} deleteShot={deleteShot}
+            shots={visibleShots} sessions={visibleSessions} bowlers={bowlers} footerHeight={footerHeight} footerRef={footerRef} teams={teams} leagues={logLeagues} startEdit={startEdit} deleteShot={deleteShot}
             activeBowler={activeBowler} arsenals={arsenals}
             form={form} setForm={setForm} editingId={editingId} saved={saved} sessionSaved={sessionSaved} sessionSaveMessage={sessionSaveMessage}
             sessionLeague={sessionLeague} setSessionLeague={setSessionLeague} effectiveSessionLeague={effectiveSessionLeague} sessionDate={sessionDate} setSessionDate={changeSessionDate}

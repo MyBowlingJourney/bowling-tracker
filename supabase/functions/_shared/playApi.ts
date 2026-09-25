@@ -213,26 +213,23 @@ export async function acknowledge(productId: string, token: string): Promise<voi
 // Calling revoke here would hand back money nobody asked to have back,
 // on every single deletion.
 //
-// The subscriptionId path segment has not been required since May 2025,
-// but it is sent when known because the documented template still
-// includes it.
+// The documented v2 path is .../purchases/subscriptionsv2/tokens/{token}:cancel
+// -- no product id segment. The earlier version put the product id in the
+// path (mixing the v1 and v2 templates), which is a 404 on every call:
+// every Play subscriber who deleted their account kept being charged.
+// productId is kept in the signature for the callers and the logs.
 export async function cancelSubscription(productId: string, token: string): Promise<boolean> {
   const access = await accessToken();
   if (!access || !token) return false;
-  if (!productId) {
-    // Without it there is no documented path to call. Logged loudly:
-    // this is somebody who will keep being charged.
-    console.error("cannot cancel a play subscription without a product id");
-    return false;
-  }
   const url = `${ANDROID_PUBLISHER}/applications/${encodeURIComponent(PACKAGE_NAME)}`
-    + `/purchases/subscriptionsv2/${encodeURIComponent(productId)}`
-    + `/tokens/${encodeURIComponent(token)}:cancel`;
+    + `/purchases/subscriptionsv2/tokens/${encodeURIComponent(token)}:cancel`;
   try {
     const res = await fetch(url, {
       method: "POST",
       headers: { Authorization: `Bearer ${access}`, "Content-Type": "application/json" },
-      body: "{}",
+      // The developer, not the user, is stopping the payments: the
+      // account they were for no longer exists.
+      body: JSON.stringify({ cancellationContext: { cancellationType: "DEVELOPER_REQUESTED_STOP_PAYMENTS" } }),
     });
     if (!res.ok) {
       console.error("play cancel failed:", res.status, (await res.text()).slice(0, 300));

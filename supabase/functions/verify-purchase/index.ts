@@ -54,6 +54,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { entitlementFromPlayPurchase } from "../_shared/play.ts";
 // The Google client, shared with play-rtdn so the two cannot drift.
 import { configured, fetchPurchase, acknowledge } from "../_shared/playApi.ts";
+import { shouldApply } from "../_shared/railGuard.ts";
 
 // Takes its CORS headers as an argument rather than reading a
 // module-level constant -- see analyze-performance for the
@@ -228,6 +229,17 @@ Deno.serve(async (req: Request) => {
       .update({ play_purchase_token: null })
       .eq("play_purchase_token", linked);
     if (clearErr) console.error("clearing linked purchase token failed:", clearErr.message);
+  }
+
+  // A purchase that is not (or no longer) active must not overwrite a
+  // row that is entitled through a web subscription.
+  const { data: mine } = await admin
+    .from("entitlements")
+    .select("plan,status,current_period_end,source,stripe_subscription_id,play_purchase_token")
+    .eq("user_id", user!.id)
+    .maybeSingle();
+  if (!shouldApply(mine, row)) {
+    return json({ ok: true, plan: mine?.plan, status: mine?.status, current_period_end: mine?.current_period_end, keptOtherSubscription: true }, cors);
   }
 
   const { error: writeErr } = await admin

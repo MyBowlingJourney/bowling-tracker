@@ -106,3 +106,16 @@ describe('RLS denials on shared reference tables', () => {
     expect(classifySyncError(denied).canDiscard).toBe(false);
   });
 });
+
+describe('schema not yet updated', () => {
+  it('is skipped but never discarded', () => {
+    for (const code of ['42703', '42P01', 'PGRST204']) {
+      const c = classifySyncError({ code, message: 'x' });
+      expect(c.kind).toBe('permanent');
+      expect(c.canDiscard).toBe(false);
+    }
+  });
+  it('a value too long is permanent and can be discarded', () => {
+    expect(classifySyncError({ code: '22001', message: 'value too long' }).canDiscard).toBe(true);
+  });
+});

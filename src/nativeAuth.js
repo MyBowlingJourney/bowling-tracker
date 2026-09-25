@@ -151,6 +151,20 @@ export function isOurAppLink(url) {
   }
 }
 
+// The email inside a Supabase access token, or "" if it cannot be read.
+// Only used to show the bowler which account a link would sign into --
+// never trusted for anything else; setSession verifies the token itself.
+export function emailInToken(token) {
+  try {
+    const part = String(token || "").split(".")[1] || "";
+    const b64 = part.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(part.length / 4) * 4, "=");
+    const json = JSON.parse(typeof atob === "function" ? atob(b64) : Buffer.from(b64, "base64").toString("utf8"));
+    return typeof json?.email === "string" ? json.email : "";
+  } catch {
+    return "";
+  }
+}
+
 export async function listenForAuthLinks(onError) {
   const cap = await capacitor();
   if (!cap) return null;
@@ -168,6 +182,22 @@ export async function listenForAuthLinks(onError) {
       if (parsed.kind === "pkce") {
         const { error } = await supabase.auth.exchangeCodeForSession(parsed.code);
         if (error) throw error;
+        return;
+      }
+      // A link carrying a ready-made session can be put on any web page:
+      // the App Link proves the URL is ours, not that the SESSION came
+      // from the bowler's own sign-in. So the account it would sign into
+      // is named, and a link for a different account than the one already
+      // signed in is refused outright.
+      const who = emailInToken(parsed.access_token);
+      const { data: current } = await supabase.auth.getSession();
+      const signedInAs = current?.session?.user?.email || "";
+      if (signedInAs && who && signedInAs.toLowerCase() !== who.toLowerCase()) {
+        onError?.(`That sign-in link is for ${who}, not the account you're signed in to. Sign out first if you meant to switch.`);
+        return;
+      }
+      if (!signedInAs && typeof window !== "undefined" && typeof window.confirm === "function"
+          && !window.confirm(who ? `Sign in as ${who}?` : "Sign in with this link?")) {
         return;
       }
       const { error } = await supabase.auth.setSession({
