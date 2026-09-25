@@ -677,7 +677,7 @@ export async function flushPendingQueue() {
         errorCode: err?.code || item.errorCode || '',
       });
 
-      const cls = classifySyncError(err);
+      const cls = classifySyncError(err, item.table);
       if (cls.kind === 'permanent') {
         // A permanent failure will fail identically forever. syncErrors
         // has said so since it was written -- "retrying forever just

@@ -22,7 +22,14 @@ const PERMANENT_CODES = new Set([
   "22P02", // invalid text representation
 ]);
 
-export function classifySyncError(err) {
+// Shared reference tables, where an RLS denial means the write was never
+// the bowler's to make -- a stale copy of somebody else's row -- and the
+// real change goes some other way. bowling_centers: pin type is saved
+// through set_center_pins(); a queued whole-row upsert of a looked-up
+// center can never land, and keeping it only retries forever.
+const DISCARDABLE_WHEN_DENIED = new Set(["bowling_centers"]);
+
+export function classifySyncError(err, table = "") {
   const code = err?.code || "";
   const msg = String(err?.message || "");
 
@@ -82,7 +89,9 @@ export function classifySyncError(err) {
       title: "Not allowed to save this",
       detail: "The app doesn't have permission to save this. Nothing is lost on this phone, but it can't reach the cloud until this is fixed.",
       canRetry: true,
-      canDiscard: false, // needs a real fix, not a discard
+      // Needs a real fix, not a discard -- except on a shared reference
+      // table, where it can never succeed (see above).
+      canDiscard: DISCARDABLE_WHEN_DENIED.has(table),
     };
   }
 

@@ -129,6 +129,8 @@ function ShotEditor({shot,onChange}){
 // confirmed unreliable to extract from a scorecard image, so they need
 // eyes-on before saving, not just an easy-to-miss footnote.
 function GameReview({game,onUpdateShot,onUpdateScore,expandedFrames,onToggleExpanded,leftHanded}){
+  // The frame whose editor is open, highlighted on the scoresheet.
+  const openFrame=(game.shots.find(s=>expandedFrames.has(frameKey(s)))||{}).frame??null;
   const score=game.scoreOnly?game.totalScore:strictPartial(game.shots);
   // Two independent readings of the same card: the total the model read,
   // and what its own frames actually score to. A verified engine can say
@@ -196,14 +198,22 @@ function GameReview({game,onUpdateShot,onUpdateScore,expandedFrames,onToggleExpa
           at a glance. Tapping a frame opens that ball's editor below. */}
       {!game.scoreOnly&&game.shots.length>0&&(
         <div style={{marginBottom:"10px"}}>
-          <Scoresheet shots={game.shots} game={String(game.gameNumber)} leftHanded={leftHanded}
+          {/* All ten frames, wrapped -- no swiping. Tapping a frame opens
+              its editor below (every ball of it, for the tenth); tapping
+              it again closes it. */}
+          <Scoresheet shots={game.shots} game={String(game.gameNumber)} leftHanded={leftHanded} wrap
+            currentFrame={openFrame}
             onSelectFrame={frame=>{
-              const hit=game.shots.find(s=>String(s.frame)===String(frame));
-              if(hit)onToggleExpanded(frameKey(hit),{open:true});
+              const balls=game.shots.filter(s=>String(s.frame)===String(frame));
+              if(!balls.length)return;
+              const isOpen=balls.some(s=>expandedFrames.has(frameKey(s)));
+              // One frame open at a time: opening this one closes the rest.
+              for(const s of game.shots){
+                const k=frameKey(s);
+                const shouldOpen=String(s.frame)===String(frame)&&!isOpen;
+                if(expandedFrames.has(k)!==shouldOpen)onToggleExpanded(k);
+              }
             }}/>
-          <div style={{fontSize:"11px",color:C.textMuted,marginTop:"6px"}}>
-            Tap a frame to fix what was read.
-          </div>
         </div>
       )}
       {game.shots.map((s,idx)=>{
@@ -213,6 +223,10 @@ function GameReview({game,onUpdateShot,onUpdateScore,expandedFrames,onToggleExpa
         // A ball added because the 10th became a mark opens itself: it is
         // empty and the game cannot score until it is filled in.
         const expanded=blank||expandedFrames.has(key);
+        // Only the frame being edited, and anything that needs looking at.
+        // The scoresheet above is the list; ten collapsed rows under it
+        // only repeated it.
+        if(!expanded&&!warned)return null;
         const label=`Frame ${s.frame}${s.ballNum?` · Ball ${s.ballNum}`:""}${blank?" · fill ball — pick a result":""}`;
         return(
           <div key={key} style={warned?{border:`1px solid ${C.spare}`,borderRadius:"10px",padding:"2px",marginBottom:"8px"}:{marginBottom:"8px"}}>

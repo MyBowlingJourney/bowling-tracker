@@ -97,3 +97,12 @@ describe('a Postgres error is not a gateway error', () => {
     }
   });
 });
+
+describe('RLS denials on shared reference tables', () => {
+  it('can be discarded for bowling_centers, never for a bowler\'s own data', () => {
+    const denied = { code: '42501', message: 'new row violates row-level security policy' };
+    expect(classifySyncError(denied, 'bowling_centers').canDiscard).toBe(true);
+    expect(classifySyncError(denied, 'shots').canDiscard).toBe(false);
+    expect(classifySyncError(denied).canDiscard).toBe(false);
+  });
+});

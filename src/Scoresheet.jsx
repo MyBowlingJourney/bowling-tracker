@@ -86,6 +86,10 @@ export default function Scoresheet({
   // results store no pin number -- the pin is in the name, canonical for
   // both hands -- so the rack cannot draw them without knowing the hand.
   leftHanded = false,
+  // All ten frames at once, wrapping onto a second row, instead of five
+  // with the rest a swipe away. For reviewing a finished card (the
+  // import), where every frame matters equally and nothing is live.
+  wrap = false,
 }) {
   const rows = frameScoresheet(shots);
   const scrollerRef = useRef(null);
@@ -197,10 +201,12 @@ export default function Scoresheet({
         style={{
           display: "flex",
           gap: `${GAP}px`,
-          overflowX: "auto",
-          // Momentum on iOS, and no vertical bounce stealing the gesture.
-          WebkitOverflowScrolling: "touch",
-          scrollbarWidth: "none",
+          ...(wrap ? { flexWrap: "wrap" } : {
+            overflowX: "auto",
+            // Momentum on iOS, and no vertical bounce stealing the gesture.
+            WebkitOverflowScrolling: "touch",
+            scrollbarWidth: "none",
+          }),
         }}
       >
         {rows.map(r => {
