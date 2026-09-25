@@ -85,7 +85,9 @@ import { archiveOnNewStart, compareSeasons, describeSeasonChange } from "./domai
 import { sessionsForFigures, isBaker, bakerBowlerFor, bakerAlternates } from "./domain/tournamentFormats.js";
 import { emptyDrill, normalizeDrill, drillToRow, drillFromRow } from "./domain/drills.js";
 import { scorekeepingOptions, allowsOtherBowlers, normalizeGuests, addGuest, removeGuest } from "./domain/scorekeeping.js";
-import { allowedLeagues, lockedLeagues, ENTITLEMENT_UNKNOWN, bagLimit, featureUnlocked } from "./domain/entitlements.js";
+import { allowedLeagues, lockedLeagues, ENTITLEMENT_UNKNOWN, bagLimit, featureUnlocked, withProTrial, proTrialEnded, onProTrial, proTrialDaysLeft, hasPaidSubscription, isTestAccount } from "./domain/entitlements.js";
+import { gamesByBall } from "./domain/arsenalMap.js";
+import ProTrialEnd from "./ProTrialEnd.jsx";
 // Not lazy: it is one small card, it is rendered conditionally already,
 // and a Suspense boundary around a prompt this short would flash.
 import KeptLeaguePicker from "./KeptLeaguePicker.jsx";
@@ -576,7 +578,11 @@ export default function BowlingTracker(){
   // and it did not matter. Now the difference is whether a paying
   // subscriber is locked out while the query is in flight. See
   // ENTITLEMENT_UNKNOWN in domain/entitlements.js.
-  const[entitlement,setEntitlement]=useState(ENTITLEMENT_UNKNOWN);
+  const[entitlementRow,setEntitlement]=useState(ENTITLEMENT_UNKNOWN);
+  // The stored row plus the account's 60-day Pro trial (from its creation
+  // time), so every gate answers from one object. The server applies the
+  // same rule in is_subscriber().
+  const entitlement=useMemo(()=>withProTrial(entitlementRow,user?.created_at),[entitlementRow,user?.created_at]);
   // Bumped after an in-app (Play) purchase so the entitlement is read
   // again. The read below otherwise runs only when the user changes.
   const[entitlementReload,setEntitlementReload]=useState(0);
@@ -7433,6 +7439,65 @@ export default function BowlingTracker(){
 
   const leaguesWithCenters=leagues.map(name=>({name,centerId:leagueCenters[name]}));
   const centerStats=statsByCenter(sessions,leaguesWithCenters,centers,statsBowler||activeBowler,shots);
+
+  // ── The end of the 60-day Pro trial ─────────────────────────────────
+  //
+  // "ended": the trial is over, nothing paid replaced it, and they have
+  // not yet chosen -- the ask sits at the top of Home until they do.
+  // "ending": the last seven days, a heads-up they can put off for the
+  // day. Neither ever shows to a subscriber or a test account.
+  const proChoiceKey="pro-trial-choice-v1";
+  const[proChoice,setProChoice]=useState(()=>{try{return readLocal(proChoiceKey,uid)||"";}catch{return "";}});
+  const[proLaterDay,setProLaterDay]=useState(()=>{try{return readLocal("pro-trial-later-v1",uid)||"";}catch{return "";}});
+  // Re-read once the account is known: the first render has no uid.
+  useEffect(()=>{
+    try{setProChoice(readLocal(proChoiceKey,uid)||"");setProLaterDay(readLocal("pro-trial-later-v1",uid)||"");}catch{}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[uid]);
+  const proEnded=proTrialEnded(entitlement)&&proChoice!=="basic";
+  const proDaysLeft=!hasPaidSubscription(entitlement)&&!isTestAccount(entitlement)&&onProTrial(entitlement)?proTrialDaysLeft(entitlement):0;
+  const proEnding=proDaysLeft>0&&proDaysLeft<=7&&proLaterDay!==localDateString();
+  const proPromptCtx=useMemo(()=>{
+    if(!proEnded&&!proEnding)return null;
+    const me=displayName||activeBowler;
+    const mySessions=sessions.filter(x=>x&&x.bowler===me);
+    const perBall={};
+    for(const g of gamesByBall(mySessions,shots,gameEquipment,me))perBall[g.ball]=(perBall[g.ball]||0)+1;
+    const top=Object.entries(perBall).sort((a,b)=>b[1]-a[1])[0];
+    const firstBalls={};
+    for(const x of shots){
+      if(!x||x.bowler!==me||!x.ball)continue;
+      if(x.ballNum&&Number(x.ballNum)!==1)continue;
+      firstBalls[x.ball]=(firstBalls[x.ball]||0)+1;
+    }
+    const mates=new Set((teamRosters||[]).flatMap(r=>[...r.members.map(m=>m.name),...r.pending.map(p=>p.name)]));
+    return{
+      topBall:top?{ball:top[0],games:top[1]}:null,
+      games:mySessions.reduce((n,x)=>n+(Array.isArray(x.scores)?x.scores.filter(v=>Number.isFinite(Number(v))).length:0),0),
+      ctx:{
+        leagues:leagues||[],
+        teams:(teams||[]).length,
+        bags:(bags||[]).filter(b=>b&&(!b.bowlerName||b.bowlerName===me)),
+        ballFirstBalls:firstBalls,
+        teammates:mates.size,
+        friends:(friends||[]).length,
+        centers:(centerStats||[]).length,
+        seasons:0,
+        sidePots:(tournaments||[]).filter(t=>t&&Array.isArray(t.sidePots)&&t.sidePots.length>0).length,
+        coaching:(coachingRels||[]).length>0,
+      },
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[proEnded,proEnding,sessions,shots,gameEquipment,leagues,teams,bags,teamRosters,friends,tournaments,coachingRels,displayName,activeBowler]);
+  function chooseBasic(){
+    try{writeLocal(proChoiceKey,uid,"basic");}catch{}
+    setProChoice("basic");
+  }
+  function proLater(){
+    const d=localDateString();
+    try{writeLocal("pro-trial-later-v1",uid,d);}catch{}
+    setProLaterDay(d);
+  }
   // Computed HERE, beside centerStats, and for the same reason.
   //
   // StatsView called statsByRackType itself and handed it `allLeagues`,
@@ -9692,7 +9757,16 @@ export default function BowlingTracker(){
             you go to change a setting rather than to be asked about one.
             Without the keptLeagueName test it would sit on Home forever,
             since a paused league is still paused after they choose. */}
-        {view==="home"&&!nightLive&&lockedLeagueNames.length>0&&!keptLeagueName&&(
+        {view==="home"&&!nightLive&&proPromptCtx&&(
+          <ProTrialEnd ctx={proPromptCtx.ctx} topBall={proPromptCtx.topBall} games={proPromptCtx.games}
+            daysLeft={proEnded?0:proDaysLeft}
+            onKeep={period=>{setSubscribePeriod(period);setView("subscribe");}}
+            onBasic={chooseBasic} onLater={proLater}/>
+        )}
+
+        {/* After the trial ask is answered, not beside it: choosing which
+            league stays is the second question, and only for Basic. */}
+        {view==="home"&&!nightLive&&!proEnded&&lockedLeagueNames.length>0&&!keptLeagueName&&(
           <KeptLeaguePicker
             onUpgrade={()=>setView("subscribe")}
             leagues={notUserHidden}

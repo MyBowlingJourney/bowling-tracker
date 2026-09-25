@@ -63,10 +63,64 @@ export const FREE_TEAM_LIMIT = 1;
 // tournament bag. Every additional bag is Pro.
 export const FREE_BAGS_PER_TYPE = 1;
 
-// The trial takes a card and converts to the monthly plan. Thirty days
-// covers four league nights, which is roughly the first point the app has
-// anything interesting to say about somebody's game.
-export const TRIAL_DAYS = 30;
+// ── The reverse trial ───────────────────────────────────────────────
+//
+// Every account has Pro for its first sixty days, with no card asked for.
+// After that it is Basic unless the bowler subscribes -- and the prompt
+// that asks them (ProTrialEnd.jsx) names what they actually used, so the
+// choice is made on their own nights rather than a feature list.
+//
+// Sixty days is eight league nights: long enough for a ball to build a
+// record, a Nightcap habit to form and a second league to get set up,
+// which is what makes losing them worth something.
+//
+// The store trials (Play's freetrial30 offer, Stripe trial_period_days)
+// are retired: a subscription now starts paying the day it is bought.
+//
+// MIRRORED in public.is_subscriber() (20260927130000_reverse_trial.sql),
+// which reads auth.users.created_at. Change both together.
+export const PRO_TRIAL_DAYS = 60;
+const DAY_MS = 86_400_000;
+
+// When an account's Pro trial ends, from its creation time. Null when the
+// creation time is missing or unreadable -- no trial is granted on a date
+// nobody can read.
+export function proTrialEnd(accountCreatedAt) {
+  const t = at(accountCreatedAt);
+  if (!Number.isFinite(t)) return null;
+  return new Date(t + PRO_TRIAL_DAYS * DAY_MS).toISOString();
+}
+
+// The entitlement with the account's trial end attached, so every gate
+// below can answer from one object. A free bowler (null row) becomes an
+// object carrying only the trial end.
+export function withProTrial(entitlement, accountCreatedAt) {
+  if (entitlement === ENTITLEMENT_UNKNOWN) return entitlement;
+  const end = proTrialEnd(accountCreatedAt);
+  if (!end) return entitlement;
+  return { ...(entitlement && typeof entitlement === "object" ? entitlement : {}), pro_trial_end: end };
+}
+
+export function onProTrial(entitlement, now = Date.now()) {
+  const end = at(entitlement?.pro_trial_end);
+  return Number.isFinite(end) && end > now;
+}
+
+// Rounded up, like the store trial's count: six hours left is "1 day".
+export function proTrialDaysLeft(entitlement, now = Date.now()) {
+  const end = at(entitlement?.pro_trial_end);
+  if (!Number.isFinite(end) || end <= now) return 0;
+  return Math.ceil((end - now) / DAY_MS);
+}
+
+// The trial is over and nothing paid has replaced it: the moment to ask.
+// A test account or a subscriber is never asked.
+export function proTrialEnded(entitlement, now = Date.now()) {
+  if (!entitlement || entitlement === ENTITLEMENT_UNKNOWN) return false;
+  const end = at(entitlement.pro_trial_end);
+  if (!Number.isFinite(end) || end > now) return false;
+  return !isTestAccount(entitlement) && !hasPaidSubscription(entitlement, now);
+}
 
 // When to suggest the annual plan to a monthly subscriber.
 //
@@ -74,7 +128,7 @@ export const TRIAL_DAYS = 30;
 // still deciding whether they want this, and one three months in knows.
 //
 // Annual is churn insurance rather than extra revenue, and the break-even
-// is worth writing down -- 49.99 / 6.99 is 7.15 months. A monthly
+// is worth writing down -- 49.99 / 4.99 is 10 months. A monthly
 // subscriber who would have stayed longer than that costs you money by
 // switching. Below it, the switch pays. Revisit once there is real
 // retention data instead of a guess.
@@ -201,11 +255,14 @@ export function isTestAccount(entitlement) {
 // Two questions, two predicates, each defined once. The double-charge
 // bug came from one question having two different answers in two files.
 export function isSubscriber(entitlement, now = Date.now()) {
-  return isTestAccount(entitlement) || hasPaidSubscription(entitlement, now);
+  return isTestAccount(entitlement) || hasPaidSubscription(entitlement, now) || onProTrial(entitlement, now);
 }
 
+// A STORE trial (the retired card-up-front kind), for bowlers who
+// started one before the reverse trial replaced it. Not the reverse
+// trial -- see onProTrial.
 export function isTrialing(entitlement, now = Date.now()) {
-  return isSubscriber(entitlement, now) && entitlement?.status === "trialing";
+  return hasPaidSubscription(entitlement, now) && entitlement?.status === "trialing";
 }
 
 // Time to suggest the annual plan?
@@ -293,7 +350,7 @@ export const canCompareToFriend = (entitlement, opts) => featureUnlocked(entitle
 // This was briefly one free import a week. It came out because one a
 // week is exactly one league night -- so the allowance covered a
 // single-league bowler's entire use of the feature, forever, and walled
-// off nobody it was meant to. The 30-day trial is where a new bowler
+// off nobody it was meant to. The 60-day Pro trial is where a new bowler
 // sees what import does, several times, on real league nights.
 export const canImportScorecard = (entitlement, opts) => featureUnlocked(entitlement, opts);
 

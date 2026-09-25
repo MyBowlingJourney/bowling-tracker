@@ -27,7 +27,7 @@ import { isContainerLeague, isLeagueHidden, teamsInLeague } from "./domain/leagu
 import { sessionsToCsv, shotsToCsv, seasonSummary, summaryToText } from "./domain/seasonExport.js";
 import { inferLeagueDay, dayName, reminderSpec, reminderToIcs, reminderToGoogleCalendarUrl } from "./domain/reminders.js";
 import { localDateString, APP_URL, APP_NAME } from "./constants.js";
-import { leagueLimit, teamLimit, isSubscriber, isTestAccount, hasPaidSubscription, isTrialing, trialDaysLeft } from "./domain/entitlements.js";
+import { leagueLimit, teamLimit, isSubscriber, isTestAccount, hasPaidSubscription, isTrialing, trialDaysLeft, onProTrial, proTrialDaysLeft } from "./domain/entitlements.js";
 import {
   ENVIRONMENT_LABELS,
   ENVIRONMENT_DESCRIPTIONS,
@@ -2213,6 +2213,12 @@ function subscriptionLine(entitlement) {
   // subscribed" we would have no way to tell a working paywall from a
   // flag left switched on.
   if (isTestAccount(entitlement)) return "Test account — everything unlocked";
+  // The 60-day trial every account starts with: nothing is charged, and
+  // nothing converts on its own.
+  if (!hasPaidSubscription(entitlement) && onProTrial(entitlement)) {
+    const days = proTrialDaysLeft(entitlement);
+    return `Pro trial — ${days} day${days === 1 ? "" : "s"} left. No card on file; nothing is charged when it ends.`;
+  }
   if (isTrialing(entitlement)) {
     const days = trialDaysLeft(entitlement);
     if (days > 0) return `${days} day${days === 1 ? "" : "s"} left in your trial`;

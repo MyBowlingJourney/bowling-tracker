@@ -37,7 +37,7 @@ export function paymentRail({ isNative = false } = {}) {
 
 // ── Canada: the same price on the web as in the app ─────────────────
 //
-// Play charges Canadians 9.99 / 69.99 CAD. The Stripe prices carry the
+// Play charges Canadians 6.99 / 69.99 CAD. The Stripe prices carry the
 // same amounts as a CAD currency option, and create-checkout asks Stripe
 // for CAD when the app says the bowler is in Canada -- so the number on
 // the screen and the number on the card are the same number.
@@ -64,10 +64,10 @@ export function isCanadianTimeZone(tz) {
   return CANADA_ZONES.has(tz) || tz.startsWith("Canada/");
 }
 
-// What the screen says. "$" in both: Play shows Canadians "$9.99" too,
-// and the French layer writes it as "9,99 $".
-export const PRICES_USD = Object.freeze({ month: "$6.99", year: "$49.99" });
-export const PRICES_CAD = Object.freeze({ month: "$9.99", year: "$69.99" });
+// What the screen says. "$" in both: Play shows Canadians "$6.99" too,
+// and the French layer writes it as "6,99 $".
+export const PRICES_USD = Object.freeze({ month: "$4.99", year: "$49.99" });
+export const PRICES_CAD = Object.freeze({ month: "$6.99", year: "$69.99" });
 
 export function displayPricesFor(tz) {
   return isCanadianTimeZone(tz) ? PRICES_CAD : PRICES_USD;

@@ -7,12 +7,10 @@
 // cannot install the Android app at all, so without this they have no
 // way to pay at all.
 //
-// ── The trial runs from CHECKOUT, not from sign-up ───────────────────
+// ── No store trial ──────────────────────────────────────────────────
 //
-// Full 30 days, every time a bowler actually starts a subscription --
-// regardless of how long they used the app free beforehand. Passed to
-// Stripe as trial_period_days, which starts the clock at checkout,
-// rather than as a computed trial_end tied to account age.
+// Replaced by the 60-day reverse trial every account starts with (see
+// public.is_subscriber()). A checkout here charges from day one.
 //
 // Deploy with: supabase functions deploy create-checkout
 // Secrets required:
@@ -28,7 +26,6 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import {
   stripeConfigured, stripeRequest, priceIdForLookupKey,
-  customerHasAnySubscription,
   customerHasLiveSubscription,
   expireOpenCheckouts,
   LOOKUP_MONTHLY, LOOKUP_YEARLY,
@@ -39,7 +36,6 @@ const APP_URL = Deno.env.get("APP_URL")?.trim().replace(/\/+$/, "") || "";
 // Sending a bowler who just paid to the marketing page reads as a failed
 // checkout, so both Stripe returns point one level in.
 const APP_HOME = APP_URL ? `${APP_URL}/app` : "";
-const TRIAL_DAYS = 30;
 
 function json(body: unknown, cors: Record<string, string>, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -222,22 +218,7 @@ Deno.serve(async (req: Request) => {
     isNewCustomer = true;
   }
 
-  // ── One trial per bowler ────────────────────────────────────────────
-  //
-  // The 30 days run from checkout, not from sign-up. Without this check
-  // that also means: subscribe, cancel, subscribe again, another 30 free
-  // days, for as long as anybody cares to keep doing it.
-  //
-  // Asked of Stripe rather than of our own table, because our table is
-  // one row that gets overwritten and holds no history -- it cannot
-  // answer "have they ever". Stripe can.
-  //
-  // FAILS CLOSED on an unreadable answer: no trial rather than a free
-  // month we could not verify. That can only bite a bowler who has a
-  // Stripe customer but no subscription -- someone who opened checkout
-  // once and closed the tab -- AND who hits a Stripe outage on their
-  // second attempt. Rare, recoverable (they can be comped), and the
-  // other direction is unlimited free months for anyone who notices.
+  // ── One subscription per bowler ────────────────────────────────────
   if (!isNewCustomer) {
     // Already billing on this customer, whatever our row says -- send
     // them to manage it, not to a second subscription.
@@ -248,20 +229,10 @@ Deno.serve(async (req: Request) => {
     await expireOpenCheckouts(customerId);
   }
 
-  let grantTrial = true;
-  if (!isNewCustomer) {
-    const hadOne = await customerHasAnySubscription(customerId);
-    if (hadOne === null) {
-      console.error("could not determine prior subscriptions for", customerId, "-- withholding the trial");
-      grantTrial = false;
-    } else {
-      grantTrial = !hadOne;
-    }
-  }
-
-  // A trial already used on the other rail counts. Without this a bowler
-  // whose Play trial ran out got a second 30 free days on the web.
-  if (existing?.trial_end || existing?.source === "play") grantTrial = false;
+  // No trial here any more. Every account has Pro free for its first
+  // 60 days (the reverse trial, public.is_subscriber()), so a
+  // subscription bought through checkout starts paying the day it is
+  // bought. trial_period_days is deliberately gone.
 
   const sessionParams: Record<string, unknown> = {
     mode: "subscription",
@@ -275,7 +246,6 @@ Deno.serve(async (req: Request) => {
     client_reference_id: user!.id,
     subscription_data: {
       metadata: { user_id: user!.id },
-      ...(grantTrial ? { trial_period_days: TRIAL_DAYS } : {}),
     },
     // ⚠️ THE LINE THAT MOVES THE TAX LIABILITY. ⚠️
     //
@@ -294,8 +264,7 @@ Deno.serve(async (req: Request) => {
     // Nothing fails loudly if this is removed. That is exactly why it is
     // commented this heavily.
     managed_payments: { enabled: true },
-    // A card is taken even during the trial, because the trial converts
-    // on its own and cannot convert without one.
+    // A card, always: the subscription charges from the day it starts.
     payment_method_collection: "always",
     allow_promotion_codes: true,
     success_url: `${APP_HOME}/?checkout=success`,
@@ -331,5 +300,5 @@ Deno.serve(async (req: Request) => {
     .upsert({ user_id: user!.id, stripe_customer_id: customerId }, { onConflict: "user_id" });
   if (upsertErr) console.error("storing stripe_customer_id failed:", upsertErr.message);
 
-  return json({ url: session.url, trialing: grantTrial }, cors);
+  return json({ url: session.url, trialing: false }, cors);
 });

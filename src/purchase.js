@@ -37,7 +37,7 @@ import {
 // Then a price change in the dashboard reaches the screen on its own,
 // and bowlers outside the US stop being quoted dollars.
 //
-// Canada is the exception: 9.99 / 69.99 CAD, the same as Play, and
+// Canada is the exception: 6.99 / 69.99 CAD, the same as Play, and
 // create-checkout charges CAD to match (see domain/billing.js).
 function deviceTimeZone() {
   try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch { return ""; }

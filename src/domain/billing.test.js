@@ -48,8 +48,8 @@ describe('Canadian prices', () => {
     }
   });
   it('shows the Play Canada prices in Canada and US dollars elsewhere', () => {
-    expect(displayPricesFor('America/Toronto')).toEqual({ month: '$9.99', year: '$69.99' });
-    expect(displayPricesFor('America/New_York')).toEqual({ month: '$6.99', year: '$49.99' });
+    expect(displayPricesFor('America/Toronto')).toEqual({ month: '$6.99', year: '$69.99' });
+    expect(displayPricesFor('America/New_York')).toEqual({ month: '$4.99', year: '$49.99' });
   });
   it('asks Stripe for CAD only in Canada', () => {
     expect(checkoutCurrencyFor('America/Vancouver')).toBe('cad');

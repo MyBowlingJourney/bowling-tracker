@@ -141,28 +141,28 @@
     <div class="plan">
       <h3>Monthly</h3>
       <!-- PRICE: must match the Stripe monthly price and the Play monthly base plan (the script at the bottom swaps in CAD for Canada) -->
-      <div class="price" data-price="month">$6.99</div>
+      <div class="price" data-price="month">$4.99</div>
       <div class="per">per month</div>
       <a class="cta" href="/app/?subscribe=month">Subscribe monthly</a>
     </div>
   </div>
   <p class="fine">
-    Subscribing opens the app: sign in or create your account, then check out.
-    On your first subscription a 30-day free trial starts at checkout, and
-    nothing is charged until it ends.
+    Every new account gets Pro free for its first 60 days &mdash; no card
+    needed. Subscribing opens the app: sign in or create your account, then
+    check out.
   </p>
 
   <div class="card">
     <h3>Before you subscribe</h3>
     <ul class="fine" style="margin:0">
       <li>
-        There is a <strong>30-day free trial</strong>, counted from the day you
-        subscribe.
+        Every new account has <strong>Pro free for 60 days</strong> from the day
+        it is created, with no card asked for. When it ends you choose: subscribe,
+        or carry on with the free Basic plan.
       </li>
       <li>
-        A payment method is taken when the trial starts. When the trial ends, the
-        plan you chose <strong>begins and renews automatically</strong> — monthly
-        or yearly — until you cancel.
+        A subscription <strong>starts on the day you buy it and renews
+        automatically</strong> — monthly or yearly — until you cancel.
       </li>
       <li>
         <strong>Cancel any time.</strong> In the Android app, that is the Play
@@ -179,7 +179,7 @@
       </li>
       <li>
         Prices are in US dollars. In Canada they are in Canadian dollars &mdash;
-        $9.99 a month or $69.99 a year, in the app and on the web alike. In the
+        $6.99 a month or $69.99 a year, in the app and on the web alike. In the
         Android app elsewhere, Google Play shows the price in your own currency.
         If tax applies where you are, it is shown before you confirm.
       </li>
@@ -208,7 +208,7 @@
 
 </main>
 <script>
-  // Canada pays 9.99 / 69.99 CAD, on the web as in the app. Same time
+  // Canada pays 6.99 / 69.99 CAD, on the web as in the app. Same time
   // zone test as src/domain/billing.js -- keep the two lists together.
   (function () {
     var z = "";
@@ -219,7 +219,7 @@
       "Swift_Current","Thunder_Bay","Toronto","Vancouver","Whitehorse","Winnipeg","Yellowknife"]
       .indexOf(z.replace(/^America\//, "")) >= 0 && /^America\//.test(z);
     if (!ca) return;
-    var p = { year: "$69.99 CAD", month: "$9.99 CAD" };
+    var p = { year: "$69.99 CAD", month: "$6.99 CAD" };
     document.querySelectorAll("[data-price]").forEach(function (el) { el.textContent = p[el.getAttribute("data-price")]; });
   })();
 </script>

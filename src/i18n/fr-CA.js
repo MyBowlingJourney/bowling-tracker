@@ -2868,7 +2868,31 @@ export const FR_CA = {
 "High diff (more flare)": "Différentiel élevé (plus de flare)",
 "The core alone, as the maker's numbers. Bigger dots are more asymmetric.": "Le noyau seul, selon les chiffres du fabricant. Les plus gros points sont les plus asymétriques.",
 "Compare your bags, and ask the Caddie": "Comparez vos sacs et demandez au Caddie",
-"Where each ball sits, what scores, what's missing": "Où se situe chaque boule, ce qui performe, ce qui manque"
+"Where each ball sits, what scores, what's missing": "Où se situe chaque boule, ce qui performe, ce qui manque",
+"Ball against ball": "Boule contre boule",
+"Your read-back after every night — you've poured one.": "Votre retour sur chaque soirée — vous en avez servi un.",
+"A photo of the scorecard instead of typing every game.": "Une photo de la feuille de pointage au lieu de taper chaque partie.",
+"Head to head": "Face à face",
+"Your numbers against your teammates', and the team leaderboard.": "Vos chiffres contre ceux de vos coéquipiers, et le classement de l'équipe.",
+"Comparing your numbers with your friends'.": "Comparer vos chiffres avec ceux de vos amis.",
+"House against house": "Centre contre centre",
+"Your season side by side with the one before.": "Votre saison à côté de la précédente.",
+"Tracking what you put in and won at tournaments.": "Le suivi de ce que vous misez et gagnez en tournoi.",
+"Your coach's tasks, notes and view of your numbers.": "Les tâches, les notes et l'accès de votre entraîneur à vos chiffres.",
+"Your 60 days of Pro are up.": "Vos 60 jours de Pro sont terminés.",
+"Every game, shot and night you've logged — nothing is deleted": "Chaque partie, lancer et soirée inscrits — rien n'est supprimé",
+"Your own stats: strikes, spares, splits, leaves and each ball's numbers": "Vos propres statistiques : abats, réserves, splits, quilles restantes et les chiffres de chaque boule",
+"One league, one team, a league bag and a tournament bag": "Une ligue, une équipe, un sac de ligue et un sac de tournoi",
+"Badges, your journey and the calendar": "Les badges, votre parcours et le calendrier",
+"Your Pro trial has ended": "Votre essai Pro est terminé",
+"What you've been using that Basic doesn't include:": "Ce que vous utilisez et que Basic n'inclut pas :",
+"Keep Pro ·": "Garder Pro ·",
+"/month": "/mois",
+"Or": "Ou",
+"/year": "/an",
+"Basic is free, and keeps:": "Basic est gratuit, et garde :",
+"Continue with Basic": "Continuer avec Basic",
+"No card is on file, so nothing is charged when the trial ends — you move to Basic unless you choose Pro.": "Aucune carte n'est enregistrée, donc rien n'est facturé à la fin de l'essai — vous passez à Basic à moins de choisir Pro."
 },
 "patterns": [
 [
@@ -5686,6 +5710,118 @@ export const FR_CA = {
 [
 "By part of the night: {0}.",
 "Selon le moment de la soirée : {0}."
+],
+[
+"All {0} of your leagues",
+"Vos {0} ligues"
+],
+[
+"Basic keeps {0} league active. The others are paused — nothing is deleted, and they come back when you do.",
+"Basic garde {0} ligue active. Les autres sont mises en pause — rien n'est supprimé, et elles reviennent quand vous revenez."
+],
+[
+"All {0} of your teams",
+"Vos {0} équipes"
+],
+[
+"Basic keeps {0}.",
+"Basic en garde {0}."
+],
+[
+"Which of your {0} balls carries best, and how each one holds up from the first game to the last.",
+"Laquelle de vos {0} boules porte le mieux, et comment chacune tient de la première partie à la dernière."
+],
+[
+"Your read-back after every night — you've poured {0}.",
+"Votre retour sur chaque soirée — vous en avez servi {0}."
+],
+[
+"Answers about your own game — you've asked {0} question{1:s}.",
+"Des réponses sur votre propre jeu — vous avez posé {0} {0|question|questions}."
+],
+[
+"The deep read of your game — you've run it {0} time{1:s}.",
+"L'analyse approfondie de votre jeu — utilisée {0} {0|fois|fois}."
+],
+[
+"Your arsenal and bags, read ball by ball — {0} read{1:s} so far.",
+"Votre arsenal et vos sacs, lus boule par boule — {0} {0|lecture|lectures} jusqu'ici."
+],
+[
+"All {0} of your bags",
+"Vos {0} sacs"
+],
+[
+"Basic keeps {0} league bag and {1} tournament bag.",
+"Basic garde {0} sac de ligue et {1} sac de tournoi."
+],
+[
+"How you score at each of the {0} centers you've bowled.",
+"Vos pointages dans chacun des {0} centres où vous avez joué."
+],
+[
+"for {0}/month",
+"pour {0}/mois"
+],
+[
+"You've logged {0} games with your {1}!",
+"Vous avez inscrit {0} parties avec votre {1}!"
+],
+[
+"To keep seeing how it stacks up against the rest of your bag — which ball carries, and when — keep Pro{0}.",
+"Pour continuer à voir comment elle se compare au reste de votre sac — quelle boule porte, et quand — gardez Pro{0}."
+],
+[
+"You've poured {0} Nightcaps!",
+"Vous avez servi {0} Nightcaps!"
+],
+[
+"To keep getting one after every night, keep Pro{0}.",
+"Pour continuer d'en recevoir un après chaque soirée, gardez Pro{0}."
+],
+[
+"You're tracking {0} leagues!",
+"Vous suivez {0} ligues!"
+],
+[
+"To keep all of them active, keep Pro{0}.",
+"Pour les garder toutes actives, gardez Pro{0}."
+],
+[
+"You've logged {0} games in your first 60 days!",
+"Vous avez inscrit {0} parties dans vos 60 premiers jours!"
+],
+[
+"To keep the comparisons and the AI reads of your game, keep Pro{0}.",
+"Pour garder les comparaisons et les analyses IA de votre jeu, gardez Pro{0}."
+],
+[
+"Keep everything unlocked{0}, or carry on with Basic — your scores and stats stay free.",
+"Gardez tout débloqué{0}, ou continuez avec Basic — vos pointages et statistiques restent gratuits."
+],
+[
+"Your Pro trial ends in {0} day{1:s}",
+"Votre essai Pro se termine dans {0} {0|jour|jours}"
+],
+[
+"Keep Pro · {0}/month",
+"Garder Pro · {0}/mois"
+],
+[
+"Or {0}/year",
+"Ou {0}/an"
+],
+[
+"Pro trial — {0} day{1:s} left. No card on file; nothing is charged when it ends.",
+"Essai Pro — {0} {0|jour|jours} restants. Aucune carte enregistrée; rien n'est facturé à la fin."
+],
+[
+"Thanks for subscribing. Everything is unlocked.{0}Manage or cancel any time in the Play Store app, under Subscriptions.",
+"Merci de votre abonnement. Tout est débloqué.{0}Gérez ou annulez en tout temps dans l'application Play Store, sous Abonnements."
+],
+[
+"You have Pro free for {0} more day{1:s}. Subscribing now starts billing today; you can also wait, and we'll ask when your trial ends.",
+"Vous avez Pro gratuitement pour encore {0} {0|jour|jours}. S'abonner maintenant commence la facturation aujourd'hui; vous pouvez aussi attendre, et nous vous le demanderons à la fin de votre essai."
 ]
 ],
 "fragments": [

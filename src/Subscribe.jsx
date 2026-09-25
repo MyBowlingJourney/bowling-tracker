@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { C, S } from "./ui.jsx";
 import { startPurchase, currentRail, DISPLAY_PRICES, openSubscriptionManager, playOffers } from "./purchase.js";
-import { TRIAL_DAYS, FREE_LEAGUE_LIMIT, hasPaidSubscription, isTestAccount } from "./domain/entitlements.js";
+import { FREE_LEAGUE_LIMIT, hasPaidSubscription, isTestAccount, onProTrial, proTrialDaysLeft } from "./domain/entitlements.js";
 
 // The one screen where a bowler decides to pay.
 //
@@ -117,14 +117,11 @@ export default function Subscribe({ entitlement, onClose, onPurchased, initialPe
   }
 
   if (purchased) {
-    const trialing = purchased.status === "trialing";
     return (
       <div style={S.card}>
         <div style={{ ...S.label, color: C.accent }}>You're on Pro</div>
         <div style={{ fontSize: "13px", color: C.text, lineHeight: 1.55, marginBottom: "12px" }}>
-          {trialing
-            ? `Your ${TRIAL_DAYS}-day free trial has started, and everything is unlocked.`
-            : "Thanks for subscribing. Everything is unlocked."}
+          Thanks for subscribing. Everything is unlocked.
           {" "}Manage or cancel any time in the Play Store app, under Subscriptions.
         </div>
         {typeof onClose === "function" && (
@@ -170,11 +167,10 @@ export default function Subscribe({ entitlement, onClose, onPurchased, initialPe
   }
 
   const yearly = period === "year";
-  // Whether to promise a trial. The web (Stripe) rail always starts one.
-  // On Play it is Google's call: promised only when Google lists the
-  // trial offer for this account, and not mentioned at all while unknown.
-  const offersTrial = rail !== "play" ? true : (offers ? !!offers.trial[period] : false);
-  const trialUnknown = rail === "play" && !offers;
+  // No store trial any more: every account has Pro free for its first
+  // 60 days instead (the reverse trial), so a subscription bought here
+  // starts paying the day it is bought -- and the screen says so.
+  const trialDays = !alreadyPaid && onProTrial(entitlement) ? proTrialDaysLeft(entitlement) : 0;
   // Google's own price, in the bowler's currency, whenever Play gave one.
   // DISPLAY_PRICES (US dollars) only when it did not.
   const priceFor = p => (offers?.prices?.[p]) || DISPLAY_PRICES[p];
@@ -218,6 +214,14 @@ export default function Subscribe({ entitlement, onClose, onPurchased, initialPe
 
       <div style={S.card}>
         <div style={{ ...S.label }}>Choose a plan</div>
+        {/* Honest about the trial they are already on: paying now starts
+            billing today, and waiting costs them nothing -- they are
+            asked again when the trial ends. */}
+        {trialDays > 0 && (
+          <div style={{ fontSize: "12px", color: C.textMuted, lineHeight: 1.55, marginBottom: "12px" }}>
+            {`You have Pro free for ${trialDays} more day${trialDays === 1 ? "" : "s"}. Subscribing now starts billing today; you can also wait, and we'll ask when your trial ends.`}
+          </div>
+        )}
 
         <div style={{ display: "flex", gap: "8px", marginBottom: "14px" }}>
           <button
@@ -239,9 +243,7 @@ export default function Subscribe({ entitlement, onClose, onPurchased, initialPe
           onClick={buy}
           disabled={busy}
         >
-          {busy ? "Opening…"
-            : offersTrial ? `Start your ${TRIAL_DAYS}-day free trial`
-            : `Subscribe · ${price}/${yearly ? "year" : "month"}`}
+          {busy ? "Opening…" : `Subscribe · ${price}/${yearly ? "year" : "month"}`}
         </button>
 
         {error && (
@@ -254,11 +256,7 @@ export default function Subscribe({ entitlement, onClose, onPurchased, initialPe
             only this paragraph should still be able to predict exactly
             what will be taken from their card and when. */}
         <div style={{ fontSize: "11.5px", color: C.textMuted, lineHeight: 1.6, marginTop: "14px" }}>
-          {offersTrial
-            ? <>Your {TRIAL_DAYS}-day free trial starts today. When it ends, the {yearly ? "yearly" : "monthly"} plan starts at {price} and renews on its own until you cancel.</>
-            : trialUnknown
-              ? <>The {yearly ? "yearly" : "monthly"} plan is {price}. Google Play shows whether a free trial applies to your account before you confirm, then it renews on its own until you cancel.</>
-              : <>You have already had the free trial, so the {yearly ? "yearly" : "monthly"} plan starts today at {price} and renews on its own until you cancel.</>}
+          <>The {yearly ? "yearly" : "monthly"} plan starts today at {price} and renews on its own until you cancel.</>
           {" "}Cancel any time
           {rail === "play"
             ? " in the Play Store app under Subscriptions"
