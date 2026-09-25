@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readPinDecks, applyPinDecks } from "./pinDeckPixels.js";
+import { readPinDecks, applyPinDecks, applyPinDecksByImage } from "./pinDeckPixels.js";
 
 // A synthetic LaneTalk-style card: grey strips of ten cells split by dark
 // lines, each holding the ten-dot rack. Colours as LaneTalk draws them.
@@ -108,5 +108,22 @@ describe("a frame the reader could not see", () => {
     const out = applyPinDecks([g], reading);
     expect(out.games[0].frames[0].needsReview).toBe(true);
     expect(out.games[0].frames[0].balls[0].pinsStanding).toEqual(["10"]);
+  });
+});
+
+describe("one screenshot per bowler", () => {
+  it("pairs each image with the bowler whose frames it matches, in either order", () => {
+    const a = readPinDecks(card([g1])), b = readPinDecks(card([g2]));
+    const game = (name, leaves) => ({ gameNumber: 1, bowlerName: name, frames: leaves.map((l, i) => i < 9
+      ? (l.length ? frame(i + 1, B(false, l.map(() => "9")), B(false, [])) : frame(i + 1, B(true, [])))
+      : frame(10, B(false, l.map(() => "9")), B(false, []))) });
+    const ryan = game("Ryan", [["4"], [], ["6", "10"], [], [], [], [], [], [], ["10"]]);
+    const rob = game("Rob", [["2", "4", "5", "8"], [], ["3", "6", "10"], [], [], [], [], ["4", "6", "7", "10"], [], ["1", "2", "8"]]);
+    for (const readings of [[a, b], [b, a]]) {
+      const out = applyPinDecksByImage([ryan, rob], readings);
+      expect(out.applied).toBe(true);
+      expect(out.games[0].frames[0].balls[0].pinsStanding).toEqual(["4"]);
+      expect(out.games[1].frames[0].balls[0].pinsStanding).toEqual(["2", "4", "5", "8"]);
+    }
   });
 });

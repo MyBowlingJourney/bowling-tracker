@@ -283,3 +283,52 @@ export function applyPinDecks(games, reading) {
   result.applied = result.corrected + result.confirmed > 0;
   return result;
 }
+
+// Several screenshots, one bowler each -- LaneTalk shows one bowler's
+// night per screen, so a team's card arrives as a screenshot per bowler.
+//
+// Each image is matched to the bowler whose game count equals its strip
+// count, and where more than one bowler fits, to the one whose frames
+// agree with its pixels most often. A wrong pairing cannot slip through:
+// frames are only changed where the pin counts agree, and a wrong
+// bowler's frames mostly will not.
+export function applyPinDecksByImage(games, readings) {
+  const total = { games, corrected: 0, confirmed: 0, kept: 0, applied: false, reason: "" };
+  if (!Array.isArray(games) || !games.length || !Array.isArray(readings) || !readings.length) {
+    total.reason = "no reading";
+    return total;
+  }
+  if (readings.some(r => !r)) { total.reason = "not a card with drawn racks"; return total; }
+  const withFrames = games.filter(g => Array.isArray(g?.frames) && g.frames.length);
+  const key = g => `${String(g?.bowlerName || "").trim().toLowerCase()}|${g?.lineupPosition ?? 0}`;
+  const groups = new Map();
+  for (const g of withFrames) {
+    if (!groups.has(key(g))) groups.set(key(g), []);
+    groups.get(key(g)).push(g);
+  }
+  if (readings.length === 1 && groups.size === 1) return applyPinDecks(games, readings[0]);
+
+  const used = new Set();
+  const replaced = new Map();
+  const reasons = [];
+  readings.forEach((reading, i) => {
+    let best = null;
+    for (const [k, list] of groups) {
+      if (used.has(k)) continue;
+      const out = applyPinDecks(list, reading);
+      if (!out.applied) continue;
+      const score = out.corrected + out.confirmed;
+      if (!best || score > best.score) best = { k, list, out, score };
+    }
+    if (!best) { reasons.push(`image ${i + 1} matched no bowler`); return; }
+    used.add(best.k);
+    best.list.forEach((g, j) => replaced.set(g, best.out.games[j]));
+    total.corrected += best.out.corrected;
+    total.confirmed += best.out.confirmed;
+    total.kept += best.out.kept;
+  });
+  total.games = games.map(g => replaced.get(g) || g);
+  total.applied = total.corrected + total.confirmed > 0;
+  total.reason = reasons.join("; ");
+  return total;
+}

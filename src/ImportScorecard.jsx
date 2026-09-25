@@ -12,7 +12,7 @@ import { isValidGameScore, invalidScoreIndexes } from "./domain/importVerificati
 import { supabase } from "./supabaseClient.js";
 import { validTeamId } from "./domain/supabaseMapping.js";
 import { recordError } from "./errorLogStore.js";
-import { readPinDecks, applyPinDecks } from "./domain/pinDeckPixels.js";
+import { readPinDecks, applyPinDecksByImage } from "./domain/pinDeckPixels.js";
 
 // The image's pixels, for reading pin decks directly (see
 // domain/pinDeckPixels.js). Null when the browser cannot decode it --
@@ -922,15 +922,14 @@ export default function ImportScorecard({
       // read it, for the review screen.
       if(Array.isArray(data?.games)&&data.games.some(g=>Array.isArray(g?.frames)&&g.frames.length)){
         try{
-          const strips=[];
-          let readable=true;
+          // One reading per image: a team's LaneTalk card is usually a
+          // screenshot per bowler.
+          const readings=[];
           for(const im of images){
             const px=await imagePixels(im.previewUrl);
-            const r=px?readPinDecks(px):null;
-            if(!r){readable=false;break;}
-            strips.push(...r.strips);
+            readings.push(px?readPinDecks(px):null);
           }
-          const out=readable?applyPinDecks(data.games,{strips}):{applied:false,reason:"not a card with drawn racks"};
+          const out=applyPinDecksByImage(data.games,readings);
           if(out.applied)data={...data,games:out.games};
           recordError({
             kind:"import-quality",

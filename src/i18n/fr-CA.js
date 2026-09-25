@@ -5486,6 +5486,10 @@ export const FR_CA = {
 [
 "▸ Check frames · {0} flagged",
 "▸ Vérifier les carreaux · {0} {0|signalé|signalés}"
+],
+[
+"image {0} matched no bowler",
+""
 ]
 ],
 "fragments": [
