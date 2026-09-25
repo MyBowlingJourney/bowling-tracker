@@ -94,8 +94,10 @@ describe('app renders', () => {
   // (getItem -> null) this suite would render the onboarding screen and
   // quietly stop smoke-testing the main app at all.
   it('mounts the whole tree without throwing, for a returning bowler', async () => {
+    // Plain or user-scoped (u:<id>:bowling-onboarded-v1): the tracker
+    // reads the scoped key whenever someone is signed in.
     globalThis.window.localStorage.getItem = key =>
-      (key === 'bowling-onboarded-v1' ? '1' : null);
+      (/(^|:)bowling-onboarded-v1$/.test(String(key)) ? '1' : null);
     const { AuthProvider } = await import('./AuthProvider.jsx');
     const { default: BowlingTracker } = await import('./BowlingTracker.jsx');
     const html = renderToStaticMarkup(

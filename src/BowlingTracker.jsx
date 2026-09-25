@@ -42,6 +42,7 @@ import ImportedScoresInbox, { InboxList } from "./ImportedScoresInbox.jsx";
 import { pendingTeamInvites, buildInbox, inboxCount as countInbox } from "./domain/inbox.js";
 import DrillSession from "./DrillSession.jsx";
 import { useAuth } from "./AuthProvider.jsx";
+import { scopedKey } from "./domain/userScope.js";
 import { supabase } from "./supabaseClient.js";
 import { classifySyncError, cloudRead, cloudReadDelta, cloudWrite, cloudInsert, cloudUpdate, cloudDelete, getQueuedRecordsForTable, getPendingCount, onPendingCountChange, inspectPendingQueue, clearPendingQueue, discardQueuedTable, flushPendingQueue } from "./syncQueue.js";
 import { friendlyFunctionError, readFunctionFailure, failureDetail } from "./domain/functionErrors.js";
@@ -253,6 +254,52 @@ const ONBOARDED_KEY = "bowling-onboarded-v1";
 // existing bowler who already finished setup doesn't get a tour they
 // never asked for on the next update.
 const TOURS_SEEN_KEY = "bowling-tours-seen-v1";
+
+// ── Keys read straight from localStorage, scoped to the bowler ──────────
+//
+// A handful of values are read SYNCHRONOUSLY on first render (onboarding,
+// tours seen, teams, the resume context, the session counter), so they go
+// to localStorage directly instead of through the async window.storage.
+// That bypassed the per-user scoping every window.storage key gets, and
+// these were the only device-wide values left.
+//
+// The bug that surfaced it: sign in on a browser where someone else had
+// already finished setup, and the new account skipped onboarding -- it
+// read the other bowler's flag. The async check then found no flag for
+// the new account and deleted the shared one, so the NEXT launch showed
+// onboarding. Wrong the first time, right the second, which is the report.
+// The same keys also carried one bowler's team names and resume context
+// into the next account on a shared phone.
+//
+// The scoped key is the same one window.storage writes (u:<id>:<key>,
+// stored in localStorage), so for onboarding there is now one value, not
+// a value and a mirror that could disagree.
+//
+// An old unscoped value is adopted once by whoever reads it first and then
+// deleted -- the same trade adoptLegacyData makes, for the same reasons.
+// Except onboarding: its real value was always in the scoped key, so the
+// old device-wide copy is only ever dropped, never believed.
+function readLocal(key,uid){
+  try{
+    const ls=window.localStorage;
+    const mine=scopedKey(key,uid);
+    const value=ls.getItem(mine);
+    if(value!==null||mine===key)return value;
+    const legacy=ls.getItem(key);
+    if(legacy===null)return null;
+    ls.removeItem(key);
+    if(key===ONBOARDED_KEY)return null;
+    ls.setItem(mine,legacy);
+    return legacy;
+  }catch{return null;}
+}
+function writeLocal(key,uid,value){
+  try{
+    const mine=scopedKey(key,uid);
+    if(value===null)window.localStorage.removeItem(mine);
+    else window.localStorage.setItem(mine,value);
+  }catch{}
+}
 const GOALS_KEY = "bowling-goals-v1";
 const MATCHES_KEY = "bowling-matches-v1";
 const LANE_PATTERNS_KEY = "bowling-lane-patterns-v1";
@@ -419,6 +466,9 @@ async function applyDelta(deltaRes,{storageKey,cursorKey,cursor,mapRow,migrate,p
 
 export default function BowlingTracker(){
   const{user,preferences,updatePreferences,displayName,updateDisplayName}=useAuth();
+  // Whose device-local values these are. BowlingTracker is keyed on the
+  // user id in main.jsx, so this cannot change under a mounted tracker.
+  const uid=user?.id||null;
 
   // Theme. Applied synchronously during render rather than in an effect,
   // so the FIRST paint is already in the chosen theme -- an effect would
@@ -484,7 +534,7 @@ export default function BowlingTracker(){
   // survives a reload mid-night; the records themselves carry their own.
   const[sessionSeqMap,setSessionSeqMap]=useState(()=>{
     try{
-      const raw=window.localStorage.getItem("bowling-session-seq-v1");
+      const raw=readLocal("bowling-session-seq-v1",uid);
       const parsed=raw?JSON.parse(raw):{};
       return (parsed&&typeof parsed==="object")?parsed:{};
     }catch{ return {}; }
@@ -494,14 +544,14 @@ export default function BowlingTracker(){
     setSessionSeqMap(prev=>{
       const key=sessionSeqKey(bowler,league,date);
       const next={...prev,[key]:(prev[key]||1)+1};
-      try{window.localStorage.setItem("bowling-session-seq-v1",JSON.stringify(next));}catch{}
+      writeLocal("bowling-session-seq-v1",uid,JSON.stringify(next));
       return next;
     });
   }
 
   const[teams,setTeams]=useState(()=>{
   try{
-    const raw=window.localStorage.getItem("bowling-teams-v1");
+    const raw=readLocal("bowling-teams-v1",uid);
     if(!raw)return [];
     const parsed=JSON.parse(raw);
     return Array.isArray(parsed)?parsed:[];
@@ -997,8 +1047,7 @@ export default function BowlingTracker(){
   // is synchronous, so mirroring the flag there lets the very first paint
   // already know which screen to show.
   const[onboarded,setOnboarded]=useState(()=>{
-    try{return window.localStorage.getItem(ONBOARDED_KEY)==="1";}
-    catch{return false;}
+    return readLocal(ONBOARDED_KEY,uid)==="1";
   });
   // Shown once, after setup. Read synchronously like the flag above --
   // an async read would flash the tour at someone who'd already done it.
@@ -1007,7 +1056,7 @@ export default function BowlingTracker(){
   // comes back for a league shouldn't have to find the league features
   // alone, but shouldn't sit through the casual tour again either.
   const[toursSeen,setToursSeen]=useState(()=>{
-    try{return JSON.parse(window.localStorage.getItem(TOURS_SEEN_KEY)||"[]");}
+    try{return JSON.parse(readLocal(TOURS_SEEN_KEY,uid)||"[]");}
     catch{return [];}
   });
   // The tour showing right now, if any: a track key, or "" for none.
@@ -1022,7 +1071,7 @@ export default function BowlingTracker(){
     if(activeTour){
       const next=markTourSeen(toursSeen,activeTour);
       setToursSeen(next);
-      try{window.localStorage.setItem(TOURS_SEEN_KEY,JSON.stringify(next));}catch{}
+      writeLocal(TOURS_SEEN_KEY,uid,JSON.stringify(next));
     }
     setActiveTour("");
     // Same reason as finishOnboarding: the tour is an overlay, and
@@ -1052,8 +1101,7 @@ export default function BowlingTracker(){
   // decision once means whatever screen you land on is the screen you
   // stay on until you finish.
   const[showOnboarding,setShowOnboarding]=useState(()=>{
-    try{return window.localStorage.getItem(ONBOARDED_KEY)!=="1";}
-    catch{return true;}
+    return readLocal(ONBOARDED_KEY,uid)!=="1";
   });
 
   // A new screen starts at the top.
@@ -1083,7 +1131,7 @@ export default function BowlingTracker(){
   // last Tuesday's.
   const savedContext=(()=>{
     try{
-      const raw=window.localStorage.getItem(SESSION_CONTEXT_KEY);
+      const raw=readLocal(SESSION_CONTEXT_KEY,uid);
       if(!raw)return null;
       const c=JSON.parse(raw);
       return c&&c.date===localDateString()?c:null;
@@ -1364,10 +1412,8 @@ export default function BowlingTracker(){
   // onboarding screen to flash and disappear.
   useEffect(()=>{
     if(sessions.length===0&&shots.length===0)return;
-    try{
-      if(window.localStorage.getItem(ONBOARDED_KEY)==="1")return;
-      window.localStorage.setItem(ONBOARDED_KEY,"1");
-    }catch{}
+    if(readLocal(ONBOARDED_KEY,uid)==="1")return;
+    writeLocal(ONBOARDED_KEY,uid,"1");
     try{window.storage.set(ONBOARDED_KEY,"1");}catch{}
   },[sessions.length,shots.length]);
 
@@ -1382,10 +1428,7 @@ export default function BowlingTracker(){
         // Re-mirror so the next launch decides synchronously. Covers a
         // bowler whose localStorage was cleared but whose main storage
         // still has the flag -- they get onboarding once, then never again.
-        try{
-          if(isDone)window.localStorage.setItem(ONBOARDED_KEY,"1");
-          else window.localStorage.removeItem(ONBOARDED_KEY);
-        }catch{}
+        writeLocal(ONBOARDED_KEY,uid,isDone?"1":null);
       }catch{
         // Main storage unavailable: trust whatever the synchronous mirror
         // already decided rather than overriding it either way.
@@ -2891,7 +2934,7 @@ export default function BowlingTracker(){
   // showing as "Tuesday".
   function persistTeams(next){
     setTeams(next);
-    try{window.localStorage.setItem("bowling-teams-v1",JSON.stringify(next));}catch{}
+    writeLocal("bowling-teams-v1",uid,JSON.stringify(next));
   }
 
   async function leaveTeam(team,leagueName){
@@ -3754,7 +3797,6 @@ export default function BowlingTracker(){
     setOnboardingProfile(existing
       ?normalizeProfile(existing,activeBowler)
       :emptyProfile(activeBowler||""));
-    try{window.localStorage.removeItem(ONBOARDED_KEY);}catch{}
     try{window.storage.set(ONBOARDED_KEY,"0");}catch{}
     setOnboarded(false);
     setShowOnboarding(true);
@@ -3821,7 +3863,7 @@ export default function BowlingTracker(){
     }
     setOnboarded(true);
     try{window.storage.set(ONBOARDED_KEY,"1");}catch{}
-    try{window.localStorage.setItem(ONBOARDED_KEY,"1");}catch{}
+    writeLocal(ONBOARDED_KEY,uid,"1");
     // Completing the full-screen flow counts as having seen the prompt --
     // it asks the same two questions, so the daily card shouldn't appear
     // again immediately afterwards on the same day.
@@ -4548,7 +4590,10 @@ export default function BowlingTracker(){
               [f.ball]:{...(prev[activeBowler]?.[f.ball]||{}),[lane]:{startingBoard:field==="startingBoard"?val:f.startingBoard,targetArrows:field==="targetArrows"?val:f.targetArrows}}
             }
           };
-          try{window.localStorage.setItem("bowling-ball-lane-lines-v1",JSON.stringify(updated));}catch{}
+          // Scoped: the load above reads this through window.storage, which
+          // adds the user prefix. Written unscoped, it was never read back,
+          // so lane lines reset on every reload.
+          writeLocal("bowling-ball-lane-lines-v1",uid,JSON.stringify(updated));
           return updated;
         });
       }
@@ -5298,7 +5343,7 @@ export default function BowlingTracker(){
     setSessionLeague("");
     setStartingLane("");
     setBallLaneLines({});
-    try{window.localStorage.removeItem("bowling-ball-lane-lines-v1");}catch{}
+    writeLocal("bowling-ball-lane-lines-v1",uid,null);
   }
 
   function exportData(){
@@ -5341,7 +5386,7 @@ export default function BowlingTracker(){
       alert(`These leagues were restored on this device only and haven't reached the cloud yet: ${failedLeagues.join(", ")}. They'll keep retrying in the background if you're offline.`);
     }
     setBallLaneLines(newBallLaneLines);
-    try{window.localStorage.setItem("bowling-ball-lane-lines-v1",JSON.stringify(newBallLaneLines));}catch{}
+    writeLocal("bowling-ball-lane-lines-v1",uid,JSON.stringify(newBallLaneLines));
     if(newBowlers.length)setActiveBowler(newBowlers[0]);
   }
 
@@ -7110,7 +7155,7 @@ export default function BowlingTracker(){
   // appear to vanish even though they arrive a moment later.
   useEffect(()=>{
     try{
-      window.localStorage.setItem(SESSION_CONTEXT_KEY,JSON.stringify({
+      writeLocal(SESSION_CONTEXT_KEY,uid,JSON.stringify({
         // sessionLeague, NOT effectiveSessionLeague.
         //
         // This is the bug that made league night show tournament data.
