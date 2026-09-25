@@ -146,6 +146,7 @@ const StatsView = lazyScreen("StatsView", () => import("./StatsView.jsx"));
 const ImportScorecard = lazyScreen("ImportScorecard", () => import("./ImportScorecard.jsx"));
 const Settings = lazyScreen("Settings", () => import("./Settings.jsx"));
 const Profile = lazyScreen("Profile", () => import("./Profile.jsx"));
+const ArsenalAnalysis = lazyScreen("ArsenalAnalysis", () => import("./ArsenalAnalysis.jsx"));
 const TrendsView = lazyScreen("TrendsView", () => import("./TrendsView.jsx"));
 const CoachingView = lazyScreen("CoachingView", () => import("./CoachingView.jsx"));
 const InsightsView = lazyScreen("InsightsView", () => import("./InsightsView.jsx"));
@@ -8057,6 +8058,8 @@ export default function BowlingTracker(){
     // -- the tree, not history, exactly as badges->journey is the tab
     // the link lives on rather than wherever you happened to come from.
     subscribe:"settings",
+    // Opened from the Balls and Bags tabs of Setup.
+    arsenal:"locker",
   };
   const parentView=PARENT_VIEW[view]||null;
 
@@ -8231,7 +8234,7 @@ export default function BowlingTracker(){
     // "log" is here for the same reason: picking a mode on Home sets it,
     // and it has no tab either. Without it the mode rows bounced you
     // back to Home the instant you tapped one.
-    const iconViews=["profile","settings","inbox","social","coaching","import","help",
+    const iconViews=["profile","settings","inbox","social","coaching","import","help","arsenal",
       // badges too: a shared badge link opens it directly, and a link
       // that lands on Home is a broken link.
       "journey","data","log","badges",
@@ -8915,7 +8918,7 @@ export default function BowlingTracker(){
                   ||(view==="settings"?"Settings":view==="profile"?"Profile"
                     :view==="inbox"?"Inbox":view==="coaching"?"Coach"
                     :view==="help"?"Help":view==="pastNight"?"Results":view==="social"?(casualMode?"Standings":"Friends"):view==="import"?"Import scorecard"
-                    :view==="subscribe"?"My Bowling Journey Pro":"")}</div>}
+                    :view==="subscribe"?"My Bowling Journey Pro":view==="arsenal"?"Arsenal":"")}</div>}
           </div>
 
           <div style={{display:"flex",gap:"7px",flexShrink:0,alignItems:"center"}}>
@@ -9387,8 +9390,24 @@ export default function BowlingTracker(){
             ballSpecs={ballSpecs} setBallSpec={setBallSpec} ballGroups={ballGroups}
             saveBallGroup={saveBallGroup} deleteBallGroup={deleteBallGroup} seedDefaultGroups={seedDefaultGroups}
             catalogEntries={catalogEntries} catalogAck={catalogAck} userId={user?.id} publishBallSpecs={publishBallSpecs} voteOnEntry={voteOnEntry} acknowledgeRejection={acknowledgeRejection}
-            bookAverageDue={bookAverageCheck.needed} bookAverageTriggerLeague={bookAverageCheck.league} bookAverageSuggestion={bookAverageSuggestion} acknowledgeBookAverageUpdate={acknowledgeBookAverageUpdate}/>
+            bookAverageDue={bookAverageCheck.needed} bookAverageTriggerLeague={bookAverageCheck.league} bookAverageSuggestion={bookAverageSuggestion} acknowledgeBookAverageUpdate={acknowledgeBookAverageUpdate}
+            onOpenArsenalAnalysis={()=>setView("arsenal")}/>
         )}
+
+        {view==="arsenal"&&(()=>{
+          const who=displayName||activeBowler;
+          const prof=normalizeProfile(profiles[who],who);
+          return(
+            <Suspense fallback={null}>
+              <ArsenalAnalysis bowler={who} balls={arsenals[who]||[]} retired={retiredBalls[who]||{}}
+                ballSpecs={ballSpecs} ballLayouts={ballLayouts} bags={bags} ballBags={ballBags}
+                shots={visibleShots} sessions={visibleSessions} gameEquipment={gameEquipment}
+                catalogEntries={catalogEntries} entitlement={entitlement}
+                leftHanded={leftHandedForBowler(who)} twoHanded={!!prof.twoHanded}
+                onUpgrade={()=>setView("subscribe")}/>
+            </Suspense>
+          );
+        })()}
 
         {/* The Team tab also renders the Leagues editor -- where you bowl belongs
             with your equipment, not buried in app settings. Same Settings

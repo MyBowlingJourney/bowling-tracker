@@ -5,5 +5,6 @@
   "needs_confirm": "Computed column returned by the join_team_with_code() database function (20260925160000_league_edits.sql): true when joining would take the bowler off another team in the same league, so the app asks before calling again with p_confirm. Read in src/TeamManagement.jsx; nothing in src/ writes it. A true false positive.",
   "addedNodes": "Not an app data field -- properties of the browser's MutationRecord, read in src/i18n/dom.js where the page translator watches React's changes to the page.",
   "attributeName": "Not an app data field -- properties of the browser's MutationRecord, read in src/i18n/dom.js where the page translator watches React's changes to the page.",
-  "removedNodes": "Not an app data field -- properties of the browser's MutationRecord, read in src/i18n/dom.js where the page translator watches React's changes to the page."
+  "removedNodes": "Not an app data field -- properties of the browser's MutationRecord, read in src/i18n/dom.js where the page translator watches React's changes to the page.",
+  "charCodeAt": "String method (caddie.js fingerprint hash), not a record field."
 }

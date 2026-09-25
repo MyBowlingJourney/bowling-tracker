@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "./AuthProvider.jsx";
-import { C, S, Chip, CollapsibleCard } from "./ui.jsx";
+import { C, S, Chip, CollapsibleCard, ActionRow } from "./ui.jsx";
 import { PLASTIC_BALL } from "./constants.js";
 import ArsenalList from "./ArsenalList.jsx";
 import BagManager from "./BagManager.jsx";
@@ -47,6 +47,7 @@ export default function Profile({
   ballSpecs, setBallSpec, ballGroups, saveBallGroup, deleteBallGroup, seedDefaultGroups,
   catalogEntries, catalogAck, userId, publishBallSpecs, voteOnEntry, acknowledgeRejection,
   bookAverageDue, bookAverageTriggerLeague, bookAverageSuggestion, acknowledgeBookAverageUpdate,
+  onOpenArsenalAnalysis,
 }) {
   const [addingCenter, setAddingCenter] = useState(false);
   // Must sit with the other hooks, ABOVE the early return below. A hook
@@ -457,6 +458,14 @@ export default function Profile({
             catalogEntries={catalogEntries || {}}
             existingBalls={balls} />
         </div>
+      )}
+
+      {/* The arsenal as a whole: where every ball sits and what's
+          missing, with the Caddie. Once there are two balls to compare. */}
+      {(show("arsenal") || show("bags")) && onOpenArsenalAnalysis && (balls || []).length >= 2 && (
+        <ActionRow icon="🎯" label="Arsenal analysis"
+          detail={show("bags") ? "Compare your bags, and ask the Caddie" : "Where each ball sits, what scores, what's missing"}
+          onClick={onOpenArsenalAnalysis} compact />
       )}
 
       {show("arsenal") && (

@@ -2779,7 +2779,96 @@ export const FR_CA = {
 "(pending)": "(en attente)",
 "Couldn't tell which league this night belongs to. Reload the app and try again.": "Impossible de savoir à quelle ligue appartient cette soirée. Rechargez l'application et réessayez.",
 "Couldn't change your name without a connection. Try again when you're back online.": "Impossible de changer votre nom sans connexion. Réessayez une fois de retour en ligne.",
-"Couldn't change your name. Try again in a moment.": "Impossible de changer votre nom. Réessayez dans un instant."
+"Couldn't change your name. Try again in a moment.": "Impossible de changer votre nom. Réessayez dans un instant.",
+"No spare ball. A plastic ball goes straight at corner pins without hooking.": "Aucune boule de réserve. Une boule de plastique va droit sur les quilles de coin sans crochet.",
+"it can't": "elle ne peut pas",
+"they can't": "elles ne peuvent pas",
+"Nothing strong enough for heavy oil or a fresh pattern.": "Rien d'assez fort pour l'huile abondante ou un patron frais.",
+"Nothing weak enough for dry lanes or late in a block when the lanes burn up.": "Rien d'assez faible pour les allées sèches ou la fin d'un bloc quand l'huile est brûlée.",
+"No ball with a sharp, angular back end for when you need it to turn the corner.": "Aucune boule au retour angulaire pour tourner le coin quand il le faut.",
+"No smooth, controllable ball for when the back end is too strong.": "Aucune boule progressive et contrôlable pour quand le retour est trop fort.",
+"Bag": "Sac",
+"The Caddie couldn't answer just then. Tap to try again.": "Le Caddie n'a pas pu répondre. Touchez pour réessayer.",
+"Arsenal analysis": "Analyse de l'arsenal",
+"Add your balls on the Balls tab, with their cover and core, and this maps where each one sits and what your bag is missing.": "Ajoutez vos boules dans l'onglet Boules, avec leur enrobage et leur noyau, et vous verrez où chacune se situe et ce qui manque à votre sac.",
+"Compare bags": "Comparer les sacs",
+"Where each ball sits, from its cover, surface, core and layout — cover and surface count most, because they're what touches the lane. Positions are estimates from specs; your scores show what actually worked.": "Où se situe chaque boule, selon son enrobage, sa surface, son noyau et son perçage — l'enrobage et la surface comptent le plus, car ce sont eux qui touchent l'allée. Les positions sont des estimations tirées des spécifications; vos pointages montrent ce qui a vraiment fonctionné.",
+"First bag": "Premier sac",
+"Second bag": "Deuxième sac",
+"No ball here has the specs this chart needs yet.": "Aucune boule ici n'a encore les spécifications nécessaires à ce graphique.",
+"◯ in both": "◯ dans les deux",
+"⟨0⟩ Solid": "⟨0⟩ Solide",
+"⟨0⟩ Hybrid": "⟨0⟩ Hybride",
+"⟨0⟩ Pearl": "⟨0⟩ Nacré",
+"● Faded: specs incomplete": "● Pâle : spécifications incomplètes",
+"Bags side by side": "Les sacs côte à côte",
+"Strength": "Force",
+"Length": "Longueur",
+"Back end": "Retour",
+"No ball is in both bags.": "Aucune boule n'est dans les deux sacs.",
+"A wider range means the bag covers more conditions.": "Un écart plus large veut dire que le sac couvre plus de conditions.",
+"Your balls": "Vos boules",
+"This bag is empty.": "Ce sac est vide.",
+"What the arsenal is missing": "Ce qui manque à l'arsenal",
+"What this bag is missing": "Ce qui manque à ce sac",
+"Nothing obvious — it covers strong to weak, smooth to sharp, and has a spare ball.": "Rien d'évident — il couvre du fort au faible, du progressif à l'angulaire, et a une boule de réserve.",
+"From the catalog:": "Dans le catalogue :",
+"The Caddie": "Le Caddie",
+"Your caddie reads the whole bag — which ball for which condition, which bag is built right, what to add and what to leave home. It's part of the paid plan.": "Votre caddie lit tout le sac — quelle boule pour quelle condition, quel sac est bien monté, quoi ajouter et quoi laisser à la maison. Ça fait partie du forfait payant.",
+"See the plan": "Voir le forfait",
+"🏌️ The Caddie": "🏌️ Le Caddie",
+"Asks which of these two bags is built for what.": "Demande lequel de ces deux sacs est monté pour quoi.",
+"Reads the whole arsenal: each ball's job, your bags, and what to add or leave home.": "Lit tout l'arsenal : le rôle de chaque boule, vos sacs, et quoi ajouter ou laisser à la maison.",
+"The Caddie is looking over the bag…": "Le Caddie examine le sac…",
+"Ask the Caddie": "Demander au Caddie",
+"Add cover and core to at least one ball first.": "Ajoutez d'abord l'enrobage et le noyau d'au moins une boule.",
+"Spare ball": "Boule de réserve",
+"Scores well": "Performe bien",
+"Below average": "Sous la moyenne",
+"Not placed — add cover and core": "Non placée — ajoutez l'enrobage et le noyau",
+"games ·": "parties ·",
+"No specs entered": "Aucune spécification saisie",
+"Surface:": "Surface :",
+"not recorded": "non inscrit",
+"(reading it as out of the box)": "(lue comme sortie de la boîte)",
+"Layout:": "Perçage :",
+"· Length": "· Longueur",
+"· Back end": "· Retour",
+"games at": "parties à",
+"By part of the night:": "Selon le moment de la soirée :",
+"No games logged with it yet.": "Aucune partie inscrite avec elle pour l'instant.",
+"Each ball's job": "Le rôle de chaque boule",
+"Gaps": "Lacunes",
+"Next in the bag:": "Prochaine dans le sac :",
+"Leave at home:": "À laisser à la maison :",
+"The Caddie's read": "La lecture du Caddie",
+"it's working from specs and your logged games, not from watching you throw": "il se fie aux spécifications et à vos parties inscrites, pas à votre lancer",
+"Ask again": "Redemander",
+"ArsenalAnalysis": "ArsenalAnalysis",
+"Weak": "Faible",
+"Benchmark": "Référence",
+"Strong": "Forte",
+"Early": "Tôt",
+"Mid-lane": "Mi-allée",
+"Long": "Longue",
+"Smooth": "Progressive",
+"Controlled": "Contrôlée",
+"Sharp": "Angulaire",
+"Light oil / late in the block": "Huile légère / fin de bloc",
+"Medium oil": "Huile moyenne",
+"Heavy oil / fresh": "Huile abondante / début",
+"Length × Back end": "Longueur × Retour",
+"Where each ball starts to hook, and how it turns. Bigger dots are stronger balls.": "Où chaque boule commence à crocheter, et comment elle tourne. Les plus gros points sont les boules les plus fortes.",
+"Length × Strength": "Longueur × Force",
+"The ladder: strongest at the top for fresh or heavy oil, weakest at the bottom for dry lanes and late in the block.": "L'échelle : les plus fortes en haut pour l'huile fraîche ou abondante, les plus faibles en bas pour les allées sèches et la fin d'un bloc.",
+"RG × Differential": "RG × Différentiel",
+"Low RG (revs early)": "RG bas (tourne tôt)",
+"High RG (revs late)": "RG élevé (tourne tard)",
+"Low diff (less flare)": "Différentiel bas (moins de flare)",
+"High diff (more flare)": "Différentiel élevé (plus de flare)",
+"The core alone, as the maker's numbers. Bigger dots are more asymmetric.": "Le noyau seul, selon les chiffres du fabricant. Les plus gros points sont les plus asymétriques.",
+"Compare your bags, and ask the Caddie": "Comparez vos sacs et demandez au Caddie",
+"Where each ball sits, what scores, what's missing": "Où se situe chaque boule, ce qui performe, ce qui manque"
 },
 "patterns": [
 [
@@ -5525,6 +5614,78 @@ export const FR_CA = {
 [
 "{0} (pending)",
 "{0} (en attente)"
+],
+[
+"rotate(-90 10 {0})",
+"rotate(-90 10 {0})"
+],
+[
+"{0}: no cover or core entered yet, so {1} be placed.",
+"{0} : aucun enrobage ni noyau saisi, donc {1} être placée(s)."
+],
+[
+"A big step down from {0} to {1}: a condition between them has no ball.",
+"Un grand écart de force entre {0} et {1} : aucune boule pour les conditions entre les deux."
+],
+[
+"{0} and {1} sit almost on top of each other. They do the same job.",
+"{0} et {1} sont presque au même endroit. Elles font le même travail."
+],
+[
+"{0} A wider range means the bag covers more conditions.",
+"{0} Un écart plus large veut dire que le sac couvre plus de conditions."
+],
+[
+"In both bags: {0}.",
+"Dans les deux sacs : {0}."
+],
+[
+"In {0}",
+"Dans {0}"
+],
+[
+"From the catalog: {0}",
+"Dans le catalogue : {0}"
+],
+[
+"Your caddie reads the whole bag — which ball for which condition, which bag is built right, what to add and what to leave home. It's part of the paid plan.{0}",
+"Votre caddie lit tout le sac — quelle boule pour quelle condition, quel sac est bien monté, quoi ajouter et quoi laisser à la maison. Ça fait partie du forfait payant.{0}"
+],
+[
+"Reads {0}: what it's built for and what it's missing.",
+"Lit {0} : pour quoi il est monté et ce qui lui manque."
+],
+[
+"{0} games · {1} avg{2}{3}{4}",
+"{0} parties · moy. {1}{2}{3}{4}"
+],
+[
+"· best {0}",
+"· meilleure en {0}"
+],
+[
+"· {0}% strikes",
+"· {0} % d'abats"
+],
+[
+"Surface: {0}{1}{2}Layout: {3}",
+"Surface : {0}{1}{2}Perçage : {3}"
+],
+[
+"Strength {0} · Length {1} · Back end {2}⟨0⟩",
+"Force {0} · Longueur {1} · Retour {2}⟨0⟩"
+],
+[
+"{0} games at {1}{2}.{3}",
+"{0} parties à {1}{2}.{3}"
+],
+[
+", against your {0} overall",
+", contre votre moyenne globale de {0}"
+],
+[
+"By part of the night: {0}.",
+"Selon le moment de la soirée : {0}."
 ]
 ],
 "fragments": [
