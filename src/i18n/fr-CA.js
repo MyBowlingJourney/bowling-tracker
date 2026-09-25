@@ -2755,7 +2755,10 @@ export const FR_CA = {
 "Start a drill from the Goals tab on Improve. Pick a target — a specific spare, or a pin combination — and the app tracks makes and misses for that session.": "Commencez un exercice à partir de l'onglet Objectifs de Progresser. Choisissez une cible — une réserve précise ou une combinaison de quilles — et l'application compte les réussites et les ratés pour cette séance.",
 "Improve has a Coach tab. Say which way round it goes — they coach me, or I coach them — and make a code. Read the eight characters to the other person, they enter it on their own phone, and you're connected.": "Progresser comporte un onglet Entraîneur. Indiquez dans quel sens ça va — « Je suis l'élève » ou « Je l'entraîne » — et créez un code. Dictez les huit caractères à l'autre personne, elle l'entre sur son propre téléphone, et le lien est établi.",
 "+6%": "",
-"The Stats screens cover the usual numbers. Brooklyn is for the questions they don't answer — ask about your own bowling in plain words and she works it out from what you've logged. If it needs something you don't track yet, she'll say what to start logging. She's on the AI tab of Improve, below Insights. Three questions a day.": "Les écrans Stats couvrent les chiffres habituels. Brooklyn est là pour les questions auxquelles ils ne répondent pas — posez vos questions sur votre propre jeu en termes simples, et elle trouve la réponse à partir de ce que vous avez enregistré. Si elle a besoin de quelque chose que vous ne suivez pas encore, elle vous dira quoi commencer à enregistrer. Elle se trouve dans l'onglet IA de Progresser, sous les analyses. Trois questions par jour."
+"The Stats screens cover the usual numbers. Brooklyn is for the questions they don't answer — ask about your own bowling in plain words and she works it out from what you've logged. If it needs something you don't track yet, she'll say what to start logging. She's on the AI tab of Improve, below Insights. Three questions a day.": "Les écrans Stats couvrent les chiffres habituels. Brooklyn est là pour les questions auxquelles ils ne répondent pas — posez vos questions sur votre propre jeu en termes simples, et elle trouve la réponse à partir de ce que vous avez enregistré. Si elle a besoin de quelque chose que vous ne suivez pas encore, elle vous dira quoi commencer à enregistrer. Elle se trouve dans l'onglet IA de Progresser, sous les analyses. Trois questions par jour.",
+"no reading": "",
+"more than one bowler": "",
+"not a card with drawn racks": ""
 },
 "patterns": [
 [
@@ -5469,6 +5472,10 @@ export const FR_CA = {
 [
 "Coach · {0}",
 "Entraîneur · {0}"
+],
+[
+"{0} strips for {1} games",
+""
 ]
 ],
 "fragments": [

@@ -11,6 +11,25 @@ import { findExistingShotSlot } from "./domain/sessions.js";
 import { isValidGameScore, invalidScoreIndexes } from "./domain/importVerification.js";
 import { supabase } from "./supabaseClient.js";
 import { recordError } from "./errorLogStore.js";
+import { readPinDecks, applyPinDecks } from "./domain/pinDeckPixels.js";
+
+// The image's pixels, for reading pin decks directly (see
+// domain/pinDeckPixels.js). Null when the browser cannot decode it --
+// then the AI's reading stands, as it always did.
+async function imagePixels(url){
+  try{
+    const img=new Image();
+    img.src=url;
+    await img.decode();
+    const w=img.naturalWidth,h=img.naturalHeight;
+    if(!w||!h||w*h>40e6)return null;
+    const canvas=document.createElement("canvas");
+    canvas.width=w;canvas.height=h;
+    const ctx=canvas.getContext("2d",{willReadFrequently:true});
+    ctx.drawImage(img,0,0);
+    return ctx.getImageData(0,0,w,h);
+  }catch{return null;}
+}
 import { friendlyFunctionError, readFunctionFailure, failureDetail, isBowlerFacing } from "./domain/functionErrors.js";
 
 // The importer's own words for "it didn't work". The real reason is logged.
@@ -822,6 +841,38 @@ export default function ImportScorecard({
           message:`dropped ${q.droppedGames} games, ${q.droppedFrames} frames, ${q.nulledScores} scores`,
           detail:{images:images.length,requestId:data?.validation?.requestId||null},
         });
+      }
+      // Pin identities from the image itself.
+      //
+      // The AI gets counts and marks right and the pins in a small
+      // drawn rack wrong -- on a real card, ten frames in thirty had the
+      // right number of pins but the wrong ones. Where the card draws its
+      // racks the regular LaneTalk way, the dots are read by colour
+      // instead, and a frame is corrected only when both readings agree
+      // on how many pins were standing. Anything else stays as the AI
+      // read it, for the review screen.
+      if(Array.isArray(data?.games)&&data.games.some(g=>Array.isArray(g?.frames)&&g.frames.length)){
+        try{
+          const strips=[];
+          let readable=true;
+          for(const im of images){
+            const px=await imagePixels(im.previewUrl);
+            const r=px?readPinDecks(px):null;
+            if(!r){readable=false;break;}
+            strips.push(...r.strips);
+          }
+          const out=readable?applyPinDecks(data.games,{strips}):{applied:false,reason:"not a card with drawn racks"};
+          if(out.applied)data={...data,games:out.games};
+          recordError({
+            kind:"import-quality",
+            where:"ImportScorecard.pinDecks",
+            message:out.applied
+              ?`pins read from the image: ${out.corrected} frame(s) corrected, ${out.confirmed} confirmed, ${out.kept} left to the AI`
+              :`pins left to the AI: ${out.reason}`,
+          });
+        }catch(e){
+          recordError({kind:"import-quality",where:"ImportScorecard.pinDecks",message:`pixel read failed: ${String(e?.message||e).slice(0,200)}`});
+        }
       }
       const cols=normalizeExtraction(data);
       if(!cols.length||cols.every(c=>!c.games.length)){
