@@ -224,7 +224,7 @@ function pinList(raw) {
 //
 // Strips run top to bottom and are matched to games in order, and only
 // on a one-bowler card with exactly one strip per game.
-export function applyPinDecks(games, reading) {
+export function applyPinDecks(games, reading, opts = {}) {
   const result = { games, corrected: 0, confirmed: 0, kept: 0, applied: false, reason: "" };
   if (!reading || !Array.isArray(games) || !games.length) { result.reason = "no reading"; return result; }
   const withFrames = games.filter(g => Array.isArray(g?.frames) && g.frames.length);
@@ -243,6 +243,9 @@ export function applyPinDecks(games, reading) {
     const strip = stripFor.get(g);
     if (!strip) return g;
     const frames = g.frames.map(f => ({ ...f, balls: Array.isArray(f?.balls) ? f.balls.map(b => ({ ...b })) : f?.balls }));
+    // Frames where the picture and the AI disagree on HOW MANY pins were
+    // standing. Held back, then settled by the printed total below.
+    const disputed = [];
     for (const f of frames) {
       const n = Number(f?.frameNumber);
       const read = n >= 1 && n <= 10 ? strip.frames[n - 1] : null;
@@ -269,7 +272,11 @@ export function applyPinDecks(games, reading) {
       if (balls[at + 1]) plan.push([balls[at + 1], read.missed]);
       // All or nothing: every ball's count must agree, or the frame is
       // left exactly as the AI read it.
-      if (plan.some(([b, pins]) => pinList(b.pinsStanding).length !== pins.length)) { result.kept++; continue; }
+      if (plan.some(([b, pins]) => pinList(b.pinsStanding).length !== pins.length)) {
+        result.kept++;
+        disputed.push(plan);
+        continue;
+      }
       let changed = false;
       for (const [b, pins] of plan) {
         const next = pins.map(String);
@@ -277,6 +284,42 @@ export function applyPinDecks(games, reading) {
         b.pinsStanding = next;
       }
       if (changed) result.corrected++; else result.confirmed++;
+    }
+
+    // Counts disagree: the printed total decides.
+    //
+    // A count is usually the AI's strong suit, but not always -- on a
+    // "7 2" tenth it once read the second ball as taking nothing, while
+    // the picture showed the 10 alone left and the card's own total
+    // needed the 2. The total is printed on the card independently of
+    // both readings, so when the AI's frames miss it and the picture's
+    // frames hit it exactly, the picture wins. All the disputed frames
+    // together first, then each on its own; anything that does not land
+    // on the printed total stays as the AI read it, for the review.
+    const printed = Number(g?.totalScore);
+    if (disputed.length && typeof opts.score === "function" && Number.isFinite(printed)) {
+      const scoreWith = plans => {
+        const saved = plans.flat().map(([b]) => [b, b.pinsStanding]);
+        for (const plan of plans) for (const [b, pins] of plan) b.pinsStanding = pins.map(String);
+        let total = null;
+        try { total = opts.score({ ...g, frames }); } catch { total = null; }
+        for (const [b, was] of saved) b.pinsStanding = was;
+        return total;
+      };
+      if (scoreWith([]) !== printed) {
+        let accept = null;
+        if (scoreWith(disputed) === printed) accept = disputed;
+        else {
+          const one = disputed.find(plan => scoreWith([plan]) === printed);
+          if (one) accept = [one];
+        }
+        if (accept) {
+          for (const plan of accept) for (const [b, pins] of plan) b.pinsStanding = pins.map(String);
+          result.corrected += accept.length;
+          result.kept -= accept.length;
+          result.byTotal = (result.byTotal || 0) + accept.length;
+        }
+      }
     }
     return { ...g, frames };
   });
@@ -292,7 +335,7 @@ export function applyPinDecks(games, reading) {
 // agree with its pixels most often. A wrong pairing cannot slip through:
 // frames are only changed where the pin counts agree, and a wrong
 // bowler's frames mostly will not.
-export function applyPinDecksByImage(games, readings) {
+export function applyPinDecksByImage(games, readings, opts = {}) {
   const total = { games, corrected: 0, confirmed: 0, kept: 0, applied: false, reason: "" };
   if (!Array.isArray(games) || !games.length || !Array.isArray(readings) || !readings.length) {
     total.reason = "no reading";
@@ -306,7 +349,7 @@ export function applyPinDecksByImage(games, readings) {
     if (!groups.has(key(g))) groups.set(key(g), []);
     groups.get(key(g)).push(g);
   }
-  if (readings.length === 1 && groups.size === 1) return applyPinDecks(games, readings[0]);
+  if (readings.length === 1 && groups.size === 1) return applyPinDecks(games, readings[0], opts);
 
   const used = new Set();
   const replaced = new Map();
@@ -315,7 +358,7 @@ export function applyPinDecksByImage(games, readings) {
     let best = null;
     for (const [k, list] of groups) {
       if (used.has(k)) continue;
-      const out = applyPinDecks(list, reading);
+      const out = applyPinDecks(list, reading, opts);
       if (!out.applied) continue;
       const score = out.corrected + out.confirmed;
       if (!best || score > best.score) best = { k, list, out, score };
@@ -326,6 +369,7 @@ export function applyPinDecksByImage(games, readings) {
     total.corrected += best.out.corrected;
     total.confirmed += best.out.confirmed;
     total.kept += best.out.kept;
+    total.byTotal = (total.byTotal || 0) + (best.out.byTotal || 0);
   });
   total.games = games.map(g => replaced.get(g) || g);
   total.applied = total.corrected + total.confirmed > 0;

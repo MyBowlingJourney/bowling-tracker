@@ -56,7 +56,10 @@ function frameKey(s){return`${s.frame}-${s.ballNum??1}`;}
 // Compact, inline editor for one extracted shot -- reuses the same Chip/
 // PinDeck components as the main Log form for visual consistency, but
 // condensed since up to 30 of these can appear across 3 games.
-function ShotEditor({shot,onChange}){
+// noSpare: the last ball of the tenth (the fill ball) has nothing after
+// it on its rack, so "was the spare made?" has no answer -- asking it
+// left the frame impossible to finish and its warning impossible to clear.
+function ShotEditor({shot,onChange,noSpare=false}){
   const standing=Array.isArray(shot.otherLeave)?shot.otherLeave:[];
   const firstBallCount=10-standing.length;
   const isStrike=shot.result==="Strike";
@@ -103,7 +106,7 @@ function ShotEditor({shot,onChange}){
       {shot.result==="Other Leave"&&(
         <>
           <PinDeck selected={standing} onToggle={togglePin}/>
-          {standing.length>0&&(
+          {standing.length>0&&!noSpare&&(
             <div style={S.chips}>
               {["Yes","No"].map(v=>(
                 <Chip key={v} label={`Spare: ${v}`} dense selected={shot.spareMade===v} onToggle={()=>setSpareMade(v)}
@@ -111,7 +114,7 @@ function ShotEditor({shot,onChange}){
               ))}
             </div>
           )}
-          {shot.spareMade==="No"&&standing.length>1&&(
+          {!noSpare&&shot.spareMade==="No"&&standing.length>1&&(
             <>
               <div style={{fontSize:"12px",color:C.textMuted,marginTop:"8px"}}>
                 Which pins did the second ball knock down? <strong style={{color:C.text}}>{pinCountFrom(standing,knocked)}</strong> this frame
@@ -129,7 +132,7 @@ function ShotEditor({shot,onChange}){
 // frames start expanded and visually distinct -- they're the one scenario
 // confirmed unreliable to extract from a scorecard image, so they need
 // eyes-on before saving, not just an easy-to-miss footnote.
-function GameReview({game,onUpdateShot,onUpdateScore,expandedFrames,onToggleExpanded,leftHanded,small=false}){
+function GameReview({game,onUpdateShot,onUpdateScore,onClearWarning,expandedFrames,onToggleExpanded,leftHanded,small=false}){
   // The frame whose editor is open, highlighted on the scoresheet.
   const openFrame=(game.shots.find(s=>expandedFrames.has(frameKey(s)))||{}).frame??null;
   const score=game.scoreOnly?game.totalScore:strictPartial(game.shots);
@@ -239,7 +242,16 @@ function GameReview({game,onUpdateShot,onUpdateScore,expandedFrames,onToggleExpa
               expanded={expanded}
               onToggle={()=>onToggleExpanded(key)}
             >
-              <ShotEditor shot={s} onChange={updated=>onUpdateShot(idx,updated)}/>
+              <ShotEditor shot={s} noSpare={String(s.frame)==="10"&&Number(s.ballNum)===3}
+                onChange={updated=>onUpdateShot(idx,updated)}/>
+              {/* The flag clears on any edit to this ball -- or here, when
+                  what was read is already right. */}
+              {warned&&!blank&&typeof onClearWarning==="function"&&(
+                <button type="button" onClick={()=>onClearWarning(s)}
+                  style={{...S.btn(),width:"100%",marginTop:"10px",padding:"10px",fontSize:"13px"}}>
+                  ✓ This is right
+                </button>
+              )}
             </CollapsibleCard>
           </div>
         );
@@ -929,13 +941,13 @@ export default function ImportScorecard({
             const px=await imagePixels(im.previewUrl);
             readings.push(px?readPinDecks(px):null);
           }
-          const out=applyPinDecksByImage(data.games,readings);
+          const out=applyPinDecksByImage(data.games,readings,{score:scoreExtracted});
           if(out.applied)data={...data,games:out.games};
           recordError({
             kind:"import-quality",
             where:"ImportScorecard.pinDecks",
             message:out.applied
-              ?`pins read from the image: ${out.corrected} frame(s) corrected, ${out.confirmed} confirmed, ${out.kept} left to the AI`
+              ?`pins read from the image: ${out.corrected} frame(s) corrected${out.byTotal?` (${out.byTotal} settled by the printed total)`:""}, ${out.confirmed} confirmed, ${out.kept} left to the AI`
               :`pins left to the AI: ${out.reason}`,
           });
         }catch(e){
@@ -1070,17 +1082,30 @@ export default function ImportScorecard({
     setGames(prev=>prev.map((g,i)=>i!==gameIdx?g:{...g,totalScore:value}));
   }
 
+  // A flagged ball stops being flagged once the bowler has looked at it:
+  // edited it, or said it is right.
+  const withoutWarning=(warnings,shot)=>(warnings||[]).filter(w=>!(String(w.frame)===String(shot.frame)&&(w.ballNum??1)===(shot.ballNum??1)));
   function updateShot(gameIdx,shotIdx,updatedShot){
     // reconcileTenth: a 10th frame changed from open to a mark is owed a
     // fill ball (or two), and one changed back loses them.
-    setGames(prev=>prev.map((g,i)=>i!==gameIdx?g:{...g,shots:reconcileTenth(g.shots.map((s,j)=>j!==shotIdx?s:updatedShot))}));
+    setGames(prev=>prev.map((g,i)=>i!==gameIdx?g:{...g,
+      shots:reconcileTenth(g.shots.map((s,j)=>j!==shotIdx?s:updatedShot)),
+      warnings:withoutWarning(g.warnings,updatedShot)}));
+  }
+  function clearWarning(gameIdx,shot){
+    setGames(prev=>prev.map((g,i)=>i!==gameIdx?g:{...g,warnings:withoutWarning(g.warnings,shot)}));
+  }
+  function clearTeammateWarning(index,gameIdx,shot){
+    setTeammateGames(prev=>({...prev,[index]:(prev[index]||[]).map((g,i)=>i!==gameIdx?g:{...g,warnings:withoutWarning(g.warnings,shot)})}));
   }
 
   // A teammate's frame edited in the review. Their score box follows the
   // frames, so what is sent agrees with itself.
   function updateTeammateShot(index,gameIdx,shotIdx,updatedShot){
     setTeammateGames(prev=>{
-      const list=(prev[index]||[]).map((g,i)=>i!==gameIdx?g:{...g,shots:reconcileTenth(g.shots.map((s,j)=>j!==shotIdx?s:updatedShot))});
+      const list=(prev[index]||[]).map((g,i)=>i!==gameIdx?g:{...g,
+        shots:reconcileTenth(g.shots.map((s,j)=>j!==shotIdx?s:updatedShot)),
+        warnings:withoutWarning(g.warnings,updatedShot)});
       const g=list[gameIdx];
       const score=g&&!g.scoreOnly?strictPartial(g.shots):null;
       if(score!=null)setTeammateScores(ts=>({...ts,[index]:(ts[index]||[]).map((v,j)=>j===gameIdx?String(score):v)}));
@@ -1530,6 +1555,7 @@ export default function ImportScorecard({
           {games.map((g,idx)=>(
             <GameReview key={g.gameNumber} game={g}
               onUpdateShot={(shotIdx,updated)=>updateShot(idx,shotIdx,updated)}
+              onClearWarning={shot=>clearWarning(idx,shot)}
               onUpdateScore={value=>updateScore(idx,value)}
               expandedFrames={expandedByGame[idx]||new Set()}
               leftHanded={!!leftHandedForBowler?.(contextBowler)}
@@ -1613,6 +1639,7 @@ export default function ImportScorecard({
                           {(teammateGames[index]||[]).map((g,gi)=>g.scoreOnly||!g.shots.length?null:(
                             <GameReview key={g.gameNumber} game={g}
                               onUpdateShot={(shotIdx,updated)=>updateTeammateShot(index,gi,shotIdx,updated)}
+                              onClearWarning={shot=>clearTeammateWarning(index,gi,shot)}
                               onUpdateScore={()=>{}}
                               expandedFrames={teammateExpanded[`${index}-${gi}`]||new Set()}
                               leftHanded={!!leftHandedForBowler?.(bowler)}

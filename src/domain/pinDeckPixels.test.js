@@ -127,3 +127,34 @@ describe("one screenshot per bowler", () => {
     }
   });
 });
+
+describe("when the picture and the AI disagree on a count", () => {
+  // Scores a game the simple way the test needs: pins down = 10 - standing
+  // on each ball's rack, no bonuses. Enough to tell the two readings apart.
+  const score = g => g.frames.reduce((n, f) => {
+    const balls = [...f.balls].sort((a, b) => a.ballIndex - b.ballIndex);
+    const first = 10 - (balls[0].isStrike ? 0 : String(balls[0].pinsStanding).split(",").filter(Boolean).length);
+    const second = balls[1] ? String(balls[0].pinsStanding).split(",").filter(Boolean).length - String(balls[1].pinsStanding).split(",").filter(Boolean).length : 0;
+    return n + first + second;
+  }, 0);
+  const reading = readPinDecks(card([[{ converted: [4] }, ...Array(8).fill(strike), { missed: [10] }]]));
+  const aiGame = total => ({ gameNumber: 1, bowlerName: "Ryan", totalScore: total, frames: [
+    frame(1, B(false, ["4"]), B(false, ["4"])),            // AI: missed the spare; picture: made it
+    ...[2, 3, 4, 5, 6, 7, 8, 9].map(n => frame(n, B(true, []))),
+    frame(10, B(true, []), B(true, []), B(false, ["10"])),
+  ] });
+
+  it("takes the picture when only the picture matches the printed total", () => {
+    const g = aiGame(0);
+    g.totalScore = score({ ...g, frames: g.frames.map((f, i) => i === 0 ? frame(1, B(false, ["4"]), B(false, [])) : f) });
+    const out = applyPinDecks([g], reading, { score });
+    expect(out.byTotal).toBe(1);
+    expect(out.games[0].frames[0].balls[1].pinsStanding).toEqual([]);
+  });
+  it("leaves the AI's reading when the total does not settle it", () => {
+    const g = aiGame(1);
+    const out = applyPinDecks([g], reading, { score });
+    expect(out.byTotal || 0).toBe(0);
+    expect(out.games[0].frames[0].balls[1].pinsStanding).toEqual(["4"]);
+  });
+});

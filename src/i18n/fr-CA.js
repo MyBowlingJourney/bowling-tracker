@@ -2764,7 +2764,8 @@ export const FR_CA = {
 "⚠️ Check the flagged balls below — they couldn't be reliably read from the image.": "⚠️ Vérifiez les lancers signalés ci-dessous — ils n'ont pas pu être lus de façon fiable à partir de l'image.",
 "This frame couldn't be read from the image.": "Ce carreau n'a pas pu être lu à partir de l'image.",
 "▾ Hide frames": "▾ Masquer les carreaux",
-"▸ Check frames": "▸ Vérifier les carreaux"
+"▸ Check frames": "▸ Vérifier les carreaux",
+"✓ This is right": "✓ C'est exact"
 },
 "patterns": [
 [
@@ -5489,6 +5490,14 @@ export const FR_CA = {
 ],
 [
 "image {0} matched no bowler",
+""
+],
+[
+" ({0} settled by the printed total)",
+""
+],
+[
+"({0} settled by the printed total)",
 ""
 ]
 ],
