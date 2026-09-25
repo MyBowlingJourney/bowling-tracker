@@ -565,6 +565,19 @@ export default function ImportScorecard({
       for(const f of g.frames){
         if(!Array.isArray(f?.fromNote))continue;
         const frame=String(f.frameNumber);
+        // Filled from a note found beside a DIFFERENT game: kept flagged,
+        // so a note placed in the wrong game gets looked at.
+        if(f.noteGuessed){
+          // A hand frame is still flagged by the needsReview pass below.
+          if(!f.needsReview){
+            for(const bn of f.fromNote){
+              const ballNum=frame==="10"?bn:null;
+              if(!warnings.some(w=>String(w.frame)===frame&&(w.ballNum??1)===(ballNum??1)))
+                warnings.push({frame,ballNum,message:"Filled in from your note — check it's the right game."});
+            }
+          }
+          continue;
+        }
         for(let wi=warnings.length-1;wi>=0;wi--){
           const w=warnings[wi];
           if(String(w.frame)===frame&&f.fromNote.includes(w.ballNum??1))warnings.splice(wi,1);

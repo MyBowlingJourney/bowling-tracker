@@ -140,3 +140,19 @@ describe("placing a note on a team card", () => {
     expect(out.outcomes).toEqual(['"4" img2 g3 -> bowler 2 G3F10B3']);
   });
 });
+
+describe('a note placed in a game other than the one it was read beside', () => {
+  it('fills the pins but keeps the frame flagged', () => {
+    const g1 = { gameNumber: 1, bowlerName: 'Rob', frames: [{ frameNumber: 10, balls: [B(1, false, ['9', '10']), B(2, false, []), B(3, false, ['7', '8', '10'])] }] };
+    const g2 = { gameNumber: 2, bowlerName: 'Rob', frames: [{ frameNumber: 10, balls: [B(1, true, []), B(2, true, []), B(3, true, [])] }] };
+    const out = applyWrittenNotes([g1, g2], [{ text: '1-3-6', gameNumber: 2 }]);
+    expect(out.games[0].frames[0].balls[2].pinsStanding).toEqual(['1', '3', '6']);
+    expect(out.games[0].frames[0].noteGuessed).toBe(true);
+    expect(out.outcomes[0]).toMatch(/\(check\)$/);
+  });
+  it('a note in its own game is not flagged', () => {
+    const g = { gameNumber: 3, bowlerName: 'Rob', frames: [{ frameNumber: 10, balls: [B(1, false, ['6']), B(2, false, []), B(3, false, ['10'])] }] };
+    const out = applyWrittenNotes([g], [{ text: '4', gameNumber: 3 }]);
+    expect(out.games[0].frames[0].noteGuessed).toBeUndefined();
+  });
+});

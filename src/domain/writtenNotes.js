@@ -96,10 +96,14 @@ export function applyWrittenNotes(games, notes, opts = {}) {
     return out;
   };
   const where = hit => `${label(hit.gi)}F${hit.frame.frameNumber}B${hit.balls.map(b => b.ballIndex ?? 1).join("+")}`;
-  const apply = (hit, pins) => {
+  const apply = (hit, pins, guessed = false) => {
     for (const b of hit.balls) b.pinsStanding = pins.map(String);
     hit.frame.fromNote = [...new Set([...(hit.frame.fromNote || []), ...hit.balls.map(b => b.ballIndex ?? 1)])];
-    hit.frame.needsReview = false;
+    // Placed in a game other than the one the note was read beside (the
+    // row above, or the last game when no game was read): the pins are
+    // filled in, but the frame stays flagged so the bowler looks at it.
+    if (guessed) hit.frame.noteGuessed = true;
+    else hit.frame.needsReview = false;
     result.used++;
   };
 
@@ -150,16 +154,17 @@ export function applyWrittenNotes(games, notes, opts = {}) {
     let { idx } = scope;
     const { gameKnown } = scope;
     let fits = idx.length ? fitsIn(idx, pins) : [];
+    let guessed = false;
     if (!fits.length && gameKnown && scope.above.length) {
       const up = fitsIn(scope.above, pins);
-      if (up.length === 1) { idx = scope.above; fits = up; }
+      if (up.length === 1) { idx = scope.above; fits = up; guessed = true; }
     }
     if (!idx.length) { outcomes.set(n, `${tag}: no such game`); return; }
     if (fits.length > 1 && !gameKnown) {
       const last = fitsIn(lastGames(idx), pins);
-      if (last.length === 1) fits = last;
+      if (last.length === 1) { fits = last; guessed = true; }
     }
-    if (fits.length === 1) { apply(fits[0], pins); outcomes.set(n, `${tag} -> ${where(fits[0])}`); return; }
+    if (fits.length === 1) { apply(fits[0], pins, guessed); outcomes.set(n, `${tag} -> ${where(fits[0])}${guessed ? " (check)" : ""}`); return; }
     outcomes.set(n, fits.length ? `${tag}: ${fits.length} places fit` : `${tag}: no ball with ${pins.length} pin(s) standing`);
     if (fits.length) pending.push({ n, tag, pins, idx, gameKnown });
   });
