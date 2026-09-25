@@ -201,7 +201,9 @@ export default function Scoresheet({
         style={{
           display: "flex",
           gap: `${GAP}px`,
-          ...(wrap ? { flexWrap: "wrap" } : {
+          // Centred rows when wrapped: 5, then 4, then the tenth -- a
+          // rack's shape, and no ragged gap at the end of each row.
+          ...(wrap ? { flexWrap: "wrap", justifyContent: "center" } : {
             overflowX: "auto",
             // Momentum on iOS, and no vertical bounce stealing the gesture.
             WebkitOverflowScrolling: "touch",
