@@ -13,6 +13,7 @@ import { supabase } from "./supabaseClient.js";
 import { validTeamId } from "./domain/supabaseMapping.js";
 import { recordError } from "./errorLogStore.js";
 import { readPinDecks, applyPinDecksByImage } from "./domain/pinDeckPixels.js";
+import { applyWrittenNotes } from "./domain/writtenNotes.js";
 
 // The image's pixels, for reading pin decks directly (see
 // domain/pinDeckPixels.js). Null when the browser cannot decode it --
@@ -559,6 +560,16 @@ export default function ImportScorecard({
                scoreOnly:true,totalScore:g.totalScore??null};
       }
       const{shots:gameShots,warnings}=convertExtractedGameToShots(g,{...context,game:g.gameNumber});
+      // A ball filled from the bowler's own note is not a guess: its
+      // "couldn't be read" flag goes.
+      for(const f of g.frames){
+        if(!Array.isArray(f?.fromNote))continue;
+        const frame=String(f.frameNumber);
+        for(let wi=warnings.length-1;wi>=0;wi--){
+          const w=warnings[wi];
+          if(String(w.frame)===frame&&f.fromNote.includes(w.ballNum??1))warnings.splice(wi,1);
+        }
+      }
       // Frames the pin reader could not see (a hand-corrected frame shows
       // a hand, not a rack): flagged, so they open in the review.
       for(const f of g.frames){
@@ -953,6 +964,17 @@ export default function ImportScorecard({
         }catch(e){
           recordError({kind:"import-quality",where:"ImportScorecard.pinDecks",message:`pixel read failed: ${String(e?.message||e).slice(0,200)}`});
         }
+      }
+      // The bowler's own notes -- a "4" under the tenth for the fill ball
+      // LaneTalk never draws, a pin number beside a hand-corrected frame.
+      // The AI only transcribes them; which ball each belongs to is
+      // decided by rules (domain/writtenNotes.js), and only where the pin
+      // count already agrees with the card.
+      if(Array.isArray(data?.writtenNotes)&&data.writtenNotes.length&&Array.isArray(data?.games)){
+        const noted=applyWrittenNotes(data.games,data.writtenNotes);
+        if(noted.used)data={...data,games:noted.games};
+        recordError({kind:"import-quality",where:"ImportScorecard.writtenNotes",
+          message:`${data.writtenNotes.length} note(s) on the card, ${noted.found} with pin numbers, ${noted.used} used`});
       }
       const cols=normalizeExtraction(data);
       if(!cols.length||cols.every(c=>!c.games.length)){

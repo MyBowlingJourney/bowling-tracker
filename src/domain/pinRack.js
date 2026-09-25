@@ -179,7 +179,8 @@ export function tenthPinDecks(tenth, leftHanded) {
   const decks = [];
   let open = null;
 
-  for (const b of balls) {
+  for (let bi = 0; bi < balls.length; bi++) {
+    const b = balls[bi];
     if (open) {
       // Second ball on the deck already in play. Its own leave is
       // recorded, so this one is exact.
@@ -194,6 +195,18 @@ export function tenthPinDecks(tenth, leftHanded) {
     // which case the deck is complete on arrival.
     if (b.spareMade === "Yes") {
       decks.push(makeDeck(leaveOf(b, leftHanded), [], isSplit(b)));
+      continue;
+    }
+
+    // An open deck whose second ball is recorded in the same record --
+    // "7 2" in the tenth. Its secondLeave says what stood after ball
+    // two, exactly as frames 1-9 use it; without this the deck stayed
+    // "waiting on ball two" and the pins ball two took were drawn as
+    // still standing.
+    // Only when no separate record follows: a tenth logged ball by ball
+    // carries its second ball as the next record instead.
+    if (b.spareMade === "No" && Array.isArray(b.secondLeave) && bi === balls.length - 1) {
+      decks.push(makeDeck(leaveOf(b, leftHanded), leaveOf({ otherLeave: b.secondLeave }, leftHanded), isSplit(b)));
       continue;
     }
 

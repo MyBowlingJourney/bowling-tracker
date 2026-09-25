@@ -197,6 +197,19 @@ describe('the tenth — one rack per deck, never per ball', () => {
     expect(decks[0].exact).toBe(true);
   });
 
+  it('an open tenth recorded in ONE record draws what ball two took', () => {
+    // "7 2" from an import: the 4-7-10 left, the 4 and 7 picked off.
+    const decks = tenthPinDecks({
+      ball1: b(1, { result: 'Other Leave', otherLeave: ['4', '7', '10'], spareMade: 'No', secondLeave: [10] }),
+      ball2: null, ball3: null,
+    });
+    expect(decks).toHaveLength(1);
+    expect(down(decks[0], 4)).toBe('down2');
+    expect(down(decks[0], 7)).toBe('down2');
+    expect(down(decks[0], 10)).toBe('standing');
+    expect(decks[0].exact).toBe(true);
+  });
+
   it('handles a spare embedded in the first ball record', () => {
     // A spare on the tenth's first ball can arrive as one record
     // covering both balls, rather than two.
