@@ -2590,14 +2590,38 @@ export default function BowlingTracker(){
   // Same-named leagues already on the app, with their center and how many
   // bowlers are in each, so the bowler can pick the one at THEIR house.
   // Leagues they already belong to are left out.
-  async function findLeagueMatches(name){
+  // includeMine: also the ones this bowler is in -- used to spot a league
+  // they have TWO copies of (their own, and the shared one they joined
+  // through a team).
+  async function findLeagueMatches(name,{includeMine=false}={}){
     const clean=String(name||"").trim();
     if(!clean||!supabase)return[];
     try{
       const{data,error}=await supabase.rpc("league_matches",{p_name:clean});
       if(error||!Array.isArray(data))return[];
-      return data.filter(m=>m&&m.id&&!m.mine);
+      return data.filter(m=>m&&m.id&&(includeMine||!m.mine));
     }catch{return[];}
+  }
+
+  // Folds this bowler's own copy of a league into the shared one with the
+  // same name -- every game, team and setting moves across (see
+  // merge_into_league). The whole app reloads afterwards: shots, sessions
+  // and teams all carried the old league's id, and a reload is the one
+  // way to be sure nothing on screen still points at it.
+  async function mergeLeague(leagueName,match){
+    const fromId=leagueIdsRef.current?.[leagueName];
+    if(!fromId||!match?.id||fromId===match.id)return false;
+    const where=match.center_name?` at ${match.center_name}`:"";
+    if(!confirm(`Combine your "${leagueName}" with the shared one${where}?\n\nYour games, teams and league settings move into it, and you'll see the teams already there. This can't be undone.`))return false;
+    const{error}=await supabase.rpc("merge_into_league",{p_from:fromId,p_to:match.id});
+    if(error){
+      alert(/only the bowler who made/i.test(error.message||"")
+        ?"Only the bowler who added this league can combine it. Ask them, or join the shared league from a team code."
+        :"Couldn't combine them just now. Nothing was changed — try again in a moment.");
+      return false;
+    }
+    window.location.reload();
+    return true;
   }
 
   // Pulls one league's row into every name-keyed map (id, center, dates,
@@ -8938,7 +8962,7 @@ export default function BowlingTracker(){
              they have, not what the plan happens to show. */
           <Settings
             mode="leagues"
-            onCreateTeam={createTeamForLeague} onAddLeague={addLeague} findLeagueMatches={findLeagueMatches} onJoinLeague={joinExistingLeague}
+            onCreateTeam={createTeamForLeague} onAddLeague={addLeague} findLeagueMatches={findLeagueMatches} onJoinLeague={joinExistingLeague} onMergeLeague={mergeLeague}
             restartOnboarding={restartOnboarding} replayTour={replayTour} isCoach={showCoachingTab}
             showBackup={showBackup} setShowBackup={setShowBackup}
             backupStatus={backupStatus} setBackupStatus={setBackupStatus}

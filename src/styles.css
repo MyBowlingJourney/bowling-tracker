@@ -43,7 +43,12 @@ html, body {
  * for every <select>: a chevron in an accent-tinted well on the trailing
  * edge, room so text never slides under it, and an accent-tinted border.
  * !important because the selects carry inline padding and borders, which
- * would otherwise win. The chevron image is set by ui.jsx per theme. */
+ * would otherwise win. The chevron image is set by ui.jsx per theme.
+ *
+ * Screen rules below that restyle a select must set background-COLOR,
+ * never the `background` shorthand: the shorthand resets background-image
+ * too, and with !important and a more specific selector it wiped this
+ * chevron off Setup > League, History and the Stats "Viewing" card. */
 select {
   -webkit-appearance: none !important;
   appearance: none !important;
@@ -1100,7 +1105,7 @@ body {
 
 .mbj-history-sessions .mbj-history-list > div > select,
 .mbj-history-sessions select {
-  background: var(--mbj-surface) !important;
+  background-color: var(--mbj-surface) !important;
   color: var(--mbj-text) !important;
   border-color: var(--mbj-border) !important;
 }
@@ -1176,7 +1181,7 @@ body {
 .mbj-settings-main input,
 .mbj-settings-main select,
 .mbj-settings-main textarea {
-  background: var(--mbj-surface) !important;
+  background-color: var(--mbj-surface) !important;
   color: var(--mbj-text) !important;
   border-color: var(--mbj-border) !important;
 }
@@ -1238,7 +1243,7 @@ body {
 }
 .mbj-stat-viewing-card select,
 .mbj-stat-viewing-card button {
-  background: var(--mbj-surface) !important;
+  background-color: var(--mbj-surface) !important;
   color: var(--mbj-text) !important;
   border-color: var(--mbj-border) !important;
 }
@@ -1269,7 +1274,7 @@ body {
 :root[data-mbj-theme="classic"] .mbj-stat-viewing-card button,
 :root[data-mbj-theme="pattern"] .mbj-stat-viewing-card button,
 :root[data-mbj-theme="urethane"] .mbj-stat-viewing-card button {
-  background: var(--mbj-surface) !important;
+  background-color: var(--mbj-surface) !important;
   color: var(--mbj-text) !important;
   border-color: var(--mbj-border) !important;
 }

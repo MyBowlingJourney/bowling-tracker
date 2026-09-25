@@ -43,6 +43,8 @@ export default function Settings({
   // league checks these first, so a bowler joins the league their
   // teammates are in rather than starting a copy of it.
   findLeagueMatches = null, onJoinLeague = null,
+  // Combining this bowler's own copy of a league with the shared one.
+  onMergeLeague = null,
   // History > Sessions: opens a saved night's results when its row is
   // tapped. Absent, the rows are plain text as before.
   onOpenNight,
@@ -290,6 +292,56 @@ export default function Settings({
     setShownLeague(m.name);
     setNewLeagueName("");
   }
+  // Other leagues with the shown league's name -- the sign of a duplicate:
+  // made separately before leagues could be joined, or joined through a
+  // team on top of the bowler's own copy.
+  const [twins, setTwins] = useState({ league: "", list: [] });
+  const [twinBusy, setTwinBusy] = useState(false);
+  useEffect(() => {
+    const real = (leagues || []).filter(l => !isContainerLeague(l));
+    const league = real.includes(shownLeague) ? shownLeague : real[0];
+    const myId = league ? leagueIds?.[league] : null;
+    if (!league || !myId || !findLeagueMatches || !onMergeLeague) { setTwins({ league: "", list: [] }); return; }
+    let live = true;
+    findLeagueMatches(league, { includeMine: true }).then(list => {
+      if (live) setTwins({ league, list: (list || []).filter(m => m.id !== myId) });
+    });
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shownLeague, (leagues || []).join("\u0001")]);
+  function twinPanel(league) {
+    if (twins.league !== league || !twins.list.length) return null;
+    return (
+      <div style={{ border: `1px solid ${C.accent}55`, borderRadius: "14px", padding: "12px", marginBottom: "12px" }}>
+        <div style={{ fontSize: "14px", fontWeight: 700, color: C.text, marginBottom: "4px" }}>
+          Other bowlers have a “{league.replace(" House Shot", "")}” too
+        </div>
+        <div style={{ fontSize: "12px", color: C.textMuted, lineHeight: 1.5, marginBottom: "8px" }}>
+          If it's the same league, combine yours with it. Your games and teams move
+          across, and you'll see each other's teams.
+        </div>
+        {twins.list.map(m => {
+          const where = m.center_name
+            ? [m.center_name, [m.center_city, m.center_state].filter(Boolean).join(", ")].filter(Boolean).join(" · ")
+            : "No bowling center set";
+          return (
+            <div key={m.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 0", borderTop: `1px solid ${C.border}` }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: "14px", color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{where}</div>
+                <div style={{ fontSize: "11px", color: C.textMuted }}>{m.bowlers} {m.bowlers === 1 ? "bowler" : "bowlers"}{m.mine ? " · you're already in it" : ""}</div>
+              </div>
+              <button style={{ ...S.btn(), width: "auto", flexShrink: 0, padding: "8px 14px", fontSize: "13px" }}
+                disabled={twinBusy}
+                onClick={async () => { setTwinBusy(true); await onMergeLeague(league, m); setTwinBusy(false); }}>
+                Combine
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
   const leagueMatchPanel = leagueMatches && (
     <div style={{ border: `1px solid ${C.accent}55`, borderRadius: "14px", padding: "12px", marginBottom: "12px" }}>
       <div style={{ fontSize: "14px", fontWeight: 700, color: C.text, marginBottom: "4px" }}>
@@ -800,6 +852,7 @@ export default function Settings({
                     )}
                   </div>
                 )}
+                {twinPanel(league)}
                 <CenterPicker
                   leagueName={league.replace(" House Shot", "")}
                   currentCenter={center}
