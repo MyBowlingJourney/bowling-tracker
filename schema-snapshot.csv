@@ -597,6 +597,8 @@ function,prune_sync_tombstones,"",integer security definer
 function,record_ai_tokens,"p_endpoint text, p_model text, p_variant text, p_prompt integer",void security definer
 function,record_tombstone,"",trigger security definer
 function,report_error,"p_signature text, p_kind text, p_where text, p_code text, p_mes",void security definer
+function,set_center_pins,"p_center_id uuid, p_rack_type text, p_freefall_lanes integer[]",void security definer
+function,set_kept_league,p_league_id uuid,uuid security definer
 function,set_updated_at,"",trigger security invoker
 function,teammate_bowler_profiles,"","TABLE(bowler_name text, left_handed boolean, backup_ball boolean, two_handed boolean, aliases jsonb) security definer"
 function,user_leagues_from_row,"",trigger security definer
@@ -664,7 +666,6 @@ grant,drills,SELECT,"ball, bowler_name, created_at, custom_pins, custom_target, 
 grant,drills,UPDATE,"ball, bowler_name, created_at, custom_pins, custom_target, date, id, made, missed, notes, session_seq, target, user_id"
 grant,entitlements,REFERENCES,"billing_period, created_at, current_period_end, is_test_account, kept_league_id, last_event_at, plan, play_purchase_token, source, status, stripe_customer_id, stripe_subscription_id, trial_end, updated_at, user_id"
 grant,entitlements,SELECT,"billing_period, created_at, current_period_end, is_test_account, kept_league_id, last_event_at, plan, play_purchase_token, source, status, stripe_customer_id, stripe_subscription_id, trial_end, updated_at, user_id"
-grant,entitlements,UPDATE,kept_league_id
 grant,friendships,INSERT,"addressee_id, created_at, id, requester_id, responded_at, status"
 grant,friendships,REFERENCES,"addressee_id, created_at, id, requester_id, responded_at, status"
 grant,friendships,SELECT,"addressee_id, created_at, id, requester_id, responded_at, status"
@@ -938,7 +939,6 @@ policy,coaching_tasks,the coach can remove tasks,"DELETE :: using (EXISTS ( SELE
   WHERE ((r.id = coaching_tasks.relationship_id) AND (r.status = 'accepted'::text) AND (r.coach_id = auth.uid())))) :: check none :: to authenticated"
 policy,drills,users manage their own drills,ALL :: using (user_id = auth.uid()) :: check (user_id = auth.uid()) :: to authenticated
 policy,entitlements,read own entitlement,SELECT :: using (auth.uid() = user_id) :: check none :: to authenticated
-policy,entitlements,set own kept league,UPDATE :: using (auth.uid() = user_id) :: check (auth.uid() = user_id) :: to authenticated
 policy,friendships,either side can delete a friendship,DELETE :: using ((requester_id = auth.uid()) OR (addressee_id = auth.uid())) :: check none :: to authenticated
 policy,friendships,only the addressee can answer a friend request,UPDATE :: using (addressee_id = auth.uid()) :: check (addressee_id = auth.uid()) :: to authenticated
 policy,friendships,users can send friend requests,INSERT :: no using :: check (requester_id = auth.uid()) :: to authenticated

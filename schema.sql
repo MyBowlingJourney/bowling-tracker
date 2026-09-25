@@ -917,9 +917,6 @@ CREATE POLICY 'users manage their own drills' ON public.drills FOR ALL TO authen
   WITH CHECK ((user_id = auth.uid()));
 CREATE POLICY 'read own entitlement' ON public.entitlements FOR SELECT TO authenticated
   USING ((auth.uid() = user_id));
-CREATE POLICY 'set own kept league' ON public.entitlements FOR UPDATE TO authenticated
-  USING ((auth.uid() = user_id))
-  WITH CHECK ((auth.uid() = user_id));
 CREATE POLICY 'either side can delete a friendship' ON public.friendships FOR DELETE TO authenticated
   USING (((requester_id = auth.uid()) OR (addressee_id = auth.uid())));
 CREATE POLICY 'only the addressee can answer a friend request' ON public.friendships FOR UPDATE TO authenticated
