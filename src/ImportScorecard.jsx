@@ -943,6 +943,9 @@ export default function ImportScorecard({
       // instead, and a frame is corrected only when both readings agree
       // on how many pins were standing. Anything else stays as the AI
       // read it, for the review screen.
+      // Which image each game was read from, when the pixel reader paired
+      // them -- a written note is placed by the image it is on.
+      let imageOf=null;
       if(Array.isArray(data?.games)&&data.games.some(g=>Array.isArray(g?.frames)&&g.frames.length)){
         try{
           // One reading per image: a team's LaneTalk card is usually a
@@ -953,7 +956,7 @@ export default function ImportScorecard({
             readings.push(px?readPinDecks(px):null);
           }
           const out=applyPinDecksByImage(data.games,readings,{score:scoreExtracted});
-          if(out.applied)data={...data,games:out.games};
+          if(out.applied){data={...data,games:out.games};imageOf=out.imageOf||null;}
           recordError({
             kind:"import-quality",
             where:"ImportScorecard.pinDecks",
@@ -971,10 +974,13 @@ export default function ImportScorecard({
       // decided by rules (domain/writtenNotes.js), and only where the pin
       // count already agrees with the card.
       if(Array.isArray(data?.writtenNotes)&&data.writtenNotes.length&&Array.isArray(data?.games)){
-        const noted=applyWrittenNotes(data.games,data.writtenNotes);
+        const noted=applyWrittenNotes(data.games,data.writtenNotes,{imageOf});
         if(noted.used)data={...data,games:noted.games};
+        // Where each note went, or why it did not -- pins, image, game and
+        // bowler NUMBER only, never a name.
         recordError({kind:"import-quality",where:"ImportScorecard.writtenNotes",
-          message:`${data.writtenNotes.length} note(s) on the card, ${noted.found} with pin numbers, ${noted.used} used`});
+          message:`${data.writtenNotes.length} note(s) on the card, ${noted.found} with pin numbers, ${noted.used} used`
+            +(noted.outcomes?.length?` | ${noted.outcomes.join(" ; ")}`:"")});
       }
       const cols=normalizeExtraction(data);
       if(!cols.length||cols.every(c=>!c.games.length)){

@@ -1,3 +1,5 @@
+import { bowlerKeys } from "./bowlerKeys.js";
+
 // A bowler's own notes on a scorecard screenshot.
 //
 // LaneTalk draws one rack for the tenth, so the fill ball after a spare
@@ -52,24 +54,48 @@ function candidates(game) {
   return out;
 }
 
-// notes: [{ text, gameNumber, bowlerName }] as the AI transcribed them.
-// Returns { games, found, used }.
-export function applyWrittenNotes(games, notes) {
-  const result = { games, found: 0, used: 0 };
+// notes: [{ text, gameNumber, bowlerName, imageNumber }] as the AI
+// transcribed them. opts.imageOf: for each game, the image (0-based) its
+// frames were read from, when the pixel reader paired them.
+// Returns { games, found, used, outcomes } -- outcomes is one short line
+// per note for the diagnostics (pins, game and bowler NUMBER, never names).
+//
+// Which ball a note belongs to, most reliable signal first:
+//   1. the image it is written on (a team's card is a screenshot each);
+//   2. the bowler name the AI put on it;
+//   3. the game number -- or, with none, the bowler's last game, since a
+//      note under the card sits nearest the last row;
+// and then the pin COUNT: the note goes only where exactly one ball has
+// that many pins standing. On the real Rob/Tommy card the AI dropped the
+// bowler on one "4" and missed the other entirely, so a note that fits
+// two bowlers' games equally is left, never guessed -- unless there are
+// exactly as many identical notes as places they fit.
+export function applyWrittenNotes(games, notes, opts = {}) {
+  const result = { games, found: 0, used: 0, outcomes: [] };
   if (!Array.isArray(games) || !Array.isArray(notes) || !notes.length) return result;
   const norm = s => String(s || "").trim().toLowerCase();
   const copy = games.map(g => ({ ...g, frames: Array.isArray(g?.frames)
     ? g.frames.map(f => ({ ...f, balls: Array.isArray(f?.balls) ? f.balls.map(b => ({ ...b })) : f?.balls }))
     : g?.frames }));
-  const bowlers = new Set(copy.map(g => norm(g.bowlerName)));
+  const keys = bowlerKeys(copy);
+  const bowlerOrder = [...new Set(keys.map(k => k.key))];
+  const imageOf = Array.isArray(opts.imageOf) && opts.imageOf.length === copy.length ? opts.imageOf : null;
   // A note's bowler, loosely: the AI may write "Rob" for "Rob Thurs 9/24".
   const sameBowler = (a, b) => { const x = norm(a), y = norm(b); return !!x && !!y && (x === y || x.includes(y) || y.includes(x)); };
-  // The one ball in this game the note fits, or null.
-  const fitIn = (g, pins) => {
-    const fits = candidates(g).filter(c => !c.frame.fromNote
-      && c.balls.every(b => pinList(b.pinsStanding).length === pins.length));
-    return fits.length === 1 ? fits[0] : null;
+  const label = i => `${bowlerOrder.length > 1 ? `bowler ${bowlerOrder.indexOf(keys[i].key) + 1} ` : ""}G${copy[i].gameNumber}`;
+
+  // Every ball in these games the note could fill.
+  const fitsIn = (idx, pins) => {
+    const out = [];
+    for (const i of idx) {
+      for (const c of candidates(copy[i])) {
+        if (c.frame.fromNote) continue;
+        if (c.balls.every(b => pinList(b.pinsStanding).length === pins.length)) out.push({ ...c, gi: i });
+      }
+    }
+    return out;
   };
+  const where = hit => `${label(hit.gi)}F${hit.frame.frameNumber} ball ${hit.balls.map(b => b.ballIndex ?? 1).join("+")}`;
   const apply = (hit, pins) => {
     for (const b of hit.balls) b.pinsStanding = pins.map(String);
     hit.frame.fromNote = [...new Set([...(hit.frame.fromNote || []), ...hit.balls.map(b => b.ballIndex ?? 1)])];
@@ -77,49 +103,90 @@ export function applyWrittenNotes(games, notes) {
     result.used++;
   };
 
-  // Pass 1: notes that point at exactly one game.
-  const unresolved = [];
-  for (const note of notes) {
-    const pins = pinsFromNote(note?.text);
-    if (!pins) continue;
-    result.found++;
+  // The games a note can be about, and how they were narrowed.
+  const scopeOf = note => {
+    let idx = copy.map((_, i) => i);
+    const img = Number(note?.imageNumber);
+    let byImage = false;
+    if (imageOf && Number.isInteger(img) && img >= 1) {
+      const p = idx.filter(i => imageOf[i] === img - 1);
+      if (p.length) { idx = p; byImage = true; }
+    }
+    if (!byImage && bowlerOrder.length > 1 && note?.bowlerName) {
+      const p = idx.filter(i => sameBowler(keys[i].name, note.bowlerName));
+      if (p.length) idx = p;
+    }
     const gn = Number(note?.gameNumber);
-    const named = bowlers.size > 1 && note?.bowlerName;
-    const games_ = copy.filter(g => Number(g.gameNumber) === gn && (!named || sameBowler(g.bowlerName, note.bowlerName)));
-    if (games_.length === 1) {
-      // Exactly one ball it can belong to, or it is left for the review:
-      // two places a one-pin note could go is a guess, not a reading.
-      const hit = fitIn(games_[0], pins);
-      if (hit) apply(hit, pins);
-      continue;
+    if (Number.isInteger(gn) && gn >= 1) {
+      // A note written between two rows is "below" one and "above" the
+      // other; the row above is kept as a fallback when nothing in the
+      // stated game fits.
+      return { idx: idx.filter(i => Number(copy[i].gameNumber) === gn), gameKnown: true,
+        above: idx.filter(i => Number(copy[i].gameNumber) === gn - 1) };
     }
-    if (games_.length > 1) unresolved.push({ note, pins, gn, games: games_ });
-  }
+    return { idx, gameKnown: false };
+  };
+  // Each bowler's last game in the scope.
+  const lastGames = idx => {
+    const best = new Map();
+    for (const i of idx) {
+      const k = keys[i].key;
+      if (!best.has(k) || Number(copy[i].gameNumber) > Number(copy[best.get(k)].gameNumber)) best.set(k, i);
+    }
+    return [...best.values()];
+  };
 
-  // Pass 2: the same game number on several bowlers' screenshots, with
-  // no bowler named -- one screenshot per bowler, each with a "4" under
-  // Game 3. Only settled when it cannot be a guess:
-  //   - only one of those games has a ball the note fits: it goes there;
-  //   - or every one of them does, and there are exactly that many
-  //     identical notes: one each.
-  const byGame = new Map();
-  for (const u of unresolved) {
-    if (!byGame.has(u.gn)) byGame.set(u.gn, []);
-    byGame.get(u.gn).push(u);
+  // Pass 1: every note on its own.
+  const pending = [];
+  notes.forEach((note, n) => {
+    const pins = pinsFromNote(note?.text);
+    if (!pins) return;
+    result.found++;
+    const tag = `"${pins.join("-")}"${note?.imageNumber ? ` img${note.imageNumber}` : ""} g${note?.gameNumber ?? "?"}${note?.bowlerName ? " named" : ""}`;
+    const scope = scopeOf(note);
+    let { idx } = scope;
+    const { gameKnown } = scope;
+    let fits = idx.length ? fitsIn(idx, pins) : [];
+    if (!fits.length && gameKnown && scope.above.length) {
+      const up = fitsIn(scope.above, pins);
+      if (up.length === 1) { idx = scope.above; fits = up; }
+    }
+    if (!idx.length) { result.outcomes[n] = `${tag}: no such game`; return; }
+    if (fits.length > 1 && !gameKnown) {
+      const last = fitsIn(lastGames(idx), pins);
+      if (last.length === 1) fits = last;
+    }
+    if (fits.length === 1) { apply(fits[0], pins); result.outcomes[n] = `${tag} -> ${where(fits[0])}`; return; }
+    result.outcomes[n] = fits.length ? `${tag}: ${fits.length} places fit` : `${tag}: no ball with ${pins.length} pin(s) standing`;
+    if (fits.length) pending.push({ n, tag, pins, idx, gameKnown });
+  });
+
+  // Pass 2: notes that fit more than one place. Identical notes that fit
+  // exactly as many places as there are notes go one each (a "4" under
+  // game 3 on each of two screenshots); after that, anything left with a
+  // single place it can go takes it.
+  const groups = new Map();
+  for (const p of pending) {
+    const k = p.pins.join("-");
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(p);
   }
-  for (const list of byGame.values()) {
-    const games_ = list[0].games;
-    const sameText = list.every(u => u.pins.join() === list[0].pins.join());
-    const open = games_.map(g => ({ g, hit: fitIn(g, list[0].pins) })).filter(x => x.hit);
-    if (sameText && open.length === list.length) {
-      for (const x of open) apply(x.hit, list[0].pins);
+  for (const list of groups.values()) {
+    const sets = list.map(p => fitsIn(p.idx, p.pins));
+    const sig = s => s.map(where).sort().join("|");
+    if (list.length > 1 && sets.every(s => sig(s) === sig(sets[0])) && sets[0].length === list.length) {
+      sets[0].forEach((hit, j) => {
+        apply(hit, list[j].pins);
+        result.outcomes[list[j].n] = `${list[j].tag} -> ${where(hit)} (paired)`;
+      });
       continue;
     }
-    for (const u of list) {
-      const fitting = u.games.map(g => ({ g, hit: fitIn(g, u.pins) })).filter(x => x.hit);
-      if (fitting.length === 1) apply(fitting[0].hit, u.pins);
+    for (const p of list) {
+      const fits = fitsIn(p.idx, p.pins);
+      if (fits.length === 1) { apply(fits[0], p.pins); result.outcomes[p.n] = `${p.tag} -> ${where(fits[0])}`; }
     }
   }
+  result.outcomes = result.outcomes.filter(Boolean);
   result.games = copy;
   return result;
 }

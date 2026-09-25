@@ -124,7 +124,23 @@ describe("one screenshot per bowler", () => {
       expect(out.applied).toBe(true);
       expect(out.games[0].frames[0].balls[0].pinsStanding).toEqual(["4"]);
       expect(out.games[1].frames[0].balls[0].pinsStanding).toEqual(["2", "4", "5", "8"]);
+      // Which image each game came from, for placing written notes.
+      expect(out.imageOf).toEqual(readings[0] === a ? [0, 1] : [1, 0]);
     }
+  });
+  it("keeps a bowler's unnamed later games with their first", () => {
+    const a = readPinDecks(card([g1, g1])), b = readPinDecks(card([g2, g2]));
+    const game = (n, name, pos, leaves) => ({ gameNumber: n, bowlerName: name, lineupPosition: pos, frames: leaves.map((l, i) => i < 9
+      ? (l.length ? frame(i + 1, B(false, l.map(() => "9")), B(false, [])) : frame(i + 1, B(true, [])))
+      : frame(10, B(false, l.map(() => "9")), B(false, []))) });
+    const rl = [["4"], [], ["6", "10"], [], [], [], [], [], [], ["10"]];
+    const bl = [["2", "4", "5", "8"], [], ["3", "6", "10"], [], [], [], [], ["4", "6", "7", "10"], [], ["1", "2", "8"]];
+    const games = [game(1, "Ryan", 0, rl), game(2, null, 0, rl), game(1, "Rob", 1, bl), game(2, null, 1, bl)];
+    const out = applyPinDecksByImage(games, [a, b]);
+    expect(out.reason).toBe("");
+    expect(out.imageOf).toEqual([0, 0, 1, 1]);
+    expect(out.games[1].frames[0].balls[0].pinsStanding).toEqual(["4"]);
+    expect(out.games[3].frames[0].balls[0].pinsStanding).toEqual(["2", "4", "5", "8"]);
   });
 });
 

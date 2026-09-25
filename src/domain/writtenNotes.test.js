@@ -87,3 +87,56 @@ describe("two screenshots, one note each, no bowler named", () => {
     expect(applyWrittenNotes([rob, tom], [{ text: "4", gameNumber: 3 }]).used).toBe(0);
   });
 });
+
+describe("placing a note on a team card", () => {
+  const spare9 = pins => [B(1, false, ["6"]), B(2, false, []), B(3, false, pins)];
+  const g = (n, name, pos, tenth) => ({ gameNumber: n, bowlerName: name, lineupPosition: pos, frames: [{ frameNumber: 10, balls: tenth }] });
+  // Rob and Tommy, one screenshot each; the AI names only each first game.
+  const night = () => [
+    g(1, "Rob Thurs 9/24", 0, [B(1, false, ["9", "10"]), B(2, false, []), B(3, false, ["7", "8", "10"])]),
+    g(2, null, 0, [B(1, true, []), B(2, false, ["10"]), B(3, false, [])]),
+    g(3, null, 0, spare9(["10"])),
+    g(1, "Tommy Thurs 9/24", 1, [B(1, true, []), B(2, true, []), B(3, false, ["10"])]),
+    g(2, null, 1, [B(1, false, ["7", "9", "10"]), B(2, false, ["7", "10"])]),
+    g(3, null, 1, spare9(["10"])),
+  ];
+  const imageOf = [0, 0, 0, 1, 1, 1];
+  const fill = (out, i) => out.games[i].frames[0].balls[2].pinsStanding;
+
+  it("goes by the image the note is written on", () => {
+    const out = applyWrittenNotes(night(), [
+      { text: "4", gameNumber: 3, imageNumber: 2 }, { text: "4", gameNumber: 3, imageNumber: 1 },
+    ], { imageOf });
+    expect(out.used).toBe(2);
+    expect(fill(out, 2)).toEqual(["4"]);
+    expect(fill(out, 5)).toEqual(["4"]);
+  });
+  it("places a lone 4 by its image even when the AI missed the other one", () => {
+    const out = applyWrittenNotes(night(), [{ text: "4", gameNumber: 3, imageNumber: 2 }], { imageOf });
+    expect(fill(out, 2)).toEqual(["10"]);
+    expect(fill(out, 5)).toEqual(["4"]);
+  });
+  it("finds a named bowler's later games, which the AI left unnamed", () => {
+    const out = applyWrittenNotes(night(), [{ text: "4", gameNumber: 3, bowlerName: "Tommy Thurs 9/24" }]);
+    expect(fill(out, 5)).toEqual(["4"]);
+    expect(fill(out, 2)).toEqual(["10"]);
+  });
+  it("with no game number, takes the bowler's last game when that settles it", () => {
+    const out = applyWrittenNotes(night(), [{ text: "4", gameNumber: null, imageNumber: 1 }], { imageOf });
+    expect(fill(out, 2)).toEqual(["4"]);
+  });
+  it("a note between two rows falls back to the row above", () => {
+    // Rob's "1-3-6" sits under game 1, above game 2.
+    const out = applyWrittenNotes(night(), [{ text: "1-3-6", gameNumber: 2, imageNumber: 1 }], { imageOf });
+    expect(fill(out, 0)).toEqual(["1", "3", "6"]);
+  });
+  it("still does not guess one note between two bowlers", () => {
+    const out = applyWrittenNotes(night(), [{ text: "4", gameNumber: 3 }]);
+    expect(out.used).toBe(0);
+    expect(out.outcomes[0]).toMatch(/2 places fit/);
+  });
+  it("says where each note went, without names", () => {
+    const out = applyWrittenNotes(night(), [{ text: "4", gameNumber: 3, imageNumber: 2 }], { imageOf });
+    expect(out.outcomes).toEqual(['"4" img2 g3 -> bowler 2 G3F10 ball 3']);
+  });
+});

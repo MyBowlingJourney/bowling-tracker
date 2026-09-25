@@ -1,3 +1,4 @@
+import { bowlerKeys } from "./bowlerKeys.js";
 // Reading pin decks from the PIXELS of a scorecard image, not from AI.
 //
 // Why this exists. The vision model reads the marks and scores on a
@@ -166,6 +167,7 @@ function cellBackground(img, y0, y1, x0, x1) {
 // Reads every frame of every strip. Returns
 //   { strips: [ { frames: [ {leave:[..], missed:[..]} | null ] } ], lattice: n }
 // or null when the image does not look like this kind of card at all.
+
 export function readPinDecks(img) {
   if (!img || !img.width || !img.height || !img.data) return null;
   const bands = findBands(img);
@@ -228,9 +230,9 @@ export function applyPinDecks(games, reading, opts = {}) {
   const result = { games, corrected: 0, confirmed: 0, kept: 0, applied: false, reason: "" };
   if (!reading || !Array.isArray(games) || !games.length) { result.reason = "no reading"; return result; }
   const withFrames = games.filter(g => Array.isArray(g?.frames) && g.frames.length);
-  const names = new Set(withFrames.map(g => String(g?.bowlerName || "").trim().toLowerCase()).filter(Boolean));
-  const positions = new Set(withFrames.map(g => g?.lineupPosition ?? 0));
-  if (names.size > 1 || positions.size > 1) { result.reason = "more than one bowler"; return result; }
+  // Names carried forward: the model often leaves bowlerName null on a
+  // bowler's later games, which is not a second bowler.
+  if (new Set(bowlerKeys(withFrames).map(k => k.key)).size > 1) { result.reason = "more than one bowler"; return result; }
   const strips = reading.strips.filter(s => s.frames);
   if (strips.length !== withFrames.length || strips.length !== reading.strips.length) {
     result.reason = `${reading.strips.length} strips for ${withFrames.length} games`;
@@ -343,16 +345,23 @@ export function applyPinDecksByImage(games, readings, opts = {}) {
   }
   if (readings.some(r => !r)) { total.reason = "not a card with drawn racks"; return total; }
   const withFrames = games.filter(g => Array.isArray(g?.frames) && g.frames.length);
-  const key = g => `${String(g?.bowlerName || "").trim().toLowerCase()}|${g?.lineupPosition ?? 0}`;
+  const keys = bowlerKeys(withFrames);
   const groups = new Map();
-  for (const g of withFrames) {
-    if (!groups.has(key(g))) groups.set(key(g), []);
-    groups.get(key(g)).push(g);
+  withFrames.forEach((g, i) => {
+    const k = keys[i].key;
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(g);
+  });
+  if (readings.length === 1 && groups.size === 1) {
+    const one = applyPinDecks(games, readings[0], opts);
+    // Which image each game was read from -- written notes are placed by it.
+    if (one.applied) one.imageOf = one.games.map(g => (Array.isArray(g?.frames) && g.frames.length ? 0 : null));
+    return one;
   }
-  if (readings.length === 1 && groups.size === 1) return applyPinDecks(games, readings[0], opts);
 
   const used = new Set();
   const replaced = new Map();
+  const imageFor = new Map();
   const reasons = [];
   readings.forEach((reading, i) => {
     let best = null;
@@ -365,13 +374,15 @@ export function applyPinDecksByImage(games, readings, opts = {}) {
     }
     if (!best) { reasons.push(`image ${i + 1} matched no bowler`); return; }
     used.add(best.k);
-    best.list.forEach((g, j) => replaced.set(g, best.out.games[j]));
+    best.list.forEach((g, j) => { replaced.set(g, best.out.games[j]); imageFor.set(g, i); });
     total.corrected += best.out.corrected;
     total.confirmed += best.out.confirmed;
     total.kept += best.out.kept;
     total.byTotal = (total.byTotal || 0) + (best.out.byTotal || 0);
   });
   total.games = games.map(g => replaced.get(g) || g);
+  // Which image each game was read from (0-based), or null.
+  total.imageOf = games.map(g => (imageFor.has(g) ? imageFor.get(g) : null));
   total.applied = total.corrected + total.confirmed > 0;
   total.reason = reasons.join("; ");
   return total;
