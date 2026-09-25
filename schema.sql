@@ -33,7 +33,8 @@ CREATE TABLE IF NOT EXISTS public.arsenals (
   rg numeric,
   diff numeric,
   int_diff numeric,
-  retired_on date
+  retired_on date,
+  bowler_id uuid
 );
 CREATE TABLE IF NOT EXISTS public.bags (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -43,7 +44,8 @@ CREATE TABLE IF NOT EXISTS public.bags (
   bag_type text DEFAULT 'league'::text NOT NULL,
   ball_limit integer,
   includes_plastic boolean DEFAULT false NOT NULL,
-  created_at timestamp with time zone DEFAULT now() NOT NULL
+  created_at timestamp with time zone DEFAULT now() NOT NULL,
+  bowler_id uuid
 );
 CREATE TABLE IF NOT EXISTS public.ball_bags (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -51,7 +53,8 @@ CREATE TABLE IF NOT EXISTS public.ball_bags (
   bowler_name text NOT NULL,
   ball text NOT NULL,
   bag_id uuid NOT NULL,
-  created_at timestamp with time zone DEFAULT now() NOT NULL
+  created_at timestamp with time zone DEFAULT now() NOT NULL,
+  bowler_id uuid
 );
 CREATE TABLE IF NOT EXISTS public.ball_confirmations (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -66,7 +69,8 @@ CREATE TABLE IF NOT EXISTS public.ball_groups (
   bowler_name text NOT NULL,
   name text NOT NULL,
   sort_order integer DEFAULT 0 NOT NULL,
-  created_at timestamp with time zone DEFAULT now() NOT NULL
+  created_at timestamp with time zone DEFAULT now() NOT NULL,
+  bowler_id uuid
 );
 CREATE TABLE IF NOT EXISTS public.ball_submissions (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -92,14 +96,17 @@ CREATE TABLE IF NOT EXISTS public.bowler_goals (
   bowler_name text NOT NULL,
   goals jsonb DEFAULT '[]'::jsonb NOT NULL,
   created_at timestamp with time zone DEFAULT now() NOT NULL,
-  updated_at timestamp with time zone DEFAULT now() NOT NULL
+  updated_at timestamp with time zone DEFAULT now() NOT NULL,
+  bowler_id uuid
 );
 CREATE TABLE IF NOT EXISTS public.bowler_names (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
   created_at timestamp with time zone DEFAULT now() NOT NULL,
-  created_by uuid DEFAULT gen_random_uuid(),
+  created_by uuid DEFAULT auth.uid(),
   name text,
-  left_handed boolean DEFAULT false NOT NULL
+  left_handed boolean DEFAULT false NOT NULL,
+  aliases text[] DEFAULT '{}'::text[] NOT NULL,
+  is_self boolean DEFAULT false NOT NULL
 );
 CREATE TABLE IF NOT EXISTS public.bowler_profiles (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -121,7 +128,8 @@ CREATE TABLE IF NOT EXISTS public.bowler_profiles (
   all_time_high_series integer,
   drift_boards text,
   lateral_offset text,
-  backup_ball boolean DEFAULT false NOT NULL
+  backup_ball boolean DEFAULT false NOT NULL,
+  bowler_id uuid
 );
 CREATE TABLE IF NOT EXISTS public.bowling_centers (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -205,7 +213,8 @@ CREATE TABLE IF NOT EXISTS public.drills (
   notes text,
   created_at timestamp with time zone DEFAULT now() NOT NULL,
   custom_pins jsonb,
-  session_seq integer DEFAULT 1 NOT NULL
+  session_seq integer DEFAULT 1 NOT NULL,
+  bowler_id uuid
 );
 CREATE TABLE IF NOT EXISTS public.entitlements (
   user_id uuid NOT NULL,
@@ -308,7 +317,8 @@ CREATE TABLE IF NOT EXISTS public.manual_scores (
   updated_at timestamp with time zone DEFAULT now() NOT NULL,
   ball text,
   surface text,
-  session_seq integer DEFAULT 1 NOT NULL
+  session_seq integer DEFAULT 1 NOT NULL,
+  bowler_id uuid
 );
 CREATE TABLE IF NOT EXISTS public.matches (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -395,7 +405,8 @@ CREATE TABLE IF NOT EXISTS public.sessions (
   three_six_nine_cost numeric DEFAULT 0 NOT NULL,
   prebowled_on date,
   notes text,
-  session_seq integer DEFAULT 1 NOT NULL
+  session_seq integer DEFAULT 1 NOT NULL,
+  bowler_id uuid
 );
 CREATE TABLE IF NOT EXISTS public.shots (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -438,7 +449,8 @@ CREATE TABLE IF NOT EXISTS public.shots (
   breakpoint_board text,
   breakpoint_distance text,
   second_leave jsonb,
-  session_seq integer DEFAULT 1 NOT NULL
+  session_seq integer DEFAULT 1 NOT NULL,
+  bowler_id uuid
 );
 CREATE TABLE IF NOT EXISTS public.subscription_events (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -511,7 +523,8 @@ CREATE TABLE IF NOT EXISTS public.tournaments (
   play_style text,
   stepladder jsonb,
   match_play_next_round text,
-  baker_alternate boolean DEFAULT true NOT NULL
+  baker_alternate boolean DEFAULT true NOT NULL,
+  bowler_id uuid
 );
 CREATE TABLE IF NOT EXISTS public.user_leagues (
   user_id uuid NOT NULL,
@@ -531,15 +544,18 @@ ALTER TABLE public.arsenals ADD CONSTRAINT arsenal_pkey PRIMARY KEY (id);
 ALTER TABLE public.arsenals ADD CONSTRAINT arsenals_core_type_check CHECK (((core_type IS NULL) OR (core_type = ANY (ARRAY['symmetric'::text, 'asymmetric'::text]))));
 ALTER TABLE public.arsenals ADD CONSTRAINT arsenals_coverstock_check CHECK (((coverstock IS NULL) OR (coverstock = ANY (ARRAY['solid'::text, 'pearl'::text, 'hybrid'::text]))));
 ALTER TABLE public.arsenals ADD CONSTRAINT arsenals_layout_system_check CHECK (((layout_system IS NULL) OR (layout_system = ANY (ARRAY['dual_angle'::text, 'vls'::text, '2ls'::text]))));
+ALTER TABLE public.arsenals ADD CONSTRAINT arsenals_bowler_id_fkey FOREIGN KEY (bowler_id) REFERENCES bowler_names(id) ON DELETE SET NULL;
 ALTER TABLE public.arsenals ADD CONSTRAINT arsenals_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.arsenals ADD CONSTRAINT arsenals_group_id_fkey FOREIGN KEY (group_id) REFERENCES ball_groups(id) ON DELETE SET NULL;
 ALTER TABLE public.bags ADD CONSTRAINT bags_pkey PRIMARY KEY (id);
 ALTER TABLE public.bags ADD CONSTRAINT bags_created_by_bowler_name_name_key UNIQUE (created_by, bowler_name, name);
 ALTER TABLE public.bags ADD CONSTRAINT bags_bag_type_check CHECK ((bag_type = ANY (ARRAY['league'::text, 'tournament'::text])));
+ALTER TABLE public.bags ADD CONSTRAINT bags_bowler_id_fkey FOREIGN KEY (bowler_id) REFERENCES bowler_names(id) ON DELETE SET NULL;
 ALTER TABLE public.bags ADD CONSTRAINT bags_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.ball_bags ADD CONSTRAINT ball_bags_pkey PRIMARY KEY (id);
 ALTER TABLE public.ball_bags ADD CONSTRAINT ball_bags_created_by_bowler_name_ball_bag_id_key UNIQUE (created_by, bowler_name, ball, bag_id);
 ALTER TABLE public.ball_bags ADD CONSTRAINT ball_bags_bag_id_fkey FOREIGN KEY (bag_id) REFERENCES bags(id) ON DELETE CASCADE;
+ALTER TABLE public.ball_bags ADD CONSTRAINT ball_bags_bowler_id_fkey FOREIGN KEY (bowler_id) REFERENCES bowler_names(id) ON DELETE SET NULL;
 ALTER TABLE public.ball_bags ADD CONSTRAINT ball_bags_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.ball_confirmations ADD CONSTRAINT ball_confirmations_pkey PRIMARY KEY (id);
 ALTER TABLE public.ball_confirmations ADD CONSTRAINT ball_confirmations_submission_id_confirmed_by_key UNIQUE (submission_id, confirmed_by);
@@ -548,12 +564,14 @@ ALTER TABLE public.ball_confirmations ADD CONSTRAINT ball_confirmations_confirme
 ALTER TABLE public.ball_confirmations ADD CONSTRAINT ball_confirmations_submission_id_fkey FOREIGN KEY (submission_id) REFERENCES ball_submissions(id) ON DELETE CASCADE;
 ALTER TABLE public.ball_groups ADD CONSTRAINT ball_groups_pkey PRIMARY KEY (id);
 ALTER TABLE public.ball_groups ADD CONSTRAINT ball_groups_created_by_bowler_name_name_key UNIQUE (created_by, bowler_name, name);
+ALTER TABLE public.ball_groups ADD CONSTRAINT ball_groups_bowler_id_fkey FOREIGN KEY (bowler_id) REFERENCES bowler_names(id) ON DELETE SET NULL;
 ALTER TABLE public.ball_groups ADD CONSTRAINT ball_groups_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.ball_submissions ADD CONSTRAINT ball_submissions_pkey PRIMARY KEY (id);
 ALTER TABLE public.ball_submissions ADD CONSTRAINT ball_submissions_submitted_by_ball_key_key UNIQUE (submitted_by, ball_key);
 ALTER TABLE public.ball_submissions ADD CONSTRAINT ball_submissions_submitted_by_fkey FOREIGN KEY (submitted_by) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.bowler_goals ADD CONSTRAINT bowler_goals_pkey PRIMARY KEY (id);
 ALTER TABLE public.bowler_goals ADD CONSTRAINT bowler_goals_created_by_bowler_name_key UNIQUE (created_by, bowler_name);
+ALTER TABLE public.bowler_goals ADD CONSTRAINT bowler_goals_bowler_id_fkey FOREIGN KEY (bowler_id) REFERENCES bowler_names(id) ON DELETE SET NULL;
 ALTER TABLE public.bowler_goals ADD CONSTRAINT bowler_goals_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.bowler_names ADD CONSTRAINT bowler_names_pkey PRIMARY KEY (id);
 ALTER TABLE public.bowler_names ADD CONSTRAINT bowler_names_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE CASCADE;
@@ -562,6 +580,7 @@ ALTER TABLE public.bowler_profiles ADD CONSTRAINT bowler_profiles_created_by_bow
 ALTER TABLE public.bowler_profiles ADD CONSTRAINT bowler_profiles_owner_name_key UNIQUE (created_by, bowler_name);
 ALTER TABLE public.bowler_profiles ADD CONSTRAINT bowler_profiles_all_time_high_game_check CHECK (((all_time_high_game IS NULL) OR ((all_time_high_game >= 0) AND (all_time_high_game <= 300))));
 ALTER TABLE public.bowler_profiles ADD CONSTRAINT bowler_profiles_all_time_high_series_check CHECK (((all_time_high_series IS NULL) OR ((all_time_high_series >= 0) AND (all_time_high_series <= 900))));
+ALTER TABLE public.bowler_profiles ADD CONSTRAINT bowler_profiles_bowler_id_fkey FOREIGN KEY (bowler_id) REFERENCES bowler_names(id) ON DELETE SET NULL;
 ALTER TABLE public.bowler_profiles ADD CONSTRAINT bowler_profiles_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.bowling_centers ADD CONSTRAINT bowling_centers_pkey PRIMARY KEY (id);
 ALTER TABLE public.bowling_centers ADD CONSTRAINT bowling_centers_here_id_key UNIQUE (here_id);
@@ -588,6 +607,7 @@ ALTER TABLE public.coaching_tasks ADD CONSTRAINT coaching_tasks_status_check CHE
 ALTER TABLE public.coaching_tasks ADD CONSTRAINT coaching_tasks_assigned_by_fkey FOREIGN KEY (assigned_by) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.coaching_tasks ADD CONSTRAINT coaching_tasks_relationship_id_fkey FOREIGN KEY (relationship_id) REFERENCES coaching_relationships(id) ON DELETE CASCADE;
 ALTER TABLE public.drills ADD CONSTRAINT drills_pkey PRIMARY KEY (id);
+ALTER TABLE public.drills ADD CONSTRAINT drills_bowler_id_fkey FOREIGN KEY (bowler_id) REFERENCES bowler_names(id) ON DELETE SET NULL;
 ALTER TABLE public.drills ADD CONSTRAINT drills_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.entitlements ADD CONSTRAINT entitlements_pkey PRIMARY KEY (user_id);
 ALTER TABLE public.entitlements ADD CONSTRAINT entitlements_billing_period_check CHECK ((billing_period = ANY (ARRAY['month'::text, 'year'::text])));
@@ -623,6 +643,7 @@ ALTER TABLE public.leagues ADD CONSTRAINT leagues_center_id_fkey FOREIGN KEY (ce
 ALTER TABLE public.leagues ADD CONSTRAINT leagues_created_by_fkey FOREIGN KEY (created_by) REFERENCES profiles(id) ON DELETE SET NULL;
 ALTER TABLE public.manual_scores ADD CONSTRAINT manual_scores_pkey PRIMARY KEY (id);
 ALTER TABLE public.manual_scores ADD CONSTRAINT manual_scores_slot_key UNIQUE (user_id, bowler_name, league_id, date, game, session_seq);
+ALTER TABLE public.manual_scores ADD CONSTRAINT manual_scores_bowler_id_fkey FOREIGN KEY (bowler_id) REFERENCES bowler_names(id) ON DELETE SET NULL;
 ALTER TABLE public.manual_scores ADD CONSTRAINT manual_scores_league_id_fkey FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE;
 ALTER TABLE public.manual_scores ADD CONSTRAINT manual_scores_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.matches ADD CONSTRAINT matches_pkey PRIMARY KEY (id);
@@ -641,10 +662,12 @@ ALTER TABLE public.profiles ADD CONSTRAINT profiles_pkey PRIMARY KEY (id);
 ALTER TABLE public.profiles ADD CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.sessions ADD CONSTRAINT sessions_pkey PRIMARY KEY (id);
 ALTER TABLE public.sessions ADD CONSTRAINT sessions_user_id_bowler_name_league_id_date_seq_key UNIQUE (user_id, bowler_name, league_id, date, session_seq);
+ALTER TABLE public.sessions ADD CONSTRAINT sessions_bowler_id_fkey FOREIGN KEY (bowler_id) REFERENCES bowler_names(id) ON DELETE SET NULL;
 ALTER TABLE public.sessions ADD CONSTRAINT sessions_league_id_fkey FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE SET NULL;
 ALTER TABLE public.sessions ADD CONSTRAINT sessions_team_id_fkey FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE SET NULL;
 ALTER TABLE public.sessions ADD CONSTRAINT sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE;
 ALTER TABLE public.shots ADD CONSTRAINT shots_pkey PRIMARY KEY (id);
+ALTER TABLE public.shots ADD CONSTRAINT shots_bowler_id_fkey FOREIGN KEY (bowler_id) REFERENCES bowler_names(id) ON DELETE SET NULL;
 ALTER TABLE public.shots ADD CONSTRAINT shots_league_id_fkey FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE SET NULL;
 ALTER TABLE public.shots ADD CONSTRAINT shots_team_id_fkey FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE SET NULL;
 ALTER TABLE public.shots ADD CONSTRAINT shots_user_id_fkey FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE;
@@ -669,6 +692,7 @@ ALTER TABLE public.teams ADD CONSTRAINT teams_league_id_fkey FOREIGN KEY (league
 ALTER TABLE public.tournaments ADD CONSTRAINT tournaments_pkey PRIMARY KEY (id);
 ALTER TABLE public.tournaments ADD CONSTRAINT tournaments_match_play_next_round_check CHECK (((match_play_next_round IS NULL) OR (match_play_next_round = ANY (ARRAY['match'::text, 'stepladder'::text, 'na'::text]))));
 ALTER TABLE public.tournaments ADD CONSTRAINT tournaments_placement_check CHECK (((placement IS NULL) OR (placement = ANY (ARRAY['won'::text, 'runnerUp'::text, 'topFive'::text, 'cashed'::text, 'madeCut'::text, 'none'::text]))));
+ALTER TABLE public.tournaments ADD CONSTRAINT tournaments_bowler_id_fkey FOREIGN KEY (bowler_id) REFERENCES bowler_names(id) ON DELETE SET NULL;
 ALTER TABLE public.tournaments ADD CONSTRAINT tournaments_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.user_leagues ADD CONSTRAINT user_leagues_pkey PRIMARY KEY (user_id, league_id);
 ALTER TABLE public.user_leagues ADD CONSTRAINT user_leagues_league_id_fkey FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE;
@@ -678,18 +702,27 @@ ALTER TABLE public.user_preferences ADD CONSTRAINT user_preferences_user_id_key 
 ALTER TABLE public.user_preferences ADD CONSTRAINT user_preferences_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 CREATE INDEX ai_token_usage_report_idx ON public.ai_token_usage USING btree (called_at DESC, endpoint, model);
 CREATE INDEX api_usage_lookup_idx ON public.api_usage USING btree (user_id, endpoint, called_at DESC);
+CREATE INDEX arsenals_bowler_id_idx ON public.arsenals USING btree (bowler_id);
+CREATE INDEX bags_bowler_id_idx ON public.bags USING btree (bowler_id);
 CREATE INDEX bags_lookup_idx ON public.bags USING btree (created_by, bowler_name);
+CREATE INDEX ball_bags_bowler_id_idx ON public.ball_bags USING btree (bowler_id);
 CREATE INDEX ball_bags_lookup_idx ON public.ball_bags USING btree (created_by, bowler_name);
 CREATE INDEX ball_confirmations_submission_idx ON public.ball_confirmations USING btree (submission_id);
+CREATE INDEX ball_groups_bowler_id_idx ON public.ball_groups USING btree (bowler_id);
 CREATE INDEX ball_groups_lookup_idx ON public.ball_groups USING btree (created_by, bowler_name);
 CREATE INDEX ball_submissions_key_idx ON public.ball_submissions USING btree (ball_key);
 CREATE UNIQUE INDEX ball_submissions_official_key_idx ON public.ball_submissions USING btree (ball_key) WHERE (official = true);
+CREATE INDEX bowler_goals_bowler_id_idx ON public.bowler_goals USING btree (bowler_id);
+CREATE UNIQUE INDEX bowler_names_one_self ON public.bowler_names USING btree (created_by) WHERE is_self;
+CREATE UNIQUE INDEX bowler_names_owner_name_uniq ON public.bowler_names USING btree (created_by, lower(name));
+CREATE INDEX bowler_profiles_bowler_id_idx ON public.bowler_profiles USING btree (bowler_id);
 CREATE INDEX bowling_centers_name_idx ON public.bowling_centers USING btree (lower(name));
 CREATE INDEX closed_seasons_user_league_idx ON public.closed_seasons USING btree (user_id, league, end_date DESC);
 CREATE UNIQUE INDEX coaching_invites_code_open_idx ON public.coaching_invites USING btree (code) WHERE ((code IS NOT NULL) AND (accepted_at IS NULL));
 CREATE INDEX coaching_invites_created_by_idx ON public.coaching_invites USING btree (created_by);
 CREATE INDEX coaching_notes_relationship_idx ON public.coaching_notes USING btree (relationship_id);
 CREATE INDEX coaching_tasks_relationship_idx ON public.coaching_tasks USING btree (relationship_id);
+CREATE INDEX drills_bowler_id_idx ON public.drills USING btree (bowler_id);
 CREATE INDEX drills_lookup_idx ON public.drills USING btree (user_id, bowler_name, target);
 CREATE UNIQUE INDEX entitlements_play_purchase_token_uniq ON public.entitlements USING btree (play_purchase_token) WHERE (play_purchase_token IS NOT NULL);
 CREATE UNIQUE INDEX entitlements_stripe_customer_uniq ON public.entitlements USING btree (stripe_customer_id) WHERE (stripe_customer_id IS NOT NULL);
@@ -702,6 +735,7 @@ CREATE INDEX imported_scores_team_idx ON public.imported_scores USING btree (tea
 CREATE INDEX lane_patterns_league_id_idx ON public.lane_patterns USING btree (league_id);
 CREATE INDEX lane_patterns_team_id_idx ON public.lane_patterns USING btree (team_id);
 CREATE UNIQUE INDEX leagues_name_per_user_idx ON public.leagues USING btree (created_by, name);
+CREATE INDEX manual_scores_bowler_id_idx ON public.manual_scores USING btree (bowler_id);
 CREATE INDEX manual_scores_lookup_idx ON public.manual_scores USING btree (user_id, bowler_name, date, session_seq);
 CREATE INDEX matches_league_id_idx ON public.matches USING btree (league_id);
 CREATE INDEX matches_team_id_idx ON public.matches USING btree (team_id);
@@ -709,11 +743,13 @@ CREATE INDEX oil_patterns_name_idx ON public.oil_patterns USING btree (lower(nam
 CREATE INDEX pending_invites_email_idx ON public.pending_invites USING btree (invited_email);
 CREATE UNIQUE INDEX pending_invites_signup_code_open_idx ON public.pending_invites USING btree (signup_code) WHERE ((signup_code IS NOT NULL) AND (accepted_at IS NULL));
 CREATE INDEX pending_invites_team_id_idx ON public.pending_invites USING btree (team_id);
+CREATE INDEX sessions_bowler_id_idx ON public.sessions USING btree (bowler_id);
 CREATE INDEX sessions_bowler_name_idx ON public.sessions USING btree (bowler_name);
 CREATE UNIQUE INDEX sessions_no_league_uniq ON public.sessions USING btree (user_id, bowler_name, date, session_seq) WHERE (league_id IS NULL);
 CREATE INDEX sessions_team_id_idx ON public.sessions USING btree (team_id);
 CREATE INDEX sessions_user_id_idx ON public.sessions USING btree (user_id);
 CREATE INDEX sessions_user_updated_idx ON public.sessions USING btree (user_id, updated_at);
+CREATE INDEX shots_bowler_id_idx ON public.shots USING btree (bowler_id);
 CREATE INDEX shots_bowler_name_idx ON public.shots USING btree (bowler_name);
 CREATE UNIQUE INDEX shots_identity_uniq ON public.shots USING btree (user_id, bowler_name, COALESCE(league_id, '00000000-0000-0000-0000-000000000000'::uuid), COALESCE(league_name, ''::text), date, game, frame, COALESCE(ball_num, 1), session_seq);
 CREATE INDEX shots_team_id_idx ON public.shots USING btree (team_id);
@@ -727,6 +763,7 @@ CREATE INDEX team_join_requests_user_idx ON public.team_join_requests USING btre
 CREATE INDEX team_members_user_id_idx ON public.team_members USING btree (user_id);
 CREATE UNIQUE INDEX teams_join_code_key ON public.teams USING btree (join_code);
 CREATE INDEX teams_league_id_idx ON public.teams USING btree (league_id);
+CREATE INDEX tournaments_bowler_id_idx ON public.tournaments USING btree (bowler_id);
 CREATE INDEX tournaments_user_bowler_idx ON public.tournaments USING btree (user_id, bowler_name);
 CREATE INDEX user_leagues_league_id_idx ON public.user_leagues USING btree (league_id);
 ALTER TABLE public.ai_token_usage ENABLE ROW LEVEL SECURITY;
@@ -915,7 +952,7 @@ CREATE POLICY 'the other side answers a coaching request' ON public.coaching_rel
   USING (((auth.uid() <> requested_by) AND ((auth.uid() = coach_id) OR (auth.uid() = bowler_id))))
   WITH CHECK (((auth.uid() <> requested_by) AND ((auth.uid() = coach_id) OR (auth.uid() = bowler_id))));
 CREATE POLICY 'users can request a coaching relationship' ON public.coaching_relationships FOR INSERT TO authenticated
-  WITH CHECK (((requested_by = auth.uid()) AND ((coach_id = auth.uid()) OR (bowler_id = auth.uid()))));
+  WITH CHECK (((requested_by = auth.uid()) AND ((coach_id = auth.uid()) OR (bowler_id = auth.uid())) AND (coach_id <> bowler_id) AND (status = 'pending'::text)));
 CREATE POLICY 'both sides can update tasks' ON public.coaching_tasks FOR UPDATE TO authenticated
   USING ((EXISTS ( SELECT 1
    FROM coaching_relationships r
@@ -946,7 +983,7 @@ CREATE POLICY 'only the addressee can answer a friend request' ON public.friends
   USING ((addressee_id = auth.uid()))
   WITH CHECK ((addressee_id = auth.uid()));
 CREATE POLICY 'users can send friend requests' ON public.friendships FOR INSERT TO authenticated
-  WITH CHECK ((requester_id = auth.uid()));
+  WITH CHECK (((requester_id = auth.uid()) AND (addressee_id <> auth.uid()) AND (status = 'pending'::text)));
 CREATE POLICY 'users can view friendships they''re part of' ON public.friendships FOR SELECT TO authenticated
   USING (((requester_id = auth.uid()) OR (addressee_id = auth.uid())));
 CREATE POLICY 'users can hide leagues for themselves' ON public.hidden_leagues FOR INSERT TO authenticated
@@ -964,7 +1001,12 @@ CREATE POLICY 'bowler or team can update imported scores' ON public.imported_sco
 CREATE POLICY 'team can view imported scores' ON public.imported_scores FOR SELECT TO authenticated
   USING (((bowler_user_id = auth.uid()) OR (uploaded_by = auth.uid()) OR ((team_id IS NOT NULL) AND is_team_member(team_id))));
 CREATE POLICY 'teammates can upload scores' ON public.imported_scores FOR INSERT TO authenticated
-  WITH CHECK (((uploaded_by = auth.uid()) AND ((team_id IS NULL) OR is_team_member(team_id))));
+  WITH CHECK (((uploaded_by = auth.uid()) AND ((bowler_user_id IS NULL) OR (bowler_user_id = auth.uid()) OR ((team_id IS NOT NULL) AND (EXISTS ( SELECT 1
+   FROM team_members tm
+  WHERE ((tm.team_id = imported_scores.team_id) AND (tm.user_id = imported_scores.bowler_user_id))))) OR ((team_id IS NULL) AND (EXISTS ( SELECT 1
+   FROM (team_members me
+     JOIN team_members them ON ((them.team_id = me.team_id)))
+  WHERE ((me.user_id = auth.uid()) AND (them.user_id = imported_scores.bowler_user_id)))))) AND ((team_id IS NULL) OR is_team_member(team_id))));
 CREATE POLICY 'uploader can delete their upload' ON public.imported_scores FOR DELETE TO authenticated
   USING ((uploaded_by = auth.uid()));
 CREATE POLICY 'team members can delete their team''s lane patterns' ON public.lane_patterns FOR DELETE TO authenticated
@@ -1136,14 +1178,30 @@ CREATE POLICY 'users can update their own preferences' ON public.user_preference
   WITH CHECK ((user_id = auth.uid()));
 CREATE POLICY 'users can view their own preferences' ON public.user_preferences FOR SELECT TO authenticated
   USING ((user_id = auth.uid()));
+CREATE TRIGGER arsenals_link_bowler BEFORE INSERT OR UPDATE ON public.arsenals FOR EACH ROW EXECUTE FUNCTION link_row_to_bowler('created_by');
+CREATE TRIGGER bags_link_bowler BEFORE INSERT OR UPDATE ON public.bags FOR EACH ROW EXECUTE FUNCTION link_row_to_bowler('created_by');
+CREATE TRIGGER ball_bags_link_bowler BEFORE INSERT OR UPDATE ON public.ball_bags FOR EACH ROW EXECUTE FUNCTION link_row_to_bowler('created_by');
+CREATE TRIGGER ball_groups_link_bowler BEFORE INSERT OR UPDATE ON public.ball_groups FOR EACH ROW EXECUTE FUNCTION link_row_to_bowler('created_by');
+CREATE TRIGGER bowler_goals_link_bowler BEFORE INSERT OR UPDATE ON public.bowler_goals FOR EACH ROW EXECUTE FUNCTION link_row_to_bowler('created_by');
+CREATE TRIGGER bowler_profiles_link_bowler BEFORE INSERT OR UPDATE ON public.bowler_profiles FOR EACH ROW EXECUTE FUNCTION link_row_to_bowler('created_by');
+CREATE TRIGGER drills_link_bowler BEFORE INSERT OR UPDATE ON public.drills FOR EACH ROW EXECUTE FUNCTION link_row_to_bowler('user_id');
 CREATE TRIGGER entitlements_set_updated_at BEFORE UPDATE ON public.entitlements FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER imported_scores_guard BEFORE UPDATE ON public.imported_scores FOR EACH ROW EXECUTE FUNCTION imported_scores_guard();
 CREATE TRIGGER leagues_add_creator AFTER INSERT ON public.leagues FOR EACH ROW EXECUTE FUNCTION user_leagues_from_row();
+CREATE TRIGGER leagues_owner_guard BEFORE UPDATE ON public.leagues FOR EACH ROW EXECUTE FUNCTION leagues_owner_guard();
 CREATE TRIGGER leagues_rename_guard BEFORE UPDATE OF name ON public.leagues FOR EACH ROW EXECUTE FUNCTION leagues_rename_guard();
 CREATE TRIGGER manual_scores_add_league AFTER INSERT OR UPDATE OF league_id ON public.manual_scores FOR EACH ROW EXECUTE FUNCTION user_leagues_from_row();
+CREATE TRIGGER manual_scores_link_bowler BEFORE INSERT OR UPDATE ON public.manual_scores FOR EACH ROW EXECUTE FUNCTION link_row_to_bowler('user_id');
+CREATE TRIGGER pending_invites_guard BEFORE UPDATE ON public.pending_invites FOR EACH ROW EXECUTE FUNCTION pending_invites_guard();
 CREATE TRIGGER sessions_add_league AFTER INSERT OR UPDATE OF league_id ON public.sessions FOR EACH ROW EXECUTE FUNCTION user_leagues_from_row();
+CREATE TRIGGER sessions_link_bowler BEFORE INSERT OR UPDATE ON public.sessions FOR EACH ROW EXECUTE FUNCTION link_row_to_bowler('user_id');
 CREATE TRIGGER sessions_record_tombstone AFTER DELETE ON public.sessions FOR EACH ROW EXECUTE FUNCTION record_tombstone();
 CREATE TRIGGER sessions_set_updated_at BEFORE UPDATE ON public.sessions FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER shots_link_bowler BEFORE INSERT OR UPDATE ON public.shots FOR EACH ROW EXECUTE FUNCTION link_row_to_bowler('user_id');
 CREATE TRIGGER shots_record_tombstone AFTER DELETE ON public.shots FOR EACH ROW EXECUTE FUNCTION record_tombstone();
 CREATE TRIGGER shots_set_updated_at BEFORE UPDATE ON public.shots FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER team_members_add_league AFTER INSERT ON public.team_members FOR EACH ROW EXECUTE FUNCTION user_leagues_from_row();
+CREATE TRIGGER team_members_guard BEFORE UPDATE ON public.team_members FOR EACH ROW EXECUTE FUNCTION team_members_guard();
 CREATE TRIGGER team_members_one_per_league AFTER INSERT ON public.team_members FOR EACH ROW EXECUTE FUNCTION team_members_one_per_league();
+CREATE TRIGGER teams_member_guard BEFORE UPDATE ON public.teams FOR EACH ROW EXECUTE FUNCTION teams_member_guard();
+CREATE TRIGGER tournaments_link_bowler BEFORE INSERT OR UPDATE ON public.tournaments FOR EACH ROW EXECUTE FUNCTION link_row_to_bowler('user_id');
