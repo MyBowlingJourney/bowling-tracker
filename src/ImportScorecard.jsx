@@ -188,7 +188,9 @@ function GameReview({game,onUpdateShot,onUpdateScore,expandedFrames,onToggleExpa
       )}
       {game.warnings.length>0&&(
         <div style={{backgroundColor:C.spare+"22",border:`1px solid ${C.spare}44`,borderRadius:"8px",padding:"10px 12px",marginBottom:"10px",fontSize:"12px",color:C.spare}}>
-          ⚠️ {game.warnings.length} fill ball{game.warnings.length>1?"s":""} below couldn't be reliably read from the image -- please double-check the pin count.
+          {game.warnings.length===1
+            ?"⚠️ Check the flagged ball below — it couldn't be reliably read from the image."
+            :"⚠️ Check the flagged balls below — they couldn't be reliably read from the image."}
         </div>
       )}
       {/* The card as a scoresheet, not a list of rows.
@@ -501,6 +503,16 @@ export default function ImportScorecard({
                scoreOnly:true,totalScore:g.totalScore??null};
       }
       const{shots:gameShots,warnings}=convertExtractedGameToShots(g,{...context,game:g.gameNumber});
+      // Frames the pin reader could not see (a hand-corrected frame shows
+      // a hand, not a rack): flagged, so they open in the review.
+      for(const f of g.frames){
+        if(!f?.needsReview)continue;
+        const frame=String(f.frameNumber);
+        for(const s of gameShots.filter(x=>String(x.frame)===frame)){
+          if(!warnings.some(w=>w.frame===frame&&(w.ballNum??1)===(s.ballNum??1)))
+            warnings.push({frame,ballNum:s.ballNum,message:"This frame couldn't be read from the image."});
+        }
+      }
       return{gameNumber:g.gameNumber,ballUsed:g.ballUsed,shots:gameShots,warnings,
              scoreOnly:false,totalScore:g.totalScore??null};
     });

@@ -247,7 +247,14 @@ export function applyPinDecks(games, reading) {
       const n = Number(f?.frameNumber);
       const read = n >= 1 && n <= 10 ? strip.frames[n - 1] : null;
       const balls = Array.isArray(f?.balls) ? [...f.balls].sort((a, b) => (a.ballIndex ?? 0) - (b.ballIndex ?? 0)) : [];
-      if (!read || !balls.length) { result.kept++; continue; }
+      if (!read || !balls.length) {
+        result.kept++;
+        // A cell the reader could not make out -- LaneTalk draws a hand
+        // instead of a rack on a frame that was corrected by hand. The
+        // AI's reading of it is flagged for the review screen.
+        if (!read && balls.length) f.needsReview = true;
+        continue;
+      }
       // [ball, pins it should have standing]
       const plan = [];
       // Frames 1-9 draw their only rack; the tenth draws the first rack

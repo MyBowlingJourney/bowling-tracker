@@ -2759,7 +2759,10 @@ export const FR_CA = {
 "no reading": "",
 "more than one bowler": "",
 "not a card with drawn racks": "",
-"Press Import in the header. Say whether it's practice or league, pick the team and date, then add photos of the scoring monitor. The app reads the games and frames, and you map each column to a bowler before saving. Tournaments aren't imported: log them live on Bowl, where squads, blocks, match play and stepladder are all tracked.": "Appuyez sur Importer dans l'en-tête. Indiquez s'il s'agit d'entraînement ou de ligue, choisissez l'équipe et la date, puis ajoutez des photos de l'écran de pointage. L'application lit les parties et les carreaux, et vous associez chaque colonne à la bonne personne avant d'enregistrer. Les tournois ne s'importent pas : enregistrez-les en direct dans Jouer, où les escouades, les blocs, le jeu par match et les échelons sont tous suivis."
+"Press Import in the header. Say whether it's practice or league, pick the team and date, then add photos of the scoring monitor. The app reads the games and frames, and you map each column to a bowler before saving. Tournaments aren't imported: log them live on Bowl, where squads, blocks, match play and stepladder are all tracked.": "Appuyez sur Importer dans l'en-tête. Indiquez s'il s'agit d'entraînement ou de ligue, choisissez l'équipe et la date, puis ajoutez des photos de l'écran de pointage. L'application lit les parties et les carreaux, et vous associez chaque colonne à la bonne personne avant d'enregistrer. Les tournois ne s'importent pas : enregistrez-les en direct dans Jouer, où les escouades, les blocs, le jeu par match et les échelons sont tous suivis.",
+"⚠️ Check the flagged ball below — it couldn't be reliably read from the image.": "⚠️ Vérifiez le lancer signalé ci-dessous — il n'a pas pu être lu de façon fiable à partir de l'image.",
+"⚠️ Check the flagged balls below — they couldn't be reliably read from the image.": "⚠️ Vérifiez les lancers signalés ci-dessous — ils n'ont pas pu être lus de façon fiable à partir de l'image.",
+"This frame couldn't be read from the image.": "Ce carreau n'a pas pu être lu à partir de l'image."
 },
 "patterns": [
 [

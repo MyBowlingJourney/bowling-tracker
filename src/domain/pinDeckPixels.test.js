@@ -95,3 +95,18 @@ describe("a highlighted frame", () => {
     expect(r.strips[0].frames[9].leave).toEqual([6]);
   });
 });
+
+describe("a frame the reader could not see", () => {
+  it("is flagged for review and left as the AI read it", () => {
+    const reading = readPinDecks(card([g1]));
+    reading.strips[0].frames[0] = null; // e.g. LaneTalk's hand symbol
+    const g = { gameNumber: 1, bowlerName: "Ryan", frames: [
+      frame(1, B(false, ["10"]), B(false, [])),
+      ...[2, 3, 4, 5, 6, 7, 8, 9].map(n => frame(n, B(true, []))),
+      frame(10, B(true, []), B(true, []), B(false, ["10"])),
+    ] };
+    const out = applyPinDecks([g], reading);
+    expect(out.games[0].frames[0].needsReview).toBe(true);
+    expect(out.games[0].frames[0].balls[0].pinsStanding).toEqual(["10"]);
+  });
+});
