@@ -1052,6 +1052,7 @@ const SCREENS = {
 
   "ai-insights": () => (
     <Phone title="Improve">
+      <div style={{ marginBottom: "8px" }}><Chips items={["AI", "Goals", "Coach"]} sel={0} /></div>
       <Spot>
         <div style={card}>
           <div style={label}>What changed</div>
@@ -1087,9 +1088,14 @@ const SCREENS = {
     </Phone>
   ),
 
-  // On Improve, where her card sits at the top.
+  // On Improve's AI tab, below Insights.
   "ai-brooklyn": () => (
     <Phone title="Improve">
+      <div style={{ marginBottom: "8px" }}><Chips items={["AI", "Goals", "Coach"]} sel={0} /></div>
+      <div style={card}>
+        <div style={label}>What changed</div>
+        <Row left="Spare conversion" right="+6%" />
+      </div>
       <Spot>
         <div style={card}>
           <div style={{ display: "flex", alignItems: "baseline", marginBottom: "6px" }}>
@@ -1107,10 +1113,6 @@ const SCREENS = {
           </div>
         </div>
       </Spot>
-      <div style={card}>
-        <div style={label}>Goals</div>
-        <Row left="10 pin conversion" right="42%" dim />
-      </div>
       <Nav active={3} />
     </Phone>
   ),
@@ -1118,11 +1120,10 @@ const SCREENS = {
   // ── Stats ─────────────────────────────────────────────────────────────
   // ── Coaching ──────────────────────────────────────────────────────────
   //
-  // On the Improve tab, because that is where the Coach button lives --
-  // it is not a nav entry of its own, and the tab stays lit while the
-  // Coach screen is open.
+  // On the Improve tab's Coach tab -- it is not a nav entry of its own.
   "coach-connect": () => (
-    <Phone title="Coach">
+    <Phone title="Improve">
+      <div style={{ marginBottom: "8px" }}><Chips items={["AI", "Goals", "Coach"]} sel={2} /></div>
       <div style={card}>
         <div style={label}>Connect with someone</div>
         <div style={{ display: "flex", gap: "3px", marginBottom: "8px" }}>
@@ -1165,7 +1166,8 @@ const SCREENS = {
   ),
 
   "coach-switch": () => (
-    <Phone title="Coach">
+    <Phone title="Improve">
+      <div style={{ marginBottom: "8px" }}><Chips items={["AI", "Goals", "Coach"]} sel={2} /></div>
       <Spot>
         <div style={card}>
           <div style={label}>View</div>
@@ -1188,7 +1190,8 @@ const SCREENS = {
   ),
 
   "coach-bowler": () => (
-    <Phone title="Coach">
+    <Phone title="Improve">
+      <div style={{ marginBottom: "8px" }}><Chips items={["AI", "Goals", "Coach"]} sel={2} /></div>
       <div style={card}>
         <div style={{ display: "flex", gap: "3px" }}>
           <span style={chip(true, C.accent)}>Dana Reyes</span>
@@ -1214,7 +1217,8 @@ const SCREENS = {
   ),
 
   "coach-task": () => (
-    <Phone title="Coach">
+    <Phone title="Improve">
+      <div style={{ marginBottom: "8px" }}><Chips items={["AI", "Goals", "Coach"]} sel={2} /></div>
       <Spot>
         <div style={card}>
           <div style={label}>New task</div>
@@ -1237,7 +1241,8 @@ const SCREENS = {
   ),
 
   "coach-respond": () => (
-    <Phone title="Coach">
+    <Phone title="Improve">
+      <div style={{ marginBottom: "8px" }}><Chips items={["AI", "Goals", "Coach"]} sel={2} /></div>
       <div style={card}>
         <div style={label}>View</div>
         <div style={{ display: "flex", gap: "3px" }}>

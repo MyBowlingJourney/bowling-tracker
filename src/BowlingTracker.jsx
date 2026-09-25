@@ -496,6 +496,9 @@ export default function BowlingTracker(){
   // "locker"; the old "teams" view and "setup-team" are entry points that
   // land on the right tab (see the effect below).
   const[setupTab,setSetupTab]=useState("balls");
+  // Improve's three tabs: AI (Brooklyn and Insights), Goals (goals and
+  // drills) and Coach (the coaching screen, inline).
+  const[improveTab,setImproveTab]=useState("ai");
   useEffect(()=>{
     if(view==="teams"){ setSetupTab("league"); setView("locker"); }
     else if(view==="setup-team"){ setSetupTab("team"); setView("locker"); }
@@ -8484,6 +8487,47 @@ export default function BowlingTracker(){
     );
   }
 
+  /* RAW, deliberately: these are the signed-in coach's OWN sessions,
+     and coaching is a paid feature -- anyone who can reach this screen is
+     a subscriber, so there is nothing of theirs to hide from them. Built
+     once and shown in two places: its own screen (reached from Settings
+     and links) and the Coach tab on Improve. */
+  const coachingPanel=(
+    <CoachingView
+      entitlement={entitlement}
+      myUserId={user?.id||""}
+      relationships={coachingRels}
+      profilesById={coachProfilesById}
+      tasksByRelationship={tasksByRelationship}
+      notesByRelationship={notesByRelationship}
+      coachViewOn={coachViewOn}
+      setNextCoachingSession={setNextCoachingSession} onSetBowlerGoal={setBowlerGoal}
+      sessions={sessions} leagues={leagues}
+      isCoach={!!myProfile.isCoach}
+      onToggleCoachView={v=>updatePreferences(prev=>setCoachView(prev,v))}
+      onCreateCode={createCoachingCode}
+      onClearCode={clearCoachingCode}
+      onClaimCode={claimCoachingCode}
+      inviteCode={coachInviteCode}
+      codeError={coachCodeError}
+      onRespond={respondCoaching}
+      onEnd={endCoaching}
+      onAddTask={addCoachingTask}
+      onRemoveTask={removeCoachingTask}
+      onCompleteTask={completeCoachingTask}
+      onAttemptTask={attemptCoachingTask}
+      onReopenTask={reopenCoachingTask}
+      onAddNote={addCoachingNote}
+      leftHandedByUserId={coachHandednessById}
+      unreadResponses={unreadResponses}
+      onMarkResponsesSeen={markCoachResponsesSeen}
+      onSelectBowler={loadCoachBowlerSessions}
+      bowlerSnapshots={Object.fromEntries(Object.entries(coachBowlerSessions).map(([id,sess])=>[id,bowlerSnapshot(sess)]))}
+      bowlerBreakdowns={Object.fromEntries(Object.entries(coachBowlerShots).map(([id,sh])=>[id,shotBreakdown(sh,{
+        isSplit,isSinglePinLeave,isCornerPinLeave,leftHanded:!!coachHandednessById[id],
+      })]))}/>
+  );
+
   return(
     <div style={S.app}>
       {/* Header.
@@ -8821,68 +8865,65 @@ export default function BowlingTracker(){
           onSwitchAnnual={()=>setView("subscribe")} />
 
         {view==="insights"&&(<>
-          {/* Improve is the whole improvement loop, so the two things
-              that used to be their own tabs live here as entry points:
-              coaching (the person helping you) and social (the people
-              you bowl with). Still their own views underneath, so the
-              screens themselves are untouched. */}
-          <div style={{display:"flex",gap:"8px",marginBottom:"12px"}}>
-            {showCoachingTab&&(
-              <button style={{...S.btn(),flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:"6px"}} onClick={()=>setView("coaching")}>
-                🧑‍🏫 Coach{coachViewOn&&unreadResponseCount>0?` · ${unreadResponseCount}`:""}
+          {/* Three tabs rather than one long page: AI (Brooklyn and
+              Insights), Goals (goals and drills), Coach (the coaching
+              screen). The Coach tab is always there, so a bowler with no
+              coach yet can find where connecting starts. */}
+          <TabBar label="Improve" value={improveTab} onChange={setImproveTab}
+            tabs={[
+              {id:"ai",label:"AI"},
+              {id:"goals",label:"Goals"},
+              {id:"coach",label:coachViewOn&&unreadResponseCount>0?`Coach · ${unreadResponseCount}`:"Coach"},
+            ]}/>
+
+          {improveTab==="ai"&&(<>
+            {/* Insights first, then Brooklyn: read what the app found,
+                then ask about what it didn't cover. */}
+            <InsightsView stats={insightStats} onAnalyze={analyzePerformance} bowlerName={statsBowler||activeBowler}
+              newlyAvailable={newInsights} onDismissNew={()=>setNewInsights([])}
+              hasCoach={insightCoaches.length>0}
+              coachName={insightCoaches.map(c=>c.displayName).join(" and ")}/>
+            {/* Ask Brooklyn. Hidden until something is logged -- with no
+                data every answer is "you haven't logged anything yet" --
+                and never in open bowling, which logs scores and nothing
+                else. */}
+            {onboarded&&hasAnythingLogged&&!casualMode&&(
+              <div style={{marginTop:"12px"}}>
+                <AskBrooklyn leftHanded={!!preferences.leftHanded} asked={genieAsked} today={localDateString()} onAsk={askGenie}/>
+              </div>
+            )}
+          </>)}
+
+          {improveTab==="goals"&&(<>
+            {/* Shown even with no goals set: the only way to create a
+                first goal is the "+ Add a goal" button inside the panel.
+                GoalsPanel handles the empty case itself. */}
+            {activeBowler&&(
+              <GoalsPanel
+                goals={logGoals}
+                measurements={logGoalMeasurements}
+                leftHanded={leftHandedForBowler(activeBowler)}
+                onChange={next=>saveGoals(activeBowler,next)}/>
+            )}
+            {/* Practice drills, reachable without first switching the app
+                into practice mode and hunting for the toggle. */}
+            {activeBowler&&(
+              <button style={{...S.btn(),width:"100%",marginBottom:"12px",display:"flex",alignItems:"center",justifyContent:"center",gap:"6px"}}
+                onClick={()=>{
+                  // Drills only make sense in practice, so switch the
+                  // environment with the tap rather than making them find
+                  // the setting first.
+                  updatePreferences(prev=>applyEnvironment(prev,"practice"));
+                  setPracticeMode("drill");
+                  if(!activeDrill)startDrill();
+                  setView("log");
+                }}>
+                🎯 Start a practice drill
               </button>
             )}
-          </div>
+          </>)}
 
-          {/* Ask Brooklyn. Her own card here rather than a lamp in the
-              header: Improve is where the "what should I work on" tools
-              live, and she answers exactly that kind of question. Hidden
-              until something is logged -- with no data every answer is
-              "you haven't logged anything yet" -- and never in open
-              bowling, which logs scores and nothing else. */}
-          {onboarded&&hasAnythingLogged&&!casualMode&&(
-            <AskBrooklyn leftHanded={!!preferences.leftHanded} asked={genieAsked} today={localDateString()} onAsk={askGenie}/>
-          )}
-
-          {/* Goals live here now, not on the Log tab. A goal is something
-              you set and review between sessions, not while standing on
-              the approach mid-frame -- and Improve is where the whole
-              loop lives: see what's costing you, set a target, drill it,
-              check the trend. */}
-          {/* Shown even with no goals set. Gating on logGoals.length>0
-              meant the panel only appeared once a goal existed -- and the
-              only way to create one is the "+ Add a goal" button inside
-              the panel, so a bowler with no goals had no route to a first
-              one. GoalsPanel handles the empty case itself. */}
-          {activeBowler&&(
-            <GoalsPanel
-              goals={logGoals}
-              measurements={logGoalMeasurements}
-              leftHanded={leftHandedForBowler(activeBowler)}
-              onChange={next=>saveGoals(activeBowler,next)}/>
-          )}
-
-          {/* Practice drills, reachable without first switching the app
-              into practice mode and hunting for the toggle. */}
-          {activeBowler&&(
-            <button style={{...S.btn(),width:"100%",marginBottom:"12px",display:"flex",alignItems:"center",justifyContent:"center",gap:"6px"}}
-              onClick={()=>{
-                // Drills only make sense in practice, so switch the
-                // environment with the tap rather than making them find
-                // the setting first.
-                updatePreferences(prev=>applyEnvironment(prev,"practice"));
-                setPracticeMode("drill");
-                if(!activeDrill)startDrill();
-                setView("log");
-              }}>
-              🎯 Start a practice drill
-            </button>
-          )}
-
-          <InsightsView stats={insightStats} onAnalyze={analyzePerformance} bowlerName={statsBowler||activeBowler}
-            newlyAvailable={newInsights} onDismissNew={()=>setNewInsights([])}
-            hasCoach={insightCoaches.length>0}
-            coachName={insightCoaches.map(c=>c.displayName).join(" and ")}/>
+          {improveTab==="coach"&&coachingPanel}
         </>)}
 
         {/* ══════════════════════════════════════════════════════════════════ */}
@@ -9460,45 +9501,7 @@ export default function BowlingTracker(){
         {/* ══════════════════════════════════════════════════════════════════ */}
         {/* STATS VIEW                                                        */}
         {/* ══════════════════════════════════════════════════════════════════ */}
-        {view==="coaching"&&(
-          /* RAW, deliberately: these are the signed-in coach's OWN
-             sessions, and coaching is a paid feature -- anyone who can
-             reach this screen is a subscriber, so there is nothing of
-             theirs to hide from them. */
-          <CoachingView
-            entitlement={entitlement}
-            myUserId={user?.id||""}
-            relationships={coachingRels}
-            profilesById={coachProfilesById}
-            tasksByRelationship={tasksByRelationship}
-            notesByRelationship={notesByRelationship}
-            coachViewOn={coachViewOn}
-            setNextCoachingSession={setNextCoachingSession} onSetBowlerGoal={setBowlerGoal}
-            sessions={sessions} leagues={leagues}
-            isCoach={!!myProfile.isCoach}
-            onToggleCoachView={v=>updatePreferences(prev=>setCoachView(prev,v))}
-            onCreateCode={createCoachingCode}
-            onClearCode={clearCoachingCode}
-            onClaimCode={claimCoachingCode}
-            inviteCode={coachInviteCode}
-            codeError={coachCodeError}
-            onRespond={respondCoaching}
-            onEnd={endCoaching}
-            onAddTask={addCoachingTask}
-            onRemoveTask={removeCoachingTask}
-            onCompleteTask={completeCoachingTask}
-            onAttemptTask={attemptCoachingTask}
-            onReopenTask={reopenCoachingTask}
-            onAddNote={addCoachingNote}
-            leftHandedByUserId={coachHandednessById}
-            unreadResponses={unreadResponses}
-            onMarkResponsesSeen={markCoachResponsesSeen}
-            onSelectBowler={loadCoachBowlerSessions}
-            bowlerSnapshots={Object.fromEntries(Object.entries(coachBowlerSessions).map(([id,sess])=>[id,bowlerSnapshot(sess)]))}
-            bowlerBreakdowns={Object.fromEntries(Object.entries(coachBowlerShots).map(([id,sh])=>[id,shotBreakdown(sh,{
-              isSplit,isSinglePinLeave,isCornerPinLeave,leftHanded:!!coachHandednessById[id],
-            })]))}/>
-        )}
+        {view==="coaching"&&coachingPanel}
 
         {view==="data"&&(
           <div style={{...S.card,paddingTop:"12px",paddingBottom:"12px"}}>

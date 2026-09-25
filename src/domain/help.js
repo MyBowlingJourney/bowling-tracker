@@ -101,14 +101,14 @@ export const HELP = [
     view: "insights",
     title: "Set a goal",
     keywords: ["goal", "target", "improve", "aim"],
-    body: "On the Improve tab, press Add a goal and pick what to work on — average, strike rate, spare conversion and so on. Progress updates as you bowl.",
+    body: "On the Improve tab, open Goals, press Add a goal and pick what to work on — average, strike rate, spare conversion and so on. Progress updates as you bowl.",
   },
   {
     id: "drills",
     view: "insights",
     title: "Practice drills",
     keywords: ["drill", "practice", "spare shooting", "target"],
-    body: "Start a drill from the Improve tab. Pick a target — a specific spare, or a pin combination — and the app tracks makes and misses for that session.",
+    body: "Start a drill from the Goals tab on Improve. Pick a target — a specific spare, or a pin combination — and the app tracks makes and misses for that session.",
   },
   {
     id: "coaching",
