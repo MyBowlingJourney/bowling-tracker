@@ -610,6 +610,73 @@ AS $function$
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.merge_into_league(p_from uuid, p_to uuid)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  me uuid := auth.uid();
+  f record;
+  t record;
+begin
+  if me is null then
+    raise exception 'not signed in' using errcode = '42501';
+  end if;
+  select * into f from public.leagues where id = p_from for update;
+  select * into t from public.leagues where id = p_to for update;
+  -- Always fold the bowler's OWN copy into the other one. When a bowler
+  -- is in both, the app may only know the shared one by the name on
+  -- screen and pass them the other way round.
+  if f.id is not null and t.id is not null
+     and f.created_by is distinct from me and t.created_by = me then
+    declare tmp record;
+    begin
+      tmp := f; f := t; t := tmp;
+      p_from := f.id; p_to := t.id;
+    end;
+  end if;
+  if f.id is null or t.id is null or p_from = p_to then
+    raise exception 'no such league' using errcode = 'P0002';
+  end if;
+  if f.created_by is distinct from me then
+    raise exception 'only the bowler who made this league can combine it' using errcode = '42501';
+  end if;
+  if lower(btrim(f.name)) <> lower(btrim(t.name)) or position('·' in t.name) > 0 then
+    raise exception 'leagues must have the same name' using errcode = '22023';
+  end if;
+
+  -- Everyone in the copy is in the shared league from now on.
+  insert into public.user_leagues (user_id, league_id)
+  select user_id, p_to from public.user_leagues where league_id = p_from
+  on conflict do nothing;
+
+  update public.sessions        set league_id = p_to where league_id = p_from;
+  update public.shots           set league_id = p_to where league_id = p_from;
+  update public.manual_scores   set league_id = p_to where league_id = p_from;
+  update public.matches         set league_id = p_to where league_id = p_from;
+  update public.imported_scores set league_id = p_to where league_id = p_from;
+  update public.lane_patterns   set league_id = p_to where league_id = p_from;
+  update public.teams           set league_id = p_to where league_id = p_from;
+  update public.entitlements    set kept_league_id = p_to where kept_league_id = p_from;
+  delete from public.hidden_leagues where league_id = p_from;
+
+  -- Fill in what the shared league does not know yet; never overwrite it.
+  update public.leagues
+     set center_id    = coalesce(center_id, f.center_id),
+         start_date   = coalesce(start_date, f.start_date),
+         end_date     = coalesce(end_date, f.end_date),
+         format       = coalesce(format, f.format),
+         pattern_name = coalesce(pattern_name, f.pattern_name)
+   where id = p_to;
+
+  delete from public.leagues where id = p_from;
+  return p_to;
+end;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.my_team_requests()
  RETURNS TABLE(id uuid, team_id uuid, team_name text, league_id uuid, league_name text, user_id uuid, bowler_name text, kind text, created_at timestamp with time zone, mine_to_answer boolean)
  LANGUAGE sql
