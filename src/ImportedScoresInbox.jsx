@@ -119,11 +119,15 @@ function PendingCard({ record, onApprove, onReject, myScoresByGame }) {
 // accepted. Imported scores are the exception: this screen owns them, so
 // they're actioned here.
 export function InboxList({ items, onOpen }) {
-  if (!items?.length) return null;
+  // Items handled on this screen itself (imported scores) are drawn by
+  // ImportedScoresInbox, not here -- counting them made an empty "Needs
+  // You" card whenever they were the only thing waiting.
+  const links = (items || []).filter(i => i && i.view !== "inbox");
+  if (!links.length) return null;
   return (
     <div style={S.card}>
       <div style={S.label}>Needs You</div>
-      {items.filter(i => i.view !== "inbox").map(item => (
+      {links.map(item => (
         <button key={item.id}
           style={{
             display: "block", width: "100%", textAlign: "left", cursor: "pointer",

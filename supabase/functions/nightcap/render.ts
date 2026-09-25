@@ -211,8 +211,14 @@ export const RENDERERS: Record<string, Renderer> = {
   },
 
   strikes(f) {
-    const strikes = count(f.strikes), firstBalls = count(f.firstBalls), p = pct(f.pct);
-    if (strikes === null || !firstBalls || p === null) return null;
+    const strikes = count(f.strikes), p = pct(f.pct);
+    // Chances: every fresh rack, the tenth's extras included -- the count
+    // the app's Strike % uses. firstBalls is read for an older app build.
+    const chances = count(f.chances);
+    if (strikes === null || p === null) return null;
+    if (chances) return `${strikes} strikes in ${chances} chances (${p}%).`;
+    const firstBalls = count(f.firstBalls);
+    if (!firstBalls) return null;
     return `${strikes} strikes on ${firstBalls} first balls (${p}%).`;
   },
 
@@ -353,10 +359,12 @@ export const RENDERERS: Record<string, Renderer> = {
   // forbidden.
 
   seasonStrikes(f, opts) {
-    const sp = pct(f.seasonPct), sn = count(f.seasonFirstBalls), nights = count(f.seasonNights);
-    const tp = pct(f.tonightPct), tn = count(f.tonightFirstBalls);
+    const byChance = f.seasonChances != null;
+    const sp = pct(f.seasonPct), sn = count(byChance ? f.seasonChances : f.seasonFirstBalls), nights = count(f.seasonNights);
+    const tp = pct(f.tonightPct), tn = count(byChance ? f.tonightChances : f.tonightFirstBalls);
     if (sp === null || !sn || !nights || tp === null || !tn) return null;
-    return `Season so far in this ${scopeWord(opts)}: ${sp}% strikes on ${sn} first balls across ${nights} ${blockWord(opts, nights)}. ${nowWord(opts)} was ${tp}% on ${tn}.`;
+    const unit = byChance ? "strike chances" : "first balls";
+    return `Season so far in this ${scopeWord(opts)}: ${sp}% strikes on ${sn} ${unit} across ${nights} ${blockWord(opts, nights)}. ${nowWord(opts)} was ${tp}% on ${tn}.`;
   },
 
   // ── The rest of the event ─────────────────────────────────────────────

@@ -173,7 +173,12 @@ export function rateSet(shotList, leftHanded = false) {
   return {
     nights: [...new Set(list.map(s => clean(s.date)).filter(Boolean))].length,
     firstBalls: firsts.length,
-    strikes: firsts.filter(s => s.result === "Strike").length,
+    // Strike rate is strikes per CHANCE -- every fresh rack, the tenth's
+    // extra racks included -- the same way the night card and the Stats
+    // tab count it. (First balls of frames alone gave a second, lower
+    // number for the same night.)
+    strikes: list.filter(s => s.result === "Strike").length,
+    strikeChances: list.length,
     spareAttempts: spareAttempts.length,
     sparesMade: spareAttempts.filter(s => clean(s.spareMade) === "Yes").length,
     singles: singles.length,
@@ -256,8 +261,11 @@ export function nightcapFacts(shots, {
   }
 
   // ── Strikes and what the first ball left ──────────────────────────────
-  const strikes = firsts.filter(s => s.result === "Strike").length;
-  add("strikes", { strikes, firstBalls: firsts.length, pct: pct(strikes, firsts.length) });
+  // Per chance (every fresh rack, the tenth's extras included), matching
+  // the night card and the Stats tab.
+  const strikes = mine.filter(s => s.result === "Strike").length;
+  const chances = mine.length;
+  add("strikes", { strikes, chances, pct: pct(strikes, chances) });
 
   // ── Spares ────────────────────────────────────────────────────────────
   // Splits excluded from the conversion rate, matching computeSessionStats
@@ -497,9 +505,9 @@ export function nightcapFacts(shots, {
   if (out.hasSeason) {
     if (meetsThreshold("overallStrikeRate", prior.firstBalls)) {
       add("seasonStrikes", {
-        seasonPct: pct(prior.strikes, prior.firstBalls), seasonFirstBalls: prior.firstBalls,
+        seasonPct: pct(prior.strikes, prior.strikeChances), seasonChances: prior.strikeChances,
         seasonNights: prior.nights,
-        tonightPct: pct(strikes, firsts.length), tonightFirstBalls: firsts.length,
+        tonightPct: pct(strikes, chances), tonightChances: chances,
       });
     }
     if (spareAttempts.length && meetsThreshold("spareConversion", prior.spareAttempts)) {

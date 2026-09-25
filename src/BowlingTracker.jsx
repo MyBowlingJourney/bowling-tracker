@@ -3707,7 +3707,9 @@ export default function BowlingTracker(){
 
     const frames=record.correctedShots?.length?record.correctedShots:record.importedShots;
     if(!Array.isArray(frames)||!frames.length)return;
-    if(record.bowler!==activeBowler)return;
+    // Frames go into history only for this account's own bowler -- under
+    // the account's name or the one selected in Who's Bowling.
+    if(record.bowler!==activeBowler&&record.bowler!==displayName)return;
 
     // Don't duplicate: if this bowler already has shots for this
     // league/date/game, the import has already been applied (or they
@@ -9109,7 +9111,10 @@ export default function BowlingTracker(){
 
               records={importedScores}
 
-              bowler={activeBowler}
+              // The ACCOUNT's name, as the header count uses. Scoped to the
+              // active bowler, a night sent to "Ryan Everett" while "Ryan"
+              // was selected counted in the badge and showed nothing here.
+              bowler={displayName||activeBowler}
 
               // This bowler's own scores, so the card can say where the
               // photo disagrees with what they typed. Manual entry still
@@ -9118,7 +9123,7 @@ export default function BowlingTracker(){
               myScores={(() => {
                 const out = {};
                 for (const x of sessions) {
-                  if (!x || x.bowler !== activeBowler || !Array.isArray(x.scores)) continue;
+                  if (!x || x.bowler !== (displayName||activeBowler) || !Array.isArray(x.scores)) continue;
                   const key = `${x.league ?? ""}|${x.date ?? ""}`;
                   out[key] = out[key] || {};
                   x.scores.forEach((v, i) => { if (v != null) out[key][String(i + 1)] = v; });

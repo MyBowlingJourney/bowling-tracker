@@ -124,7 +124,7 @@ describe('nightcapFacts', () => {
   it('states the strike count with its sample', () => {
     const shots = [...filler(8), leave(['10']), leave(['10'])];
     expect(factOf(nightcapFacts(shots, NIGHT), 'strikes'))
-      .toMatchObject({ strikes: 8, firstBalls: 10, pct: 80 });
+      .toMatchObject({ strikes: 8, chances: 10, pct: 80 });
   });
 
   it('reports the scores and the gap to the league average', () => {
@@ -269,9 +269,9 @@ describe('the season a night sits in', () => {
     // be left to subtract them itself.
     const f = factOf(r, 'seasonStrikes');
     expect(typeof f.seasonPct).toBe('number');
-    expect(typeof f.seasonFirstBalls).toBe('number');
+    expect(typeof f.seasonChances).toBe('number');
     expect(typeof f.tonightPct).toBe('number');
-    expect(typeof f.tonightFirstBalls).toBe('number');
+    expect(typeof f.tonightChances).toBe('number');
   });
 
   it('counts nights, not sessions it was told about', () => {
@@ -360,5 +360,20 @@ describe('factsFingerprint', () => {
   it('handles nothing', () => {
     expect(typeof factsFingerprint([])).toBe('string');
     expect(typeof factsFingerprint(null)).toBe('string');
+  });
+});
+
+describe('strike rate matches the night card', () => {
+  it('counts the tenth frame\'s extra racks as chances, like Strike % on the card', () => {
+    // 9 frames, then a tenth of X X 9: 12 racks, 11 strikes.
+    const shots = [
+      ...Array.from({ length: 9 }, (_, i) => ball({ frame: String(i + 1) })),
+      ball({ frame: '10', ballNum: 1 }), ball({ frame: '10', ballNum: 2 }),
+      leave(['10'], { frame: '10', ballNum: 3 }),
+      ...filler(20).map((b, i) => ({ ...b, game: '2', id: `g2-${i}` })),
+    ];
+    const f = factOf(nightcapFacts(shots, NIGHT), 'strikes');
+    expect(f.chances).toBe(32);
+    expect(f.strikes).toBe(31);
   });
 });

@@ -107,7 +107,12 @@ describe('rendering a well-formed fact', () => {
       .toBe('That is exactly their league average of 196.');
   });
 
-  it('writes strikes with their sample', () => {
+  it('writes strikes per chance', () => {
+    expect(one({ id: 'strikes', strikes: 18, chances: 29, pct: 62 }))
+      .toBe('18 strikes in 29 chances (62%).');
+  });
+
+  it('writes strikes with their sample (older app build)', () => {
     expect(one({ id: 'strikes', strikes: 17, firstBalls: 30, pct: 57 }))
       .toBe('17 strikes on 30 first balls (57%).');
   });
