@@ -15,20 +15,20 @@ import { isContainerLeague } from "./domain/leagueMembership.js";
 // picker only decides what the app shows in the meantime, which is why
 // the copy below says "paused" and never says "removed".
 //
-// ── Why the write is so narrow ──────────────────────────────────────
+// ── Chosen once ─────────────────────────────────────────────────────
 //
-// This component writes exactly one column, kept_league_id, and that is
-// enforced by the database rather than by this file behaving well: the
-// `authenticated` role holds a COLUMN grant on kept_league_id alone, so
-// plan and status are refused by Postgres at the privilege layer before
-// RLS is even consulted. The anon key ships in every copy of the app --
-// anyone can open the console and try. Let them; the answer is no.
+// The first pick is free and final; changing it is part of Pro. Letting
+// a free bowler re-pick at will made the limit a formality -- keep
+// Tuesday, log Tuesday, switch to Thursday, log Thursday.
 //
-// A bowler with no entitlement row has never subscribed and so has never
-// lapsed. There is no INSERT grant and none is wanted: the row is created
-// by the billing webhooks under service_role. If the update touches no
-// rows, that is what happened, and saying so plainly beats a spinner that
-// never resolves.
+// The rule lives in the database, not here: the write goes through the
+// set_kept_league() function, and the bowler has no direct UPDATE on
+// entitlements at all. The anon key ships in every copy of the app, so a
+// rule this file enforced would be one console call from gone.
+//
+// The function also creates the entitlements row when there isn't one --
+// a bowler who never subscribed has none, and this used to tell them
+// "there is no subscription on this account" and save nothing.
 export default function KeptLeaguePicker({
   leagues = [],
   keptLeagueName = "",
@@ -72,8 +72,29 @@ export default function KeptLeaguePicker({
   // time a bowler joins a second league and this branch flips.
   if (real.length <= 1) return null;
 
+  // Already chosen: say which, and that changing it is Pro. No select --
+  // offering a choice the database will refuse is a trap.
+  if (keptLeagueName && real.includes(keptLeagueName)) {
+    const others = real.filter(n => n !== keptLeagueName);
+    return (
+      <div style={{ ...S.card, border: `1px solid ${C.accent}66`, backgroundColor: C.accent + "0D" }}>
+        <div style={{ ...S.label, color: C.accent }}>Your active league</div>
+        <div style={{ fontSize: "15px", fontWeight: 600, color: C.text, marginBottom: "8px" }}>
+          {keptLeagueName}
+        </div>
+        <div style={{ fontSize: "12px", color: C.textMuted, lineHeight: 1.5, marginBottom: "12px" }}>
+          The free plan follows this league.{others.length ? ` Paused: ${others.join(", ")}.` : ""} Switching
+          leagues, or bowling more than one, is part of Pro — and everything you have
+          logged comes back when you subscribe.
+        </div>
+        {typeof onUpgrade === "function" && (
+          <button style={S.btn("primary")} onClick={onUpgrade}>Get Pro</button>
+        )}
+      </div>
+    );
+  }
+
   const paused = real.filter(n => n !== choice);
-  const unchanged = choice === keptLeagueName;
 
   async function save() {
     if (!choice || !userId) return;
@@ -90,22 +111,13 @@ export default function KeptLeaguePicker({
     setStatus("saving");
     setMessage("");
     try {
-      const { data, error } = await supabase
-        .from("entitlements")
-        .update({ kept_league_id: id })
-        .eq("user_id", userId)
-        .select("kept_league_id");
+      const { error } = await supabase.rpc("set_kept_league", { p_league_id: id });
       if (error) {
         setStatus("error");
-        setMessage("Could not save that just now. Your leagues are untouched — try again in a minute.");
+        setMessage(error.hint === "kept_league_locked"
+          ? "Your active league is already chosen. Switching leagues is part of Pro."
+          : "Could not save that just now. Your leagues are untouched — try again in a minute.");
         console.error("kept league save failed:", error.message);
-        return;
-      }
-      // No error and no rows means the update matched nothing, which for
-      // this table means there is no entitlement row to write to.
-      if (!Array.isArray(data) || data.length === 0) {
-        setStatus("error");
-        setMessage("There is no subscription on this account yet, so there is nothing to pause.");
         return;
       }
       setStatus("saved");
@@ -123,9 +135,10 @@ export default function KeptLeaguePicker({
       <div style={{ ...S.label, color: C.accent }}>Choose your active league</div>
 
       <div style={{ fontSize: "12px", color: C.textMuted, lineHeight: 1.5, marginBottom: "12px" }}>
-        A free account follows one league at a time. Pick the one you want to keep
-        bowling with — the rest are paused, not deleted, and everything you have
-        logged comes back when you subscribe.
+        A free account follows one league. Pick the one you want to keep bowling
+        with — you choose once, and switching later is part of Pro. The rest are
+        paused, not deleted, and everything you have logged comes back when you
+        subscribe.
       </div>
 
       <div style={{ ...S.row, marginBottom: "12px" }}>
@@ -152,11 +165,11 @@ export default function KeptLeaguePicker({
           the filled button; keeping one league is the fallback. */}
       <div style={{ display: "flex", gap: "8px" }}>
         <button
-          style={{ ...S.btn(), flex: 1, opacity: status === "saving" || unchanged ? 0.6 : 1 }}
+          style={{ ...S.btn(), flex: 1, opacity: status === "saving" ? 0.6 : 1 }}
           onClick={save}
-          disabled={status === "saving" || unchanged}
+          disabled={status === "saving"}
         >
-          {status === "saving" ? "Saving…" : unchanged ? "Active league" : "Keep this league"}
+          {status === "saving" ? "Saving…" : "Keep this league"}
         </button>
         {typeof onUpgrade === "function" && (
           <button style={{ ...S.btn("primary"), flex: 1, width: "auto" }} onClick={onUpgrade}>

@@ -3014,36 +3014,37 @@ export default function BowlingTracker(){
     setCenters(next);
     try{window.storage.set(CENTERS_KEY,JSON.stringify(next));}catch{}
     const updated=next.find(c=>c&&c.id===centerId);
-    // cloudUpdate, not cloudWrite: an upsert would resend every column
-    // and blank anything not in `changes`.
-    // Update, then fall back to a write if the row was not there.
+    // Pin type goes through set_center_pins(), not a table update.
     //
-    // cloudUpdate matched 0 rows in the wild -- "no-rows on id", four
-    // times. A centre can exist locally and not in the cloud: it was
-    // created before this table synced, or its original write failed and
-    // the queue dropped it. The update then did nothing, silently, so
-    // rack type looked saved and came back empty on another device.
+    // Pin type is a fact about the building, and the Pins chips sit under
+    // every league's center -- but the only UPDATE policy on
+    // bowling_centers is for a bowler's own HAND-ENTERED center. Every
+    // center found through the lookup refused the update, the fallback
+    // upsert was refused too (42501, "USING expression"), and the chips
+    // looked saved here and came back blank everywhere else. The function
+    // lets any signed-in bowler set those two columns and nothing else.
     //
-    // The upsert is safe here. bowling_centers has no narrowed column
-    // grants -- unlike team_members and imported_scores -- so sending
-    // the whole row cannot be refused for touching a column it should
-    // not.
+    // "no such center" (P0002) means the row never reached the cloud --
+    // created offline, or its first write was dropped. Only then, and only
+    // for a center this bowler made, is the whole row sent.
     if(updated){
       (async()=>{
-        const res=await cloudUpdate("bowling_centers",{id:centerId},centerToRow(updated,user?.id||null));
-        // Only re-send a centre WE created.
-        //
-        // A zero-row update means one of two things: the row is missing,
-        // or it belongs to another bowler and RLS hid it. The upsert
-        // fixes the first and is refused for the second -- 42501 on the
-        // USING expression, six times in one day, because nothing stopped
-        // it trying again on the next save.
-        //
-        // createdBy is empty for a centre this device made and has not
-        // synced yet, which is exactly the case the upsert is for.
-        const mine=!updated.createdBy||updated.createdBy===(user?.id||"");
-        if(res&&res.synced&&res.affected===0&&mine){
-          await cloudWrite("bowling_centers",centerToRow(updated,user?.id||null));
+        const row=centerToRow(updated,user?.id||null);
+        try{
+          const{error}=await supabase.rpc("set_center_pins",{
+            p_center_id:centerId,
+            p_rack_type:row.rack_type,
+            p_freefall_lanes:row.freefall_lanes,
+          });
+          if(!error)return;
+          const mine=!updated.createdBy||updated.createdBy===(user?.id||"");
+          if(error.code==="P0002"&&mine){
+            await cloudWrite("bowling_centers",row);
+            return;
+          }
+          recordError({kind:"write-failed",where:"set_center_pins",message:error.message||"",code:error.code||""});
+        }catch(e){
+          recordError({kind:"write-failed",where:"set_center_pins",message:String(e?.message||e)});
         }
       })();
     }
@@ -6895,12 +6896,18 @@ export default function BowlingTracker(){
       return !id||!hidden.has(id);
     });
   })();
-  const visibleLeagueNames=allowedLeagues(notUserHidden,{entitlement,keptLeagueName,mostRecentLeagueName});
+  // Which league the free plan follows is worked out over ALL their
+  // leagues, and hidden ones are removed afterwards. Doing it over the
+  // not-hidden list let hiding stand in for switching: hide the kept
+  // league and the pick fell through to the other one, unhide it and it
+  // came back -- two leagues on the free plan, one tap each way.
+  const leaguePickOpts={entitlement,keptLeagueName,mostRecentLeagueName};
+  const visibleLeagueNames=allowedLeagues(leagues||[],leaguePickOpts).filter(n=>notUserHidden.includes(n));
   // What has gone quiet, for the picker. This is empty whenever billing
   // is off or the bowler is subscribed -- allowedLeagues returns
   // everything in both cases -- so it is the whole visibility condition
   // and no separate BILLING_LIVE check is needed at the call site.
-  const lockedLeagueNames=lockedLeagues(notUserHidden,{entitlement,keptLeagueName,mostRecentLeagueName});
+  const lockedLeagueNames=lockedLeagues(leagues||[],leaguePickOpts).filter(n=>notUserHidden.includes(n));
   // Applied locally rather than re-read from the server. The picker only
   // calls this after its update came back without an error and with a
   // row, so the value is already known good -- and a round trip here
