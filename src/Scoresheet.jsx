@@ -90,6 +90,10 @@ export default function Scoresheet({
   // with the rest a swipe away. For reviewing a finished card (the
   // import), where every frame matters equally and nothing is live.
   wrap = false,
+  // Smaller racks, for a scoresheet nested inside another card (a
+  // teammate's frames on the import review) where five full-size frames
+  // do not fit across and the rows would break 4-4-2.
+  small = false,
 }) {
   const rows = frameScoresheet(shots);
   const scrollerRef = useRef(null);
@@ -222,7 +226,7 @@ export default function Scoresheet({
           // frame. A wide tenth means marks, which is readable from the
           // shape of the box before a single pin is.
           const units = tenth ? frameWidthUnits(decks.length) : 1;
-          const pinSize = tenth && decks.length > 1 ? 7 : 9;
+          const pinSize = small ? (tenth && decks.length > 1 ? 5 : 7) : (tenth && decks.length > 1 ? 7 : 9);
 
           return (
             <button

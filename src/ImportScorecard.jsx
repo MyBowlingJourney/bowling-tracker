@@ -129,7 +129,7 @@ function ShotEditor({shot,onChange}){
 // frames start expanded and visually distinct -- they're the one scenario
 // confirmed unreliable to extract from a scorecard image, so they need
 // eyes-on before saving, not just an easy-to-miss footnote.
-function GameReview({game,onUpdateShot,onUpdateScore,expandedFrames,onToggleExpanded,leftHanded}){
+function GameReview({game,onUpdateShot,onUpdateScore,expandedFrames,onToggleExpanded,leftHanded,small=false}){
   // The frame whose editor is open, highlighted on the scoresheet.
   const openFrame=(game.shots.find(s=>expandedFrames.has(frameKey(s)))||{}).frame??null;
   const score=game.scoreOnly?game.totalScore:strictPartial(game.shots);
@@ -204,7 +204,7 @@ function GameReview({game,onUpdateShot,onUpdateScore,expandedFrames,onToggleExpa
           {/* All ten frames, wrapped -- no swiping. Tapping a frame opens
               its editor below (every ball of it, for the tenth); tapping
               it again closes it. */}
-          <Scoresheet shots={game.shots} game={String(game.gameNumber)} leftHanded={leftHanded} wrap
+          <Scoresheet shots={game.shots} game={String(game.gameNumber)} leftHanded={leftHanded} wrap small={small}
             currentFrame={openFrame}
             onSelectFrame={frame=>{
               const balls=game.shots.filter(s=>String(s.frame)===String(frame));
@@ -409,6 +409,13 @@ export default function ImportScorecard({
   // first puts the burden of catching a misread entirely on the person
   // who wasn't there when it was imported.
   const[teammateScores,setTeammateScores]=useState({}); // columnIndex -> [score strings]
+  // Teammates' frames, reviewable like your own: columnIndex -> games
+  // (the same shape as `games`), which frames are open, and whether the
+  // teammate's frames are shown at all -- collapsed until asked for, so
+  // a four-bowler card is not forty frames long.
+  const[teammateGames,setTeammateGames]=useState({});
+  const[teammateExpanded,setTeammateExpanded]=useState({}); // `${index}-${gameIdx}` -> Set
+  const[teammateOpen,setTeammateOpen]=useState({}); // columnIndex -> bool
 
   const teamId=contextTeam?.id||"";
 
@@ -571,6 +578,17 @@ export default function ImportScorecard({
       seeded[i]=(c.games||[]).map(g=>g.totalScore==null?"":String(g.totalScore));
     });
     setTeammateScores(seeded);
+    const tGames={},tExpanded={};
+    columns.forEach((c,i)=>{
+      const who=resolveAssigned(assignments[i]);
+      if(!who||who===contextBowler)return;
+      const conv=convertColumn(c,who);
+      tGames[i]=conv;
+      conv.forEach((g,gi)=>{tExpanded[`${i}-${gi}`]=new Set(g.warnings.map(w=>`${w.frame}-${w.ballNum??1}`));});
+    });
+    setTeammateGames(tGames);
+    setTeammateExpanded(tExpanded);
+    setTeammateOpen({});
     setStep("review");
   }
 
@@ -1059,6 +1077,27 @@ export default function ImportScorecard({
     setGames(prev=>prev.map((g,i)=>i!==gameIdx?g:{...g,shots:reconcileTenth(g.shots.map((s,j)=>j!==shotIdx?s:updatedShot))}));
   }
 
+  // A teammate's frame edited in the review. Their score box follows the
+  // frames, so what is sent agrees with itself.
+  function updateTeammateShot(index,gameIdx,shotIdx,updatedShot){
+    setTeammateGames(prev=>{
+      const list=(prev[index]||[]).map((g,i)=>i!==gameIdx?g:{...g,shots:reconcileTenth(g.shots.map((s,j)=>j!==shotIdx?s:updatedShot))});
+      const g=list[gameIdx];
+      const score=g&&!g.scoreOnly?strictPartial(g.shots):null;
+      if(score!=null)setTeammateScores(ts=>({...ts,[index]:(ts[index]||[]).map((v,j)=>j===gameIdx?String(score):v)}));
+      return{...prev,[index]:list};
+    });
+  }
+  function toggleTeammateExpanded(index,gameIdx,key,opts){
+    const id=`${index}-${gameIdx}`;
+    setTeammateExpanded(prev=>{
+      const next=new Set(prev[id]||[]);
+      if(opts&&opts.open)next.add(key);
+      else next.has(key)?next.delete(key):next.add(key);
+      return{...prev,[id]:next};
+    });
+  }
+
   // opts.open forces it open: tapping a frame on the scoresheet means
   // "show me this one", never "close the one I just tapped".
   function toggleExpanded(gameIdx,key,opts){
@@ -1162,7 +1201,8 @@ export default function ImportScorecard({
         // an approved shot is marked as imported rather than self-logged.
         // A card showing only totals sends no frames, which is a normal
         // case rather than a failure.
-        importedShots:convertColumn(column,bowler)
+        // As reviewed: frames fixed on this screen are what gets sent.
+        importedShots:(teammateGames[index]||convertColumn(column,bowler))
           .filter(g=>!g.scoreOnly&&g.shots.length)
           .map(g=>({gameNumber:g.gameNumber,ballUsed:g.ballUsed,shots:g.shots})),
       })));
@@ -1553,6 +1593,37 @@ export default function ImportScorecard({
                       </div>
                     ):null;
                   })()}
+                  {/* Their frames, collapsed until asked for. */}
+                  {(teammateGames[index]||[]).some(g=>!g.scoreOnly&&g.shots.length)&&(
+                    <>
+                      <button type="button"
+                        onClick={()=>setTeammateOpen(o=>({...o,[index]:!o[index]}))}
+                        aria-expanded={!!teammateOpen[index]}
+                        style={{background:"none",border:"none",padding:"8px 0 0",cursor:"pointer",
+                          color:C.accent,fontSize:"12px",fontWeight:700,fontFamily:"inherit"}}>
+                        {(()=>{
+                          // Flagged frames are counted on the collapsed
+                          // button, so nothing needing a look hides in it.
+                          const flagged=(teammateGames[index]||[]).reduce((n,g)=>n+(g.warnings||[]).length,0);
+                          return teammateOpen[index]?"▾ Hide frames"
+                            :flagged?`▸ Check frames · ${flagged} flagged`:"▸ Check frames";
+                        })()}
+                      </button>
+                      {teammateOpen[index]&&(
+                        <div style={{marginTop:"8px"}}>
+                          {(teammateGames[index]||[]).map((g,gi)=>g.scoreOnly||!g.shots.length?null:(
+                            <GameReview key={g.gameNumber} game={g}
+                              onUpdateShot={(shotIdx,updated)=>updateTeammateShot(index,gi,shotIdx,updated)}
+                              onUpdateScore={()=>{}}
+                              expandedFrames={teammateExpanded[`${index}-${gi}`]||new Set()}
+                              leftHanded={!!leftHandedForBowler?.(bowler)}
+                              small
+                              onToggleExpanded={(key,opts)=>toggleTeammateExpanded(index,gi,key,opts)}/>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               ))}
             </div>
