@@ -634,7 +634,7 @@ function,imported_scores_guard,"",trigger security invoker
 function,invite_to_team,"p_team_id uuid, p_user_id uuid",uuid security definer
 function,is_accepted_coach_of,target_bowler_id uuid,boolean security definer
 function,is_league_member,check_league_id uuid,boolean security definer
-function,is_subscriber,"",boolean security invoker
+function,is_subscriber,"",boolean security definer
 function,is_team_member,check_team_id uuid,boolean security definer
 function,join_team_with_code,"p_code text, p_confirm boolean","TABLE(team_id uuid, team_name text, league_id uuid, league_name text, switched_from text, needs_confirm boolean) security definer"
 function,league_matches,p_name text,"TABLE(id uuid, name text, center_id uuid, center_name text, center_city text, center_state text, bowlers integer, mine boolean) security definer"
@@ -644,6 +644,7 @@ function,leagues_rename_guard,"",trigger security invoker
 function,link_row_to_bowler,"",trigger security definer
 function,merge_bowlers,"p_from_name text, p_into_name text",jsonb security definer
 function,merge_into_league,"p_from uuid, p_to uuid",uuid security definer
+function,my_pro_usage,"","TABLE(endpoint text, calls bigint) security definer"
 function,my_team_in_league,"p_user uuid, p_league uuid, p_except uuid",text security definer
 function,my_team_requests,"","TABLE(id uuid, team_id uuid, team_name text, league_id uuid, league_name text, user_id uuid, bowler_name text, kind text, created_at timestamp with time zone, mine_to_answer boolean, current_team text) security definer"
 function,new_team_code,"",text security definer

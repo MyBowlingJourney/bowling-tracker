@@ -552,27 +552,33 @@ AS $function$
 CREATE OR REPLACE FUNCTION public.is_subscriber()
  RETURNS boolean
  LANGUAGE sql
- STABLE
+ STABLE SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
-  select exists (
-    select 1
-    from public.entitlements e
-    where e.user_id = auth.uid()
-      and (
-        -- Test account: unlocked regardless of plan or status, which is
-        -- why this sits OUTSIDE the plan = 'plus' test below.
-        e.is_test_account
-        or (
-          e.plan = 'plus'
-          and (
-            (e.status in ('trialing','active')
-              and (e.current_period_end is null or e.current_period_end > now()))
-            or e.status = 'grace'
-            or (e.status = 'canceled' and e.current_period_end > now())
-          )
-        )
-      )
+  select auth.uid() is not null and (
+    -- The reverse trial: the first 60 days of every account.
+    exists (
+      select 1 from auth.users u
+       where u.id = auth.uid()
+         and u.created_at > now() - interval '60 days'
+    )
+    or exists (
+      select 1
+        from public.entitlements e
+       where e.user_id = auth.uid()
+         and (
+           e.is_test_account
+           or (
+             e.plan = 'plus'
+             and (
+               (e.status in ('trialing','active')
+                 and (e.current_period_end is null or e.current_period_end > now()))
+               or e.status = 'grace'
+               or (e.status = 'canceled' and e.current_period_end > now())
+             )
+           )
+         )
+    )
   );
 $function$
 ;
@@ -990,6 +996,20 @@ begin
   delete from public.leagues where id = p_from;
   return p_to;
 end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.my_pro_usage()
+ RETURNS TABLE(endpoint text, calls bigint)
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select t.endpoint, count(*)::bigint
+    from public.ai_token_usage t
+   where t.user_id = auth.uid()
+     and t.endpoint in ('nightcap', 'bowling-genie', 'analyze-performance', 'caddie', 'import-scorecard')
+   group by t.endpoint
 $function$
 ;
 
