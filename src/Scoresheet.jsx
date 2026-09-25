@@ -38,7 +38,10 @@ function pinStyle(state, split, size) {
     display: "block",
   };
   if (state === "down1") return { ...base, backgroundColor: C.strike };
-  if (state === "down2") return { ...base, backgroundColor: C.spare };
+  // Knocked down by ball two. On a split those pins are red, not amber:
+  // a converted split is still a split, and amber alone made a picked-up
+  // 4-7-10 look like any other spare.
+  if (state === "down2") return { ...base, backgroundColor: split ? C.miss : C.spare };
   // Stood on a 9-pin no-tap strike: counted, but it did not fall. A ring
   // in the strike colour -- part of the X, visibly not knocked down.
   if (state === "notap") return { ...base, backgroundColor: "transparent", border: `2px solid ${C.strike}` };
