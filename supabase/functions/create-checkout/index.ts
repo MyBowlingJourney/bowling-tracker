@@ -141,7 +141,7 @@ Deno.serve(async (req: Request) => {
     return json({ error: "Subscriptions are not available yet." }, cors, 503);
   }
 
-  let body: { period?: unknown };
+  let body: { period?: unknown; currency?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -152,6 +152,11 @@ Deno.serve(async (req: Request) => {
   // is charged, and it arrives from the browser.
   const period = body?.period === "year" ? "year" : body?.period === "month" ? "month" : "";
   if (!period) return json({ error: "Bad request" }, cors, 400);
+  // Canada only, and an allowlist for the same reason as period. The app
+  // shows Canadians the Play Canada prices (9.99 / 69.99 CAD) and asks
+  // for CAD here; both Stripe prices carry those amounts as a CAD
+  // currency option. Anything else: no currency, and Stripe picks.
+  const currency = body?.currency === "cad" ? "cad" : "";
   // Resolved from a lookup key rather than read as a price id. See
   // _shared/stripe.ts: this is what makes test and live use the same
   // configuration instead of two sets of ids that can be mixed up on the
@@ -242,7 +247,7 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  const session = await stripeRequest("/checkout/sessions", {
+  const sessionParams: Record<string, unknown> = {
     mode: "subscription",
     customer: customerId,
     line_items: [{ price, quantity: 1 }],
@@ -279,7 +284,19 @@ Deno.serve(async (req: Request) => {
     allow_promotion_codes: true,
     success_url: `${APP_HOME}/?checkout=success`,
     cancel_url: `${APP_HOME}/?checkout=cancelled`,
-  });
+  };
+
+  let session = await stripeRequest("/checkout/sessions",
+    currency ? { ...sessionParams, currency } : sessionParams);
+  // CAD refused -- a price without its CAD option, or a customer Stripe
+  // will not bill in CAD. A checkout in Stripe's own choice of currency
+  // beats no checkout: the page shows the real amount before anyone
+  // pays. Logged loudly, because it means the screen and the charge no
+  // longer match for this bowler.
+  if (!session?.url && currency) {
+    console.error(`checkout in ${currency} failed; retrying without a currency. Check the CAD option on both Stripe prices.`);
+    session = await stripeRequest("/checkout/sessions", sessionParams);
+  }
 
   if (!session?.url) {
     console.error("checkout session had no url");

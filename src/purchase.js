@@ -11,7 +11,7 @@
 
 import { supabase } from "./supabaseClient.js";
 import { isNative } from "./nativeAuth.js";
-import { paymentRail } from "./domain/billing.js";
+import { paymentRail, displayPricesFor, checkoutCurrencyFor } from "./domain/billing.js";
 import { isBowlerFacing } from "./domain/functionErrors.js";
 import { recordError } from "./errorLogStore.js";
 // The SAME constants verify-purchase and play-rtdn map with, imported
@@ -36,10 +36,13 @@ import {
 // already localised, and Stripe can return one from a small endpoint.
 // Then a price change in the dashboard reaches the screen on its own,
 // and bowlers outside the US stop being quoted dollars.
-export const DISPLAY_PRICES = Object.freeze({
-  month: "$6.99",
-  year: "$49.99",
-});
+//
+// Canada is the exception: 9.99 / 69.99 CAD, the same as Play, and
+// create-checkout charges CAD to match (see domain/billing.js).
+function deviceTimeZone() {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch { return ""; }
+}
+export const DISPLAY_PRICES = displayPricesFor(deviceTimeZone());
 
 // Which rail, resolved for real. isNative() does the Capacitor dance
 // already and returns false on the web and when the plugin is absent.
@@ -83,7 +86,9 @@ async function invokeFailure(error) {
 
 async function startStripe(period) {
   const { data, error } = await supabase.functions.invoke("create-checkout", {
-    body: { period },
+    // "cad" when the screen showed Canadian prices, so Checkout charges
+    // the same number the screen showed.
+    body: { period, currency: checkoutCurrencyFor(deviceTimeZone()) || undefined },
   });
   if (error) {
     // 409 means they already have a subscription. Worth saying plainly

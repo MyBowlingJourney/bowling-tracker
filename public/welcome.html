@@ -127,14 +127,14 @@
   <div class="plans">
     <div class="plan">
       <h3>Yearly</h3>
-      <!-- PRICE: must match the Stripe yearly price and the Play yearly base plan -->
-      <div class="price">$49.99</div>
+      <!-- PRICE: must match the Stripe yearly price and the Play yearly base plan (the script at the bottom swaps in CAD for Canada) -->
+      <div class="price" data-price="year">$49.99</div>
       <div class="per">per year</div>
     </div>
     <div class="plan">
       <h3>Monthly</h3>
-      <!-- PRICE: must match the Stripe monthly price and the Play monthly base plan -->
-      <div class="price">$6.99</div>
+      <!-- PRICE: must match the Stripe monthly price and the Play monthly base plan (the script at the bottom swaps in CAD for Canada) -->
+      <div class="price" data-price="month">$6.99</div>
       <div class="per">per month</div>
     </div>
   </div>
@@ -165,8 +165,10 @@
         to Google Play's own refund policy.
       </li>
       <li>
-        Prices are in US dollars. If tax applies where you are, it is shown before
-        you confirm.
+        Prices are in US dollars. In Canada they are in Canadian dollars &mdash;
+        $9.99 a month or $69.99 a year, in the app and on the web alike. In the
+        Android app elsewhere, Google Play shows the price in your own currency.
+        If tax applies where you are, it is shown before you confirm.
       </li>
       <li>
         <strong>If you stop paying, nothing you logged is deleted.</strong> One
@@ -192,5 +194,21 @@
   </footer>
 
 </main>
+<script>
+  // Canada pays 9.99 / 69.99 CAD, on the web as in the app. Same time
+  // zone test as src/domain/billing.js -- keep the two lists together.
+  (function () {
+    var z = "";
+    try { z = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (e) {}
+    var ca = /^Canada\//.test(z) || ["Atikokan","Blanc-Sablon","Cambridge_Bay","Coral_Harbour","Creston",
+      "Dawson","Dawson_Creek","Edmonton","Fort_Nelson","Glace_Bay","Goose_Bay","Halifax","Inuvik","Iqaluit",
+      "Moncton","Montreal","Nipigon","Pangnirtung","Rainy_River","Rankin_Inlet","Regina","Resolute","St_Johns",
+      "Swift_Current","Thunder_Bay","Toronto","Vancouver","Whitehorse","Winnipeg","Yellowknife"]
+      .indexOf(z.replace(/^America\//, "")) >= 0 && /^America\//.test(z);
+    if (!ca) return;
+    var p = { year: "$69.99 CAD", month: "$9.99 CAD" };
+    document.querySelectorAll("[data-price]").forEach(function (el) { el.textContent = p[el.getAttribute("data-price")]; });
+  })();
+</script>
 </body>
 </html>

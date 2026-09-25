@@ -34,3 +34,47 @@
 export function paymentRail({ isNative = false } = {}) {
   return isNative === true ? "play" : "stripe";
 }
+
+// ── Canada: the same price on the web as in the app ─────────────────
+//
+// Play charges Canadians 9.99 / 69.99 CAD. The Stripe prices carry the
+// same amounts as a CAD currency option, and create-checkout asks Stripe
+// for CAD when the app says the bowler is in Canada -- so the number on
+// the screen and the number on the card are the same number.
+//
+// Decided from the device's time zone, not its language: an English
+// phone in Toronto is in Canada, a French phone in Paris is not. The
+// list is every Canadian zone in the tz database, plus the older names
+// some devices still report.
+const CANADA_ZONES = new Set([
+  "America/Atikokan", "America/Blanc-Sablon", "America/Cambridge_Bay",
+  "America/Coral_Harbour", "America/Creston", "America/Dawson",
+  "America/Dawson_Creek", "America/Edmonton", "America/Fort_Nelson",
+  "America/Glace_Bay", "America/Goose_Bay", "America/Halifax",
+  "America/Inuvik", "America/Iqaluit", "America/Moncton",
+  "America/Montreal", "America/Nipigon", "America/Pangnirtung",
+  "America/Rainy_River", "America/Rankin_Inlet", "America/Regina",
+  "America/Resolute", "America/St_Johns", "America/Swift_Current",
+  "America/Thunder_Bay", "America/Toronto", "America/Vancouver",
+  "America/Whitehorse", "America/Winnipeg", "America/Yellowknife",
+]);
+
+export function isCanadianTimeZone(tz) {
+  if (typeof tz !== "string" || !tz) return false;
+  return CANADA_ZONES.has(tz) || tz.startsWith("Canada/");
+}
+
+// What the screen says. "$" in both: Play shows Canadians "$9.99" too,
+// and the French layer writes it as "9,99 $".
+export const PRICES_USD = Object.freeze({ month: "$6.99", year: "$49.99" });
+export const PRICES_CAD = Object.freeze({ month: "$9.99", year: "$69.99" });
+
+export function displayPricesFor(tz) {
+  return isCanadianTimeZone(tz) ? PRICES_CAD : PRICES_USD;
+}
+
+// The currency create-checkout is asked for: "cad" in Canada, nothing
+// anywhere else (Stripe then picks, as it always has).
+export function checkoutCurrencyFor(tz) {
+  return isCanadianTimeZone(tz) ? "cad" : "";
+}

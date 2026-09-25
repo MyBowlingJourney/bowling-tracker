@@ -31,3 +31,28 @@ describe('which rail', () => {
     }
   });
 });
+
+import { isCanadianTimeZone, displayPricesFor, checkoutCurrencyFor } from './billing.js';
+
+describe('Canadian prices', () => {
+  it('knows the Canadian time zones, old names included', () => {
+    for (const tz of ['America/Toronto', 'America/Vancouver', 'America/Halifax', 'America/St_Johns',
+      'America/Regina', 'America/Montreal', 'Canada/Eastern', 'America/Winnipeg', 'America/Edmonton']) {
+      expect(isCanadianTimeZone(tz)).toBe(true);
+    }
+  });
+  it('is not fooled by nearby or French-speaking places', () => {
+    for (const tz of ['America/New_York', 'America/Detroit', 'America/Chicago', 'Europe/Paris',
+      'Australia/Sydney', 'Pacific/Auckland', 'America/Los_Angeles', '', undefined, null]) {
+      expect(isCanadianTimeZone(tz)).toBe(false);
+    }
+  });
+  it('shows the Play Canada prices in Canada and US dollars elsewhere', () => {
+    expect(displayPricesFor('America/Toronto')).toEqual({ month: '$9.99', year: '$69.99' });
+    expect(displayPricesFor('America/New_York')).toEqual({ month: '$6.99', year: '$49.99' });
+  });
+  it('asks Stripe for CAD only in Canada', () => {
+    expect(checkoutCurrencyFor('America/Vancouver')).toBe('cad');
+    expect(checkoutCurrencyFor('America/Denver')).toBe('');
+  });
+});
