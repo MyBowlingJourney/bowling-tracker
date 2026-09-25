@@ -23,6 +23,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { recordAiTokens } from "../_shared/aiUsage.ts";
 import { geminiKey } from "../_shared/geminiKey.ts";
+import { answerLanguage, languageInstruction } from "../_shared/language.ts";
 
 const GEMINI_API_KEY = geminiKey();
 // Overridable without a code deploy, via a GENIE_GEMINI_MODEL secret.
@@ -293,8 +294,10 @@ Deno.serve(async (req: Request) => {
   }
 
   let question = "", context = "";
+  let lang = answerLanguage(null);
   try {
     const body = await req.json();
+    lang = answerLanguage(body);
     question = typeof body?.question === "string" ? body.question.trim() : "";
     // 14000: the headline figures plus the breakdown tables (capped at
     // ~5000 characters client-side). Still a few thousand tokens.
@@ -321,7 +324,7 @@ Deno.serve(async (req: Request) => {
       signal: controller.signal,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: SYSTEM }] },
+        systemInstruction: { parts: [{ text: SYSTEM + languageInstruction(lang) }] },
         // The bowler's question is a separate part from their stats, so a
         // question containing "ignore the above" is visibly a question
         // rather than something that reads as instruction.

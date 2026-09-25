@@ -131,15 +131,18 @@ function Strikes({ ff, st, detail, leftHanded }) {
     <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: "12px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}>
         <span style={{ fontWeight: 600 }}>{title}</span>
-        <span style={{ color: C.textMuted }}>{strikeRate != null ? `${fmt(strikeRate)}% strikes · ` : ""}{d.described} described</span>
+        {/* Two pieces, so each translates on its own. */}
+        <span style={{ color: C.textMuted }}>{strikeRate != null && <><span>{`${fmt(strikeRate)}% strikes`}</span>{" · "}</>}<span>{`${d.described} described`}</span></span>
       </div>
       <div style={{ display: "flex", height: "18px", borderRadius: "6px", overflow: "hidden", background: C.border }}>
         {d.shapes.map((x, i) => <div key={x.shape} title={`${name(x.shape)} ${fmt(x.pct)}%`} style={{ width: `${x.pct}%`, background: colors[x.shape], borderLeft: i ? `2px solid ${C.card}` : "none" }} />)}
       </div>
     </div>
   );
+  // data-i18n="hit": "High", "Light" and "Brooklyn" here are kinds of
+  // hit, not a stat label, a theme or the assistant (see i18n/dom.js).
   return (
-    <div>
+    <div data-i18n="hit">
       <div style={{ fontSize: "12px", color: C.textMuted, marginBottom: "12px" }}>How your strikes carried, from the ones you described.</div>
       {stack("Free fall", detail.freefall, ff.strikeRate)}
       {stack("String", detail.string, st.strikeRate)}

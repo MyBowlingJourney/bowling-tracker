@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { C, S } from "./ui.jsx";
 import { searchHelp, helpByArea, helpFor, HELP } from "./domain/help.js";
+import { t, currentLanguage } from "./i18n/index.js";
 
 // Searchable help, scoped to the mode being bowled. Entries used to carry
 // a "Take me there" button; see Entry below for why it came out.
@@ -11,7 +12,8 @@ export default function HelpView({ onNavigate, onClose, onReplayTour, environmen
   // Scoped to the mode: a Just Bowling user's docs should describe their
   // app, not features their app doesn't have.
   const scoped = helpFor(environment);
-  const results = query.trim() ? searchHelp(query, scoped) : null;
+  // In French, the French wording of each entry is searched too.
+  const results = query.trim() ? searchHelp(query, scoped, currentLanguage() === "fr" ? t : null) : null;
   const areas = helpByArea(scoped);
 
   function Entry({ entry }) {

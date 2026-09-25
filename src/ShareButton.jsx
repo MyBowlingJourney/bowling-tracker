@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { C, S, F } from "./ui.jsx";
 import { shareText, shareTitle, drawShareCard, drawTrendCard, trendShareText, drawStandingsCard, standingsShareText, drawBadgeCard, badgeShareText, drawTournamentCard, tournamentShareText, drawShareQr } from "./domain/shareCard.js";
 import logoUrl from "../mbj-logo-512.png";
+import { t, tMessage } from "./i18n/index.js";
 
 // The app icon, for the corner of every share card. It ships inside the
 // app bundle, so it loads offline; loaded once and reused. A failed load
@@ -125,16 +126,20 @@ export default function ShareButton({ summary, label = "Share", compact = false 
 
   async function share() {
     setState("working");
-    const text = summary?.tournament ? tournamentShareText(summary)
+    // Built in English by the share-card code, then put in the app's
+    // language: this text leaves the app, so the page translator never
+    // sees it. (The picture is drawn in the app's language by the canvas
+    // hook in i18n/index.js.)
+    const text = tMessage(summary?.tournament ? tournamentShareText(summary)
       : summary?.trend ? trendShareText(summary)
       : summary?.standings ? standingsShareText(summary)
       : summary?.badges ? badgeShareText(summary.bowler, summary.badges, summary.link, { collection: !!summary.collection, total: summary.total })
-      : shareText(summary);
-    const title = summary?.tournament ? (summary.event || "Tournament")
+      : shareText(summary));
+    const title = t(summary?.tournament ? (summary.event || "Tournament")
       : summary?.trend ? (summary.label || "Trend")
       : summary?.standings ? "Standings"
       : summary?.badges ? "Badges"
-      : shareTitle(summary);
+      : shareTitle(summary));
     try {
       // The picture is the point, so it is drawn before anything decides
       // how to send it.

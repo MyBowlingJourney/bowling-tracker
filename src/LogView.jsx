@@ -575,7 +575,7 @@ export default function LogView({
   // digits, a decimal -- and 15px in a half-width column left no room
   // for the header above it.
   const fieldHead={fontSize:"11px",color:C.textMuted,marginBottom:"3px"};
-  const smallInput={fontSize:"13px",padding:"9px 10px"};
+  const smallInput={fontSize:"13px",padding:"9px 7px"};
 
   const strikeDescRef=useRef(null);
   const pinsStandingRef=useRef(null);
@@ -3264,7 +3264,7 @@ export default function LogView({
                       tighter padding than a normal chip, which is what
                       brings eight of them down to two rows without
                       cutting any of them off. */}
-                  <div style={{display:"flex",flexWrap:"wrap",
+                  <div data-i18n="hit" style={{display:"flex",flexWrap:"wrap",
                     gap:"5px",marginBottom:"12px"}}>
                     {strikeDescriptionsForHand(activeBowlerLeftHanded).map(label=>(
                       <Chip key={label} label={label} dense
@@ -3896,7 +3896,7 @@ export default function LogView({
                   <div style={{display:"grid",
                     gridTemplateColumns:"repeat(2, minmax(0, 1fr))",gap:"8px",marginBottom:"8px"}}>
                     <div style={{minWidth:0}}>
-                      <div style={fieldHead}>Stand</div>
+                      <div data-i18n="field" style={fieldHead}>Stand</div>
                       <input style={{...S.input,...smallInput,width:"100%"}}
                         type="number" inputMode="numeric" placeholder="board #"
                         value={form.startingBoard}
@@ -3904,7 +3904,7 @@ export default function LogView({
                           editingId?set("startingBoard",v):handleLineChange("startingBoard",v);}}/>
                     </div>
                     <div style={{minWidth:0}}>
-                      <div style={fieldHead}>Target</div>
+                      <div data-i18n="field" style={fieldHead}>Target</div>
                       <input style={{...S.input,...smallInput,width:"100%"}}
                         type="number" inputMode="numeric" placeholder="board #"
                         value={form.targetArrows}
@@ -3912,14 +3912,14 @@ export default function LogView({
                           editingId?set("targetArrows",v):handleLineChange("targetArrows",v);}}/>
                     </div>
                     <div style={{minWidth:0}}>
-                      <div style={fieldHead}>Hit</div>
+                      <div data-i18n="field" style={fieldHead}>Hit</div>
                       <input style={{...S.input,...smallInput,width:"100%"}}
                         type="number" inputMode="numeric" placeholder="board #"
                         value={form.actualArrows}
                         onChange={e=>{const v=acceptBoardKeystroke(e.target.value); if(v!==null)set("actualArrows",v);}}/>
                     </div>
                     <div style={{minWidth:0}}>
-                      <div style={fieldHead}>Breakpoint</div>
+                      <div data-i18n="field" style={fieldHead}>Breakpoint</div>
                       <input style={{...S.input,...smallInput,width:"100%"}}
                         type="number" inputMode="numeric" placeholder="board #"
                         value={form.breakpointBoard}
@@ -3956,7 +3956,7 @@ export default function LogView({
                   gridTemplateColumns:"repeat(2, minmax(0, 1fr))",gap:"8px"}}>
                   {preferences.trackedFields.ballSpeed&&(
                     <div style={{minWidth:0}}>
-                      <div style={fieldHead}>Speed</div>
+                      <div data-i18n="field" style={fieldHead}>Speed</div>
                       <input style={{...S.input,...smallInput,width:"100%"}}
                         type="number" step="0.1" inputMode="decimal" placeholder="mph"
                         value={form.ballSpeed} onChange={e=>set("ballSpeed",e.target.value)}/>
@@ -3964,7 +3964,7 @@ export default function LogView({
                   )}
                   {preferences.trackedFields.revRate&&(
                     <div style={{minWidth:0}}>
-                      <div style={fieldHead}>Rev rate</div>
+                      <div data-i18n="field" style={fieldHead}>Rev rate</div>
                       <input style={{...S.input,...smallInput,width:"100%"}}
                         type="number" inputMode="numeric" placeholder="rpm"
                         value={form.revRate} onChange={e=>set("revRate",e.target.value)}/>
@@ -3972,7 +3972,7 @@ export default function LogView({
                   )}
                   {preferences.trackedFields.axisRotation&&(
                     <div style={{minWidth:0}}>
-                      <div style={fieldHead}>Axis rot.</div>
+                      <div data-i18n="field" style={fieldHead}>Axis rot.</div>
                       <input style={{...S.input,...smallInput,width:"100%"}}
                         type="number" inputMode="numeric" placeholder="degrees"
                         value={form.axisRotation} onChange={e=>set("axisRotation",e.target.value)}/>
@@ -3980,7 +3980,7 @@ export default function LogView({
                   )}
                   {preferences.trackedFields.axisTilt&&(
                     <div style={{minWidth:0}}>
-                      <div style={fieldHead}>Axis tilt</div>
+                      <div data-i18n="field" style={fieldHead}>Axis tilt</div>
                       <input style={{...S.input,...smallInput,width:"100%"}}
                         type="number" inputMode="numeric" placeholder="degrees"
                         value={form.axisTilt} onChange={e=>set("axisTilt",e.target.value)}/>
@@ -3995,13 +3995,13 @@ export default function LogView({
                 <div style={{display:"grid",
                   gridTemplateColumns:"repeat(2, minmax(0, 1fr))",gap:"8px"}}>
                   <div style={{minWidth:0}}>
-                    <div style={fieldHead}>Heel #</div>
+                    <div data-i18n="field" style={fieldHead}>Heel #</div>
                     <input style={{...S.input,...smallInput,width:"100%"}}
                       inputMode="numeric"
                       value={form.heelNumber} onChange={e=>set("heelNumber",e.target.value)}/>
                   </div>
                   <div style={{minWidth:0}}>
-                    <div style={fieldHead}>Sole #</div>
+                    <div data-i18n="field" style={fieldHead}>Sole #</div>
                     <input style={{...S.input,...smallInput,width:"100%"}}
                       inputMode="numeric"
                       value={form.soleNumber} onChange={e=>set("soleNumber",e.target.value)}/>
@@ -4040,7 +4040,7 @@ export default function LogView({
                     ?"repeat(2, minmax(0, 1fr))":"minmax(0, 1fr)",gap:"8px"}}>
                   {preferences.trackedFields.release&&(
                     <div style={{minWidth:0}}>
-                      <div style={fieldHead}>Release</div>
+                      <div data-i18n="field" style={fieldHead}>Release</div>
                       <select data-compact="" data-tight="" style={{...S.sel,...smallInput,width:"100%",paddingLeft:"8px"}}
                         value={form.release||""}
                         onChange={e=>set("release",e.target.value)}>
@@ -4051,7 +4051,7 @@ export default function LogView({
                   )}
                   {preferences.trackedFields.miss&&(
                     <div style={{minWidth:0}}>
-                      <div style={fieldHead}>Miss</div>
+                      <div data-i18n="field" style={fieldHead}>Miss</div>
                       <select data-compact="" data-tight="" style={{...S.sel,...smallInput,width:"100%",paddingLeft:"8px"}}
                         value={form.miss?.[0]||""}
                         onChange={e=>set("miss",e.target.value?[e.target.value]:[])}>

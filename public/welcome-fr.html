@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="fr-CA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>My Bowling Journey — suivi de quilles lancer par lancer</title>
+<meta name="description" content="Enregistrez chaque lancer pendant votre soirée de ligue et voyez de quoi ont vraiment l'air votre arsenal, vos réserves et votre saison. Utilisation gratuite, avec Pro pour les comparaisons.">
+<meta name="theme-color" content="#F7F8FA">
+
+<!-- ⚠️ BEFORE THIS GOES LIVE ⚠️
+     The two prices below MUST match the prices in Stripe and the base
+     plans in Google Play, to the cent. They are marked PRICE: in the
+     body so they are quick to find.
+
+     A page that promises one number while the card takes another is a
+     refund, a chargeback, and in several states a consumer-protection
+     problem. The figures currently written here come from the costing
+     comment in src/domain/entitlements.js -- they are the intended
+     prices, NOT confirmed against a Stripe dashboard that does not
+     exist yet.
+
+     Stripe reviews this page against what the account claims to sell,
+     so every item it looks for is here deliberately: what the service
+     is, both prices, that it renews on its own, how to cancel, the
+     refund position, a contact address, the legal entity, and links to
+     the terms and the privacy policy. Removing any of them is removing
+     something the review is looking for. -->
+
+<style>
+  :root{
+    --bg:#F7F8FA; --surface:#fff; --text:#16181D; --muted:#5A6070;
+    --border:#E3E6EC; --accent:#2F6F4F;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#111317; --surface:#181B21; --text:#E8EAEE; --muted:#9AA2B1;
+      --border:#262A33; --accent:#6FCF97;
+    }
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    padding:calc(28px + env(safe-area-inset-top,0px)) 16px
+            calc(48px + env(safe-area-inset-bottom,0px));
+  }
+  main{max-width:720px;margin:0 auto}
+  .brand{font-size:13px;color:var(--muted);letter-spacing:.02em;margin-bottom:6px}
+  .brand-sub{font-size:14px;color:var(--muted);margin:-6px 0 10px}
+  .lang{float:right;font-size:13px;margin-left:12px}
+  h1{font-size:30px;line-height:1.2;margin:0 0 10px;letter-spacing:-0.015em}
+  h2{font-size:19px;margin:34px 0 10px;padding-top:18px;border-top:1px solid var(--border)}
+  h3{font-size:16px;margin:0 0 6px}
+  .lead{font-size:18px;color:var(--muted);margin:0 0 24px}
+  ul{padding-left:20px;margin:10px 0}
+  li{margin-bottom:8px}
+  a{color:var(--accent)}
+  .card{
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:10px;padding:16px 18px;margin:18px 0;
+  }
+  .card h3{margin-top:0}
+  .plans{display:flex;gap:12px;flex-wrap:wrap}
+  .plan{flex:1 1 220px;background:var(--surface);border:1px solid var(--border);
+        border-radius:10px;padding:16px 18px}
+  .price{font-size:26px;font-weight:700;letter-spacing:-0.02em;margin:2px 0 2px}
+  .per{font-size:13px;color:var(--muted)}
+  .cta{
+    display:inline-block;background:var(--accent);color:#fff;
+    text-decoration:none;padding:14px 22px;border-radius:12px;
+    font-weight:600;margin:6px 0 4px;
+  }
+  @media (prefers-color-scheme: dark){ .cta{color:#0E1512} }
+  .fine{font-size:13.5px;color:var(--muted)}
+  footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--border);
+         font-size:13px;color:var(--muted)}
+</style>
+</head>
+<body>
+<main>
+
+  <div class="lang"><a href="/" hreflang="en" lang="en">English</a></div>
+  <div class="brand">MY BOWLING JOURNEY</div>
+  <div class="brand-sub">Suivi de quilles</div>
+  <h1>Chaque lancer, pas seulement chaque pointage.</h1>
+  <p class="lead">
+    Enregistrez ce qui s'est vraiment passé à chaque lancer, pendant que vous
+    êtes encore sur l'approche — quelle boule, quelles quilles elle a laissées
+    debout, ce que vous avez fait ensuite. Découvrez ensuite de quoi ont
+    vraiment l'air votre arsenal, vos réserves et votre saison.
+  </p>
+
+  <a class="cta" href="/app/">Ouvrir l'application</a>
+  <div class="fine">Fonctionne dans votre navigateur. Aucune installation nécessaire pour commencer.</div>
+
+  <h2>Ce que fait l'application</h2>
+  <ul>
+    <li><strong>Enregistrement lancer par lancer</strong> conçu pour les soirées de ligue — assez rapide pour suivre le rythme entre les carreaux.</li>
+    <li><strong>Votre arsenal</strong>, boule par boule&nbsp;: ce que chacune abat vraiment, et ce qu'elle laisse debout.</li>
+    <li><strong>Réserves et écarts</strong>, y compris les quilles restantes que vous ratez encore et encore, et depuis quel endroit.</li>
+    <li><strong>Ligues, équipes et tournois</strong>, avec les formats qu'utilisent vraiment les quilleurs et quilleuses.</li>
+    <li><strong>Salles et patrons d'huilage</strong> — vos pointages, selon l'endroit où vous les obtenez.</li>
+    <li><strong>Le récit de votre soirée</strong> quand elle se termine, en mots simples.</li>
+  </ul>
+
+  <h2>Gratuit, et Pro</h2>
+  <p>
+    Vos propres chiffres sont gratuits et le restent&nbsp;: vos pointages, vos
+    moyennes, vos pourcentages de réserves et d'abats, vos statistiques boule
+    par boule. Pro sert aux comparaisons — vous contre un membre de votre
+    équipe, une boule contre une autre, cette saison contre la précédente — et
+    aux fonctions qui décortiquent votre soirée pour vous.
+  </p>
+  <div class="card">
+    <h3>La version gratuite comprend</h3>
+    <p class="fine" style="margin:0">
+      Une ligue, l'entraînement et le jeu libre en illimité, tous les lancers
+      que vous enregistrez, conservés aussi longtemps que vous le voulez, et
+      toutes vos propres statistiques.
+    </p>
+  </div>
+  <div class="card">
+    <h3>Pro ajoute</h3>
+    <p class="fine" style="margin:0">
+      Toutes les ligues et équipes où vous jouez, les comparaisons en
+      face-à-face et avec les membres de votre équipe, boule contre boule et
+      salle contre salle, saison contre saison, l'importation de feuilles de
+      pointage et les fonctions d'IA — Nightcap, Analyses, Brooklyn et
+      Entraîneur.
+    </p>
+  </div>
+
+  <h2>Combien ça coûte</h2>
+  <div class="plans">
+    <div class="plan">
+      <h3>Annuel</h3>
+      <!-- PRICE: must match the Stripe yearly price and the Play yearly base plan -->
+      <div class="price">49,99&nbsp;$&nbsp;US</div>
+      <div class="per">par année</div>
+    </div>
+    <div class="plan">
+      <h3>Mensuel</h3>
+      <!-- PRICE: must match the Stripe monthly price and the Play monthly base plan -->
+      <div class="price">6,99&nbsp;$&nbsp;US</div>
+      <div class="per">par mois</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Avant de vous abonner</h3>
+    <ul class="fine" style="margin:0">
+      <li>
+        Il y a un <strong>essai gratuit de 30 jours</strong>, calculé à partir du
+        jour où vous vous abonnez.
+      </li>
+      <li>
+        Un mode de paiement est recueilli au début de l'essai. À la fin de
+        l'essai, le forfait que vous avez choisi <strong>entre en vigueur et se
+        renouvelle automatiquement</strong> — au mois ou à l'année — jusqu'à ce
+        que vous l'annuliez.
+      </li>
+      <li>
+        <strong>Annulez en tout temps.</strong> Dans l'application Android, cela
+        se fait dans l'application Play Store, sous Abonnements. Sur le Web,
+        passez par le lien dans votre reçu ou envoyez-nous un courriel.
+        L'annulation empêche le prochain renouvellement; vous conservez Pro
+        jusqu'à la fin de la période que vous avez déjà payée.
+      </li>
+      <li>
+        <strong>Remboursements.</strong> En règle générale, nous ne remboursons
+        pas les périodes partiellement utilisées, puisque vous conservez l'accès
+        jusqu'à la fin de la période. Si des frais vous ont été facturés par
+        erreur, ou si quelque chose ne fonctionnait pas et que nous n'avons pas
+        pu le corriger, écrivez-nous et nous arrangerons les choses. Les achats
+        effectués par Google Play sont aussi assujettis à la politique de
+        remboursement propre à Google Play.
+      </li>
+      <li>
+        Les prix sont en dollars américains. Si des taxes s'appliquent là où vous
+        êtes, elles sont indiquées avant que vous confirmiez.
+      </li>
+      <li>
+        <strong>Si vous cessez de payer, rien de ce que vous avez enregistré n'est supprimé.</strong>
+        Une ligue reste active et les autres sont mises en pause jusqu'à votre
+        retour.
+      </li>
+    </ul>
+  </div>
+
+  <h2>Des questions?</h2>
+  <p class="fine">
+    Écrivez à <a href="mailto:support@mybowlingjourney.com">support@mybowlingjourney.com</a>
+    — facturation, bogue, remboursement ou fonction que vous aimeriez avoir.
+    Votre message est lu par une vraie personne.
+  </p>
+
+  <a class="cta" href="/app/">Ouvrir l'application</a>
+
+  <footer>
+    My Bowling Journey est exploité par <strong>My Bowling Journey LLC</strong>,
+    une société à responsabilité limitée de Pennsylvanie.<br>
+    <a href="/terms-fr.html">Conditions d'utilisation</a> ·
+    <a href="/privacy-fr.html">Politique de confidentialité</a> ·
+    <a href="mailto:support@mybowlingjourney.com">support@mybowlingjourney.com</a>
+  </footer>
+
+</main>
+</body>
+</html>

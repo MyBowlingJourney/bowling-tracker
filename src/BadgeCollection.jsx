@@ -137,7 +137,7 @@ export default function BadgeCollection({
       <div style={S.card}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
           <div style={S.label}>The collection</div>
-          <div style={{ display: "flex", gap: "4px" }}>
+          <div data-i18n="badges" style={{ display: "flex", gap: "4px" }}>
             {[["all", "All"], ["earned", `Earned ${got}`], ["locked", `Left ${total - got}`]].map(([key, label]) => (
               <button key={key} onClick={() => setFilter(key)}
                 style={{

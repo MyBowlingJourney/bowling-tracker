@@ -1242,7 +1242,7 @@ teamCardsVisible&&bowlers.length>1&&(()=>{
                       const pct=stk?Math.round((count/stk)*100):0;
                       return(
                         <div key={d} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"8px"}}>
-                          <span style={{fontSize:"12px"}}>{label}</span>
+                          <span data-i18n="hit" style={{fontSize:"12px"}}>{label}</span>
                           <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
                             <div style={{width:"80px",height:"6px",backgroundColor:C.surface,borderRadius:"3px",overflow:"hidden"}}>
                               <div style={{height:"100%",width:`${pct}%`,backgroundColor:C.strike,borderRadius:"3px"}}/>
@@ -1568,7 +1568,7 @@ anyMoneyGameShown(preferences)&&(()=>{
                               printed the answer beside it anyway. Three
                               labelled columns say the same thing without
                               asking anyone to check the working. */}
-                          <div style={{display:"flex",justifyContent:"space-between",
+                          <div style={{display:"flex",justifyContent:"space-between",gap:"6px",
                             alignItems:"center",marginBottom:"6px",fontSize:"11px",color:C.textMuted}}>
                             <span style={{flex:1,minWidth:0}}>By Game</span>
                             <span style={{width:"62px",textAlign:"right"}}>Buy-in</span>
@@ -1576,7 +1576,7 @@ anyMoneyGameShown(preferences)&&(()=>{
                             <span style={{width:"66px",textAlign:"right"}}>Net</span>
                           </div>
                           {rows.map(r=>(
-                            <div key={r.label} style={{display:"flex",justifyContent:"space-between",
+                            <div key={r.label} style={{display:"flex",justifyContent:"space-between",gap:"6px",
                               alignItems:"center",marginBottom:"4px",fontSize:"13px"}}>
                               <span style={{flex:1,minWidth:0}}>{r.label}</span>
                               <span style={{width:"62px",textAlign:"right",color:C.textMuted}}>

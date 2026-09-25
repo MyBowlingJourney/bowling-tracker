@@ -762,7 +762,7 @@ const SCREENS = {
         </Spot>
         <div style={{ marginTop: "8px" }}>
           <div style={{ ...label, marginBottom: "4px" }}>How it hit</div>
-          <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
+          <div data-i18n="hit" style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
             <span style={chip(true, C.strike)}>Flush</span>
             <span style={chip(false)}>High</span>
             <span style={chip(false)}>Messenger</span>

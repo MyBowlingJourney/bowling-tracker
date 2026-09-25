@@ -169,6 +169,17 @@ export function distanceMiles(metres) {
   return Math.round((metres / 1609.34) * 10) / 10;
 }
 
+// The same distance as the bowler reads distances: miles in the US,
+// kilometres in Canada, Australia, New Zealand -- and always in French.
+// `locale` is the phone's language tag ("en-US", "en-CA", "fr-CA").
+export function distanceLabel(metres, locale = "en-US", french = false) {
+  if (typeof metres !== "number") return null;
+  const region = (/[-_]([A-Za-z]{2})\b/.exec(String(locale)) || [])[1];
+  const miles = !french && (!region || ["US", "LR", "MM"].includes(region.toUpperCase()));
+  if (miles) return `${distanceMiles(metres)} mi`;
+  return `${Math.round((metres / 1000) * 10) / 10} km`;
+}
+
 // Matching key for centers with no HERE id -- hand-entered ones. Name plus
 // city, normalized, so "Arsenal Bowl" and " arsenal  bowl " in the same
 // city are recognized as one house rather than splitting its stats.

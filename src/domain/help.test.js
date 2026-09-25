@@ -151,3 +151,14 @@ describe('the way back from Just Bowling', () => {
     expect(entry.body).toMatch(/still there|Nothing is deleted/);
   });
 });
+
+describe("searching in French", () => {
+  it("finds an entry by its French wording, accents or not", () => {
+    const fr = { "Changing the language": "Changer la langue de l'application" };
+    const tr = s => fr[s] || s;
+    const hits = searchHelp("langue", undefined, tr).map(e => e.id);
+    expect(hits).toContain("language");
+    const folded = searchHelp("reserve", [{ id: "x", title: "Spares", keywords: [], body: "" }], s => (s === "Spares" ? "Réserves" : s)).map(e => e.id);
+    expect(folded).toContain("x");
+  });
+});

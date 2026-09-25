@@ -5,7 +5,9 @@
 // copies the static pages that belong at the root next to it:
 //
 //   dist/index.html          <- public/welcome.html
-//   dist/privacy.html, terms.html, delete-account.html
+//   dist/fr/index.html       <- public/welcome-fr.html (French welcome)
+//   dist/privacy.html, terms.html, delete-account.html, and their -fr.html
+//   French versions
 //   dist/icon-*.png, apple-touch-icon.png
 //
 // The same files also ship inside dist/app (Vite copies public/), which
@@ -23,10 +25,17 @@ const pub = join(root, "public");
 const out = join(root, "dist");
 
 // welcome.html becomes the site's index; the rest keep their names.
-const ROOT_PAGES = ["privacy.html", "terms.html", "delete-account.html"];
+const ROOT_PAGES = [
+  "privacy.html", "terms.html", "delete-account.html",
+  "privacy-fr.html", "terms-fr.html", "delete-account-fr.html",
+];
 
 await mkdir(out, { recursive: true });
 await copyFile(join(pub, "welcome.html"), join(out, "index.html"));
+// The French welcome page at /fr/. Its links are root-relative, so it
+// works from there.
+await mkdir(join(out, "fr"), { recursive: true });
+await copyFile(join(pub, "welcome-fr.html"), join(out, "fr", "index.html"));
 for (const f of ROOT_PAGES) await copyFile(join(pub, f), join(out, f));
 // Icons, so the welcome page has a favicon and a share image of its own.
 for (const f of await readdir(pub)) {

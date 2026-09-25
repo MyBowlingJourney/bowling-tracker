@@ -1,0 +1,16 @@
+{{ if and .Data .Data.language (eq .Data.language "fr") }}<div lang="fr-CA" style="font-family:Arial,Helvetica,sans-serif;color:#11151C;max-width:480px">
+  <h2 style="margin:0 0 4px">Connexion à My Bowling Journey</h2>
+  <p style="margin:0 0 18px;color:#5B6472;font-size:13px">My Bowling Journey – Suivi de quilles</p>
+  <p style="margin:0 0 6px">Votre code de connexion&nbsp;:</p>
+  <p style="margin:0 0 14px;font-size:28px;font-weight:700;letter-spacing:4px">{{ .Token }}</p>
+  <p style="margin:0 0 14px">Entrez-le dans l'application. Il expire dans une heure.</p>
+  <p style="margin:0 0 14px">Ou <a href="{{ .ConfirmationURL }}">touchez ici pour vous connecter</a>.</p>
+  <p style="margin:0;color:#5B6472;font-size:13px">Si vous n'avez pas demandé ce code, vous pouvez ignorer ce courriel.</p>
+</div>{{ else }}<div lang="en" style="font-family:Arial,Helvetica,sans-serif;color:#11151C;max-width:480px">
+  <h2 style="margin:0 0 18px">Sign in to My Bowling Journey</h2>
+  <p style="margin:0 0 6px">Your sign-in code:</p>
+  <p style="margin:0 0 14px;font-size:28px;font-weight:700;letter-spacing:4px">{{ .Token }}</p>
+  <p style="margin:0 0 14px">Enter it in the app. It expires in an hour.</p>
+  <p style="margin:0 0 14px">Or <a href="{{ .ConfirmationURL }}">tap here to sign in</a>.</p>
+  <p style="margin:0;color:#5B6472;font-size:13px">If you didn't ask for this code, you can ignore this email.</p>
+</div>{{ end }}

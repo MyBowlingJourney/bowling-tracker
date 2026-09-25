@@ -140,6 +140,7 @@ import { backAction } from "./domain/navBack.js";
 import { listenForBack } from "./nativeBack.js";
 
 import { STATS_GROUPS } from "./domain/statsGroups.js";
+import { protectNames, aiLanguage, t as inAppLanguage } from "./i18n/index.js";
 const StatsView = lazyScreen("StatsView", () => import("./StatsView.jsx"));
 const ImportScorecard = lazyScreen("ImportScorecard", () => import("./ImportScorecard.jsx"));
 const Settings = lazyScreen("Settings", () => import("./Settings.jsx"));
@@ -1236,6 +1237,19 @@ export default function BowlingTracker(){
   const[compareFriendIdPick,setCompareFriendId]=useState("");
   const[statsLeaguePick,setStatsLeague]=useState("");
   const[compareLeaguePick,setCompareLeague]=useState("");
+  // In French, names the bowler typed are shown exactly as typed -- never
+  // run through the translation (see i18n/index.js protectNames).
+  useEffect(()=>{
+    const names=[displayName,...bowlers,...leagues,...Object.keys(arsenals||{}),
+      ...Object.values(arsenals||{}).flat(),...(teams||[]).map(t=>t&&t.name),
+      ...(centers||[]).map(c=>c&&c.name),...(oilPatterns||[]).map(p=>p&&p.name),
+      ...(friends||[]).map(f=>f&&f.displayName),...(bags||[]).map(b=>b&&b.name)];
+    // Not the app's own names (the Practice/Open/Tournament containers, the
+    // plastic ball, the sample leagues): those are labels, and translate.
+    protectNames(names.filter(n=>typeof n==="string"&&!DEFAULT_LEAGUES.includes(n)
+      &&n!==PLASTIC_BALL&&!(DEFAULT_ARSENAL||[]).includes(n)
+      &&!isPracticeLeagueName(n)&&!isCasualLeagueName(n)&&!isTournamentLeagueName(n)&&n!==IMPORTED_SESSION_KEY));
+  },[displayName,bowlers,leagues,arsenals,teams,centers,oilPatterns,friends,bags]);
   // The Team chip's own team, chosen from the picker at the top of it.
   const[teamStatsLeague,setTeamStatsLeague]=useState("");
 
@@ -3273,8 +3287,10 @@ export default function BowlingTracker(){
   // They're ordinary rows from that point on -- renameable and deletable.
   function seedDefaultGroups(bowlerName){
     if(ballGroups.some(g=>g.bowlerName===bowlerName))return;
+    // Seeded in the app's language: from here on they are the bowler's own
+    // names, stored as written.
     const seeded=DEFAULT_BALL_GROUPS.map((name,i)=>({
-      id:crypto.randomUUID(),bowlerName,name,sortOrder:i,
+      id:crypto.randomUUID(),bowlerName,name:inAppLanguage(name),sortOrder:i,
     }));
     const updated=[...ballGroups,...seeded];
     setBallGroups(updated);
@@ -6479,7 +6495,7 @@ export default function BowlingTracker(){
   async function askGenie(question){
     const summary=statsSummaryForGenie();
     const{data,error}=await supabase.functions.invoke("bowling-genie",{
-      body:{question,context:buildGenieContext(summary)},
+      body:{question,context:buildGenieContext(summary),language:aiLanguage()},
     });
     // READ THE BODY on a non-2xx.
     //
@@ -7570,7 +7586,7 @@ export default function BowlingTracker(){
     // returned a non-2xx status code" straight onto the Improve tab.
     const FALLBACK="Couldn't get your insights right now. Try again in a few minutes.";
     try{
-      const{data,error}=await supabase.functions.invoke("analyze-performance",{body:{payload}});
+      const{data,error}=await supabase.functions.invoke("analyze-performance",{body:{payload,language:aiLanguage()}});
       if(error){
         const failure=await readFunctionFailure(error);
         recordError({kind:"function",where:"analyze-performance",message:failure.body?.error||failure.message,detail:failureDetail(failure)});
@@ -8531,7 +8547,7 @@ export default function BowlingTracker(){
                   <img src={appLogo} alt="" aria-hidden="true" className="mbj-app-logo" style={{width:"32px",height:"32px",borderRadius:"9px",objectFit:"cover",flexShrink:0,boxShadow:`0 5px 14px ${C.bg}30`}} />
                   <div style={{...S.title,fontSize:"clamp(13px, 3.9vw, 19px)",letterSpacing:"-0.02em",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:0}}>{APP_NAME}</div>
                 </div>
-              : <div style={S.title}>{navTabs.find(t=>t.id===view)?.label
+              : <div data-i18n="title" style={S.title}>{navTabs.find(t=>t.id===view)?.label
                   ||(view==="settings"?"Settings":view==="profile"?"Profile"
                     :view==="inbox"?"Inbox":view==="coaching"?"Coach"
                     :view==="help"?"Help":view==="pastNight"?"Results":view==="social"?(casualMode?"Standings":"Friends"):view==="import"?"Import scorecard"

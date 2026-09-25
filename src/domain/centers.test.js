@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  emptyCenter, normalizeCenter, centerLabel, distanceMiles, centerKey,
+  emptyCenter, normalizeCenter, centerLabel, distanceMiles, distanceLabel, centerKey,
   findExistingCenter, statsByCenter, centerToRow, centerFromRow,
   rackTypeLabel, RACK_TYPES, statsByRackType, normalizeLaneList, laneListLabel, rackTypeForLane,
 } from './centers.js';
@@ -63,6 +63,23 @@ describe('distanceMiles', () => {
 
   it('returns null when the search was not location-anchored', () => {
     expect(distanceMiles(null)).toBeNull();
+  });
+});
+
+describe('distanceLabel', () => {
+  it('uses miles in the US and kilometres elsewhere', () => {
+    expect(distanceLabel(4364, 'en-US')).toBe('2.7 mi');
+    expect(distanceLabel(4364, 'en')).toBe('2.7 mi');
+    expect(distanceLabel(4364, 'en-CA')).toBe('4.4 km');
+    expect(distanceLabel(4364, 'en-AU')).toBe('4.4 km');
+  });
+
+  it('always uses kilometres in French', () => {
+    expect(distanceLabel(4364, 'en-US', true)).toBe('4.4 km');
+  });
+
+  it('returns null when the search was not location-anchored', () => {
+    expect(distanceLabel(null, 'en-CA')).toBeNull();
   });
 });
 

@@ -195,6 +195,14 @@ export const HELP = [
     body: "App appearance in Settings. Glow is the default — rock'n'bowl green on warm black — and there are several others if you'd rather something calmer.",
   },
   {
+    id: "language",
+    casual: true,
+    view: "settings",
+    title: "Changing the language",
+    keywords: ["language", "french", "english", "francais", "langue", "anglais", "traduction"],
+    body: "Language · Langue in Settings. Automatic follows your phone's language, or pick Français (Canada) or English. The app restarts in the language you pick.",
+  },
+  {
     id: "tournament-finish",
     view: "log",
     title: "Recording how a tournament finished",
@@ -295,8 +303,11 @@ export const HELP = [
 ];
 
 // Normalised for matching: lowercase, punctuation stripped.
+// Accents are folded ("réserve" matches "reserve"), so French searches
+// work however they are typed.
 function norm(s) {
-  return String(s || "").toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+  return String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
 }
 
 // Search the documentation.
@@ -320,17 +331,21 @@ export function helpFor(environment) {
   return HELP.filter(e => e.casual);
 }
 
-export function searchHelp(query, entries = HELP) {
+// `translate` (optional) is the app's translation function: in French the
+// entry's French title, body and keywords are searched as well as the
+// English, so a bowler can search in either language.
+export function searchHelp(query, entries = HELP, translate = null) {
   if (!Array.isArray(entries)) entries = HELP;
   const q = norm(query);
   if (!q) return [];
   const words = q.split(" ").filter(Boolean);
+  const both = s => (translate ? `${s || ""} ${translate(s || "")}` : s);
 
   return entries
     .map(entry => {
-      const title = norm(entry.title);
-      const keys = norm((entry.keywords || []).join(" "));
-      const body = norm(entry.body);
+      const title = norm(both(entry.title));
+      const keys = norm((entry.keywords || []).map(both).join(" "));
+      const body = norm(both(entry.body));
 
       let score = 0;
       if (title.includes(q)) score += 100;
@@ -351,7 +366,7 @@ export function searchHelp(query, entries = HELP) {
       return { entry, score };
     })
     .filter(r => r.score > 0)
-    .sort((a, b) => b.score - a.score || a.entry.title.localeCompare(b.entry.title))
+    .sort((a, b) => b.score - a.score || String(a.entry.title).localeCompare(String(b.entry.title)))
     .map(r => r.entry);
 }
 

@@ -376,7 +376,9 @@ export default function BowlingGenie({
 
           {answer && (
             <div style={{ marginTop: "12px" }}>
-              <div style={{ fontSize: "13px", color: C.text, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>
+              {/* The AI already answers in the app's language, so its words are
+                  never run through the translation; an error message is. */}
+              <div translate={answer.failed ? undefined : "no"} style={{ fontSize: "13px", color: C.text, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>
                 {answer.text}
               </div>
               {/* Only on a real answer. A connection failure is not an AI

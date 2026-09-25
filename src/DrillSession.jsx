@@ -34,7 +34,7 @@ export default function DrillSession({ drill, onChange, onSave, saved, balls, dr
             scrolling to reach the two buttons they came for.
             
             One target at a time, so this was always a select. */}
-        <select style={{ ...S.sel, width: "100%" }}
+        <select data-i18n="pin" style={{ ...S.sel, width: "100%" }}
           value={drill.target || ""}
           onChange={e => onChange({
             ...drill,

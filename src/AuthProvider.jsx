@@ -10,6 +10,7 @@ import { listenForAuthLinks } from './nativeAuth.js';
 // and gets back the same { error } shape.
 import { signInWithGoogle } from './googleAuth.js';
 import { APP_HOME } from './constants.js';
+import { currentLanguage } from './i18n/index.js';
 import { isBowlerFacing } from './domain/functionErrors.js';
 import { cloudRead, cloudWrite, adoptLegacyQueueItems, flushPendingQueue } from './syncQueue.js';
 import { setStorageUser, adoptLegacyData } from './scopedStorage.js';
@@ -89,6 +90,18 @@ export function AuthProvider({ children }) {
       removeLinkListener?.();
     };
   }, []);
+
+  // The sign-in emails are written in the account's language: the email
+  // templates read user_metadata.language. Kept in step with the app's
+  // language each time a session starts, so the NEXT email -- after a
+  // sign-out, or on a new phone -- matches what the bowler reads here.
+  const metaLanguage = session?.user?.user_metadata?.language;
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    const lang = currentLanguage();
+    if (metaLanguage === lang) return;
+    supabase.auth.updateUser({ data: { language: lang } }).catch(() => { /* next start retries */ });
+  }, [session?.user?.id, metaLanguage]);
 
   // Loads this user's own display name whenever they sign in (or the app
   // starts with an existing session already active).
@@ -216,7 +229,10 @@ export function AuthProvider({ children }) {
       // APP_HOME, not APP_URL: the root is the welcome page now, and a
       // magic link that lands there signs the bowler in on a page with no
       // sign of it.
-      options: { emailRedirectTo: APP_HOME },
+      // data.language sets the language of the email for a NEW account
+      // (an existing account's language comes from its user_metadata,
+      // kept in step above).
+      options: { emailRedirectTo: APP_HOME, data: { language: currentLanguage() } },
     });
     return { error };
   }

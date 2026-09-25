@@ -206,12 +206,12 @@ export default function InsightsView({ stats, onAnalyze, bowlerName, newlyAvaila
           {(result.observations || []).map((obs, i) => (
             <div key={i} style={S.card}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "6px" }}>
-                <div style={{ fontSize: "14px", fontWeight: 600, color: C.text, flex: 1 }}>{obs.headline}</div>
-                <span style={{ fontSize:"11px",color:C.textMuted, marginLeft: "8px", whiteSpace: "nowrap" }}>
+                <div translate="no" style={{ fontSize: "14px", fontWeight: 600, color: C.text, flex: 1 }}>{obs.headline}</div>
+                <span data-i18n="confidence" style={{ fontSize:"11px",color:C.textMuted, marginLeft: "8px", whiteSpace: "nowrap" }}>
                   {CONFIDENCE_LABELS[obs.confidence] || obs.confidence}
                 </span>
               </div>
-              <div style={{ fontSize: "12px", color: C.textMuted, lineHeight: 1.5 }}>{obs.detail}</div>
+              <div translate="no" style={{ fontSize: "12px", color: C.textMuted, lineHeight: 1.5 }}>{obs.detail}</div>
             </div>
           ))}
 

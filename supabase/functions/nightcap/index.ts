@@ -22,6 +22,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { recordAiTokens } from "../_shared/aiUsage.ts";
 import { geminiKey } from "../_shared/geminiKey.ts";
+import { answerLanguage, languageInstruction } from "../_shared/language.ts";
 // The only place a fact becomes a sentence. Everything that arrives here
 // is numbers and ids from a closed set; render.ts owns every word of
 // structure, and an id or a value it does not recognise is dropped rather
@@ -308,8 +309,11 @@ Deno.serve(async (req) => {
       return json({ error: "Payload too large." }, CORS, 413);
     }
     let payload: Record<string, unknown> | undefined;
+    let lang = answerLanguage(null);
     try {
-      ({ payload } = JSON.parse(raw));
+      const parsed = JSON.parse(raw);
+      ({ payload } = parsed);
+      lang = answerLanguage(parsed);
     } catch {
       return json({ error: "Bad request." }, CORS, 400);
     }
@@ -447,7 +451,7 @@ Deno.serve(async (req) => {
         signal: controller.signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          systemInstruction: { parts: [{ text: SYSTEM_PROMPT + shapeHint }] },
+          systemInstruction: { parts: [{ text: SYSTEM_PROMPT + languageInstruction(lang) + shapeHint }] },
           contents: [{ role: "user", parts: [{ text: userPrompt }] }],
           generationConfig,
         }),

@@ -7,7 +7,7 @@ import { initialTab } from "./domain/statsTabGroups.js";
 // tall inside a 44px row.
 export function TabBar({ tabs, value, onChange, label }) {
   return (
-    <div role="group" aria-label={label}
+    <div role="group" aria-label={label} data-i18n="tab"
       style={{ display: "flex", gap: "2px", padding: "2px", borderRadius: "999px",
         background: C.bg, border: `1px solid ${C.border}`, marginBottom: "14px" }}>
       {tabs.map(t => {

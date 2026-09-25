@@ -24,6 +24,7 @@ import { AuthProvider, useAuth } from './AuthProvider.jsx';
 import SignIn from './SignIn.jsx';
 import './styles.css';
 import { C } from './ui.jsx';
+import { startLanguage } from './i18n/index.js';
 
 // Before anything renders, so an error during the first paint is
 // caught too -- that is exactly when a stale chunk fails.
@@ -59,8 +60,13 @@ function AuthGate() {
   return user ? <BowlingTracker key={user.id} /> : <SignIn />;
 }
 
-createRoot(document.getElementById('root')).render(
-  <AuthProvider>
-    <AuthGate />
-  </AuthProvider>
-);
+// Language first, then the app. French installs its translator before
+// the first render, so a French phone never sees a flash of English. The
+// English path resolves immediately.
+startLanguage().finally(() => {
+  createRoot(document.getElementById('root')).render(
+    <AuthProvider>
+      <AuthGate />
+    </AuthProvider>
+  );
+});

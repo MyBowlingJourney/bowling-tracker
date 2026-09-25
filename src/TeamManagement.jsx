@@ -1015,7 +1015,7 @@ export default function TeamManagement({
             <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"12px", padding:"10px 12px", borderRadius:"10px", border:`1px dashed ${C.border}` }}>
               <div style={{ flex:1, minWidth:0 }}>
                 <div style={{ fontSize:"11px", color:C.textMuted }}>Team code — text it to teammates so they can join</div>
-                <div style={{ fontSize:"18px", fontWeight:700, letterSpacing:"0.12em", color:C.text, fontVariantNumeric:"tabular-nums" }}>{team.joinCode}</div>
+                <div style={{ fontSize:"18px", fontWeight:700, letterSpacing:"0.12em", color:C.text, fontVariantNumeric:"tabular-nums", whiteSpace:"nowrap" }}>{team.joinCode}</div>
               </div>
               <button style={S.button} onClick={()=>copyCode(team)}>{copiedTeamId===team.id ? "Copied" : "Copy"}</button>
               <button style={S.button} onClick={()=>newCode(team)} title="Make a new code; the old one stops working">New</button>
@@ -1042,7 +1042,7 @@ export default function TeamManagement({
               <div style={{width:"24px",color:C.textMuted,fontWeight:700}}>{index+1}.</div>
               <div style={{flex:1,color:C.text}}>{member.displayName}</div>
               <button style={{...S.button,minWidth:"28px"}} title="Bowling hand — tap to switch"
-                onClick={()=>setMemberHandedness(team.id,member.userId,!member.leftHanded)}>{member.leftHanded?"L":"R"}</button>
+                onClick={()=>setMemberHandedness(team.id,member.userId,!member.leftHanded)}><span data-i18n="hand">{member.leftHanded?"L":"R"}</span></button>
               {/* C.text, not undefined, for the off state.
 
                   `color: undefined` spread AFTER S.button does not mean
@@ -1093,7 +1093,7 @@ export default function TeamManagement({
                   </div>
                 </div>
                 <button style={{...S.button,minWidth:"28px"}} title="Bowling hand — tap to switch"
-                  onClick={()=>setInviteHandedness(team.id,invite.id,!invite.leftHanded)}>{invite.leftHanded?"L":"R"}</button>
+                  onClick={()=>setInviteHandedness(team.id,invite.id,!invite.leftHanded)}><span data-i18n="hand">{invite.leftHanded?"L":"R"}</span></button>
                 {/* Same fix as the roster row above -- see the note there.
                     An undefined colour is an override, not an absence. */}
                 <button style={{...S.button,color:invite.isSub?C.accent:C.text}} title="Sub — tap to toggle"

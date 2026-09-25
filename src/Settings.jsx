@@ -5,6 +5,11 @@ import { C, S, Chip, CollapsibleCard, LockedNote } from "./ui.jsx";
 import { THEMES, DARK_THEME_IDS, LIGHT_THEME_IDS } from "./domain/themes.js";
 import { EXAMPLE_PATTERN } from "./domain/oilPatterns.js";
 import { useAuth } from "./AuthProvider.jsx";
+import { chosenLanguage, resolvedLanguage, setLanguage, currentLanguage } from "./i18n/index.js";
+
+// The public pages have French versions at name-fr.html. A function, not a
+// constant: this module can load before the language is decided.
+const pageSuffix = () => (currentLanguage() === "fr" ? "-fr" : "");
 import { getPendingCount } from "./syncQueue.js";
 import CalendarView from "./CalendarView.jsx";
 import ImportCsv from "./ImportCsv.jsx";
@@ -146,8 +151,8 @@ export default function Settings({
       // policy to be reachable from inside the app, and an account
       // deletion route to be findable -- neither of which stops mattering
       // because someone bowls casually.
-      ? ["session", "look", "walkthroughs", "backup", "resync", "account", "about", "dangerZone"]
-      : ["session", "look", "trackingDetail", "moneyGames", "statsLayout", "backup", "resync", "walkthroughs", "reset", "account", "about", "dangerZone"],
+      ? ["session", "look", "language", "walkthroughs", "backup", "resync", "account", "about", "dangerZone"]
+      : ["session", "look", "language", "trackingDetail", "moneyGames", "statsLayout", "backup", "resync", "walkthroughs", "reset", "account", "about", "dangerZone"],
   };
   const allowed = mode === "leagues" ? cardsFor.leagues : (mode === "settings" ? cardsFor.settings : null);
   const showCard = id => !allowed || allowed.includes(id);
@@ -209,7 +214,7 @@ export default function Settings({
   const [newLeagueName, setNewLeagueName] = useState("");
 
   const [expanded, setExpanded] = useState({
-    session: true, look: false, trackingDetail: false,
+    session: true, look: false, language: false, trackingDetail: false,
     moneyGames: false, statsLayout: false,
     backup: false, resync: false, reset: false, account: false, about: false, dangerZone: false,
     // Open by default. The other cards are settings you go
@@ -695,6 +700,32 @@ export default function Settings({
         </CollapsibleCard>
       )}
 
+      {/* Language. The title is in both languages and never translated, so
+          someone who cannot read the current one can still find it; each
+          language's name is written in that language. */}
+      {showCard("language") && (() => {
+        const choice = chosenLanguage();
+        const names = { fr: "Français (Canada)", en: "English" };
+        return (
+      <CollapsibleCard title={<span translate="no">Language · Langue</span>}
+        summary={choice === "auto"
+          ? <>Automatic · <span translate="no">{names[resolvedLanguage()]}</span></>
+          : <span translate="no">{names[choice]}</span>}
+        expanded={expanded.language} onToggle={() => toggle("language")}>
+        <div style={{ fontSize: "11px", color: C.textMuted, marginBottom: "10px" }}>
+          Automatic follows your phone's language. Changing it restarts the app.
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+          <Chip label="Automatic" selected={choice === "auto"} onToggle={() => choice !== "auto" && setLanguage("auto")} />
+          <span translate="no" style={{ display: "contents" }}>
+            <Chip label={names.fr} selected={choice === "fr"} onToggle={() => choice !== "fr" && setLanguage("fr")} />
+            <Chip label={names.en} selected={choice === "en"} onToggle={() => choice !== "en" && setLanguage("en")} />
+          </span>
+        </div>
+      </CollapsibleCard>
+        );
+      })()}
+
       {showCard("look") && (
       <CollapsibleCard title="App appearance" summary={THEMES[preferences.theme]?.label || THEMES.lane.label}
         expanded={expanded.look} onToggle={() => toggle("look")}>
@@ -703,7 +734,7 @@ export default function Settings({
         </div>
         {[["Dark", DARK_THEME_IDS], ["Light", LIGHT_THEME_IDS]].map(([group, ids]) => (
           <div key={group} style={{ marginBottom: "10px" }}>
-            <div style={{ fontSize: "12px", color: C.textMuted, marginBottom: "6px" }}>{group}</div>
+            <div data-i18n="theme" style={{ fontSize: "12px", color: C.textMuted, marginBottom: "6px" }}>{group}</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
               {ids.map(id => {
                 const t = THEMES[id];
@@ -1953,9 +1984,10 @@ export default function Settings({
         expanded={expanded.about} onToggle={() => toggle("about")}>
         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
           {[
-            { label: "Privacy Policy", href: `${APP_URL}/privacy.html` },
-            { label: "Terms of Service", href: `${APP_URL}/terms.html` },
-            { label: "Delete your account", href: `${APP_URL}/delete-account.html` },
+            // The French pages when the app is in French.
+            { label: "Privacy Policy", href: `${APP_URL}/privacy${pageSuffix()}.html` },
+            { label: "Terms of Service", href: `${APP_URL}/terms${pageSuffix()}.html` },
+            { label: "Delete your account", href: `${APP_URL}/delete-account${pageSuffix()}.html` },
           ].map(link => (
             <a key={link.href} href={link.href}
               target="_blank" rel="noopener noreferrer"

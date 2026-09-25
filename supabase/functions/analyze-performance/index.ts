@@ -21,6 +21,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { recordAiTokens } from "../_shared/aiUsage.ts";
 import { geminiKey } from "../_shared/geminiKey.ts";
+import { answerLanguage, languageInstruction } from "../_shared/language.ts";
 
 const GEMINI_API_KEY = geminiKey();
 // Overridable by secret, like the genie and the importer.
@@ -315,7 +316,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { payload } = await req.json();
+    const body = await req.json();
+    const { payload } = body;
+    const lang = answerLanguage(body);
 
     // Defence in depth: the client gates before calling, but an empty
     // payload must never reach the model -- there'd be nothing to analyse
@@ -355,7 +358,7 @@ Deno.serve(async (req) => {
       signal: controller.signal,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+        systemInstruction: { parts: [{ text: SYSTEM_PROMPT + languageInstruction(lang) }] },
         contents: [{ role: "user", parts: [{ text: userPrompt }] }],
         generationConfig: {
           responseMimeType: "application/json",

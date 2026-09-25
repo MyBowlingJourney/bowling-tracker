@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { C, S, Chip, AiNote } from "./ui.jsx";
 import { RACK_TYPES, laneListLabel, normalizeLaneList } from "./domain/centers.js";
-import { centerLabel, distanceMiles } from "./domain/centers.js";
+import { centerLabel, distanceLabel } from "./domain/centers.js";
+import { currentLanguage } from "./i18n/index.js";
 
 // Picks the bowling center a league plays at.
 //
@@ -160,7 +161,7 @@ export default function CenterPicker({ leagueName, currentCenter, onSelect, onSe
           {results.length > 0 && (
             <div style={{ marginTop: "8px", border: `1px solid ${C.border}`, borderRadius: "8px", overflow: "hidden" }}>
               {results.map(center => {
-                const miles = distanceMiles(center.distance);
+                const miles = distanceLabel(center.distance, navigator.language, currentLanguage() === "fr");
                 return (
                   <button key={center.hereId || center.name}
                     style={{
@@ -172,7 +173,7 @@ export default function CenterPicker({ leagueName, currentCenter, onSelect, onSe
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <span style={{ fontSize: "13px", fontWeight: 600 }}>{center.name}</span>
                       {miles !== null && (
-                        <span style={{ fontSize: "10px", color: C.textMuted }}>{miles} mi</span>
+                        <span style={{ fontSize: "10px", color: C.textMuted }}>{miles}</span>
                       )}
                     </div>
                     {center.address && (
