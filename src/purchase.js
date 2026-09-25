@@ -11,7 +11,7 @@
 
 import { supabase } from "./supabaseClient.js";
 import { isNative } from "./nativeAuth.js";
-import { paymentRail, displayPricesFor, checkoutCurrencyFor } from "./domain/billing.js";
+import { paymentRail, displayPricesFor, checkoutCurrencyFor, annualPriceToShow } from "./domain/billing.js";
 import { isBowlerFacing } from "./domain/functionErrors.js";
 import { recordError } from "./errorLogStore.js";
 // The SAME constants verify-purchase and play-rtdn map with, imported
@@ -338,6 +338,19 @@ export async function playOffers() {
   } catch (e) {
     recordError({ kind: "unhandled", where: "purchase.play.offers", message: String(e?.message || e).slice(0, 300) });
     return null;
+  }
+}
+
+// The yearly price for the trial banner, in the bowler's own currency.
+// See annualPriceToShow: Play's price on Play (or none), checkout's on
+// the web. Never throws; "" means "leave the price out".
+export async function annualDisplayPrice() {
+  try {
+    const rail = await currentRail();
+    const offers = rail === "play" ? await playOffers() : null;
+    return annualPriceToShow({ rail, offers, displayPrices: DISPLAY_PRICES });
+  } catch {
+    return "";
   }
 }
 

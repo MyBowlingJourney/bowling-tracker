@@ -56,3 +56,19 @@ describe('Canadian prices', () => {
     expect(checkoutCurrencyFor('America/Denver')).toBe('');
   });
 });
+
+import { annualPriceToShow, PRICES_USD, PRICES_CAD } from './billing.js';
+
+describe('the yearly price on the trial banner', () => {
+  it("uses Google's own price on Play", () => {
+    expect(annualPriceToShow({ rail: 'play', offers: { prices: { year: 'A$79.99' } }, displayPrices: PRICES_USD })).toBe('A$79.99');
+  });
+  it('shows no price on Play rather than a US one when Google gave none', () => {
+    expect(annualPriceToShow({ rail: 'play', offers: null, displayPrices: PRICES_USD })).toBe('');
+    expect(annualPriceToShow({ rail: 'play', offers: { prices: { year: null } }, displayPrices: PRICES_USD })).toBe('');
+  });
+  it('uses the checkout price on the web', () => {
+    expect(annualPriceToShow({ rail: 'stripe', offers: null, displayPrices: PRICES_USD })).toBe('$49.99');
+    expect(annualPriceToShow({ rail: 'stripe', offers: null, displayPrices: PRICES_CAD })).toBe('$69.99');
+  });
+});

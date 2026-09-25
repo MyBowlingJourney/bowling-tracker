@@ -78,3 +78,13 @@ export function displayPricesFor(tz) {
 export function checkoutCurrencyFor(tz) {
   return isCanadianTimeZone(tz) ? "cad" : "";
 }
+
+// The yearly price the trial banner quotes. On Play it is Google's own
+// price in the bowler's currency (AUD in Australia, NZD in New Zealand)
+// or nothing at all -- never the US figure, which would be the wrong
+// currency for everyone outside the US. The banner leaves the price out
+// when this is empty. On the web it is the price checkout will charge.
+export function annualPriceToShow({ rail, offers, displayPrices } = {}) {
+  if (rail === "play") return offers?.prices?.year ? String(offers.prices.year) : "";
+  return displayPrices?.year || "";
+}

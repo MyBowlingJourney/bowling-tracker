@@ -93,7 +93,7 @@ import TrialBanner from "./TrialBanner.jsx";
 // The yearly figure the banner quotes when it nudges a monthly
 // subscriber. Display only -- what is actually charged is whatever the
 // Stripe price says. See purchase.js.
-import { DISPLAY_PRICES, reconcilePlayPurchases } from "./purchase.js";
+import { reconcilePlayPurchases } from "./purchase.js";
 import { standingAfterFirst, knockedFromSecondLeave, toggleKnocked, secondLeaveFrom, pinCountFrom, isAccidentalSpare } from "./domain/spareAttempt.js";
 import { visibleLeagues, isLeagueHidden, teamsInLeague, describeLeaveImpact, leaveConfirmationText, isContainerLeague } from "./domain/leagueMembership.js";
 import { decodeShare } from "./domain/badgeShare.js";
@@ -8792,7 +8792,6 @@ export default function BowlingTracker(){
             dates, rather than being half here and half there. */}
         <TrialBanner
           entitlement={entitlement}
-          annualPrice={DISPLAY_PRICES.year}
           onManage={()=>setView("subscribe")}
           onSwitchAnnual={()=>setView("subscribe")} />
 

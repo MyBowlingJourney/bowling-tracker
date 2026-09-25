@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import { C, S } from "./ui.jsx";
+import { annualDisplayPrice } from "./purchase.js";
 import { isTrialing, trialDaysLeft, shouldOfferAnnual } from "./domain/entitlements.js";
 
 // The one strip that tells a bowler where their subscription stands.
@@ -33,10 +35,22 @@ import { isTrialing, trialDaysLeft, shouldOfferAnnual } from "./domain/entitleme
 export default function TrialBanner({
   entitlement,
   now = Date.now(),
-  annualPrice = "",
+  // Leave it out and the banner asks the store itself (Play's price on
+  // Play, checkout's on the web), and only when it is about to show it.
+  annualPrice,
   onManage,
   onSwitchAnnual,
 }) {
+  const offerAnnual = shouldOfferAnnual(entitlement, now);
+  const [storePrice, setStorePrice] = useState("");
+  useEffect(() => {
+    if (annualPrice !== undefined || !offerAnnual) return undefined;
+    let live = true;
+    annualDisplayPrice().then(p => { if (live) setStorePrice(p || ""); });
+    return () => { live = false; };
+  }, [annualPrice, offerAnnual]);
+  const yearlyPrice = annualPrice !== undefined ? annualPrice : storePrice;
+
   const trialing = isTrialing(entitlement, now);
   const days = trialing ? trialDaysLeft(entitlement, now) : 0;
 
@@ -80,15 +94,15 @@ export default function TrialBanner({
   // requires billing_period === "month" and answers false when the field
   // is absent, which is the safe direction: an annual subscriber must
   // never be asked to switch to annual.
-  if (shouldOfferAnnual(entitlement, now)) {
+  if (offerAnnual) {
     return (
       <div style={{ ...S.card, marginBottom: "12px", padding: "12px 14px" }}>
         <div style={{ fontSize: "13px", fontWeight: 500, color: C.text, lineHeight: 1.45 }}>
           Thanks for bowling with us
         </div>
         <div style={{ fontSize: "12px", color: C.textMuted, lineHeight: 1.5, marginTop: "3px" }}>
-          {annualPrice
-            ? `You are on the monthly plan. The yearly plan is ${annualPrice} and works out cheaper — switch any time.`
+          {yearlyPrice
+            ? `You are on the monthly plan. The yearly plan is ${yearlyPrice} and works out cheaper — switch any time.`
             : "You are on the monthly plan. The yearly plan works out cheaper — switch any time."}
         </div>
         {typeof onSwitchAnnual === "function" && (
