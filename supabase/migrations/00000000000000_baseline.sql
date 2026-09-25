@@ -499,8 +499,8 @@ AS $function$
 $function$
 ;
 
-CREATE OR REPLACE FUNCTION public.join_team_with_code(p_code text)
- RETURNS TABLE(team_id uuid, team_name text, league_id uuid, league_name text)
+CREATE OR REPLACE FUNCTION public.join_team_with_code(p_code text, p_confirm boolean DEFAULT false)
+ RETURNS TABLE(team_id uuid, team_name text, league_id uuid, league_name text, switched_from text, needs_confirm boolean)
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public'
@@ -511,19 +511,17 @@ declare
   formatted text;
   t record;
   inv record;
+  via_invite boolean := false;
+  current_team text;
 begin
   if me is null then
     raise exception 'not signed in' using errcode = '42501';
   end if;
-  -- Codes are 8 characters from a 31-letter alphabet; this keeps anyone
-  -- from walking through them.
   if not public.check_api_rate_limit('join_team_with_code', 20, interval '1 hour') then
     raise exception 'Too many tries. Wait a little and try again.' using errcode = 'P0001';
   end if;
-  -- A wrong code returns NO ROWS rather than raising. Raising rolls the
-  -- whole call back -- including the attempt check_api_rate_limit just
-  -- recorded -- so failed guesses would never count toward the limit,
-  -- which is the only case the limit exists for.
+  -- A wrong code returns NO ROWS rather than raising: raising would roll
+  -- back the attempt check_api_rate_limit just recorded.
   if length(cleaned) <> 8 then
     return;
   end if;
@@ -531,42 +529,48 @@ begin
 
   select tm.id, tm.name, tm.league_id into t
   from public.teams tm where tm.join_code = formatted;
-
-  if found then
-    insert into public.team_members (team_id, user_id, lineup_position)
-    values (t.id, me, public.next_lineup_position(t.id))
-    on conflict do nothing;
-  else
-    -- Wrong, used and expired all look the same (no rows) -- saying which
-    -- helps someone guess at real codes.
+  if not found then
     select * into inv
-    from public.pending_invites
-    where upper(signup_code) = formatted
-      and accepted_at is null
-      and (code_expires_at is null or code_expires_at > now())
+    from public.pending_invites pi
+    where upper(pi.signup_code) = formatted
+      and pi.accepted_at is null
+      and (pi.code_expires_at is null or pi.code_expires_at > now())
     limit 1;
     if not found then
       return;
     end if;
+    via_invite := true;
+    select tm.id, tm.name, tm.league_id into t
+    from public.teams tm where tm.id = inv.team_id;
+  end if;
 
+  current_team := public.my_team_in_league(me, t.league_id, t.id);
+  if current_team is not null and not coalesce(p_confirm, false) then
+    -- Ask first. Nothing has changed yet.
+    return query select t.id, t.name, t.league_id,
+      (select l.name from public.leagues l where l.id = t.league_id), current_team, true;
+    return;
+  end if;
+
+  if via_invite then
     insert into public.team_members (team_id, user_id, lineup_position)
     values (inv.team_id, me, coalesce(inv.lineup_position, public.next_lineup_position(inv.team_id)))
     on conflict do nothing;
     update public.pending_invites
        set accepted_at = now(), accepted_user_id = me, signup_code = null
      where id = inv.id;
-
-    select tm.id, tm.name, tm.league_id into t
-    from public.teams tm where tm.id = inv.team_id;
+  else
+    insert into public.team_members (team_id, user_id, lineup_position)
+    values (t.id, me, public.next_lineup_position(t.id))
+    on conflict do nothing;
   end if;
 
-  -- Anything left open between this bowler and this team is settled.
-  update public.team_join_requests
+  update public.team_join_requests r
      set status = 'accepted', decided_by = me, decided_at = now()
-   where team_join_requests.team_id = t.id and user_id = me and status = 'pending';
+   where r.team_id = t.id and r.user_id = me and r.status = 'pending';
 
-  return query
-    select t.id, t.name, t.league_id, (select l.name from public.leagues l where l.id = t.league_id);
+  return query select t.id, t.name, t.league_id,
+    (select l.name from public.leagues l where l.id = t.league_id), current_team, false;
 end;
 $function$
 ;
@@ -607,6 +611,22 @@ AS $function$
      and exists (select 1 from public.user_leagues ul
                   where ul.user_id = auth.uid() and ul.league_id = p_league_id)
    order by t.name;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.leagues_rename_guard()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+begin
+  if new.name is distinct from old.name
+     and auth.uid() is not null
+     and old.created_by is distinct from auth.uid() then
+    raise exception 'only the bowler who added this league can rename it'
+      using errcode = '42501';
+  end if;
+  return new;
+end;
 $function$
 ;
 
@@ -677,8 +697,23 @@ end;
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.my_team_in_league(p_user uuid, p_league uuid, p_except uuid)
+ RETURNS text
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select t.name from public.team_members m
+    join public.teams t on t.id = m.team_id
+   where m.user_id = p_user and t.league_id = p_league
+     and t.id is distinct from p_except
+   order by m.joined_at
+   limit 1;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.my_team_requests()
- RETURNS TABLE(id uuid, team_id uuid, team_name text, league_id uuid, league_name text, user_id uuid, bowler_name text, kind text, created_at timestamp with time zone, mine_to_answer boolean)
+ RETURNS TABLE(id uuid, team_id uuid, team_name text, league_id uuid, league_name text, user_id uuid, bowler_name text, kind text, created_at timestamp with time zone, mine_to_answer boolean, current_team text)
  LANGUAGE sql
  STABLE SECURITY DEFINER
  SET search_path TO 'public'
@@ -686,7 +721,8 @@ AS $function$
   select r.id, r.team_id, t.name, t.league_id, l.name,
          r.user_id, coalesce(p.display_name, 'A bowler'), r.kind, r.created_at,
          case when r.kind = 'invite' then r.user_id = auth.uid()
-              else public.is_team_member(r.team_id) or t.created_by = auth.uid() end
+              else public.is_team_member(r.team_id) or t.created_by = auth.uid() end,
+         public.my_team_in_league(r.user_id, t.league_id, t.id)
     from public.team_join_requests r
     join public.teams t on t.id = r.team_id
     left join public.leagues l on l.id = t.league_id
@@ -936,8 +972,6 @@ begin
     raise exception 'already on this team' using errcode = 'P0001', hint = 'already_member';
   end if;
 
-  -- An invite already waiting for this bowler: asking is the same as
-  -- saying yes to it.
   select id into rid from public.team_join_requests
    where team_id = p_team_id and user_id = me and status = 'pending' and kind = 'invite';
   if found then
@@ -948,6 +982,13 @@ begin
   select id into rid from public.team_join_requests
    where team_id = p_team_id and user_id = me and status = 'pending';
   if found then return rid; end if;
+
+  -- One open request per league: asking a second team withdraws the first.
+  update public.team_join_requests r
+     set status = 'canceled', decided_by = me, decided_at = now()
+    from public.teams t
+   where t.id = r.team_id and t.league_id = lg
+     and r.user_id = me and r.kind = 'request' and r.status = 'pending';
 
   insert into public.team_join_requests (team_id, user_id, kind, created_by)
   values (p_team_id, me, 'request', me)
@@ -1057,6 +1098,38 @@ CREATE OR REPLACE FUNCTION public.set_updated_at()
 AS $function$
 begin
   new.updated_at = now();
+  return new;
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.team_members_one_per_league()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  lg uuid;
+begin
+  select league_id into lg from public.teams where id = new.team_id;
+  if lg is null then return new; end if;
+
+  delete from public.team_members m
+   using public.teams t
+   where t.id = m.team_id
+     and t.league_id = lg
+     and m.user_id = new.user_id
+     and m.team_id <> new.team_id;
+
+  update public.team_join_requests r
+     set status = 'canceled', decided_by = new.user_id, decided_at = now()
+    from public.teams t
+   where t.id = r.team_id
+     and t.league_id = lg
+     and r.user_id = new.user_id
+     and r.team_id <> new.team_id
+     and r.status = 'pending';
   return new;
 end;
 $function$
@@ -2090,6 +2163,13 @@ CREATE POLICY 'team members can update their team''s lane patterns' ON public.la
   WITH CHECK (((team_id IS NOT NULL) AND is_team_member(team_id)));
 CREATE POLICY 'team members can view their team''s lane patterns' ON public.lane_patterns FOR SELECT TO authenticated
   USING (((team_id IS NOT NULL) AND is_team_member(team_id)));
+CREATE POLICY 'bowlers in the league can update it' ON public.leagues FOR UPDATE TO authenticated
+  USING ((EXISTS ( SELECT 1
+   FROM user_leagues ul
+  WHERE ((ul.league_id = leagues.id) AND (ul.user_id = auth.uid())))))
+  WITH CHECK ((EXISTS ( SELECT 1
+   FROM user_leagues ul
+  WHERE ((ul.league_id = leagues.id) AND (ul.user_id = auth.uid())))));
 CREATE POLICY 'league members or its creator can update it' ON public.leagues FOR UPDATE TO authenticated
   USING ((is_league_member(id) OR (created_by = auth.uid())))
   WITH CHECK ((is_league_member(id) OR (created_by = auth.uid())));
@@ -2245,6 +2325,7 @@ CREATE POLICY 'users can view their own preferences' ON public.user_preferences 
   USING ((user_id = auth.uid()));
 CREATE TRIGGER entitlements_set_updated_at BEFORE UPDATE ON public.entitlements FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER leagues_add_creator AFTER INSERT ON public.leagues FOR EACH ROW EXECUTE FUNCTION user_leagues_from_row();
+CREATE TRIGGER leagues_rename_guard BEFORE UPDATE OF name ON public.leagues FOR EACH ROW EXECUTE FUNCTION leagues_rename_guard();
 CREATE TRIGGER manual_scores_add_league AFTER INSERT OR UPDATE OF league_id ON public.manual_scores FOR EACH ROW EXECUTE FUNCTION user_leagues_from_row();
 CREATE TRIGGER sessions_add_league AFTER INSERT OR UPDATE OF league_id ON public.sessions FOR EACH ROW EXECUTE FUNCTION user_leagues_from_row();
 CREATE TRIGGER sessions_record_tombstone AFTER DELETE ON public.sessions FOR EACH ROW EXECUTE FUNCTION record_tombstone();
@@ -2252,3 +2333,4 @@ CREATE TRIGGER sessions_set_updated_at BEFORE UPDATE ON public.sessions FOR EACH
 CREATE TRIGGER shots_record_tombstone AFTER DELETE ON public.shots FOR EACH ROW EXECUTE FUNCTION record_tombstone();
 CREATE TRIGGER shots_set_updated_at BEFORE UPDATE ON public.shots FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER team_members_add_league AFTER INSERT ON public.team_members FOR EACH ROW EXECUTE FUNCTION user_leagues_from_row();
+CREATE TRIGGER team_members_one_per_league AFTER INSERT ON public.team_members FOR EACH ROW EXECUTE FUNCTION team_members_one_per_league();
