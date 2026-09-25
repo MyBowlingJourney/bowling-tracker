@@ -69,7 +69,7 @@ export const HELP = [
     view: "import",
     title: "Import a scorecard photo",
     keywords: ["photo", "screenshot", "scan", "monitor", "camera", "ocr"],
-    body: "Press Import in the header. Say whether it's practice, league or a tournament, pick the team and date, then add photos of the scoring monitor. The app reads the games and frames, and you map each column to a bowler before saving.",
+    body: "Press Import in the header. Say whether it's practice or league, pick the team and date, then add photos of the scoring monitor. The app reads the games and frames, and you map each column to a bowler before saving. Tournaments aren't imported: log them live on Bowl, where squads, blocks, match play and stepladder are all tracked.",
   },
   {
     id: "import-teammates",

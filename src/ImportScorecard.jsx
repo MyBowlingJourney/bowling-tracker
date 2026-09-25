@@ -245,7 +245,6 @@ function DestinationFields({
           <div style={S.chips}>
             <Chip label="Practice" selected={importKind==="practice"} onToggle={()=>setImportKind("practice")}/>
             <Chip label="League" selected={importKind==="league"} onToggle={()=>setImportKind("league")}/>
-            <Chip label="Tournament" selected={importKind==="tournament"} onToggle={()=>setImportKind("tournament")}/>
           </div>
 
           {importKind==="league"&&(
@@ -274,24 +273,13 @@ function DestinationFields({
             </>
           )}
 
-          {importKind==="tournament"&&(
-            <>
-              <div style={S.label}>Which tournament?</div>
-              {(tournaments||[]).length===0?(
-                <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"10px"}}>
-                  No tournaments yet — start one on the Bowl tab first.
-                </div>
-              ):(
-                <div style={S.chips}>
-                  {(tournaments||[]).map(t=>(
-                    <Chip key={t.id} label={t.name} selected={contextTournamentId===t.id}
-                      onToggle={()=>setContextTournamentId(t.id)}/>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-
+          {/* No Tournament here, on purpose. A card shows games and
+              frames, not which squad or block they were, or whether a
+              game was qualifying, match play or stepladder -- so an
+              imported tournament game could only be filed with none of
+              that, and it would skew the tournament stats built around
+              it. Tournaments are logged live on Bowl, where all of that
+              is asked. */}
           {importKind==="practice"&&(
             <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"10px"}}>
               Filed as practice — no league or team needed.

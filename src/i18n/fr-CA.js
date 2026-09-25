@@ -2758,7 +2758,8 @@ export const FR_CA = {
 "The Stats screens cover the usual numbers. Brooklyn is for the questions they don't answer — ask about your own bowling in plain words and she works it out from what you've logged. If it needs something you don't track yet, she'll say what to start logging. She's on the AI tab of Improve, below Insights. Three questions a day.": "Les écrans Stats couvrent les chiffres habituels. Brooklyn est là pour les questions auxquelles ils ne répondent pas — posez vos questions sur votre propre jeu en termes simples, et elle trouve la réponse à partir de ce que vous avez enregistré. Si elle a besoin de quelque chose que vous ne suivez pas encore, elle vous dira quoi commencer à enregistrer. Elle se trouve dans l'onglet IA de Progresser, sous les analyses. Trois questions par jour.",
 "no reading": "",
 "more than one bowler": "",
-"not a card with drawn racks": ""
+"not a card with drawn racks": "",
+"Press Import in the header. Say whether it's practice or league, pick the team and date, then add photos of the scoring monitor. The app reads the games and frames, and you map each column to a bowler before saving. Tournaments aren't imported: log them live on Bowl, where squads, blocks, match play and stepladder are all tracked.": "Appuyez sur Importer dans l'en-tête. Indiquez s'il s'agit d'entraînement ou de ligue, choisissez l'équipe et la date, puis ajoutez des photos de l'écran de pointage. L'application lit les parties et les carreaux, et vous associez chaque colonne à la bonne personne avant d'enregistrer. Les tournois ne s'importent pas : enregistrez-les en direct dans Jouer, où les escouades, les blocs, le jeu par match et les échelons sont tous suivis."
 },
 "patterns": [
 [
