@@ -158,7 +158,7 @@ export default function TrendsView({
         <div style={S.label}>Metric</div>
         {/* A dropdown, not chips. Nine metrics wrapped to three rows and
             pushed the chart below the fold before it had said anything. */}
-        <select style={S.input} value={metricId}
+        <select style={{ ...S.sel, width: "100%" }} value={metricId}
           onChange={e => setMetricId(e.target.value)}>
           {metrics.map(m => (
             <option key={m.id} value={m.id}>{m.label}</option>
@@ -170,7 +170,7 @@ export default function TrendsView({
         {ballOptions.length > 0 && (
           <>
             <div style={{ ...S.label, marginTop: "12px" }}>Ball</div>
-              <select style={S.input} value={ballFilter}
+              <select style={{ ...S.sel, width: "100%" }} value={ballFilter}
                 onChange={e => setBallFilter(e.target.value)}>
                 <option value="">All balls</option>
                 {ballOptions.map(b => (
@@ -211,7 +211,7 @@ export default function TrendsView({
         {leagues.length > 0 && (
           <>
             <div style={{ ...S.label, marginTop: "12px" }}>League</div>
-            <select style={S.input} value={statsLeague}
+            <select style={{ ...S.sel, width: "100%" }} value={statsLeague}
               onChange={e => setStatsLeague(e.target.value)}>
               <option value="">All</option>
               {leagues.filter(l => !isContainerLeague(l)).map(l => (
@@ -243,7 +243,7 @@ export default function TrendsView({
           </div>
 
           {trendWindow.mode === "games" && (
-            <select style={{ ...S.input, marginTop: "6px" }} value={trendWindow.games}
+            <select style={{ ...S.sel, width: "100%", marginTop: "6px" }} value={trendWindow.games}
               onChange={e => setTrendWindow(w => ({ ...w, games: Number(e.target.value) }))}>
               {GAME_CHOICES.map(n => (
                 <option key={n} value={n}>Last {n}</option>
@@ -252,7 +252,7 @@ export default function TrendsView({
           )}
 
           {trendWindow.mode === "days" && (
-            <select style={{ ...S.input, marginTop: "6px" }} value={trendWindow.days}
+            <select style={{ ...S.sel, width: "100%", marginTop: "6px" }} value={trendWindow.days}
               onChange={e => setTrendWindow(w => ({ ...w, days: Number(e.target.value) }))}>
               {DAY_CHOICES.map(n => (
                 <option key={n} value={n}>Last {n} days</option>

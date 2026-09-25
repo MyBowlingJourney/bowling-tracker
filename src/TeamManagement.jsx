@@ -697,7 +697,7 @@ export default function TeamManagement({
             <div>
               <div style={S.label}>New team</div>
               <label style={{ display: "block", fontSize: "12px", color: C.textMuted, marginBottom: "4px" }} htmlFor="new-team-league">League</label>
-              <select id="new-team-league" style={{ ...S.input, appearance: "auto", marginBottom: "10px" }}
+              <select id="new-team-league" style={{ ...S.sel, width: "100%", marginBottom: "10px" }}
                 value={newTeamLeague} onChange={e => setNewTeamLeague(e.target.value)}>
                 <option value="" disabled>Pick the league this team bowls in</option>
                 {leagues.map(l => <option key={l} value={l}>{String(l).replace(" House Shot", "")}</option>)}
@@ -745,7 +745,7 @@ export default function TeamManagement({
       {teams.length > 1 && (
         <div style={S.card}>
           <div style={S.label}>Team</div>
-          <select style={{ ...S.input, appearance: "auto" }}
+          <select style={{ ...S.sel, width: "100%" }}
             value={shownTeam?.id || ""}
             onChange={e => setShownTeamId(e.target.value)}>
             {teams.map(t => (

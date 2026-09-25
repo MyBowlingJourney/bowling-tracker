@@ -673,7 +673,7 @@ export default function Settings({
             return real.length > 1 && (
               <div style={S.card}>
                 <div style={S.label}>League</div>
-                <select style={{ ...S.input, appearance: "auto", marginBottom: 0 }}
+                <select style={{ ...S.sel, width: "100%", marginBottom: 0 }}
                   aria-label="League"
                   value={real.includes(shownLeague) ? shownLeague : real[0]}
                   onChange={e => { setShownLeague(e.target.value); setEditingLeague(null); }}>
@@ -1102,7 +1102,7 @@ export default function Settings({
             return real.length > 1 && (
               <div style={{ marginBottom: "12px" }}>
                 <div style={{ ...S.label, marginBottom: "6px" }}>League</div>
-                <select style={{ ...S.input, appearance: "auto", marginBottom: 0 }}
+                <select style={{ ...S.sel, width: "100%", marginBottom: 0 }}
                   aria-label="League"
                   value={real.includes(shownLeague) ? shownLeague : real[0]}
                   onChange={e => { setShownLeague(e.target.value); setEditingLeague(null); }}>

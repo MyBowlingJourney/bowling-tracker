@@ -77,7 +77,7 @@ export default function ImportCsv({
           already been shown a report about nights with no home. */}
       <div style={{ ...S.card, marginTop: "8px" }}>
         <div style={S.label}>Import into</div>
-        <select style={S.input} value={league} onChange={e => setLeague(e.target.value)}>
+        <select style={{ ...S.sel, width: "100%" }} value={league} onChange={e => setLeague(e.target.value)}>
           <option value="">Imported (no league)</option>
           {options.map(o => (
             <option key={o.value} value={o.value}>{o.label}</option>
