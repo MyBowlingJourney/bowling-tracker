@@ -413,6 +413,9 @@ export default function ImportScorecard({
   };
   const isNewBowler=v=>String(v||"").startsWith(NEW_PREFIX);
   const[assignments,setAssignments]=useState({}); // columnIndex -> bowler name or "" (skip)
+  // The name this bowler's own column is filed under (see isMine).
+  const[mineName,setMineName]=useState("");
+  const ownerBowler=mineName||contextBowler;
   const[orderCheck,setOrderCheck]=useState(null);
   // "Busy, try again" is not the same as "this is broken", and colouring
   // them the same is what makes people give up on a temporary problem.
@@ -462,6 +465,18 @@ export default function ImportScorecard({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[teamId]);
   const rosterMembers=(teamId&&rosterByTeam[teamId]?.length?rosterByTeam[teamId]:null)||contextTeam?.members||[];
+  // Is this column the signed-in bowler? By name, or by the roster entry
+  // that IS their account. Matching the name alone sent a bowler's own
+  // night to their own inbox as a "teammate" whenever the roster showed
+  // their display name ("Ryan Everett") and the app's active bowler was
+  // another spelling ("Ryan") -- the night never reached their calendar.
+  const isMine=name=>{
+    if(!name)return false;
+    if(name===contextBowler)return true;
+    if(!userId)return false;
+    return rosterMembers.some(m=>m&&typeof m==="object"&&m.userId===userId
+      &&(m.displayName||m.bowlerName||"")===name);
+  };
   // displayName first: that is what cloud-loaded members carry. Reading
   // only bowlerName/name/bowler found nobody on a real team, so the
   // "Who's who" dropdown never offered a teammate and a card could not be
@@ -600,9 +615,13 @@ export default function ImportScorecard({
 
   // Confirming the mapping is what decides whose games get reviewed.
   function confirmColumns(){
-    const mineIndex=columns.findIndex((c,i)=>resolveAssigned(assignments[i])===contextBowler);
+    const mineIndex=columns.findIndex((c,i)=>isMine(resolveAssigned(assignments[i])));
     const mine=mineIndex>=0?columns[mineIndex]:null;
-    const converted=mine?convertColumn(mine,contextBowler):[];
+    // Filed under the name it was mapped to: the bowler's own roster name
+    // when they picked that, the active bowler otherwise.
+    const owner=mine?resolveAssigned(assignments[mineIndex]):contextBowler;
+    setMineName(owner);
+    const converted=mine?convertColumn(mine,owner):[];
     setGames(converted);
     setExpandedByGame(converted.map(g=>new Set(g.warnings.map(w=>`${w.frame}-${w.ballNum??1}`))));
     // Seed the editable teammate scores from what was read, so the review
@@ -610,14 +629,14 @@ export default function ImportScorecard({
     const seeded={};
     columns.forEach((c,i)=>{
       const who=resolveAssigned(assignments[i]);
-      if(!who||who===contextBowler)return;
+      if(!who||isMine(who))return;
       seeded[i]=(c.games||[]).map(g=>g.totalScore==null?"":String(g.totalScore));
     });
     setTeammateScores(seeded);
     const tGames={},tExpanded={};
     columns.forEach((c,i)=>{
       const who=resolveAssigned(assignments[i]);
-      if(!who||who===contextBowler)return;
+      if(!who||isMine(who))return;
       const conv=convertColumn(c,who);
       tGames[i]=conv;
       conv.forEach((g,gi)=>{tExpanded[`${i}-${gi}`]=new Set(g.warnings.map(w=>`${w.frame}-${w.ballNum??1}`));});
@@ -630,7 +649,7 @@ export default function ImportScorecard({
 
   const teammateEntries=columns
     .map((c,i)=>({column:c,index:i,bowler:resolveAssigned(assignments[i])}))
-    .filter(x=>x.bowler&&x.bowler!==contextBowler);
+    .filter(x=>x.bowler&&!isMine(x.bowler));
 
   // Any teammate score that a game of bowling can't produce. Sending one
   // means the receiving end nulls it and the teammate gets a blank, so
@@ -1177,7 +1196,7 @@ export default function ImportScorecard({
 
   async function handleSave(){
     const conflictGames=games.filter(g=>
-      shots.some(s=>s.bowler===contextBowler&&s.league===contextLeague&&s.date===contextDate&&s.game===String(g.gameNumber))
+      shots.some(s=>s.bowler===ownerBowler&&s.league===contextLeague&&s.date===contextDate&&s.game===String(g.gameNumber))
     );
     if(conflictGames.length&&!window.confirm(
       `Shots already exist for Game ${conflictGames.map(c=>c.gameNumber).join(", ")} on ${contextDate}. `+
@@ -1219,7 +1238,9 @@ export default function ImportScorecard({
     // or a bowler who doesn't log shot by shot, still get averages.
     const scoreOnlyGames=games.filter(g=>g.scoreOnly&&g.totalScore!=null);
     scoreOnlyGames.forEach(g=>{
-      updateManualScore(contextBowler,contextLeague,contextDate,g.gameNumber,String(g.totalScore));
+      // Session 1, like the imported frames: an import files a night, and
+      // the live logging session's number has nothing to do with it.
+      updateManualScore(ownerBowler,contextLeague,contextDate,g.gameNumber,String(g.totalScore),1);
     });
 
     // Games that came in WITH frame detail replace any manual score for
@@ -1227,7 +1248,7 @@ export default function ImportScorecard({
     // so leaving one behind here would mean the newly imported frames are
     // silently ignored in favour of a number typed earlier.
     games.filter(g=>!g.scoreOnly&&g.shots.length>0).forEach(g=>{
-      updateManualScore(contextBowler,contextLeague,contextDate,g.gameNumber,"");
+      updateManualScore(ownerBowler,contextLeague,contextDate,g.gameNumber,"",1);
     });
 
     // Hand off to the existing, already-correct Save Session flow rather
@@ -1241,7 +1262,7 @@ export default function ImportScorecard({
     // domain/importVerification.js for the full lifecycle.
     const teammateColumns=columns
       .map((c,i)=>({column:c,index:i,bowler:resolveAssigned(assignments[i])}))
-      .filter(x=>x.bowler&&x.bowler!==contextBowler);
+      .filter(x=>x.bowler&&!isMine(x.bowler));
     if(teammateColumns.length&&onSubmitTeammateScores){
       await onSubmitTeammateScores(teammateColumns.map(({column,index,bowler})=>({
         bowler,
@@ -1275,7 +1296,7 @@ export default function ImportScorecard({
 
     setSessionLeague(contextLeague);
     setSessionDate(contextDate);
-    selectBowler(contextBowler);
+    selectBowler(ownerBowler);
     // Built in two halves: what landed for THIS bowler, and what was sent
     // to teammates. Mapping only teammates is a normal thing to do -- one
     // person imports the card for the whole team -- and the message has

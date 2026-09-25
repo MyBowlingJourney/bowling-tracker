@@ -5671,8 +5671,10 @@ export default function BowlingTracker(){
   // getGameStrict does keeps the two impossible to disagree. Only a real
   // number for practice #2-or-later; undefined (meaning "the plain key")
   // for practice #1 and for every non-practice call.
-  function updateManualScore(bowler,league,date,game,value){
-    const seq=currentSessionSeq;
+  function updateManualScore(bowler,league,date,game,value,seqOverride){
+    // The live session's number, unless the caller files a specific night
+    // (the scorecard import files session 1, as its frames are).
+    const seq=Number.isInteger(seqOverride)&&seqOverride>0?seqOverride:currentSessionSeq;
     // Built from a ref, not from the `manualScores` closure value.
     //
     // The scorecard import writes three games in one tick. Reading the
