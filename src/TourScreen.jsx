@@ -16,25 +16,6 @@ import journeyIcon from "../journey-icon.png";
 
 // A phone-shaped frame, so it reads as "this is a screen" rather than
 // as more of the tour's own UI.
-// Brooklyn's lamp, as it sits in the header.
-//
-// The real one is a drawn SVG rather than an emoji, so a glyph here
-// would not look like the thing a bowler is being told to tap. This is
-// a simplified version of the same shape, in the same accent colour.
-function Lamp({ on }) {
-  return (
-    <svg width="17" height="13" viewBox="0 0 24 18" aria-hidden="true"
-      style={on ? undefined : { opacity: 0.55 }}>
-      {/* Body, spout and handle -- enough to read as a lamp at 17px. */}
-      <ellipse cx="11" cy="14.5" rx="8" ry="2.4" fill={C.accent} />
-      <path d="M4 13.5c0-4 3-6.5 7-6.5s7 2.5 7 6.5z" fill={C.accent} />
-      <path d="M18 11.5l5-2.5-5-1.4z" fill={C.accent} />
-      <path d="M11 7V4.6" stroke={C.accent} strokeWidth="1.6" strokeLinecap="round" />
-      <circle cx="11" cy="3.4" r="1.6" fill={C.accent} />
-    </svg>
-  );
-}
-
 // The header, as the app actually draws it.
 //
 // It had a magnifier, a camera, a person and a cog -- four icons, three
@@ -43,12 +24,11 @@ function Lamp({ on }) {
 //
 //   the app name (the LOGGING screens show the app name, not a tab
 //   name -- there is no tab called "Bowl")
-//   Brooklyn's lamp, once there is something to ask about
 //   Import, a LABELLED button, because a bare camera read as "take a
 //     photo" and bowlers hunted for import elsewhere
 //   the menu, three lines, holding search, profile and settings
 //
-// `headerIcon` lights one of them: "genie" | "import" | "menu".
+// `headerIcon` lights one of them: "import" | "menu".
 function Phone({ children, title, headerIcon, casual }) {
   return (
     <div style={{
@@ -62,12 +42,6 @@ function Phone({ children, title, headerIcon, casual }) {
       }}>
         <span style={{ fontSize: "13px", fontWeight: 700, color: C.text, fontFamily: F.body }}>{title}</span>
         <span style={{ display: "flex", gap: "7px", alignItems: "center", fontSize: "13px" }}>
-          {/* Brooklyn is never offered on a casual night. */}
-          {!casual && (
-            <span style={headerIcon === "genie" ? lit(true) : undefined}>
-              <Lamp on={headerIcon === "genie"} />
-            </span>
-          )}
           {!casual && (
             <span style={{
               ...(headerIcon === "import" ? lit(true) : { opacity: 0.55 }),
@@ -1113,32 +1087,31 @@ const SCREENS = {
     </Phone>
   ),
 
-  // Stands on Home with the LAMP lit, not on Improve.
-  //
-  // Brooklyn is reached from the header on every screen -- she is not a
-  // tab, and lighting one sent bowlers to Improve looking for her.
+  // On Improve, where her card sits at the top.
   "ai-brooklyn": () => (
-    <Phone title="My Bowling Journey" headerIcon="genie">
-      <Note>Her lamp, on every screen</Note>
-      <div style={card}>
-        <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px" }}>
-          <Lamp on />
-          <span style={{ fontSize: "11px", fontWeight: 700, color: C.text, fontFamily: F.body }}>Brooklyn</span>
-          <span style={{ ...muted, marginLeft: "auto" }}>2 wishes left today</span>
-        </div>
-        <Spot>
+    <Phone title="Improve">
+      <Spot>
+        <div style={card}>
+          <div style={{ display: "flex", alignItems: "baseline", marginBottom: "6px" }}>
+            <span style={{ ...label, color: C.accent, marginBottom: 0 }}>Ask Brooklyn</span>
+            <span style={{ ...muted, marginLeft: "auto" }}>2 questions left today</span>
+          </div>
           <div style={{
             border: `1px solid ${C.border}`, borderRadius: "8px", padding: "6px 8px",
             fontSize: "10px", color: C.textMuted, fontFamily: F.body,
           }}>
             Which ball should I start on next week?
           </div>
-        </Spot>
-        <div style={{ fontSize: "10px", color: C.text, fontFamily: F.body, marginTop: "6px", lineHeight: 1.5 }}>
-          On a 37-foot pattern you've struck more with the Bionic every time out. Start there.
+          <div style={{ fontSize: "10px", color: C.text, fontFamily: F.body, marginTop: "6px", lineHeight: 1.5 }}>
+            On a 37-foot pattern you've struck more with the Bionic every time out. Start there.
+          </div>
         </div>
+      </Spot>
+      <div style={card}>
+        <div style={label}>Goals</div>
+        <Row left="10 pin conversion" right="42%" dim />
       </div>
-      <Nav active={0} />
+      <Nav active={3} />
     </Phone>
   ),
 

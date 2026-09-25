@@ -219,7 +219,7 @@ const ALL_STEPS = [
     track: "ai",
     tab: "improve",
     title: "Ask Brooklyn",
-    body: "The Stats screens cover the usual numbers. Brooklyn is for the questions they don't answer — ask about your own bowling in plain words and she works it out from what you've logged. If it needs something you don't track yet, she'll say what to start logging. Her lamp sits in the header on every screen, so you never have to go looking. Three wishes a day.",
+    body: "The Stats screens cover the usual numbers. Brooklyn is for the questions they don't answer — ask about your own bowling in plain words and she works it out from what you've logged. If it needs something you don't track yet, she'll say what to start logging. She has her own card at the top of Improve. Three questions a day.",
   },
 
   // ── Coaching ──────────────────────────────────────────────────────────
@@ -236,7 +236,7 @@ const ALL_STEPS = [
     track: "coach",
     tab: "improve",
     title: "Linking up",
-    body: "Improve has a Coach button. Say which way round it goes — they coach me, or I coach them — and make a code. Read the eight characters to the other person, they enter it on their own phone, and you're connected. Nobody looks anybody up by name, so there's no wrong Mike Smith to pick.",
+    body: "Improve has a Coach button. Say which way round it goes — they coach me, or I coach them — and make a code. Read the eight characters to the other person, they enter it on their own phone, and you're connected.",
   },
   {
     id: "coach-switch",

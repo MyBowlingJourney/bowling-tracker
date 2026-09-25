@@ -33,9 +33,8 @@ import Subscribe from "./Subscribe.jsx";
 import CasualLeaderboard from "./CasualLeaderboard.jsx";
 const BadgeCollection = lazyScreen("BadgeCollection", () => import("./BadgeCollection.jsx"));
 
-// Not lazy: the lamp is on every screen, so it is never the thing being
-// waited for -- and a floating button that pops in late looks broken.
-import BowlingGenie from "./BowlingGenie.jsx";
+// Ask Brooklyn, the card on the Improve tab.
+import AskBrooklyn from "./AskBrooklyn.jsx";
 import ErrorBoundary from "./ErrorBoundary.jsx";
 import GoalsPanel from "./GoalsPanel.jsx";
 import ImportedScoresInbox, { InboxList } from "./ImportedScoresInbox.jsx";
@@ -6525,7 +6524,7 @@ export default function BowlingTracker(){
     // rate limit and a bad model name all read identically.
     // Brooklyn's own voice for "it didn't work". The server's real reason
     // goes to the error log; a bowler never sees plumbing.
-    const GENIE_FALLBACK="The lamp flickered and went quiet. Try again in a few minutes.";
+    const GENIE_FALLBACK="Brooklyn couldn't answer that right now. Try again in a few minutes.";
     if(error){
       const failure=await readFunctionFailure(error);
       const limited=failure.body?.limited===true;
@@ -6535,11 +6534,11 @@ export default function BowlingTracker(){
       //
       // Two counters exist: the client counts answers it received, the
       // server counts requests it was sent. A failed request spends a
-      // server wish and records nothing on the client, so a day of
-      // errors leaves the lamp saying "3 wishes left" while the server
+      // server question and records nothing on the client, so a day of
+      // errors leaves the card saying "3 questions left" while the server
       // says "you've used all three".
       //
-      // Believing the server costs a wish that was genuinely spent, and
+      // Believing the server costs a question that was genuinely spent, and
       // is far better than offering three that do not exist.
       if(limited){
         const today=localDateString();
@@ -6553,7 +6552,7 @@ export default function BowlingTracker(){
     }
 
     if(!data?.text){
-      // Not recorded: a failure must not spend a wish.
+      // Not recorded: a failure must not spend a question.
       // RETURN the reason rather than throwing it.
       //
       // Throwing sent this straight to the Genie's catch block, which
@@ -8601,14 +8600,6 @@ export default function BowlingTracker(){
               
                 Import is genuinely hidden: there's no scorecard to
                 photograph on a casual night. */}
-            {/* Brooklyn, in the header on every screen. It floated over
-                the bottom-right of the screen, covering whatever card
-                sat there. Same conditions as before: not until there is
-                something to ask about, and never in open bowling. */}
-            {onboarded&&hasAnythingLogged&&!casualMode&&(
-              <BowlingGenie inHeader leftHanded={!!preferences.leftHanded} asked={genieAsked} today={localDateString()} onAsk={askGenie}/>
-            )}
-
             {/* Import lives here rather than on the Log tab. On Log it was
                 gated on the current environment AND on a league already
                 being chosen, so importing a league scorecard meant
@@ -8842,6 +8833,16 @@ export default function BowlingTracker(){
               </button>
             )}
           </div>
+
+          {/* Ask Brooklyn. Her own card here rather than a lamp in the
+              header: Improve is where the "what should I work on" tools
+              live, and she answers exactly that kind of question. Hidden
+              until something is logged -- with no data every answer is
+              "you haven't logged anything yet" -- and never in open
+              bowling, which logs scores and nothing else. */}
+          {onboarded&&hasAnythingLogged&&!casualMode&&(
+            <AskBrooklyn leftHanded={!!preferences.leftHanded} asked={genieAsked} today={localDateString()} onAsk={askGenie}/>
+          )}
 
           {/* Goals live here now, not on the Log tab. A goal is something
               you set and review between sessions, not while standing on
@@ -9594,33 +9595,7 @@ export default function BowlingTracker(){
         </ErrorBoundary>
       </div>
 
-      {/* The genie floats over every screen, including casual -- a bowler
-          out with friends can still ask why they keep leaving the 10.
 
-          Hidden until there is something to ask ABOUT.
-
-          A genie with no data answers every question with a variation of
-          "you haven't logged anything yet", which is worse than no genie:
-          the bowler spends a wish finding out there was nothing to spend
-          it on, and the feature's first impression is an empty shrug.
-
-          One logged game is the bar -- not a good sample, but enough that
-          an answer is about them rather than about nothing. Brooklyn is
-          told to say when a sample is thin, so a thin answer is honest
-          rather than hollow. */}
-      {/* Not in open bowling.
-
-          Brooklyn answers from league and practice statistics -- spare
-          conversion, carry by ball, position in the set. Open bowling
-          logs scores and nothing else, so she would be answering every
-          question from an average, which is the thin-data problem the
-          lamp is already hidden for elsewhere.
-
-          It is also the wrong tone. Open bowling deliberately strips the
-          app back to a scoresheet and badges; a coaching genie is
-          exactly the kind of thing that mode exists to get out of the
-          way. */}
-      {/* Brooklyn now lives in the header -- see the header buttons. */}
 
 
       {/* Bottom nav. At the bottom because the top of a phone is out of

@@ -1,6 +1,6 @@
-// The bowling genie: what counts as a question, and how many are left.
+// Ask Brooklyn: what counts as a question, and how many are left.
 //
-// Three questions a day, and the genie only answers about bowling.
+// Three questions a day, and Brooklyn only answers about bowling.
 //
 // THE CLASSIFIER IS DELIBERATELY PERMISSIVE.
 //
@@ -11,17 +11,17 @@
 //
 // An allowlist of bowling words would be worse than useless here. "Why
 // does that keep happening?", "what should I change?", "am I getting
-// better?" are all plainly bowling questions to a genie holding your
+// better?" are all plainly bowling questions to an analyst holding your
 // history, and not one of them contains a bowling word.
 //
 // WHAT COUNTS AGAINST THE THREE:
 //
 //   Gemini answers            -> counts. You got your answer.
-//   Gemini refuses in character -> counts. It read the question and
-//                                 made a judgement; that is a wish spent.
+//   Gemini declines            -> counts. It read the question and
+//                                 made a judgement; that is a question spent.
 //   This classifier blocks    -> does NOT count. Nothing was spent, and
 //                                 the user may just be phrasing something
-//                                 oddly. Burning a wish on a regex being
+//                                 oddly. Spending one on a regex being
 //                                 wrong is what they would remember.
 
 export const DAILY_QUESTIONS = 3;
@@ -51,7 +51,7 @@ const OTHER_DOMAINS = [
   /\b(javascript|python|sql|regex|function that)\b/i,
 ];
 
-// Attempts to make the genie something else entirely. Not a bowling
+// Attempts to make Brooklyn something else entirely. Not a bowling
 // question, and not worth a paid call.
 const NOT_A_QUESTION = [
   /\b(ignore|disregard) (all |your |the )?(previous |prior |above )?(instructions|rules|prompt)/i,
@@ -63,7 +63,7 @@ const NOT_A_QUESTION = [
 // Is this worth spending a call on?
 //
 // Returns { ok } when it should go to Gemini, or { ok: false, reason }
-// when the genie should decline for free.
+// when Brooklyn should decline for free.
 export function classifyQuestion(text) {
   const q = typeof text === "string" ? text.trim() : "";
 
@@ -79,14 +79,13 @@ export function classifyQuestion(text) {
   return { ok: true };
 }
 
-// What the genie says when it declines for free. In character, and clear
-// that it cost nothing -- otherwise people assume it did.
-// The genie has a name, and uses it.
+// What Brooklyn says when she declines for free -- clear that it cost
+// nothing, otherwise people assume it did.
 //
 // Brooklyn is a crossover strike -- the ball comes in on the wrong side
-// and works anyway. It is also a real name, which is the point: a genie
-// that says "Brooklyn only knows bowling" is a character, and one that
-// says "I only know bowling" is a validation message.
+// and works anyway. It is also a real name: "Brooklyn only knows
+// bowling" reads as someone talking, "I only know bowling" as a
+// validation message.
 //
 // Exported so the panel, the refusals and the Edge Function's system
 // prompt all read from one place. Three copies of a name is how a
@@ -136,11 +135,11 @@ export function canAskToday(asked, today) {
   return questionsLeftToday(asked, today) > 0;
 }
 
-// "2 wishes left today" / "Back tomorrow".
+// "2 questions left today" / "Back tomorrow".
 export function budgetLabel(asked, today) {
   const left = questionsLeftToday(asked, today);
   if (left === 0) return "Back tomorrow";
-  return `${left} ${left === 1 ? "wish" : "wishes"} left today`;
+  return `${left} ${left === 1 ? "question" : "questions"} left today`;
 }
 
 // ── What Gemini is told ─────────────────────────────────────────────────

@@ -2739,7 +2739,16 @@ export const FR_CA = {
 "placeholder::board #": "pl.",
 "placeholder::degrees": "°",
 "Google Play shows whether a free trial applies to your account before you confirm, then it renews on its own until you cancel.": "Google Play indique si un essai gratuit s'applique à votre compte avant que vous confirmiez, puis l'abonnement se renouvelle automatiquement jusqu'à ce que vous l'annuliez.",
-"Pro": "Pro"
+"Pro": "Pro",
+"Reading your question…": "Lecture de votre question…",
+"questions today. Ask again tomorrow.": "",
+"Brooklyn couldn't answer that right now. Try again in a few minutes.": "Brooklyn n'a pas pu répondre pour l'instant. Réessayez dans quelques minutes.",
+"The Stats screens cover the usual numbers. Brooklyn is for the questions they don't answer — ask about your own bowling in plain words and she works it out from what you've logged. If it needs something you don't track yet, she'll say what to start logging. She has her own card at the top of Improve. Three questions a day.": "Les écrans Stats couvrent les chiffres habituels. Brooklyn est là pour les questions auxquelles ils ne répondent pas — posez vos questions sur votre propre jeu en termes simples, et elle trouve la réponse à partir de ce que vous avez enregistré. Si elle a besoin de quelque chose que vous ne suivez pas encore, elle vous dira quoi commencer à enregistrer. Elle a sa propre carte en haut de l'onglet Progresser. Trois questions par jour.",
+"2 questions left today": "2 questions restantes aujourd'hui",
+"Brooklyn isn't available right now. Try again later.": "Brooklyn n'est pas disponible pour l'instant. Réessayez plus tard.",
+"You've used all three questions today. Ask again tomorrow.": "Vous avez utilisé vos trois questions aujourd'hui. Revenez demain.",
+"Brooklyn couldn't answer that. Try again in a moment.": "Brooklyn n'a pas pu répondre. Réessayez dans un moment.",
+"Brooklyn took too long to answer. Try again.": "Brooklyn a mis trop de temps à répondre. Réessayez."
 },
 "patterns": [
 [
@@ -5168,7 +5177,7 @@ export const FR_CA = {
 ],
 [
 "{0} {1} left today",
-"{0} {0|vœu restant|vœux restants} aujourd'hui"
+"{0} {0|question restante|questions restantes} aujourd'hui"
 ],
 [
 "{0} league{1:s}",
@@ -5433,6 +5442,22 @@ export const FR_CA = {
 [
 "You have already had the free trial, so the {0} plan starts today at {1} and renews on its own until you cancel.",
 "Vous avez déjà profité de l'essai gratuit, donc le forfait {0} commence aujourd'hui à {1} et se renouvelle automatiquement jusqu'à ce que vous l'annuliez."
+],
+[
+"Ask {0}",
+"Demandez à {0}"
+],
+[
+"You've used all {0} questions today. Ask again tomorrow.",
+"Vous avez utilisé vos {0} questions du jour. Revenez demain."
+],
+[
+"Ask {0} a question",
+"Poser une question à {0}"
+],
+[
+"Brooklyn couldn't answer that. Try again in a moment. (ref {0})",
+"Brooklyn n'a pas pu répondre. Réessayez dans un moment. (réf. {0})"
 ]
 ],
 "fragments": [

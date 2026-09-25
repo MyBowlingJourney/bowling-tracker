@@ -70,7 +70,7 @@ describe('the classifier blocks the obviously-off', () => {
 });
 
 describe('refusals say they were free', () => {
-  // People assume a refusal cost them a wish unless told otherwise.
+  // People assume a refusal cost them a question unless told otherwise.
   it('says so for an off-topic block', () => {
     expect(refusalMessage('off-topic')).toContain('free');
   });
@@ -116,7 +116,7 @@ describe('the daily budget', () => {
   });
 
   // A locally-blocked question is marked counted:false and must not
-  // spend a wish.
+  // spend a question.
   it('ignores questions the classifier blocked', () => {
     const mixed = [{ date: today }, { date: today, counted: false }, { date: today, counted: false }];
     expect(questionsUsedToday(mixed, today)).toBe(1);
@@ -127,8 +127,8 @@ describe('the daily budget', () => {
   });
 
   it('reads naturally', () => {
-    expect(budgetLabel([], today)).toBe('3 wishes left today');
-    expect(budgetLabel(asked(2), today)).toBe('1 wish left today');
+    expect(budgetLabel([], today)).toBe('3 questions left today');
+    expect(budgetLabel(asked(2), today)).toBe('1 question left today');
     expect(budgetLabel(asked(3), today)).toBe('Back tomorrow');
   });
 

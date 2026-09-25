@@ -32,7 +32,7 @@ describe("friendlyFunctionError: messages written for bowlers still get through"
     expect(r.text).toBe("Insights is part of the paid plan."); expect(r.kind).toBe("upgrade");
   });
   it("Brooklyn's in-voice limit", () => {
-    expect(friendlyFunctionError({ status: 429, body: { error: "You've used all three today. The lamp recharges tomorrow.", limited: true } }, "x").text).toMatch(/recharges tomorrow/);
+    expect(friendlyFunctionError({ status: 429, body: { error: "You've used all three questions today. Ask again tomorrow.", limited: true } }, "x").text).toMatch(/Ask again tomorrow/);
   });
   it("a bowler-facing 5xx is shown", () => {
     expect(friendlyFunctionError({ status: 504, body: { error: "The nightcap took too long. Tap to try again." } }, FALLBACK).text).toBe("The nightcap took too long. Tap to try again.");
