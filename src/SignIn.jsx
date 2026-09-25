@@ -119,6 +119,8 @@ export default function SignIn() {
   const releaseTimer = useRef(null);
   const emailButtonRef = useRef(null);
   const codeButtonRef = useRef(null);
+  const cardRef = useRef(null);
+  const safeTopRef = useRef(null);
   const keepAboveKeyboard = (targetRef) => ({
     onFocus: () => {
       clearTimeout(releaseTimer.current);
@@ -126,8 +128,19 @@ export default function SignIn() {
       setTimeout(() => {
         const el = targetRef.current;
         if (!el) return;
-        const top = el.getBoundingClientRect().top + window.scrollY;
-        try { window.scrollTo({ top: Math.max(0, top - window.innerHeight * 0.3), behavior: "smooth" }); } catch { /* old WebView */ }
+        // Scroll only as far as the button needs, and never so far that
+        // the top of the card (the app name) slides under the status bar:
+        // the card's top stops just below the phone's safe area, and the
+        // button only pulls it higher if it would still sit in the lower
+        // half, where the keyboard is.
+        const buttonTop = el.getBoundingClientRect().top + window.scrollY;
+        const card = cardRef.current;
+        const safeTop = safeTopRef.current ? safeTopRef.current.getBoundingClientRect().height : 0;
+        const cardTop = card ? card.getBoundingClientRect().top + window.scrollY : buttonTop;
+        const cardAtTop = cardTop - safeTop - 12;
+        const buttonNeeds = buttonTop - window.innerHeight * 0.45;
+        const target = Math.max(0, cardAtTop, buttonNeeds);
+        try { window.scrollTo({ top: target, behavior: "smooth" }); } catch { /* old WebView */ }
       }, 250);
     },
     onBlur: () => {
@@ -239,7 +252,9 @@ export default function SignIn() {
       // Room to scroll the button above the keyboard -- see keepAboveKeyboard.
       paddingBottom: typing ? "60vh" : "24px",
     }}>
-      <div style={{
+      {/* Measures the phone's status-bar inset, for keepAboveKeyboard. */}
+      <div ref={safeTopRef} aria-hidden="true" style={{ position: "fixed", top: 0, left: 0, width: 0, height: "env(safe-area-inset-top, 0px)", pointerEvents: "none", visibility: "hidden" }} />
+      <div ref={cardRef} style={{
         width: "100%", maxWidth: "360px", backgroundColor: C.card,
         borderRadius: "12px", padding: "28px 24px", border: `1px solid ${C.border}`,
       }}>
