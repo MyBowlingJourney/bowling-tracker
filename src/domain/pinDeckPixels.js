@@ -129,20 +129,38 @@ function rowsOf(dots, tol) {
   return rows.map(r => r.sort((a, b) => a.x - b.x));
 }
 
-function classify(img, cx, cy) {
+function averageAt(img, cx, cy, r = 2) {
   const { width: W, height: H, data: d } = img;
-  let r = 0, g = 0, b = 0, n = 0;
-  for (let y = Math.round(cy) - 2; y <= Math.round(cy) + 2; y++) for (let x = Math.round(cx) - 2; x <= Math.round(cx) + 2; x++) {
+  let R = 0, G = 0, B = 0, n = 0;
+  for (let y = Math.round(cy) - r; y <= Math.round(cy) + r; y++) for (let x = Math.round(cx) - r; x <= Math.round(cx) + r; x++) {
     if (x < 0 || y < 0 || x >= W || y >= H) continue;
     const i = (y * W + x) * 4;
-    r += d[i]; g += d[i + 1]; b += d[i + 2]; n++;
+    R += d[i]; G += d[i + 1]; B += d[i + 2]; n++;
   }
-  if (!n) return null;
-  r /= n; g /= n; b /= n;
+  return n ? [R / n, G / n, B / n] : null;
+}
+
+// A dot's state, judged against its own cell's background rather than a
+// fixed grey: LaneTalk tints a highlighted frame yellow, and every dot in
+// it is tinted too -- a grey "down" dot there reads as olive, not grey.
+function classify(img, cx, cy, bg) {
+  const c = averageAt(img, cx, cy);
+  if (!c || !bg) return null;
+  const [r, g, b] = c;
+  const lum = (r + g + b) / 3, bgLum = (bg[0] + bg[1] + bg[2]) / 3;
   if (g > r + 40 && g > b + 20) return "converted";
-  if (Math.min(r, g, b) > 230) return "missed";
-  if (Math.max(r, g, b) < 175 && Math.abs(r - g) < 25 && Math.abs(g - b) < 25) return "down";
+  if (Math.min(r, g, b) > 230 || lum > bgLum + 15) return "missed";
+  if (lum < bgLum * 0.8) return "down";
   return null;
+}
+
+// The cell's own background: the middle value of four samples just
+// inside its corners, clear of the dots and the dividing lines.
+function cellBackground(img, y0, y1, x0, x1) {
+  const pts = [[x0 + 4, y0 + 3], [x1 - 5, y0 + 3], [x0 + 4, y1 - 4], [x1 - 5, y1 - 4]]
+    .map(([x, y]) => averageAt(img, x, y, 1)).filter(Boolean)
+    .sort((a, b) => (a[0] + a[1] + a[2]) - (b[0] + b[1] + b[2]));
+  return pts.length ? pts[pts.length >> 1] : null;
 }
 
 // Reads every frame of every strip. Returns
@@ -175,9 +193,10 @@ export function readPinDecks(img) {
     if (band.cells.length !== 10) return { frames: null };
     const frames = band.cells.map(([x0, x1]) => {
       const mid = (x1 - x0) / 2;
+      const bg = cellBackground(img, band.y0, band.y1, x0, x1);
       const leave = [], missed = [];
       for (const [pin, at] of Object.entries(lattice)) {
-        const state = classify(img, x0 + mid + at.dx, band.y0 + at.dy);
+        const state = classify(img, x0 + mid + at.dx, band.y0 + at.dy, bg);
         if (!state) return null;
         if (state !== "down") leave.push(Number(pin));
         if (state === "missed") missed.push(Number(pin));

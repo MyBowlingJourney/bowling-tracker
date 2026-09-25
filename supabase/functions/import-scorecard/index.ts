@@ -478,6 +478,18 @@ Deno.serve(async (req) => {
   // When this request started, for the time budget below.
   const t0 = Date.now();
   const corsHeaders = corsFor(req);
+  // An id the bowler can quote and the logs can be searched by.
+  //
+  // Replaces returning the exception text: a stack trace or a raw
+  // upstream payload tells an attacker about the server and tells a
+  // bowler nothing. An id tells the bowler nothing either, which is the
+  // point -- it is a handle into logs they cannot read.
+  //
+  // Declared OUT here, not inside the try. It used to sit inside, while
+  // the outer catch reported it -- so the one path that exists to explain
+  // an unexpected failure threw a ReferenceError instead and the caller
+  // got no response at all.
+  const requestId = crypto.randomUUID().slice(0, 8);
 
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -517,14 +529,6 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    // An id the bowler can quote and the logs can be searched by.
-    //
-    // Replaces returning the exception text: a stack trace or a raw
-    // upstream payload tells an attacker about the server and tells a
-    // bowler nothing. An id tells the bowler nothing either, which is the
-    // point -- it is a handle into logs they cannot read.
-    const requestId = crypto.randomUUID().slice(0, 8);
 
     // Declared FIRST, before anything that might return early.
     //
@@ -682,7 +686,7 @@ Deno.serve(async (req) => {
     // while the Lite model on the same photo returned thirty. So the retry
     // withdraws that permission for this card.
     const detailedSuffix = detailed && !counting
-      ? `\n\nTHIS CARD HAS BEEN CHECKED AND DOES SHOW PER-FRAME DETAIL. For this card, an empty frames array is WRONG. Transcribe every frame of every game you can see -- all ten frames per game, each ball's pins, marks for strikes (X) and spares (/). Use each frame's running total printed on the card to check your reading, and make each game's frames add up to its printed totalScore. Where a single pin is genuinely unreadable, give your best reading consistent with the running total rather than dropping the frame. Also give every game its bowlerName exactly as printed on the card, and its printed totalScore.\n\nHOW TO READ THE PIN DECK SHOWN FOR EACH FRAME. Read this carefully -- getting the sides backwards is the most common mistake.\n\nLAYOUT. A pin deck is a small triangle of ten pins, drawn as seen FROM THE BOWLER looking down the lane:\n- TOP row, four pins, left to right: 7, 8, 9, 10\n- second row, three pins, left to right: 4, 5, 6\n- third row, two pins, left to right: 2, 3\n- BOTTOM, one pin: 1 (the head pin, nearest the bowler)\nSo the TOP-LEFT pin is ALWAYS 7 and the TOP-RIGHT pin is ALWAYS 10. A right-hander's common single-pin leave is the 10 pin: top right. Never mirror this. (Almost every card draws the rack this way, with the single head pin at the bottom. If one draws the head pin at the top, 7 is still the back-row pin on the bowler's LEFT.)\n\nPIN STATES. Scorecards from different apps and bowling centres draw leaves differently, so work out THIS card's convention before reading any frame. Most show some of these three states, by colour, fill, outline or a ring:\n- down on the FIRST ball (usually the plain or faded pins),\n- left standing by the first ball and knocked down by the SECOND ball (a converted pin),\n- still standing after BOTH balls (a missed pin).\nSome cards show only the pins left after the first ball and nothing about the second. Use the marks to tell the states apart: find a frame marked with a spare (/) -- its highlighted pins are all "converted" -- and a frame marked "-" or with an open count -- its pins include "missed" ones. For example, LaneTalk draws first-ball pins grey, converted pins as a filled green dot and missed pins as a white ring; other cards use other styles, so do not assume those colours.\n\nHOW TO FILL pinsStanding.\n- Ball 1 of a frame: every pin that was still up after ball 1 -- converted AND missed pins together.\n- Ball 2: only the missed pins. If the frame is a spare (/), ball 2 pinsStanding is empty.\n- A strike (X) has no ball 2 in frames 1-9, and pinsStanding is empty.\n- If the card does not show which pins the second ball took, use the marks: "-" means none fell, "/" means all fell; otherwise give the missed pins your best reading that matches the count.\n\nCHECK EVERY FRAME AGAINST ITS MARKS -- the printed marks and running totals win if they disagree with your reading of the rack:\n- The first mark is the first-ball COUNT: "9" means exactly ONE pin was left (10 - 9), so ball 1 pinsStanding has exactly one pin. "7" means three pins. A circled, ringed or otherwise highlighted count usually marks a split.\n- "/" means the second ball knocked down every remaining pin.\n- "-" means the second ball knocked down nothing: ball 2 pinsStanding equals ball 1 pinsStanding.\n- A number in the second position is how many the second ball knocked down, so ball 2 pinsStanding has (first leave - that number) pins.\n- The running total under the frame must match your frames scored in order.\n\nTHE 10TH FRAME can show up to three marks ("X 8 /", "9 / 9", "X X X", "X 7 1"), and many cards draw only ONE rack for it. Use the marks for every ball; use the drawing only for the rack that was NOT a strike (the pins after the one non-strike ball). "X 8 /": ball 1 strike, ball 2 left two pins, ball 3 spare. "9 / 9": ball 1 left one pin, spare, then a fill ball of 9 (one pin left standing). Each ball of the 10th is its own entry in balls.`
+      ? `\n\nTHIS CARD HAS BEEN CHECKED AND DOES SHOW PER-FRAME DETAIL. For this card, an empty frames array is WRONG. Transcribe every frame of every game you can see -- all ten frames per game, each ball's pins, marks for strikes (X) and spares (/). Use each frame's running total printed on the card to check your reading, and make each game's frames add up to its printed totalScore. Where a single pin is genuinely unreadable, give your best reading consistent with the running total rather than dropping the frame. Also give every game its bowlerName exactly as printed on the card, and its printed totalScore.\n\nHOW TO READ THE PIN DECK SHOWN FOR EACH FRAME. Read this carefully -- getting the sides backwards is the most common mistake.\n\nLAYOUT. A pin deck is a small triangle of ten pins, drawn as seen FROM THE BOWLER looking down the lane:\n- TOP row, four pins, left to right: 7, 8, 9, 10\n- second row, three pins, left to right: 4, 5, 6\n- third row, two pins, left to right: 2, 3\n- BOTTOM, one pin: 1 (the head pin, nearest the bowler)\nSo the TOP-LEFT pin is ALWAYS 7 and the TOP-RIGHT pin is ALWAYS 10. A right-hander's common single-pin leave is the 10 pin: top right. Never mirror this. (Almost every card draws the rack this way, with the single head pin at the bottom. If one draws the head pin at the top, 7 is still the back-row pin on the bowler's LEFT.)\n\nPIN STATES. Scorecards from different apps and bowling centres draw leaves differently, so work out THIS card's convention before reading any frame. Most show some of these three states, by colour, fill, outline or a ring:\n- down on the FIRST ball (usually the plain or faded pins),\n- left standing by the first ball and knocked down by the SECOND ball (a converted pin),\n- still standing after BOTH balls (a missed pin).\nSome cards show only the pins left after the first ball and nothing about the second. Use the marks to tell the states apart: find a frame marked with a spare (/) -- its highlighted pins are all "converted" -- and a frame marked "-" or with an open count -- its pins include "missed" ones. For example, LaneTalk draws first-ball pins grey, converted pins as a filled green dot and missed pins as a white ring; other cards use other styles, so do not assume those colours.\n\nHOW TO FILL pinsStanding.\n- Ball 1 of a frame: every pin that was still up after ball 1 -- converted AND missed pins together.\n- Ball 2: only the missed pins. If the frame is a spare (/), ball 2 pinsStanding is empty.\n- A strike (X) has no ball 2 in frames 1-9, and pinsStanding is empty.\n- If the card does not show which pins the second ball took, use the marks: "-" means none fell, "/" means all fell; otherwise give the missed pins your best reading that matches the count.\n\nCHECK EVERY FRAME AGAINST ITS MARKS -- the printed marks and running totals win if they disagree with your reading of the rack:\n- The first mark is the first-ball COUNT: "9" means exactly ONE pin was left (10 - 9), so ball 1 pinsStanding has exactly one pin. "7" means three pins. A circled, ringed or otherwise highlighted count usually marks a split.\n- "/" means the second ball knocked down every remaining pin.\n- "-" means the second ball knocked down nothing: ball 2 pinsStanding equals ball 1 pinsStanding.\n- A number in the second position is how many the second ball knocked down, so ball 2 pinsStanding has (first leave - that number) pins.\n- The running total under the frame must match your frames scored in order.\n\nTHE 10TH FRAME can show up to three marks ("X 8 /", "9 / 9", "X X X", "X 7 1"), and many cards draw only ONE rack for it. Use the marks for every ball; use the drawing only for the rack that was NOT a strike (the pins after the one non-strike ball). "X 8 /": ball 1 strike, ball 2 left two pins, ball 3 spare. "9 / 9": ball 1 left one pin, spare, then a fill ball of 9 (one pin left standing). Each ball of the 10th is its own entry in balls.\n\nNOTES WRITTEN ON THE CARD. Some bowlers add what the card leaves out -- most often a pin number written beside or below the 10th frame for a ball the single drawn rack cannot show, such as the fill ball after a spare ("9 / 9" with a "4" written under it means the fill ball left the 4 pin). When such a note is there, use it for that ball's pinsStanding. Never read a note as a score or a frame of its own.`
       : "";
 
     // The bowler said this card is game totals only (the default). Frames
@@ -830,9 +834,21 @@ Deno.serve(async (req) => {
         body: requestBody,
         signal: ac.signal,
       });
-      if (geminiRes.ok) break;
+      if (geminiRes.ok) {
+        console.log(`import-scorecard ${requestId}: ${modelForRequest} ok after ${Math.round((Date.now() - t0) / 1000)}s${mediaResolution ? ` (${mediaResolution})` : ""}`);
+        break;
+      }
 
       lastErrText = await geminiRes.text();
+
+      // Every failed attempt goes to the function log.
+      //
+      // Failures used to leave no trace there at all: the function returned
+      // a 502 to the client and the Logs tab showed only boot and shutdown,
+      // so "Gemini API error" in diagnostics was the whole story. One line
+      // per attempt -- which model, which status, and the start of Google's
+      // own message -- tells overloaded from quota from bad request.
+      console.error(`import-scorecard ${requestId}: ${modelForRequest} attempt ${attempt + 1} -> ${geminiRes.status} after ${Math.round((Date.now() - t0) / 1000)}s: ${lastErrText.slice(0, 300)}`);
 
       // A model that does not accept mediaResolution answers 400 naming
       // it. Drop the setting and send the same request again, once, as
@@ -875,6 +891,7 @@ Deno.serve(async (req) => {
         lastErrText = (err as Error)?.name === "AbortError"
           ? `attempt timed out after ${Math.round(attemptMs / 1000)}s`
           : String(err);
+        console.error(`import-scorecard ${requestId}: ${modelForRequest} attempt ${attempt + 1} -> ${lastErrText}`);
         if (attempt === delays.length) break;
         // A model that ran out the clock is overloaded, not unlucky: with
         // another model waiting, go to it rather than wait out this one
@@ -899,6 +916,7 @@ Deno.serve(async (req) => {
 
     if (!geminiRes || !geminiRes.ok) {
       const status = geminiRes?.status ?? 0;
+      console.error(`import-scorecard ${requestId}: giving up after ${Math.round((Date.now() - t0) / 1000)}s. tried=[${modelChain.join(", ")}] skipped=[${skipped.join(", ")}] last=${modelForRequest} status=${status} detail=${lastErrText.slice(0, 500)}`);
       // A machine-readable reason so the client can say something useful
       // instead of showing raw API JSON to a bowler.
       const reason = outOfTime || (!geminiRes && /timed out/.test(lastErrText)) ? "timeout"

@@ -16,11 +16,14 @@ function card(games) {
   games.forEach((frames, gi) => {
     const y0 = GAP + gi * (CELL_H + GAP);
     for (let y = y0; y < y0 + CELL_H; y++) for (let x = 0; x < W; x++) put(x, y, (x % CW === 0 && x > 0) ? [20, 20, 20] : GREY);
-    frames.forEach(({ converted = [], missed = [] }, fi) => {
+    frames.forEach(({ converted = [], missed = [], tint = null }, fi) => {
+      // A highlighted frame: yellow ground, and every dot tinted with it.
+      if (tint) for (let y = y0; y < y0 + CELL_H; y++) for (let x = fi * CW + 1; x < (fi + 1) * CW; x++) put(x, y, tint);
       for (const [pin, [fx, fy]] of Object.entries(AT)) {
         const cx = Math.round(fi * CW + fx * CW), cy = Math.round(y0 + fy * CELL_H);
         const p = Number(pin);
-        const col = missed.includes(p) ? WHITE : converted.includes(p) ? GREEN : DOWN;
+        const plain = missed.includes(p) ? WHITE : converted.includes(p) ? GREEN : DOWN;
+        const col = tint && plain === DOWN ? [152, 141, 80] : plain;
         for (let dy = -5; dy <= 5; dy++) for (let dx = -5; dx <= 5; dx++) {
           const d = dx * dx + dy * dy;
           if (d > 25) continue;
@@ -82,5 +85,13 @@ describe("putting the reading into the AI's frames", () => {
   it("does nothing on a card with more than one bowler or a strip per game mismatch", () => {
     expect(applyPinDecks([aiGame(), { ...aiGame(), bowlerName: "Sam" }], reading).applied).toBe(false);
     expect(applyPinDecks([aiGame(), { ...aiGame(), gameNumber: 2 }], reading).applied).toBe(false);
+  });
+});
+
+describe("a highlighted frame", () => {
+  it("reads a yellow-tinted tenth the same way", () => {
+    const g = [...g1.slice(0, 9), { converted: [6], tint: [255, 235, 136] }];
+    const r = readPinDecks(card([g]));
+    expect(r.strips[0].frames[9].leave).toEqual([6]);
   });
 });
