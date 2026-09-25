@@ -740,6 +740,11 @@ export default function BowlingTracker(){
       window.alert("A team with that name already exists in this league.");
       return;
     }
+    // One team per bowler per league: making a new team moves you onto it
+    // (the database takes you off the other one), so say so first.
+    const inLeague=await fetchLeagueTeams(leagueName);
+    const current=Array.isArray(inLeague)?inLeague.find(t=>t.is_member):null;
+    if(current&&!window.confirm(`You're on ${current.name} in this league. Making ${clean} puts you on its roster and takes you off ${current.name}'s. Your scores stay yours.`))return;
     const id=crypto.randomUUID();
     let leagueId=leagueIdsRef.current[leagueName];
     if(!leagueId){
@@ -3380,6 +3385,56 @@ export default function BowlingTracker(){
       // simply has nothing from it rather than an error.
       if(!error&&Array.isArray(data))setTeamRequests(data);
     }catch{}
+  }
+
+  // Answered straight from the inbox -- tapping through to the Team tab
+  // to find the right team's card was a detour, and before the requests
+  // card moved to the top of that tab it was a dead end.
+  const[teamRequestBusy,setTeamRequestBusy]=useState(null);
+  async function answerTeamRequest(r,accept){
+    if(!supabase||!r?.id)return;
+    if(accept&&r.kind==="invite"&&r.current_team
+      &&!window.confirm(`You're on ${r.current_team} in this league. Joining ${r.team_name||"this team"} takes you off ${r.current_team}'s roster. Your scores stay yours.`))return;
+    setTeamRequestBusy(r.id);
+    try{
+      const{error}=await supabase.rpc("answer_team_request",{p_request_id:r.id,p_accept:accept});
+      if(error){
+        setSessionSaveMessage("That request was already answered, or couldn't be reached. Refreshing.");
+        setTimeout(()=>setSessionSaveMessage(null),5000);
+      }else if(accept){
+        setSessionSaveMessage(r.kind==="invite"
+          ?`You're on ${r.team_name||"the team"}.`
+          :`${r.bowler_name||"They"} ${r.bowler_name?"is":"are"} on ${r.team_name||"your team"} now.`);
+        setTimeout(()=>setSessionSaveMessage(null),5000);
+        if(r.kind==="invite"&&r.league_id)await absorbLeague(r.league_id);
+      }
+    }catch{}
+    await loadTeamRequests();
+    setTeamRequestBusy(null);
+  }
+
+  // Every team in one of this bowler's leagues -- names and sizes, not
+  // rosters -- so the League card can show the whole league, not only the
+  // teams this bowler is on (which is all RLS lets the teams table show).
+  async function fetchLeagueTeams(leagueName){
+    const id=leagueIdsRef.current?.[leagueName];
+    if(!id||!supabase)return null;
+    try{
+      const{data,error}=await supabase.rpc("league_teams",{p_league_id:id});
+      return !error&&Array.isArray(data)?data:null;
+    }catch{return null;}
+  }
+  async function askToJoinTeam(teamId,{teamName="",current=null,pending=null}={}){
+    if(!teamId||!supabase)return false;
+    const lines=[];
+    if(current)lines.push(`You're on ${current} in this league. If ${teamName||"they"} approve${teamName?"s":""} you, you'll be taken off ${current}'s roster. Your scores stay yours.`);
+    if(pending)lines.push(`This replaces your request to join ${pending}.`);
+    if(lines.length&&!window.confirm(lines.join("\n\n")))return false;
+    try{
+      const{error}=await supabase.rpc("request_to_join_team",{p_team_id:teamId});
+      await loadTeamRequests();
+      return !error||error.hint==="already_member";
+    }catch{return false;}
   }
 
   async function loadTeamInvites(){
@@ -8846,7 +8901,27 @@ export default function BowlingTracker(){
             {/* Links out to whichever screen already owns each workflow.
                 The inbox notifies; it doesn't re-implement accepting a
                 coaching invitation in a second place. */}
-            <InboxList items={myInboxItems} onOpen={item=>{
+            {/* Team requests and invites, answerable right here. */}
+            {teamRequests.filter(r=>r&&r.mine_to_answer).map(r=>(
+              <div key={r.id} style={{...S.card,border:`1px solid ${C.accent}55`}}>
+                <div style={{fontSize:"14px",fontWeight:600,color:C.text,marginBottom:"2px"}}>
+                  {r.kind==="invite"?`Invitation to join ${r.team_name||"a team"}`:`${r.bowler_name||"A bowler"} wants to join ${r.team_name||"your team"}`}
+                </div>
+                <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"10px"}}>
+                  {r.league_name?`${r.league_name} · `:""}
+                  {r.kind==="invite"
+                    ?(r.current_team?`Joining takes you off ${r.current_team}.`:"Joining lets teammates see your scores and yours theirs.")
+                    :(r.current_team?`Approving moves them off ${r.current_team}.`:"Anyone on the team can answer.")}
+                </div>
+                <div style={{display:"flex",gap:"8px"}}>
+                  <button style={{...S.btn("primary"),flex:1}} disabled={teamRequestBusy===r.id}
+                    onClick={()=>answerTeamRequest(r,true)}>{r.kind==="invite"?"Join":"Approve"}</button>
+                  <button style={{...S.btn(),flex:1}} disabled={teamRequestBusy===r.id}
+                    onClick={()=>answerTeamRequest(r,false)}>{r.kind==="invite"?"No thanks":"Decline"}</button>
+                </div>
+              </div>
+            ))}
+            <InboxList items={myInboxItems.filter(i=>i.type!=="teamJoin")} onOpen={item=>{
               // A task set BY a coach is homework for the bowler, so open
               // the Coach tab on the bowling side rather than dropping
               // them into coach view looking at their own bowlers.
@@ -8962,7 +9037,7 @@ export default function BowlingTracker(){
              they have, not what the plan happens to show. */
           <Settings
             mode="leagues"
-            onCreateTeam={createTeamForLeague} onAddLeague={addLeague} findLeagueMatches={findLeagueMatches} onJoinLeague={joinExistingLeague} onMergeLeague={mergeLeague}
+            onCreateTeam={createTeamForLeague} onAddLeague={addLeague} findLeagueMatches={findLeagueMatches} onJoinLeague={joinExistingLeague} onMergeLeague={mergeLeague} fetchLeagueTeams={fetchLeagueTeams} onAskToJoinTeam={askToJoinTeam}
             restartOnboarding={restartOnboarding} replayTour={replayTour} isCoach={showCoachingTab}
             showBackup={showBackup} setShowBackup={setShowBackup}
             backupStatus={backupStatus} setBackupStatus={setBackupStatus}

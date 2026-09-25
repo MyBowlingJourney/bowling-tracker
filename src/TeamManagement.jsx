@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { profileSearchPattern } from "./domain/profileSearch.js";
 import { useAuth } from "./AuthProvider.jsx";
 import { cloudUpdate, cloudRead, cloudWrite, cloudInsert, cloudDelete } from "./syncQueue.js";
 import { generateSignupCode } from "./domain/signupCodes.js";
@@ -296,9 +295,6 @@ export default function TeamManagement({
   // is what makes the book-average update prompt possible at all. Optional:
   // an ongoing house shot with no fixed end just leaves these blank, and
   // the prompt never fires for it.
-  // Per-team "add a teammate" search state: {[teamId]: {term, results, searching}}
-  const[searchState, setSearchState] = useState({});
-  const searchTimers = useRef({});
   // "Your Name" editing
   const[editingMyName, setEditingMyName] = useState(false);
   const[myNameInput, setMyNameInput] = useState("");
@@ -517,14 +513,23 @@ export default function TeamManagement({
     else onRequestsChanged?.();
   }
 
-  async function joinWithCode() {
+  async function joinWithCode(confirmed = false) {
     const code = joinCode.trim();
     if (!code || !supabase) return;
     setJoinBusy(true);
     setJoinMsg(null);
     try {
-      const { data, error } = await supabase.rpc("join_team_with_code", { p_code: code });
+      const { data, error } = await supabase.rpc("join_team_with_code", { p_code: code, p_confirm: confirmed });
       const row = Array.isArray(data) ? data[0] : null;
+      // One team per league: the database answers first with the team
+      // they would leave, and nothing moves until they say yes.
+      if (!error && row && row.needs_confirm) {
+        setJoinBusy(false);
+        if (confirm(`You're on ${row.switched_from} in ${row.league_name || "this league"}. Joining ${row.team_name} takes you off ${row.switched_from}'s roster. Your scores stay yours.`)) {
+          await joinWithCode(true);
+        }
+        return;
+      }
       if (error) {
         setJoinMsg({ ok: false, text: /too many/i.test(error.message || "")
           ? "Too many tries. Wait a little and try again."
@@ -533,7 +538,7 @@ export default function TeamManagement({
         setJoinMsg({ ok: false, text: "That code didn't match a team. Check it with whoever sent it." });
       } else {
         setJoinCode("");
-        setJoinMsg({ ok: true, text: `You're on ${row.team_name}${row.league_name ? ` (${row.league_name})` : ""}.` });
+        setJoinMsg({ ok: true, text: `You're on ${row.team_name}${row.league_name ? ` (${row.league_name})` : ""}.${row.switched_from ? ` You're off ${row.switched_from}.` : ""}` });
         setShownTeamId(row.team_id);
         await afterMembershipChange(row.league_id);
       }
@@ -545,6 +550,8 @@ export default function TeamManagement({
 
   async function answer(request, accept) {
     if (!supabase) return;
+    if (accept && request.kind === "invite" && request.current_team
+      && !confirm(`You're on ${request.current_team} in this league. Joining ${request.team_name} takes you off ${request.current_team}'s roster. Your scores stay yours.`)) return;
     setBusyId(request.id);
     try {
       const { error } = await supabase.rpc("answer_team_request", { p_request_id: request.id, p_accept: accept });
@@ -570,6 +577,13 @@ export default function TeamManagement({
 
   async function askToJoin(team) {
     if (!supabase) return;
+    const list = Array.isArray(leagueTeams) ? leagueTeams : [];
+    const current = list.find(t => t.is_member && t.id !== team.id);
+    const pending = list.find(t => t.requested && t.id !== team.id);
+    const lines = [];
+    if (current) lines.push(`You're on ${current.name} in this league. If ${team.name} approves you, you'll be taken off ${current.name}'s roster. Your scores stay yours.`);
+    if (pending) lines.push(`This replaces your request to join ${pending.name}.`);
+    if (lines.length && !confirm(lines.join("\n\n"))) return;
     setBusyId(team.id);
     try {
       const { error } = await supabase.rpc("request_to_join_team", { p_team_id: team.id });
@@ -631,50 +645,6 @@ export default function TeamManagement({
 
     setTeams(prev => prev.filter(t => t.id !== teamId));
     cloudDelete("teams", teamId); // cascades team_members server-side
-  }
-
-  // Debounced search against real signed-up accounts. Note: this can only
-  // ever find people who have actually signed in at least once — it's not
-  // a directory of everyone you intend to bowl with, just everyone who's
-  // shown up so far.
-  function handleSearchChange(teamId, term) {
-    setSearchState(prev => ({ ...prev, [teamId]: { term, results: prev[teamId]?.results || [], searching: !!term.trim() } }));
-    clearTimeout(searchTimers.current[teamId]);
-    if (!term.trim()) {
-      setSearchState(prev => ({ ...prev, [teamId]: { term: "", results: [], searching: false } }));
-      return;
-    }
-    searchTimers.current[teamId] = setTimeout(async () => {
-      const pattern = profileSearchPattern(term);
-      if (!pattern) {
-        setSearchState(prev => ({ ...prev, [teamId]: { term, results: [], searching: false } }));
-        return;
-      }
-      const { data, online } = await cloudRead("profiles", q =>
-        q.select("id,display_name").ilike("display_name", pattern).limit(8)
-      );
-      setSearchState(prev => ({ ...prev, [teamId]: { term, results: online && data ? data : [], searching: false } }));
-    }, 300);
-  }
-
-  // Picking someone from the search INVITES them; they accept from their
-  // inbox. It used to write their team_members row directly, which the
-  // database refuses -- you can only add yourself -- so it failed without
-  // a word. Membership lets teammates see each other's scores, so the
-  // person being added has to say yes.
-  async function addMember(teamId, profile) {
-    const team = teams.find(t => t.id === teamId);
-    if (!team || team.members.some(m => m.userId === profile.id) || !supabase) return;
-    setBusyId(profile.id);
-    try {
-      const { error } = await supabase.rpc("invite_to_team", { p_team_id: teamId, p_user_id: profile.id });
-      if (error && error.hint !== "already_member") {
-        alert("Couldn't send the invitation just now. Check your connection and try again.");
-      }
-      setSearchState(prev => ({ ...prev, [teamId]: { term: "", results: [], searching: false } }));
-      await afterMembershipChange(null);
-    } catch { /* nothing to undo */ }
-    setBusyId(null);
   }
 
   function removeMember(teamId, userId) {
@@ -820,6 +790,28 @@ export default function TeamManagement({
         </div>
       )}
 
+      {/* Requests to join any of this bowler's teams, at the top of the tab
+          rather than inside one team's card: the card shows one team at a
+          time, so a request for a different team was invisible after
+          tapping through from the inbox. Anyone on the team can answer. */}
+      {!loading && requests.some(r => r.kind === "request" && r.mine_to_answer) && (
+        <div style={{ ...S.card, border:`1px solid ${C.accent}66` }}>
+          <div style={S.label}>Waiting to join your team</div>
+          {requests.filter(r => r.kind === "request" && r.mine_to_answer).map(r => (
+            <div key={r.id} style={{ display:"flex", alignItems:"center", gap:"8px", padding:"8px 0", borderTop:`1px solid ${C.border}` }}>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:"14px", color:C.text }}><strong>{r.bowler_name}</strong> wants to join {r.team_name}</div>
+                <div style={{ fontSize:"11px", color:C.textMuted }}>
+                  {r.league_name || ""}{r.current_team ? `${r.league_name ? " · " : ""}approving moves them off ${r.current_team}` : ""}
+                </div>
+              </div>
+              <button style={S.primary} disabled={busyId===r.id} onClick={()=>answer(r,true)}>Approve</button>
+              <button style={S.button} disabled={busyId===r.id} onClick={()=>answer(r,false)}>Decline</button>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Add team. A team has to belong to a league -- scores, standings
           and side pots all hang off it -- so the league is picked first
           and Create stays off until both are there. */}
@@ -900,9 +892,9 @@ export default function TeamManagement({
             <div style={{ display:"flex", gap:"8px" }}>
               <input id="team-join-code" style={{ ...S.input, flex:1, minWidth:0, textTransform:"uppercase", letterSpacing:"0.08em" }}
                 value={joinCode} onChange={e=>{ setJoinCode(e.target.value); setJoinMsg(null); }}
-                onKeyDown={e=>{ if(e.key==="Enter") joinWithCode(); }}
+                onKeyDown={e=>{ if(e.key==="Enter") joinWithCode(false); }}
                 placeholder="ABCD-1234" autoCapitalize="characters" autoComplete="off" />
-              <button style={S.primary} disabled={joinBusy || !joinCode.trim()} onClick={joinWithCode}>
+              <button style={S.primary} disabled={joinBusy || !joinCode.trim()} onClick={()=>joinWithCode(false)}>
                 {joinBusy ? "Joining…" : "Join"}
               </button>
             </div>
@@ -1030,16 +1022,6 @@ export default function TeamManagement({
             </div>
           )}
 
-          {requests.filter(r => r.team_id === team.id && r.kind === "request" && r.mine_to_answer).map(r => (
-            <div key={r.id} style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"8px", padding:"10px 12px", borderRadius:"10px", border:`1px solid ${C.accent}55` }}>
-              <div style={{ flex:1, minWidth:0, fontSize:"13px", color:C.text }}>
-                <strong>{r.bowler_name}</strong> wants to join
-              </div>
-              <button style={S.primary} disabled={busyId===r.id} onClick={()=>answer(r,true)}>Approve</button>
-              <button style={S.button} disabled={busyId===r.id} onClick={()=>answer(r,false)}>Decline</button>
-            </div>
-          ))}
-
           <div style={S.label}>Roster / Bowling Order</div>
           {/* Directive, not a dead statement.
 
@@ -1122,44 +1104,18 @@ export default function TeamManagement({
           ))}
 
           <div style={{marginTop:"12px",paddingTop:"12px",borderTop:`1px solid ${C.border}`}}>
-            <div style={S.label}>Add a Teammate</div>
-            <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"8px"}}>
-              For someone already on {APP_NAME}. They get an invitation and join when they accept. Or just text them the team code above.
-            </div>
+            {/* No name search here any more. Searching every display name on
+                the app for "Ryan" is not a way to find a teammate; the team
+                code above is. Invitations already sent before this change
+                still show, so they can be withdrawn. */}
             {requests.filter(r => r.team_id === team.id && r.kind === "invite").map(r => (
               <div key={r.id} style={{display:"flex",alignItems:"center",gap:"8px",padding:"4px 0"}}>
                 <span style={{flex:1,minWidth:0,fontSize:"12px",color:C.textMuted}}>{r.bowler_name} — invited, waiting for them to accept</span>
                 <button style={S.button} disabled={busyId===r.id} onClick={()=>answer(r,false)}>Withdraw</button>
               </div>
             ))}
-            <input
-              value={searchState[team.id]?.term || ""}
-              onChange={e=>handleSearchChange(team.id, e.target.value)}
-              placeholder="Search by name…"
-              style={S.input}
-            />
-            {searchState[team.id]?.searching && (
-              <div style={{fontSize:"12px",color:C.textMuted,marginTop:"8px"}}>Searching…</div>
-            )}
-            {!searchState[team.id]?.searching && (searchState[team.id]?.results?.length > 0) && (
-              <div style={{marginTop:"8px"}}>
-                {searchState[team.id].results
-                  .filter(p => !team.members.some(m => m.userId === p.id))
-                  .map(p => (
-                    <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0"}}>
-                      <span style={{color:C.text}}>{p.display_name}</span>
-                      {requests.some(r => r.team_id === team.id && r.user_id === p.id)
-                        ? <span style={{fontSize:"12px",color:C.textMuted}}>Invited</span>
-                        : <button style={S.button} disabled={busyId===p.id} onClick={()=>addMember(team.id, p)}>Invite</button>}
-                    </div>
-                  ))}
-              </div>
-            )}
-            {!searchState[team.id]?.searching && searchState[team.id]?.term && searchState[team.id]?.results?.length===0 && (
-              <div style={{fontSize:"12px",color:C.textMuted,marginTop:"8px"}}>No one found with that name.</div>
-            )}
 
-            <div style={{marginTop:"14px",paddingTop:"14px",borderTop:`1px solid ${C.border}`}}>
+            <div>
               {/* Email is required here.
               
                   It's the only link between this placeholder and the
@@ -1170,7 +1126,7 @@ export default function TeamManagement({
                   anyone at all to their roster without that person
                   knowing, and team membership grants read access to
                   their sessions and shots. */}
-              <div style={S.label}>Or Add Someone Not Signed Up Yet</div>
+              <div style={S.label}>Add Someone Not Signed Up Yet</div>
               <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"8px"}}>
                 Reserves their spot on the roster now — you can start logging their scores under their name right away via Who's Bowling, no account needed yet. Either way they claim the spot themselves and everything you've logged is already there: with their email, they're linked the moment they sign in with that exact address; with a code, you get one to text them and they enter it when they sign up.
               </div>

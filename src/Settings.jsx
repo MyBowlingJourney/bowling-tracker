@@ -45,6 +45,8 @@ export default function Settings({
   findLeagueMatches = null, onJoinLeague = null,
   // Combining this bowler's own copy of a league with the shared one.
   onMergeLeague = null,
+  // Every team in a league (league_teams()), and asking to join one.
+  fetchLeagueTeams = null, onAskToJoinTeam = null,
   // History > Sessions: opens a saved night's results when its row is
   // tapped. Absent, the rows are plain text as before.
   onOpenNight,
@@ -309,6 +311,23 @@ export default function Settings({
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shownLeague, (leagues || []).join("\u0001")]);
+  // The whole league's teams for the shown league, from the database.
+  // `teams` only holds teams this bowler is ON, so a league with four
+  // teams listed one.
+  const [leagueTeamRows, setLeagueTeamRows] = useState({ league: "", list: null });
+  const [askBusy, setAskBusy] = useState(null);
+  async function refreshLeagueTeams(league) {
+    if (!fetchLeagueTeams || !league) { setLeagueTeamRows({ league: "", list: null }); return; }
+    const list = await fetchLeagueTeams(league);
+    setLeagueTeamRows({ league, list });
+  }
+  useEffect(() => {
+    const real = (leagues || []).filter(l => !isContainerLeague(l));
+    const league = real.includes(shownLeague) ? shownLeague : real[0];
+    refreshLeagueTeams(league);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shownLeague, (leagues || []).join("\u0001"), (teams || []).length]);
+
   function twinPanel(league) {
     if (twins.league !== league || !twins.list.length) return null;
     return (
@@ -1067,8 +1086,25 @@ export default function Settings({
                     team stays in the Teams card below, where the roster
                     editing already lives. */}
                 {(() => {
-                  const all = (teams || []).filter(t => t.league === league);
+                  const local = (teams || []).filter(t => t.league === league);
+                  const fromDb = leagueTeamRows.league === league && Array.isArray(leagueTeamRows.list) ? leagueTeamRows.list : null;
                   const mine = new Set(teamsInLeague(league, teams || [], displayName).map(t => t.id));
+                  if (fromDb) fromDb.forEach(t => { if (t.is_member) mine.add(t.id); });
+                  // The database's list when it answered; otherwise the teams
+                  // this device already knows (offline, or before the
+                  // league_teams() migration).
+                  const all = fromDb
+                    ? fromDb.map(t => {
+                        const known = local.find(l => l.id === t.id) || {};
+                        // The startup team load is names only (members: []),
+                        // so Leave would say "you're not on this team". The
+                        // database knows whether they are.
+                        const members = t.is_member && displayName
+                          ? [...new Set([...(known.members || []), displayName])]
+                          : (known.members || []);
+                        return { ...known, id: t.id, name: t.name, league, members, bowlers: t.bowlers, requested: t.requested };
+                      })
+                    : local;
                   if (!all.length) return null;
                   return (
                     <div style={{ marginTop: "8px" }}>
@@ -1079,8 +1115,24 @@ export default function Settings({
                         <div key={team.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "4px" }}>
                           <span style={{ fontSize: "12px", color: mine.has(team.id) ? C.text : C.textMuted }}>
                             <span style={{ fontSize: "14px", fontWeight: 600, color: C.text }}>{team.name}</span>
+                            {typeof team.bowlers === "number" ? <span style={{ color: C.textMuted, fontWeight: 400 }}> · {team.bowlers} {team.bowlers === 1 ? "bowler" : "bowlers"}</span> : ""}
                             {mine.has(team.id) ? <span style={{ color: C.textMuted, fontWeight: 400 }}> · yours</span> : ""}
                           </span>
+                          {!mine.has(team.id) && onAskToJoinTeam && (
+                            team.requested
+                              ? <span style={{ fontSize: "11px", color: C.textMuted }}>Asked</span>
+                              : <button style={{ ...S.btn(), padding: "3px 8px", fontSize: "10px" }} disabled={askBusy === team.id}
+                                  onClick={async () => {
+                                    const current = all.find(t => mine.has(t.id) && t.id !== team.id);
+                                    const pending = all.find(t => t.requested && t.id !== team.id);
+                                    setAskBusy(team.id);
+                                    await onAskToJoinTeam(team.id, { teamName: team.name, current: current?.name || null, pending: pending?.name || null });
+                                    await refreshLeagueTeams(league);
+                                    setAskBusy(null);
+                                  }}>
+                                  Ask to join
+                                </button>
+                          )}
                           {/* Leaving is scoped to the SIGNED-IN user, not the
                               active bowler -- the active bowler may be a
                               proxy-logged teammate whose membership isn't
@@ -1485,8 +1537,25 @@ export default function Settings({
                     team stays in the Teams card below, where the roster
                     editing already lives. */}
                 {(() => {
-                  const all = (teams || []).filter(t => t.league === league);
+                  const local = (teams || []).filter(t => t.league === league);
+                  const fromDb = leagueTeamRows.league === league && Array.isArray(leagueTeamRows.list) ? leagueTeamRows.list : null;
                   const mine = new Set(teamsInLeague(league, teams || [], displayName).map(t => t.id));
+                  if (fromDb) fromDb.forEach(t => { if (t.is_member) mine.add(t.id); });
+                  // The database's list when it answered; otherwise the teams
+                  // this device already knows (offline, or before the
+                  // league_teams() migration).
+                  const all = fromDb
+                    ? fromDb.map(t => {
+                        const known = local.find(l => l.id === t.id) || {};
+                        // The startup team load is names only (members: []),
+                        // so Leave would say "you're not on this team". The
+                        // database knows whether they are.
+                        const members = t.is_member && displayName
+                          ? [...new Set([...(known.members || []), displayName])]
+                          : (known.members || []);
+                        return { ...known, id: t.id, name: t.name, league, members, bowlers: t.bowlers, requested: t.requested };
+                      })
+                    : local;
                   if (!all.length) return null;
                   return (
                     <div style={{ marginTop: "8px" }}>
@@ -1497,8 +1566,24 @@ export default function Settings({
                         <div key={team.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "4px" }}>
                           <span style={{ fontSize: "12px", color: mine.has(team.id) ? C.text : C.textMuted }}>
                             <span style={{ fontSize: "14px", fontWeight: 600, color: C.text }}>{team.name}</span>
+                            {typeof team.bowlers === "number" ? <span style={{ color: C.textMuted, fontWeight: 400 }}> · {team.bowlers} {team.bowlers === 1 ? "bowler" : "bowlers"}</span> : ""}
                             {mine.has(team.id) ? <span style={{ color: C.textMuted, fontWeight: 400 }}> · yours</span> : ""}
                           </span>
+                          {!mine.has(team.id) && onAskToJoinTeam && (
+                            team.requested
+                              ? <span style={{ fontSize: "11px", color: C.textMuted }}>Asked</span>
+                              : <button style={{ ...S.btn(), padding: "3px 8px", fontSize: "10px" }} disabled={askBusy === team.id}
+                                  onClick={async () => {
+                                    const current = all.find(t => mine.has(t.id) && t.id !== team.id);
+                                    const pending = all.find(t => t.requested && t.id !== team.id);
+                                    setAskBusy(team.id);
+                                    await onAskToJoinTeam(team.id, { teamName: team.name, current: current?.name || null, pending: pending?.name || null });
+                                    await refreshLeagueTeams(league);
+                                    setAskBusy(null);
+                                  }}>
+                                  Ask to join
+                                </button>
+                          )}
                           {/* Leaving is scoped to the SIGNED-IN user, not the
                               active bowler -- the active bowler may be a
                               proxy-logged teammate whose membership isn't
