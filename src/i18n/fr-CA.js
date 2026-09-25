@@ -2738,7 +2738,8 @@ export const FR_CA = {
 "All nights": "Toutes",
 "placeholder::board #": "pl.",
 "placeholder::degrees": "°",
-"Google Play shows whether a free trial applies to your account before you confirm, then it renews on its own until you cancel.": "Google Play indique si un essai gratuit s'applique à votre compte avant que vous confirmiez, puis l'abonnement se renouvelle automatiquement jusqu'à ce que vous l'annuliez."
+"Google Play shows whether a free trial applies to your account before you confirm, then it renews on its own until you cancel.": "Google Play indique si un essai gratuit s'applique à votre compte avant que vous confirmiez, puis l'abonnement se renouvelle automatiquement jusqu'à ce que vous l'annuliez.",
+"Pro": "Pro"
 },
 "patterns": [
 [

@@ -85,7 +85,7 @@ import { archiveOnNewStart, compareSeasons, describeSeasonChange } from "./domai
 import { sessionsForFigures, isBaker, bakerBowlerFor, bakerAlternates } from "./domain/tournamentFormats.js";
 import { emptyDrill, normalizeDrill, drillToRow, drillFromRow } from "./domain/drills.js";
 import { scorekeepingOptions, allowsOtherBowlers, normalizeGuests, addGuest, removeGuest } from "./domain/scorekeeping.js";
-import { allowedLeagues, lockedLeagues, ENTITLEMENT_UNKNOWN, bagLimit } from "./domain/entitlements.js";
+import { allowedLeagues, lockedLeagues, ENTITLEMENT_UNKNOWN, bagLimit, featureUnlocked } from "./domain/entitlements.js";
 // Not lazy: it is one small card, it is rendered conditionally already,
 // and a Suspense boundary around a prompt this short would flash.
 import KeptLeaguePicker from "./KeptLeaguePicker.jsx";
@@ -8619,6 +8619,21 @@ export default function BowlingTracker(){
             {/* Labelled, not just an icon. A bare camera reads as "take a
                 photo" -- several bowlers looked for import on the Bowl
                 tab and gave up. There's room in the header for the words. */}
+            {/* Pro, for anyone who does not have it: one tap to the
+                Subscribe screen from anywhere. Hidden while the
+                entitlement is still loading (so a subscriber never sees
+                it flash), for subscribers and test accounts, and on the
+                Subscribe screen itself. */}
+            {entitlement!==ENTITLEMENT_UNKNOWN&&!featureUnlocked(entitlement)&&view!=="subscribe"&&(
+              <button onClick={()=>setView("subscribe")}
+                style={{background:C.accent,border:`1px solid ${C.accent}`,cursor:"pointer",
+                  fontSize:"12px",fontWeight:800,color:C.onAccent||"#fff",height:"34px",
+                  padding:"0 10px",borderRadius:"10px",lineHeight:1,letterSpacing:"0.02em",
+                  boxShadow:`0 4px 12px ${C.accent}33`,whiteSpace:"nowrap"}}
+                aria-label="Get Pro">
+                Pro
+              </button>
+            )}
             {!casualMode&&<button onClick={()=>setView("import")}
               style={{background:C.surface,border:`1px solid ${C.border}`,cursor:"pointer",
                 fontSize:"12px",fontWeight:700,color:C.text,height:"34px",
