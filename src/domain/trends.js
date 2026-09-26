@@ -22,6 +22,7 @@
 // that's the unit a bowler actually thinks in.
 
 import { SAMPLE_THRESHOLDS } from "./insightGating.js";
+import { strikeChances } from "./scoring.js";
 
 // Fewer points than this and a line is a connect-the-dots exercise, not a
 // trend. Five sessions is roughly five weeks of league.
@@ -202,8 +203,11 @@ export function shotRateSeries(shots, bowler, league, metricId, isSplit = () => 
     let value = null, sample = 0;
 
     if (metricId === "strikeRate") {
-      sample = frames.length;
-      if (sample) value = Math.round((frames.filter(s => s.result === "Strike").length / sample) * 100);
+      // Every strike chance, the 10th frame's full racks included -- the
+      // same count the Stats card and the Nightcap use (strikeChances).
+      const chances = strikeChances(group);
+      sample = chances.length;
+      if (sample) value = Math.round((chances.filter(s => s.result === "Strike").length / sample) * 100);
     } else if (metricId === "cleanFrameRate") {
       sample = frames.length;
       if (sample) {

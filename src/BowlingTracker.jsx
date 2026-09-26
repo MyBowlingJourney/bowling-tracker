@@ -54,7 +54,7 @@ import { splitConversionByType, isSplit, isTenPinLeave, isCornerPinLeave, isSing
 import { maxPossibleScore,
   isStk, firstBallOf, secondBallOf, tenthBall3Available, tenthBall3Pins,
   nextState, tenthFrameStatus, strictPartial, frameQualityScore, makeTheoreticalShots,
-  freshRackShots, theoreticalFillBallValue, tenthBall3Earned,
+  freshRackShots, theoreticalFillBallValue, tenthBall3Earned, strikeRateOf,
 } from "./domain/scoring.js";
 import { emptyShot, computeSessionStats, findExistingShotSlot } from "./domain/sessions.js";
 import { teammateImportRows } from "./domain/teamImports.js";
@@ -989,7 +989,21 @@ export default function BowlingTracker(){
     })();
     return()=>{cancelled=true;};
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[user?.id,teamIdKey]);
+  },[user?.id,teamIdKey,view==="data"]);
+  // What Compare To offers: the roster read above, and -- for any team it
+  // could not read (no signal at launch, a failed query) -- the names the
+  // Team screen already knows, members and pending alike. A read that
+  // failed once used to leave the pending teammates out until a restart.
+  const compareRosters=useMemo(()=>{
+    const me=displayName||activeBowler;
+    const have=new Set((teamRosters||[]).map(r=>r.teamId));
+    const extra=(teams||[]).filter(t=>t&&t.id&&!have.has(t.id)).map(t=>({
+      teamId:t.id,teamName:t.name,league:t.league,members:[],
+      pending:(t.members||[]).map(m=>typeof m==="string"?m:(m?.displayName||m?.name||""))
+        .filter(n=>n&&n!==me).map(n=>({id:`${t.id}:${n}`,name:n})),
+    })).filter(r=>r.pending.length);
+    return [...(teamRosters||[]),...extra];
+  },[teamRosters,teams,displayName,activeBowler]);
 
   // One teammate's numbers, for comparing against. Stored in the same
   // friendShots/friendSessions maps under a "mate:team:name" key, so the
@@ -8470,7 +8484,9 @@ export default function BowlingTracker(){
   });
   const tot=statsShots.length;
   const stk=statsShots.filter(s=>s.result==="Strike").length;
-  const stkR=tot?Math.round((stk/tot)*100):0;
+  // Over strike CHANCES, not every row: a 10th-frame spare attempt is
+  // not a chance to strike. Same count as Trends and the Nightcap.
+  const stkR=strikeRateOf(statsShots)??0;
   const wk=statsShots.filter(s=>s.result==="Weak 10").length;
   const rng=statsShots.filter(s=>s.result==="Ringing 10").length;
   // Spare % excludes splits — splits are tracked as their own conversion
@@ -8777,7 +8793,7 @@ export default function BowlingTracker(){
       ?statsPoolShots.filter(s=>s.league===compareLeague)
       :shots; // unused when showTeamCompare is false
   const teamTot=compareShots.length;
-  const teamStkR=teamTot?Math.round((compareShots.filter(s=>s.result==="Strike").length/teamTot)*100):0;
+  const teamStkR=strikeRateOf(compareShots)??0;
   const teamSpAtt=compareShots.filter(s=>s.result!=="Strike"&&s.spareMade!==""&&!isSplit(s));
   const teamSpR=teamSpAtt.length?Math.round((teamSpAtt.filter(s=>s.spareMade==="Yes").length/teamSpAtt.length)*100):0;
   const teamSplitShotsAll=compareShots.filter(isSplit);
@@ -9974,7 +9990,7 @@ export default function BowlingTracker(){
             view={view} entitlement={entitlement} shots={statsVisibleShots} sessions={statsVisibleSessions} bowlers={bowlers} teams={teams} leagues={leagues} arsenals={arsenals} saved={saved}
             statsBowler={statsBowler} setStatsBowler={chooseStatsBowler} compareBowler={compareBowler} setCompareBowler={setCompareBowler}
             compareFriendId={compareFriendId} setCompareFriendId={setCompareFriendId}
-            friends={friends} onLoadFriendData={loadFriendData} teamRosters={teamRosters} onLoadTeammateData={loadTeammateData} onOpenFriends={()=>setView("social")} compareSessions={compareSessions} displayName={displayName}
+            friends={friends} onLoadFriendData={loadFriendData} teamRosters={compareRosters} onLoadTeammateData={loadTeammateData} onOpenFriends={()=>setView("social")} compareSessions={compareSessions} displayName={displayName}
             statsLeague={statsLeague} setStatsLeague={chooseStatsLeague}
             compareLeague={compareLeague} setCompareLeague={setCompareLeague}
             matches={matches}

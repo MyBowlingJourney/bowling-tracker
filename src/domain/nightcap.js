@@ -50,6 +50,7 @@ import {
   leaveSide, splitKey,
 } from "./splits.js";
 import { SAMPLE_THRESHOLDS, meetsThreshold } from "./insightGating.js";
+import { strikeChances } from "./scoring.js";
 import { hungCounts, handUpCounts } from "./stats.js";
 
 // Nights of history in this league before a season figure is offered at
@@ -263,8 +264,9 @@ export function nightcapFacts(shots, {
   // ── Strikes and what the first ball left ──────────────────────────────
   // Per chance (every fresh rack, the tenth's extras included), matching
   // the night card and the Stats tab.
-  const strikes = mine.filter(s => s.result === "Strike").length;
-  const chances = mine.length;
+  const chanceShots = strikeChances(mine);
+  const strikes = chanceShots.filter(s => s.result === "Strike").length;
+  const chances = chanceShots.length;
   add("strikes", { strikes, chances, pct: pct(strikes, chances) });
 
   // ── Spares ────────────────────────────────────────────────────────────

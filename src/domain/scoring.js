@@ -480,6 +480,47 @@ export function frameQualityScore(s){
   return Math.round(Math.max(0,Math.min(1,pins/9))*49*10)/10;
 }
 
+// Every STRIKE CHANCE: each ball thrown at a full rack of ten.
+//
+// Frames 1-9: the frame's first ball. The 10th: ball 1; ball 2 only after
+// a strike (after anything else it is a spare attempt); ball 3 whenever
+// it faces a full rack -- after two strikes, or after a spare, which
+// tenthBall3Available works out, including the spare that ball 1's row
+// carries itself. The same rule as the ball comparison's fresh racks
+// (ballComparison.js isFreshRack), so a strike percentage means one thing
+// on the Stats card, in Trends and in the Nightcap.
+//
+// Strike % used to be counted three ways: strikes over every row (the
+// card and the Nightcap, which counts a 10th-frame spare attempt as a
+// chance) and first balls of frames only (Trends, which misses a strike
+// on a 10th-frame fill ball). The same night read 38% on one screen and
+// 40% on another.
+export function strikeChances(dataset){
+  dataset = (Array.isArray(dataset) ? dataset : []).filter(s => s && typeof s === "object");
+  const n = v => (v === null || v === undefined || v === "" ? null : Number(v));
+  const key = s => `${s.bowler}|${s.league}|${s.date}|${n(s.sessionSeq) ?? 1}|${String(s.game)}`;
+  const tenth = new Map();
+  for (const s of dataset) {
+    if (String(s.frame) === "10" && n(s.ballNum) !== null) tenth.set(`${key(s)}|${n(s.ballNum)}`, s);
+  }
+  return dataset.filter(s => {
+    const b = n(s.ballNum);
+    if (b === null || b === 1) return true;
+    if (String(s.frame) !== "10") return false;
+    const b1 = tenth.get(`${key(s)}|1`), b2 = tenth.get(`${key(s)}|2`);
+    if (b === 2) return !!b1 && isStk(b1);
+    if (b === 3) return tenthBall3Available(b1, b2) === 10;
+    return false;
+  });
+}
+
+// Strike % over strike chances, rounded; null with no chances.
+export function strikeRateOf(dataset){
+  const c = strikeChances(dataset);
+  if (!c.length) return null;
+  return Math.round((c.filter(isStk).length / c.length) * 100);
+}
+
 // Groups shots by (bowler, league, date, game) and keeps only genuine
 // fresh-rack deliveries: every non-10th-frame ball (ballNum is null), plus
 // the 10th frame's ball 1 always, ball 2 always (it's a fresh rack whether
