@@ -2164,7 +2164,7 @@ export const FR_CA = {
 "Ball against ball, house against house, pattern against pattern": "Boule contre boule, salle contre salle, patron contre patron",
 "Head to head with friends and teammates": "Face-à-face avec vos amis et les membres de votre équipe",
 "This season against last": "Cette saison contre la précédente",
-"Nightcap, Insights, Brooklyn and coaching": "Nightcap, Analyses, Brooklyn et Entraîneur",
+"Nightcap, Insights, Brooklyn, the Caddie and coaching": "Nightcap, Analyses, Brooklyn, le Caddie et Entraîneur",
 "Scorecard import": "Importation de feuilles de pointage",
 "Choose a plan": "Choisissez un forfait",
 "Yearly ·": "Annuel ·",

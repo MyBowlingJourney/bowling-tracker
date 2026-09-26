@@ -207,7 +207,7 @@ export default function Subscribe({ entitlement, onClose, onPurchased, initialPe
           <li>Ball against ball, house against house, pattern against pattern</li>
           <li>Head to head with friends and teammates</li>
           <li>This season against last</li>
-          <li>Nightcap, Insights, Brooklyn and coaching</li>
+          <li>Nightcap, Insights, Brooklyn, the Caddie and coaching</li>
           <li>Scorecard import</li>
         </ul>
       </div>
