@@ -2907,10 +2907,21 @@ export const FR_CA = {
 "picker::Every night": "Toutes les soirées",
 "field::Scoring": "Pointage",
 "tab::Side games": "Cagnottes",
-"Language · Idioma · Langue in Settings. Automatic follows your phone's language, or pick English, Español or Français. The app restarts in the language you pick.": "Language · Idioma · Langue dans les Paramètres. Le mode automatique suit la langue de votre téléphone; vous pouvez aussi choisir English, Español ou Français. L'application redémarre dans la langue choisie.",
 "Español": "",
 "Français": "",
-"⟨0⟩ Urethane": "⟨0⟩ Uréthane"
+"⟨0⟩ Urethane": "⟨0⟩ Uréthane",
+"Language · Idioma · Langue · 言語 in Settings. Automatic follows your phone's language, or pick English, Español, Français or 日本語. The app restarts in the language you pick.": "Language · Idioma · Langue · 言語 dans les Paramètres. Le mode automatique suit la langue de votre téléphone; vous pouvez aussi choisir English, Español, Français ou 日本語. L'application redémarre dans la langue choisie.",
+"Language · Idioma · Langue · 言語": "",
+"日本語": "",
+"tab::Center": "Salle",
+"placeholder::Handicap": "Handicap",
+"tab::Handicap": "Handicap",
+"window::Games": "Parties",
+"field::Delivery": "Lancer",
+"tile::Strikes": "Abats",
+"field::Target": "Cible",
+"milestone::Next ·": "À venir ·",
+"newly::.": "."
 },
 "patterns": [
 [

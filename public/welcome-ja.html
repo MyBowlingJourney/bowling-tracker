@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>My Bowling Journey — 1投ごとのボウリング記録</title>
+<meta name="description" content="リーグの日の1投1投を記録して、アーセナルやスペア、シーズンの本当の姿を確かめましょう。無料で使えて、比較機能はProで。">
+<meta name="theme-color" content="#F7F8FA">
+
+<!-- ⚠️ BEFORE THIS GOES LIVE ⚠️
+     The two prices below MUST match the prices in Stripe and the base
+     plans in Google Play, to the cent. They are marked PRICE: in the
+     body so they are quick to find.
+
+     A page that promises one number while the card takes another is a
+     refund, a chargeback, and in several states a consumer-protection
+     problem. The figures currently written here come from the costing
+     comment in src/domain/entitlements.js -- they are the intended
+     prices, NOT confirmed against a Stripe dashboard that does not
+     exist yet.
+
+     Stripe reviews this page against what the account claims to sell,
+     so every item it looks for is here deliberately: what the service
+     is, both prices, that it renews on its own, how to cancel, the
+     refund position, a contact address, the legal entity, and links to
+     the terms and the privacy policy. Removing any of them is removing
+     something the review is looking for. -->
+
+<style>
+  :root{
+    --bg:#F7F8FA; --surface:#fff; --text:#16181D; --muted:#5A6070;
+    --border:#E3E6EC; --accent:#2F6F4F;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#111317; --surface:#181B21; --text:#E8EAEE; --muted:#9AA2B1;
+      --border:#262A33; --accent:#6FCF97;
+    }
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,"Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif;
+    padding:calc(28px + env(safe-area-inset-top,0px)) 16px
+            calc(48px + env(safe-area-inset-bottom,0px));
+  }
+  main{max-width:720px;margin:0 auto}
+  .brand{font-size:13px;color:var(--muted);letter-spacing:.02em;margin-bottom:6px}
+  .lang{float:right;font-size:13px;margin-left:12px;display:flex;align-items:center;gap:12px}
+  .pro{
+    display:inline-block;background:var(--accent);color:#fff;text-decoration:none;
+    font-weight:600;font-size:13px;line-height:1;padding:8px 12px;border-radius:999px;
+  }
+  @media (prefers-color-scheme: dark){ .pro{color:#0E1512} }
+  .plan .cta{display:block;text-align:center;margin:12px 0 0;padding:12px 16px;font-size:15px}
+  h1{font-size:30px;line-height:1.2;margin:0 0 10px;letter-spacing:-0.015em}
+  h2{font-size:19px;margin:34px 0 10px;padding-top:18px;border-top:1px solid var(--border)}
+  h3{font-size:16px;margin:0 0 6px}
+  .lead{font-size:18px;color:var(--muted);margin:0 0 24px}
+  ul{padding-left:20px;margin:10px 0}
+  li{margin-bottom:8px}
+  a{color:var(--accent)}
+  .card{
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:10px;padding:16px 18px;margin:18px 0;
+  }
+  .card h3{margin-top:0}
+  .plans{display:flex;gap:12px;flex-wrap:wrap}
+  .plan{flex:1 1 220px;background:var(--surface);border:1px solid var(--border);
+        border-radius:10px;padding:16px 18px}
+  .price{font-size:26px;font-weight:700;letter-spacing:-0.02em;margin:2px 0 2px}
+  .per{font-size:13px;color:var(--muted)}
+  .cta{
+    display:inline-block;background:var(--accent);color:#fff;
+    text-decoration:none;padding:14px 22px;border-radius:12px;
+    font-weight:600;margin:6px 0 4px;
+  }
+  @media (prefers-color-scheme: dark){ .cta{color:#0E1512} }
+  .fine{font-size:13.5px;color:var(--muted)}
+  footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--border);
+         font-size:13px;color:var(--muted)}
+</style>
+</head>
+<body>
+<main>
+
+  <div class="lang"><a href="/" hreflang="en" lang="en">English</a><a href="/es/" hreflang="es-419" lang="es-419">Español</a><a href="/fr/" hreflang="fr-CA" lang="fr-CA">Français</a><a class="pro" href="#pricing">Proを始める</a></div>
+  <div class="brand">MY BOWLING JOURNEY</div>
+  <h1>スコアだけでなく、すべての1投を。</h1>
+  <p class="lead">
+    アプローチに立っているうちに、1投ごとに実際に起きたことを記録できます
+    — どのボールを使い、どのピンが残り、それにどう対応したか。そのうえで、アーセナル、スペア、そしてシーズンの本当の姿を確かめましょう。
+  </p>
+
+  <a class="cta" href="/app/">アプリを開く</a>
+  <div class="fine">ブラウザで使えます。インストールしなくてもすぐに始められます。</div>
+
+  <h2>できること</h2>
+  <ul>
+    <li><strong>1投ごとの記録</strong>はリーグの日のための設計 — フレームの合間でも入力が追いつく速さです。</li>
+    <li><strong>アーセナル</strong>をボールごとに：それぞれが実際にどれだけキャリーし、どんなピンを残すのか。</li>
+    <li><strong>スペアとスプリット</strong>：何度もミスしている残りピンと、どの位置から狙ったときかまでわかります。</li>
+    <li><strong>リーグ、チーム、大会</strong>：ボウラーが実際に使う形式に対応しています。</li>
+    <li><strong>ボウリング場とオイルパターン</strong> — どこで、どんなスコアを出しているか。</li>
+    <li><strong>その日の振り返り</strong>を、終了時にわかりやすい言葉でお届けします。</li>
+  </ul>
+
+  <h2>無料プランとPro</h2>
+  <p>
+    ご自身のデータは無料で、これからもずっと無料です。スコア、アベレージ、スペア率とストライク率、ボールごとの数字まで。Proは比較のためのプランです
+    — チームメイトとの比較、ボール同士の比較、今シーズンと昨シーズンの比較 —
+    そして、その日の投球を読み解いてくれる機能もProに含まれます。
+  </p>
+  <div class="card">
+    <h3>無料プランに含まれるもの</h3>
+    <p class="fine" style="margin:0">
+      リーグ1つ、練習とフリー投球は無制限。記録した投球はすべて、必要な限りいつまでも保存されます。ご自身の統計もすべてご利用いただけます。
+    </p>
+  </div>
+  <div class="card">
+    <h3>Proで追加されるもの</h3>
+    <p class="fine" style="margin:0">
+      参加しているすべてのリーグとチーム、直接対決やチームメイトとの比較、ボール同士・ボウリング場同士・シーズン同士の比較、スコアシートの取り込み、そしてAI機能 — Nightcap、分析、Brooklyn、Caddie、コーチ。
+    </p>
+  </div>
+
+  <h2 id="pricing">料金</h2>
+  <div class="plans">
+    <div class="plan">
+      <h3>年額</h3>
+      <!-- PRICE: must match the Stripe yearly price and the Play yearly base plan (the script at the bottom swaps in CAD for Canada) -->
+      <div class="price" data-price="year">$49.99</div>
+      <div class="per">1年あたり</div>
+      <a class="cta" href="/app/?subscribe=year">年額で登録する</a>
+    </div>
+    <div class="plan">
+      <h3>月額</h3>
+      <!-- PRICE: must match the Stripe monthly price and the Play monthly base plan (the script at the bottom swaps in CAD for Canada) -->
+      <div class="price" data-price="month">$4.99</div>
+      <div class="per">1か月あたり</div>
+      <a class="cta" href="/app/?subscribe=month">月額で登録する</a>
+    </div>
+  </div>
+  <p class="fine">
+    新規アカウントはすべて、最初の60日間Proを無料でご利用いただけます &mdash;
+    カードの登録は不要です。登録するとアプリが開きます。ログインまたはアカウントを作成してから、お支払い手続きに進んでください。
+  </p>
+
+  <div class="card">
+    <h3>ご登録の前に</h3>
+    <ul class="fine" style="margin:0">
+      <li>
+        新規アカウントはすべて、作成した日から<strong>60日間Proを無料</strong>でご利用いただけます。カード情報は必要ありません。終了後は、登録するか、無料のBasicプランで使い続けるかをお選びいただけます。
+      </li>
+      <li>
+        サブスクリプションは<strong>購入した日に始まり、解約するまで自動で更新されます</strong> — 月ごと、または年ごとです。
+      </li>
+      <li>
+        <strong>いつでも解約できます。</strong>Androidアプリでは、Playストアアプリの「定期購入」から手続きできます。ウェブでは、領収書のリンクから、またはメールでご連絡ください。解約すると次回の更新が止まり、お支払い済みの期間が終わるまでProをご利用いただけます。
+      </li>
+      <li>
+        <strong>返金について。</strong>期間の終了までご利用いただけるため、原則として一部を利用済みの期間の返金は行っておりません。誤って請求された場合や、不具合を当社で解決できなかった場合は、ご連絡いただければきちんと対応いたします。Google Playでのご購入には、Google Play独自の返金ポリシーも適用されます。
+      </li>
+      <li>
+        価格は米ドルです。カナダではカナダドルとなります &mdash; アプリでもウェブでも、月額$6.99または年額$69.99です。そのほかの地域のAndroidアプリでは、Google Playがお使いの通貨で価格を表示します。お住まいの地域で税金がかかる場合は、確定前に表示されます。
+      </li>
+      <li>
+        <strong>お支払いをやめても、記録したデータは削除されません。</strong>リーグ1つは有効なまま残り、そのほかは再開されるまで一時停止されます。
+      </li>
+    </ul>
+  </div>
+
+  <h2>お問い合わせ</h2>
+  <p class="fine">
+    <a href="mailto:support@mybowlingjourney.com">support@mybowlingjourney.com</a>までメールでどうぞ
+    — 請求、不具合、返金、ほしい機能など。メールはスタッフが直接読んでいます。
+  </p>
+
+  <a class="cta" href="/app/">アプリを開く</a>
+
+  <footer>
+    My Bowling Journeyは、ペンシルベニア州の有限責任会社<strong>My Bowling Journey LLC</strong>が運営しています。<br>
+    <a href="/terms-ja.html">利用規約</a> ·
+    <a href="/privacy-ja.html">プライバシーポリシー</a> ·
+    <a href="/tokushoho.html">特定商取引法に基づく表記</a> ·
+    <a href="mailto:support@mybowlingjourney.com">support@mybowlingjourney.com</a>
+  </footer>
+
+</main>
+<script>
+  // Canada pays 6.99 / 69.99 CAD, on the web as in the app. Same time
+  // zone test as src/domain/billing.js -- keep the two lists together.
+  (function () {
+    var z = "";
+    try { z = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (e) {}
+    var ca = /^Canada\//.test(z) || ["Atikokan","Blanc-Sablon","Cambridge_Bay","Coral_Harbour","Creston",
+      "Dawson","Dawson_Creek","Edmonton","Fort_Nelson","Glace_Bay","Goose_Bay","Halifax","Inuvik","Iqaluit",
+      "Moncton","Montreal","Nipigon","Pangnirtung","Rainy_River","Rankin_Inlet","Regina","Resolute","St_Johns",
+      "Swift_Current","Thunder_Bay","Toronto","Vancouver","Whitehorse","Winnipeg","Yellowknife"]
+      .indexOf(z.replace(/^America\//, "")) >= 0 && /^America\//.test(z);
+    if (!ca) return;
+    var p = { year: "$69.99 CAD", month: "$6.99 CAD" };
+    document.querySelectorAll("[data-price]").forEach(function (el) { el.textContent = p[el.getAttribute("data-price")]; });
+  })();
+</script>
+</body>
+</html>

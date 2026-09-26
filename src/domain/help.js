@@ -200,8 +200,9 @@ export const HELP = [
     view: "settings",
     title: "Changing the language",
     keywords: ["language", "french", "english", "spanish", "francais", "langue", "anglais", "traduction",
-               "idioma", "español", "espanol", "ingles", "traducción"],
-    body: "Language · Idioma · Langue in Settings. Automatic follows your phone's language, or pick English, Español or Français. The app restarts in the language you pick.",
+               "idioma", "español", "espanol", "ingles", "traducción",
+               "japanese", "日本語", "言語", "英語", "翻訳"],
+    body: "Language · Idioma · Langue · 言語 in Settings. Automatic follows your phone's language, or pick English, Español, Français or 日本語. The app restarts in the language you pick.",
   },
   {
     id: "tournament-finish",
@@ -306,9 +307,24 @@ export const HELP = [
 // Normalised for matching: lowercase, punctuation stripped.
 // Accents are folded ("réserve" matches "reserve"), so French searches
 // work however they are typed.
+// Accents come off Latin letters ("español" finds "espanol"), and
+// Japanese kana and kanji are kept whole: NFC puts a kana's voicing mark
+// back on after NFD takes it off, and full-width letters and digits
+// become their ASCII selves (NFKC).
+const CJK = "\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff";
 function norm(s) {
-  return String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+  return String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").normalize("NFKC")
+    .toLowerCase().replace(new RegExp(`[^a-z0-9\\s${CJK}]`, "g"), " ").replace(/\s+/g, " ").trim();
+}
+
+// A Japanese query has no spaces between its words, so a long one is also
+// looked for two characters at a time: 「スペアの練習方法」 still finds the
+// entry that says 「スペア」 and 「練習」.
+function cjkPairs(w) {
+  if (w.length < 3 || !new RegExp(`^[${CJK}]+$`).test(w)) return [];
+  const out = [];
+  for (let i = 0; i < w.length - 1; i++) out.push(w.slice(i, i + 2));
+  return out;
 }
 
 // Search the documentation.
@@ -357,6 +373,13 @@ export function searchHelp(query, entries = HELP, translate = null) {
         if (title.includes(w)) score += 10;
         if (keys.includes(w)) score += 6;
         if (body.includes(w)) score += 2;
+      }
+      for (const w of words) {
+        for (const p of cjkPairs(w)) {
+          if (title.includes(p)) score += 3;
+          if (keys.includes(p)) score += 2;
+          if (body.includes(p)) score += 1;
+        }
       }
 
       // Every word present somewhere is a strong signal even when no

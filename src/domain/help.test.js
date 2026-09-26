@@ -162,3 +162,19 @@ describe("searching in French", () => {
     expect(folded).toContain("x");
   });
 });
+
+describe('searchHelp in Japanese', () => {
+  const entries = [
+    { id: 'spare', title: 'Spare practice', keywords: ['spare'], body: 'Practise spares.' },
+    { id: 'ball', title: 'Your arsenal', keywords: ['ball'], body: 'Balls.' },
+  ];
+  const ja = s => ({ 'Spare practice': 'スペアの練習', 'Your arsenal': 'アーセナル', spare: 'スペア', ball: 'ボール', 'Practise spares.': 'スペアを練習します。', 'Balls.': 'ボール。' }[s] || s);
+  it('finds kana and kanji, whole or in part', () => {
+    expect(searchHelp('スペア', entries, ja)[0]?.id).toBe('spare');
+    expect(searchHelp('スペアの練習方法', entries, ja)[0]?.id).toBe('spare');
+    expect(searchHelp('ボール', entries, ja)[0]?.id).toBe('ball');
+  });
+  it('still strips Latin accents', () => {
+    expect(searchHelp('arsenál', entries)[0]?.id).toBe('ball');
+  });
+});

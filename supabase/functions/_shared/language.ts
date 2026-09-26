@@ -1,23 +1,25 @@
 // Which language an AI feature answers in.
 //
 // The app sends `language: "fr-CA"` when it is showing Quebec French and
-// `language: "es-419"` for Latin American Spanish (see src/i18n/index.js
-// aiLanguage); anything else, or nothing, is English.
+// `language: "es-419"` for Latin American Spanish and `language: "ja-JP"`
+// for Japanese (see src/i18n/index.js aiLanguage); anything else, or
+// nothing, is English.
 // Only the words the bowler reads change: JSON keys, fixed values the
 // app compares against, and the numbers themselves stay exactly as the
 // prompt specifies.
 
-export type AnswerLanguage = "fr-CA" | "es-419" | "en";
+export type AnswerLanguage = "fr-CA" | "es-419" | "ja-JP" | "en";
 
 export function answerLanguage(body: unknown): AnswerLanguage {
   const v = (body as { language?: unknown } | null)?.language;
-  return v === "fr-CA" || v === "es-419" ? v : "en";
+  return v === "fr-CA" || v === "es-419" || v === "ja-JP" ? v : "en";
 }
 
 // Appended to a system prompt. Empty for English, so the English prompts
 // are exactly what they were.
 export function languageInstruction(lang: AnswerLanguage): string {
   if (lang === "es-419") return SPANISH;
+  if (lang === "ja-JP") return JAPANESE;
   if (lang !== "fr-CA") return "";
   return `
 
@@ -40,3 +42,13 @@ Write numbers the way Mexico and the US do: decimal point (198.4), comma for tho
 Use opening question and exclamation marks (¿…? ¡…!).
 Keep names exactly as given: the bowler's, teammates', leagues', centers' and balls' names, and brand names.
 If you are asked to return JSON, the keys and any fixed values listed in the instructions stay exactly as specified in English; only the free text inside is in Spanish.`;
+
+// Japanese. Bowling in Japan is talked about almost entirely in katakana
+// loanwords; these match the app's own Japanese (src/i18n/glossary-ja.md).
+const JAPANESE = `
+
+LANGUAGE. The bowler reads the app in Japanese. Write every word they will read in natural, polite Japanese (です・ます調), as a Japanese bowling app would — friendly, not stiff. Do not use あなた; leave the subject implied, as Japanese naturally does. The statistics you are given are labelled in English; translate what you say, never quote the English labels.
+Use these bowling terms: ボウリング (the sport), ストライク, スペア, スプリット, ガター, フレーム, オープンフレーム, ゲーム, シリーズ, スコア, アベレージ, 残りピン (leave), ヘッドピン, ポケット, レーン, ボール, ストライクボール / スペアボール, オイルパターン, フック, リリース, リーグ, チーム, リーグナイト, 練習, 大会 (tournament), ダブル, ターキー, ボウラー.
+Write numbers as Japanese apps do: 198.4, 1,250, 54%; times in 24-hour form (19:30).
+Keep names exactly as given: the bowler's, teammates', leagues', centers' and balls' names, and brand names — do not convert them to katakana.
+If you are asked to return JSON, the keys and any fixed values listed in the instructions stay exactly as specified in English; only the free text inside is in Japanese.`;

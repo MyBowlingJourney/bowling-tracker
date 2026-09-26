@@ -9938,7 +9938,7 @@ export default function BowlingTracker(){
                 So they share the row instead: each takes an equal slice
                 and truncates if its label is too long. A guarantee
                 rather than an estimate. */}
-            <div style={{...S.chips,flexWrap:"nowrap",gap:"5px"}}>
+            <div data-i18n="tab" style={{...S.chips,flexWrap:"nowrap",gap:"5px"}}>
               {STATS_GROUPS.map(g=>(
                 <Chip key={g.id} label={g.label} selected={dataTab===g.id}
                   dense fill onToggle={()=>setDataTab(g.id)}/>

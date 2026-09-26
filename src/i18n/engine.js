@@ -1,7 +1,8 @@
-// The translation engine: English text in, French or Spanish text out.
+// The translation engine: English text in, French, Spanish or Japanese
+// text out.
 //
-// The language comes from the catalog (catalog.lang: "fr" or "es"; French
-// when absent). What differs between them is kept in LANGUAGE_RULES below:
+// The language comes from the catalog (catalog.lang: "fr", "es" or "ja";
+// French when absent). What differs between them is kept in LANGUAGE_RULES below:
 // how numbers and punctuation are written, the word for "and", and which
 // numbers take the singular.
 //
@@ -24,7 +25,8 @@
 // matches only "", "s" or "es", which keeps it from swallowing a
 // neighbouring value.
 //
-// Plurals: French treats 0 and 1 as singular, English and Spanish only 1.
+// Plurals: French treats 0 and 1 as singular, English and Spanish only 1;
+// Japanese has no plural, so its entries simply use one form.
 // So the translation can say {0|partie|parties}: the first form when
 // capture 0 is singular in that language, the second otherwise. The
 // English side's own plural pieces are simply left out.
@@ -219,6 +221,40 @@ function spanishPunctuation(s) {
     .replace(/ {2,}/g, " ");
 }
 
+// ── Japanese ───────────────────────────────────────────────────────────
+//
+// Japan writes 198.4, 1,250 and 54% as English does. Times are 24-hour
+// ("19:30"), and an English ordinal from code is a place ("3rd" -> "3位"):
+// in this app that is a finish or a seed.
+export function japaneseNumbers(text) {
+  let s = String(text);
+  if (!/\d/.test(s) || /:\/\/|@\w/.test(s)) return s;
+  s = s.replace(/\b(\d{1,2}):(\d{2})\s?([AaPp])\.?\s?[Mm]\.?(?![A-Za-z])/g, (_, h, m, ap) => {
+    let hh = Number(h) % 12;
+    if (/[Pp]/.test(ap)) hh += 12;
+    return `${hh}:${m}`;
+  });
+  s = s.replace(/\b(\d{1,2})\s?([AaPp])\.?[Mm]\.?(?![A-Za-z])/g, (_, h, ap) => {
+    let hh = Number(h) % 12;
+    if (/[Pp]/.test(ap)) hh += 12;
+    return `${hh}時`;
+  });
+  // A seed is "第2シード", every other ordinal a place.
+  s = s.replace(/\b(\d+)(?:st|nd|rd|th)(?=\s?シード)\s?/g, "第$1");
+  s = s.replace(/\b(\d+)(?:st|nd|rd|th)\b/g, "$1位");
+  return s;
+}
+
+// Japanese spacing: no space before 。、！？ or a closing bracket, none
+// after an opening one, never two spaces in a row.
+function japanesePunctuation(s) {
+  return s
+    .replace(/ +([。、！？」』）])/g, "$1")
+    .replace(/([「『（]) +/g, "$1")
+    .replace(/ +([.,])(?=\s|$)/g, "$1")
+    .replace(/ {2,}/g, " ");
+}
+
 // French spacing: a non-breaking space before a colon, none before ; ! ?
 // (Quebec usage, unlike France); no space before . or , (a value that
 // came out empty leaves one behind); never two spaces in a row.
@@ -231,8 +267,11 @@ function frenchPunctuation(s) {
 }
 
 const LANGUAGE_RULES = {
-  fr: { numbers: frenchNumbers, punctuation: s => frenchPunctuation(s), and: " et ", oneOnly: false },
-  es: { numbers: spanishNumbers, punctuation: s => spanishPunctuation(s), and: " y ", oneOnly: true },
+  fr: { numbers: frenchNumbers, punctuation: s => frenchPunctuation(s), and: " et ", oneOnly: false, spaced: true },
+  es: { numbers: spanishNumbers, punctuation: s => spanishPunctuation(s), and: " y ", oneOnly: true, spaced: true },
+  // Japanese: lists are joined with 、 throughout, and a translated value
+  // does not bring English spaces into the sentence around it.
+  ja: { numbers: japaneseNumbers, punctuation: s => japanesePunctuation(s), and: "、", comma: "、", oneOnly: true, spaced: false, caps: false },
 };
 
 export function createTranslator(catalog = {}) {
@@ -263,6 +302,7 @@ export function createTranslator(catalog = {}) {
   let protectedRe = null; // finds those names inside a longer text
   let partials = 0;       // how many lookups came back only partly translated
   const cache = new Map();
+  const partialKeys = new Set(); // texts a pattern matched with a value left in English
 
   // Pieces of sentences ("in", "left", "of"): right where the sentence
   // put them, wrong anywhere else -- so never used for a value dropped
@@ -293,7 +333,7 @@ export function createTranslator(catalog = {}) {
     let list = false;
     if (hit === null) { hit = translateList(core, depth); list = hit !== null; }
     if (hit === null) return { text: s, hit: false };
-    const lead = /^\s*/.exec(s)[0] ? " " : "", trail = /\s*$/.exec(s)[0] ? " " : "";
+    const lead = rules.spaced && /^\s*/.exec(s)[0] ? " " : "", trail = rules.spaced && /\s*$/.exec(s)[0] ? " " : "";
     // Only partly translated (a pattern whose own value stayed English)
     // counts as not translated.
     return { text: lead + hit + trail, hit: hit !== core && partials === before, list };
@@ -312,7 +352,7 @@ export function createTranslator(catalog = {}) {
       if (t === null) return null;
       out.push(t);
     }
-    return out.slice(0, -1).join(", ") + rules.and + out[out.length - 1];
+    return out.slice(0, -1).join(rules.comma || ", ") + rules.and + out[out.length - 1];
   }
 
   // Fills a French template from the captured values. Returns null when a
@@ -332,8 +372,11 @@ export function createTranslator(catalog = {}) {
       // "Left {0}" is not "Left: 1" -- a value does not start with a colon.
       if (/^\s*:/.test(v)) rejected = true;
       const { text, hit, list } = translateCapture(v, depth);
-      if (!hit && /[A-Za-z]{2,}/.test(text) && !protectedNames.has(collapse(text)) && !dateLike(text)) untranslated++;
-      if (!hit && weight < 12 && /(^|[^A-Za-zÀ-ÿ])[a-z]{2,}([^A-Za-zÀ-ÿ]|$)/.test(text)
+      // An email address or a link is a value like a name: never English
+      // to translate, never a reason to turn the pattern down.
+      const address = /\S@\S|:\/\//.test(text);
+      if (!hit && !address && /[A-Za-z]{2,}/.test(text) && !protectedNames.has(collapse(text)) && !dateLike(text)) untranslated++;
+      if (!hit && !address && weight < 12 && /(^|[^A-Za-zÀ-ÿ])[a-z]{2,}([^A-Za-zÀ-ÿ]|$)/.test(text)
           && !protectedNames.has(collapse(text)) && !dateLike(text)) rejected = true;
       // A translated word in the middle of a French sentence is lower
       // case ("Main droite", "en ligue"); a name or an acronym is not
@@ -404,6 +447,7 @@ export function createTranslator(catalog = {}) {
     const key = collapse(text);
     if (!key || !/[A-Za-z]/.test(key) || protectedNames.has(key)) return null;
     if (cache.has(key)) return cache.get(key);
+    const partialsBefore = partials;
     // A line of " · " facts is taken fact by fact first when every fact is
     // known: a long pattern would otherwise swallow several facts into one
     // value it cannot translate.
@@ -415,10 +459,13 @@ export function createTranslator(catalog = {}) {
     if (out !== null) {
       out = rules.punctuation(out);
       // A label or a sentence starts with a capital in both languages.
-      if (startsUpper(key) && !key.includes("::")) out = capitalize(out);
+      // (Japanese has no capitals: a Latin value at the start -- a name,
+      // an email -- stays exactly as it was.)
+      if (rules.caps !== false && startsUpper(key) && !key.includes("::")) out = capitalize(out);
     }
-    if (cache.size > 8000) cache.clear();
+    if (cache.size > 8000) { cache.clear(); partialKeys.clear(); }
     cache.set(key, out);
+    if (partials !== partialsBefore) partialKeys.add(key);
     return out;
   }
 
@@ -483,8 +530,11 @@ export function createTranslator(catalog = {}) {
   function translateMessage(text) {
     const s = String(text ?? "");
     const whole = lookup(s);
-    if (whole !== null) return numbers(whole);
     const paras = s.split(/\n\s*\n/);
+    // A message of several paragraphs is taken whole only when the whole
+    // translated cleanly: a short pattern can otherwise swallow three
+    // paragraphs into one value, flatten them and leave most in English.
+    if (whole !== null && (paras.length < 2 || !partialKeys.has(collapse(s)))) return numbers(whole);
     if (paras.length > 1) return paras.map(p => translateMessage(p)).join("\n\n");
     const lines = s.split("\n");
     if (lines.length > 1) return lines.map(l => translate(l)).join("\n");
@@ -496,6 +546,7 @@ export function createTranslator(catalog = {}) {
     const withDigits = [...protectedNames].filter(n => /\d/.test(n)).sort((a, b) => b.length - a.length);
     protectedRe = withDigits.length ? new RegExp("(" + withDigits.map(escapeRegex).join("|") + ")") : null;
     cache.clear();
+    partialKeys.clear();
   }
 
   // A context entry ("tab::Clean frames"): exact only -- a context is a

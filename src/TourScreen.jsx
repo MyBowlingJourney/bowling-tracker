@@ -841,7 +841,7 @@ const SCREENS = {
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div data-i18n="field" style={label}>Scoring</div>
-              <div style={{ display: "flex", gap: "3px" }}>
+              <div data-i18n="tab" style={{ display: "flex", gap: "3px" }}>
                 <span style={chip(true)}>Scratch</span>
                 <span style={chip(false)}>Handicap</span>
               </div>
@@ -1342,7 +1342,7 @@ const SCREENS = {
         <div style={{ display: "flex", justifyContent: "space-between", marginTop: "4px" }}>
           <span style={muted}>Jan</span><span style={muted}>Mar</span>
         </div>
-        <div style={{ display: "flex", gap: "4px", marginTop: "6px" }}>
+        <div data-i18n="window" style={{ display: "flex", gap: "4px", marginTop: "6px" }}>
           <span style={chip(false)}>Games</span>
           <span style={chip(true)}>Last 90 days</span>
           <span style={chip(false)}>Dates</span>

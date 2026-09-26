@@ -1,8 +1,9 @@
 // Which language the app shows, and switching it on.
 //
 // "auto" (the default) follows the phone: a phone set to French gets
-// Quebec French, one set to Spanish gets Latin American Spanish, and
-// everything else English. Settings can pin any of them.
+// Quebec French, one set to Spanish gets Latin American Spanish, one set
+// to Japanese gets Japanese, and everything else English. Settings can pin
+// any of them.
 //
 // The choice is kept on the DEVICE, not the account, and read synchronously
 // before the first render, so the app never flashes English and then
@@ -15,13 +16,14 @@
 import { createTranslator } from "./engine.js";
 
 export const LANGUAGE_KEY = "mbj-language-v1";
-export const LANGUAGE_CHOICES = ["auto", "fr", "es", "en"];
+export const LANGUAGE_CHOICES = ["auto", "fr", "es", "ja", "en"];
 
 // Each language the app can show: its tag (what <html lang>, the AI
 // features and the sign-in email are told) and how its catalog loads.
 const LANGUAGES = {
   fr: { tag: "fr-CA", load: () => import("./fr-CA.js").then(m => m.FR_CA) },
   es: { tag: "es-419", load: () => import("./es-419.js").then(m => m.ES_419) },
+  ja: { tag: "ja-JP", load: () => import("./ja-JP.js").then(m => m.JA_JP) },
 };
 
 export function chosenLanguage() {
@@ -39,12 +41,13 @@ export function phoneLanguage() {
     const first = String(list[0] || "");
     if (/^fr\b/i.test(first)) return "fr";
     if (/^es\b/i.test(first)) return "es";
+    if (/^ja\b/i.test(first)) return "ja";
     return "en";
   } catch { return "en"; }
 }
 
 export function resolvedLanguage(choice = chosenLanguage()) {
-  if (choice === "fr" || choice === "es" || choice === "en") return choice;
+  if (choice === "en" || LANGUAGES[choice]) return choice;
   return phoneLanguage();
 }
 
@@ -70,7 +73,7 @@ export function t(text) {
 export function tMessage(text) {
   return active ? active.translateMessage(text) : String(text ?? "");
 }
-// "fr", "es" or "en".
+// "fr", "es", "ja" or "en".
 export function currentLanguage() {
   return active ? activeLang : "en";
 }
@@ -107,6 +110,7 @@ function spanishLocale() {
 function followAppLanguage(lang) {
   const loc = lang === "fr" ? "fr-CA"
     : lang === "es" ? spanishLocale()
+    : lang === "ja" ? "ja-JP"
     : (/^en\b/i.test(navigator.language || "") ? navigator.language : "en-US");
   const wrap = (proto, name) => {
     const orig = proto[name];

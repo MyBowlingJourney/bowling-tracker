@@ -216,3 +216,47 @@ describe("Spanish (es-419)", () => {
     expect(tr.translate("198.4")).toBe("198,4");
   });
 });
+
+// Japanese: 24-hour times, places for ordinals (a seed is 第N), 、 in lists,
+// no English spaces brought into the sentence around a value.
+describe("Japanese (ja-JP)", () => {
+  const ja = createTranslator({
+    lang: "ja",
+    exact: { "Practice": "練習", "League": "リーグ" },
+    patterns: [
+      ["Starts at {0}", "{0}開始"],
+      ["Finished {0}", "{0}でフィニッシュ"],
+      ["{0} seed", "{0}シード"],
+      ["Earned in {0} only", "{0}でのみ獲得可能"],
+      ["{0} game{1:s} logged", "{0}ゲームを記録"],
+    ],
+  });
+  it("writes times, places and seeds the Japanese way", () => {
+    expect(ja.translate("Starts at 7:30 PM")).toBe("19:30開始");
+    expect(ja.translate("Finished 3rd")).toBe("3位でフィニッシュ");
+    expect(ja.translate("2nd seed")).toBe("第2シード");
+  });
+  it("has one form for any number and joins lists with 、", () => {
+    expect(ja.translate("1 game logged")).toBe("1ゲームを記録");
+    expect(ja.translate("3 games logged")).toBe("3ゲームを記録");
+    expect(ja.translate("Earned in Practice and League only")).toBe("練習、リーグでのみ獲得可能");
+  });
+  it("keeps English-style numbers", () => {
+    expect(ja.translate("198.4")).toBe("198.4");
+    expect(ja.translate("54%")).toBe("54%");
+  });
+});
+
+describe("messages of several paragraphs", () => {
+  const es = createTranslator({
+    lang: "es",
+    exact: { "No shots yet.": "Aún no hay tiros.", "Log one.": "Registra uno." },
+    patterns: [["{0} Tracked with {1} — {2}", "{0} Registrado con {1} — {2}"]],
+  });
+  it("are taken paragraph by paragraph when the whole would leave English in", () => {
+    const msg = "Ryan: 3 badges\n\nNo shots yet.\n\nTracked with My Bowling Journey — a whole paragraph of prose the pattern cannot translate";
+    const out = es.translateMessage(msg);
+    expect(out.split("\n\n")).toHaveLength(3);
+    expect(out).toContain("Aún no hay tiros.");
+  });
+});

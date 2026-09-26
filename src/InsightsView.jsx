@@ -179,7 +179,7 @@ export default function InsightsView({ stats, onAnalyze, bowlerName, newlyAvaila
       {newlyAvailable.length > 0 && (
         <div style={{ ...S.card, border: `1px solid ${C.spare}44`, backgroundColor: C.spare + "11" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "8px" }}>
-            <div style={{ fontSize: "13px", color: C.text }}>
+            <div data-i18n="newly" style={{ fontSize: "13px", color: C.text }}>
               <strong>New since last time:</strong> {newlyAvailable.join(", ")}.
             </div>
             {onDismissNew && (

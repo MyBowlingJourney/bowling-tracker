@@ -2915,10 +2915,21 @@ export const ES_419 = {
 "picker::Every night": "Todas",
 "field::Scoring": "Modalidad",
 "tab::Side games": "Extras",
-"Language · Idioma · Langue in Settings. Automatic follows your phone's language, or pick English, Español or Français. The app restarts in the language you pick.": "Language · Idioma · Langue en Configuración. Automático sigue el idioma de tu celular, o elige English, Español o Français. La app se reinicia en el idioma que elijas.",
 "Español": "",
 "Français": "",
-"⟨0⟩ Urethane": "⟨0⟩ Uretano"
+"⟨0⟩ Urethane": "⟨0⟩ Uretano",
+"Language · Idioma · Langue · 言語 in Settings. Automatic follows your phone's language, or pick English, Español, Français or 日本語. The app restarts in the language you pick.": "Language · Idioma · Langue · 言語 en Configuración. Automático sigue el idioma de tu celular, o elige English, Español, Français o 日本語. La app se reinicia en el idioma que elijas.",
+"Language · Idioma · Langue · 言語": "",
+"日本語": "",
+"tab::Center": "Centro",
+"placeholder::Handicap": "Hándicap",
+"tab::Handicap": "Hándicap",
+"window::Games": "Juegos",
+"field::Delivery": "Lanzamiento",
+"tile::Strikes": "Strikes",
+"field::Target": "Meta",
+"milestone::Next ·": "Próximo ·",
+"newly::.": "."
 },
 "patterns": [
 [

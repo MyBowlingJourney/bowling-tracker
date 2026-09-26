@@ -1379,3 +1379,12 @@ body {
   border-radius: 0 !important;
   padding: 0 !important;
 }
+
+/* Japanese has no spaces, so a browser may break a line inside a word
+   ("ストライ" / "ク" on a chip). auto-phrase breaks only between phrases,
+   the way Japanese is set by hand; browsers without it fall back to the
+   usual line breaking. */
+html:lang(ja) {
+  word-break: auto-phrase;
+  line-break: strict;
+}

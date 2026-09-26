@@ -9,7 +9,7 @@ import { chosenLanguage, resolvedLanguage, setLanguage, currentLanguage } from "
 
 // The public pages have French versions at name-fr.html. A function, not a
 // constant: this module can load before the language is decided.
-const pageSuffix = () => ({ fr: "-fr", es: "-es" }[currentLanguage()] || "");
+const pageSuffix = () => ({ fr: "-fr", es: "-es", ja: "-ja" }[currentLanguage()] || "");
 import { getPendingCount } from "./syncQueue.js";
 import CalendarView from "./CalendarView.jsx";
 import ImportCsv from "./ImportCsv.jsx";
@@ -624,7 +624,7 @@ export default function Settings({
                       {sum.strikeRate !== null && (
                         <div className="mbj-history-stat" style={S.statBox}>
                           <div style={{ ...S.statNum, fontSize: "18px", color: C.strike }}>{sum.strikeRate}%</div>
-                          <div style={S.statLbl}>Strikes</div>
+                          <div data-i18n="tile" style={S.statLbl}>Strikes</div>
                         </div>
                       )}
                       {(sum.won || sum.paid) ? (
@@ -705,14 +705,14 @@ export default function Settings({
         </CollapsibleCard>
       )}
 
-      {/* Language. The title is in all three languages and never
+      {/* Language. The title is in every language and never
           translated, so someone who cannot read the current one can still
           find it; each language's name is written in that language. */}
       {showCard("language") && (() => {
         const choice = chosenLanguage();
-        const names = { en: "English", es: "Español", fr: "Français" };
+        const names = { en: "English", es: "Español", fr: "Français", ja: "日本語" };
         return (
-      <CollapsibleCard title={<span translate="no">Language · Idioma · Langue</span>}
+      <CollapsibleCard title={<span translate="no">Language · Idioma · Langue · 言語</span>}
         summary={choice === "auto"
           ? <>Automatic · <span translate="no">{names[resolvedLanguage()]}</span></>
           : <span translate="no">{names[choice]}</span>}
@@ -723,7 +723,7 @@ export default function Settings({
         <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
           <Chip label="Automatic" selected={choice === "auto"} onToggle={() => choice !== "auto" && setLanguage("auto")} />
           <span translate="no" style={{ display: "contents" }}>
-            {["en", "es", "fr"].map(l => (
+            {["en", "es", "fr", "ja"].map(l => (
               <Chip key={l} label={names[l]} selected={choice === l} onToggle={() => choice !== l && setLanguage(l)} />
             ))}
           </span>

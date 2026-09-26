@@ -233,7 +233,7 @@ export default function Profile({
             onToggle={() => update(setProfileField(profile, "backupBall", true))} />
         </div>
 
-        <div style={{ ...S.label, marginTop: "10px" }}>Delivery</div>
+        <div data-i18n="field" style={{ ...S.label, marginTop: "10px" }}>Delivery</div>
         <div style={{ fontSize: "11px", color: C.textMuted, marginBottom: "8px" }}>
           Two-handed and no-thumb players are who the 2LS drilling layout system is built for.
         </div>

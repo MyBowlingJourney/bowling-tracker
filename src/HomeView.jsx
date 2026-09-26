@@ -322,7 +322,7 @@ export default function HomeView({
                   <div style={{fontSize:"20px",fontWeight:800,color:C.text,marginTop:"2px",lineHeight:1.15,letterSpacing:"-0.025em"}}>{recap.label}</div>
                   <div style={{fontSize:"11px",color:C.textMuted,marginTop:"5px"}}>{formatDate(recap.date,{weekday:false})} · {recap.total} milestone{recap.total===1?"":"s"} so far</div>
                 </div>
-                {nextUp && <div style={{padding:"7px 9px",borderRadius:"12px",background:C.surface,border:`1px solid ${C.border}`,fontSize:"11px",fontWeight:800,color:C.accent,whiteSpace:"nowrap"}}>Next · {describeUpcoming(nextUp).split(" · ")[0]}</div>}
+                {nextUp && <div style={{padding:"7px 9px",borderRadius:"12px",background:C.surface,border:`1px solid ${C.border}`,fontSize:"11px",fontWeight:800,color:C.accent,whiteSpace:"nowrap"}}><span data-i18n="milestone">Next · </span>{describeUpcoming(nextUp).split(" · ")[0]}</div>}
               </div>
               {nextUp && (
                 <div style={{marginTop:"10px"}}>
