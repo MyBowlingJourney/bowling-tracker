@@ -1,8 +1,8 @@
-// The translation engine: English text in, French, Spanish or Japanese
-// text out.
+// The translation engine: English text in, French, Spanish, Japanese or
+// Korean text out.
 //
-// The language comes from the catalog (catalog.lang: "fr", "es" or "ja";
-// French when absent). What differs between them is kept in LANGUAGE_RULES below:
+// The language comes from the catalog (catalog.lang: "fr", "es", "ja" or
+// "ko"; French when absent). What differs between them is kept in LANGUAGE_RULES below:
 // how numbers and punctuation are written, the word for "and", and which
 // numbers take the singular.
 //
@@ -256,6 +256,62 @@ function japanesePunctuation(s) {
     .replace(/ {2,}/g, " ");
 }
 
+// ── Korean ─────────────────────────────────────────────────────────────
+//
+// Korea writes 198.4, 1,250 and 54% as English does. A 12-hour time reads
+// "오후 7:30", and an English ordinal from code is a place ("3rd" -> "3위";
+// a seed, "3번 시드").
+export function koreanNumbers(text) {
+  let s = String(text);
+  if (!/\d/.test(s) || /:\/\/|@\w/.test(s)) return s;
+  s = s.replace(/\b(\d{1,2}(?::\d{2})?)\s?([AaPp])\.?\s?[Mm]\.?(?![A-Za-z])/g,
+    (_, t, ap) => `${/[Pp]/.test(ap) ? "오후" : "오전"} ${t}`);
+  s = s.replace(/\b(\d+)(?:st|nd|rd|th)(?=\s?시드)\s?/g, "$1번 ");
+  s = s.replace(/\b(\d+)(?:st|nd|rd|th)\b/g, "$1위");
+  return s;
+}
+
+// Korean particles change with the sound before them: 을/를, 이/가,
+// 은/는, 과/와, 으로/로. A translation can't know how a name or number
+// dropped into it ends, so it writes the choice as "(을)를", "(이)가",
+// "(은)는", "(과)와", "(으)로" right after the value, and this picks the
+// one that fits. After a word it can't read (a Latin name), the marker
+// stays as written, the usual Korean way: "Ryan(이)가".
+const KO_PARTICLES = { "(을)를": ["을", "를"], "(이)가": ["이", "가"], "(은)는": ["은", "는"], "(과)와": ["과", "와"], "(으)로": ["으로", "로"], "(이)에요": ["이에요", "예요"], "(이)야": ["이야", "야"] };
+// Final sound of the Sino-Korean reading of each digit: true = consonant,
+// "l" = ㄹ (which takes 로, not 으로).
+const DIGIT_FINAL = { "0": true, "1": "l", "2": false, "3": true, "4": false, "5": false, "6": true, "7": "l", "8": "l", "9": false };
+function finalSound(ch) {
+  const c = ch.charCodeAt(0);
+  if (c >= 0xAC00 && c <= 0xD7A3) {
+    const f = (c - 0xAC00) % 28;
+    return f === 0 ? false : f === 8 ? "l" : true;
+  }
+  if (ch in DIGIT_FINAL) return DIGIT_FINAL[ch];
+  if (ch === "%") return false; // 퍼센트
+  return null; // unknown: a Latin letter, a symbol
+}
+export function koreanParticles(text) {
+  // An English ordinal not yet turned into a place ("3rd") will read 3위,
+  // which ends in a vowel.
+  return String(text).replace(/(\d(?:st|nd|rd|th))(\((?:을|이|은|과|으)\)(?:를|가|는|와|로|에요|야))/g,
+    (m, ord, marker) => ord + (KO_PARTICLES[marker] ? KO_PARTICLES[marker][1] : marker))
+    .replace(/([^\s(])(\((?:을|이|은|과|으)\)(?:를|가|는|와|로|에요|야))/g, (m, prev, marker) => {
+    const pair = KO_PARTICLES[marker];
+    if (!pair) return m;
+    const f = finalSound(prev);
+    if (f === null) return m;
+    if (marker === "(으)로") return prev + (f === true ? "으로" : "로");
+    return prev + (f ? pair[0] : pair[1]);
+  });
+}
+
+function koreanPunctuation(s) {
+  return koreanParticles(s)
+    .replace(/ +([.,!?])(?=\s|$)/g, "$1")
+    .replace(/ {2,}/g, " ");
+}
+
 // French spacing: a non-breaking space before a colon, none before ; ! ?
 // (Quebec usage, unlike France); no space before . or , (a value that
 // came out empty leaves one behind); never two spaces in a row.
@@ -273,6 +329,9 @@ const LANGUAGE_RULES = {
   // Japanese: lists are joined with 、 throughout, and a translated value
   // does not bring English spaces into the sentence around it.
   ja: { numbers: japaneseNumbers, punctuation: s => japanesePunctuation(s), and: "、", comma: "、", oneOnly: true, spaced: false, caps: false },
+  // Korean: spaces between words as in English, a list's last item joined
+  // with "및", no capitals, and particles fitted to the values dropped in.
+  ko: { numbers: koreanNumbers, punctuation: s => koreanPunctuation(s), and: " 및 ", oneOnly: true, spaced: true, caps: false },
 };
 
 export function createTranslator(catalog = {}) {
@@ -532,10 +591,12 @@ export function createTranslator(catalog = {}) {
     const s = String(text ?? "");
     const whole = lookup(s);
     const paras = s.split(/\n\s*\n/);
-    // A message of several paragraphs is taken whole only when the whole
-    // translated cleanly: a short pattern can otherwise swallow three
-    // paragraphs into one value, flatten them and leave most in English.
-    if (whole !== null && (paras.length < 2 || !partialKeys.has(collapse(s)))) return numbers(whole);
+    // A message of several paragraphs or lines is taken whole only when
+    // the whole translated cleanly: a short pattern can otherwise swallow
+    // three paragraphs (or a list of lines) into one value, flatten them
+    // and leave most in English.
+    const oneLine = paras.length < 2 && !s.includes("\n");
+    if (whole !== null && (oneLine || !partialKeys.has(collapse(s)))) return numbers(whole);
     if (paras.length > 1) return paras.map(p => translateMessage(p)).join("\n\n");
     const lines = s.split("\n");
     if (lines.length > 1) return lines.map(l => translate(l)).join("\n");

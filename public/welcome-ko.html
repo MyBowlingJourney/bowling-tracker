@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>My Bowling Journey — 투구 하나하나까지 남기는 볼링 기록</title>
+<meta name="description" content="리그 날 모든 투구를 기록하고, 내 보유 볼과 스페어, 시즌의 실제 모습을 확인해 보세요. 무료로 쓸 수 있고, 비교 기능은 Pro에서 제공해요.">
+<meta name="theme-color" content="#F7F8FA">
+
+<!-- ⚠️ BEFORE THIS GOES LIVE ⚠️
+     The two prices below are the SOUTH KOREA prices (won, VAT included)
+     and MUST match the KRW option on both Stripe prices and the South
+     Korea price on both Google Play base plans. They are marked PRICE:
+     in the body so they are quick to find.
+
+     A page that promises one number while the card takes another is a
+     refund, a chargeback, and in several states a consumer-protection
+     problem. The figures currently written here come from the costing
+     comment in src/domain/entitlements.js -- they are the intended
+     prices, NOT confirmed against a Stripe dashboard that does not
+     exist yet.
+
+     Stripe reviews this page against what the account claims to sell,
+     so every item it looks for is here deliberately: what the service
+     is, both prices, that it renews on its own, how to cancel, the
+     refund position, a contact address, the legal entity, and links to
+     the terms and the privacy policy. Removing any of them is removing
+     something the review is looking for. -->
+
+<style>
+  :root{
+    --bg:#F7F8FA; --surface:#fff; --text:#16181D; --muted:#5A6070;
+    --border:#E3E6EC; --accent:#2F6F4F;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#111317; --surface:#181B21; --text:#E8EAEE; --muted:#9AA2B1;
+      --border:#262A33; --accent:#6FCF97;
+    }
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif;
+    word-break:keep-all; overflow-wrap:break-word;
+    padding:calc(28px + env(safe-area-inset-top,0px)) 16px
+            calc(48px + env(safe-area-inset-bottom,0px));
+  }
+  main{max-width:720px;margin:0 auto}
+  .brand{font-size:13px;color:var(--muted);letter-spacing:.02em;margin-bottom:6px}
+  .lang{float:right;font-size:13px;margin-left:12px;display:flex;align-items:center;gap:12px}
+  .pro{
+    display:inline-block;background:var(--accent);color:#fff;text-decoration:none;
+    font-weight:600;font-size:13px;line-height:1;padding:8px 12px;border-radius:999px;
+  }
+  @media (prefers-color-scheme: dark){ .pro{color:#0E1512} }
+  .plan .cta{display:block;text-align:center;margin:12px 0 0;padding:12px 16px;font-size:15px}
+  h1{font-size:30px;line-height:1.2;margin:0 0 10px;letter-spacing:-0.015em}
+  h2{font-size:19px;margin:34px 0 10px;padding-top:18px;border-top:1px solid var(--border)}
+  h3{font-size:16px;margin:0 0 6px}
+  .lead{font-size:18px;color:var(--muted);margin:0 0 24px}
+  ul{padding-left:20px;margin:10px 0}
+  li{margin-bottom:8px}
+  a{color:var(--accent)}
+  .card{
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:10px;padding:16px 18px;margin:18px 0;
+  }
+  .card h3{margin-top:0}
+  .plans{display:flex;gap:12px;flex-wrap:wrap}
+  .plan{flex:1 1 220px;background:var(--surface);border:1px solid var(--border);
+        border-radius:10px;padding:16px 18px}
+  .price{font-size:26px;font-weight:700;letter-spacing:-0.02em;margin:2px 0 2px}
+  .per{font-size:13px;color:var(--muted)}
+  .cta{
+    display:inline-block;background:var(--accent);color:#fff;
+    text-decoration:none;padding:14px 22px;border-radius:12px;
+    font-weight:600;margin:6px 0 4px;
+  }
+  @media (prefers-color-scheme: dark){ .cta{color:#0E1512} }
+  .fine{font-size:13.5px;color:var(--muted)}
+  footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--border);
+         font-size:13px;color:var(--muted)}
+</style>
+</head>
+<body>
+<main>
+
+  <div class="lang"><a href="/" hreflang="en" lang="en">English</a><a href="/es/" hreflang="es-419" lang="es-419">Español</a><a href="/fr/" hreflang="fr-CA" lang="fr-CA">Français</a><a href="/ja/" hreflang="ja" lang="ja">日本語</a><a class="pro" href="#pricing">Pro로 업그레이드</a></div>
+  <div class="brand">MY BOWLING JOURNEY</div>
+  <h1>점수만이 아니라, 투구 하나하나까지.</h1>
+  <p class="lead">
+    아직 어프로치에 서 있을 때, 투구마다 실제로 무슨 일이 있었는지 기록하세요
+    — 어떤 볼을 썼는지, 어떤 핀이 남았는지, 그 핀을 어떻게 처리했는지. 그러고 나서
+    내 보유 볼과 스페어, 그리고 시즌의 실제 모습을 확인해 보세요.
+  </p>
+
+  <a class="cta" href="/app/">앱 열기</a>
+  <div class="fine">브라우저에서 바로 쓸 수 있어요. 설치하지 않아도 시작할 수 있어요.</div>
+
+  <h2>주요 기능</h2>
+  <ul>
+    <li><strong>투구별 기록</strong>은 리그 날에 맞춰 만들었어요 — 프레임 사이에도 충분히 입력할 수 있을 만큼 빨라요.</li>
+    <li><strong>보유 볼</strong>을 볼별로: 각 볼이 실제로 얼마나 캐리하고 어떤 핀을 남기는지 알 수 있어요.</li>
+    <li><strong>스페어와 스플릿</strong>: 자꾸 놓치는 남은 핀이 무엇인지, 어느 위치에서 놓치는지까지 알 수 있어요.</li>
+    <li><strong>리그, 팀, 대회</strong>: 볼러들이 실제로 쓰는 방식을 지원해요.</li>
+    <li><strong>볼링장과 오일 패턴</strong> — 어느 볼링장에서, 어떤 패턴에서 어떤 점수를 내는지.</li>
+    <li><strong>오늘의 리뷰</strong>: 볼링을 마치면 오늘 투구를 알기 쉬운 말로 정리해 줘요.</li>
+  </ul>
+
+  <h2>무료, 그리고 Pro</h2>
+  <p>
+    내 기록은 무료이고, 앞으로도 계속 무료예요. 점수, 에버리지, 스페어 처리율과
+    스트라이크율, 볼별 수치까지요. Pro는 비교를 위한 플랜이에요
+    — 나와 팀원, 볼과 볼, 이번 시즌과 지난 시즌 —
+    그리고 오늘의 투구를 대신 읽어 주는 기능도 Pro에 들어 있어요.
+  </p>
+  <div class="card">
+    <h3>무료로 쓸 수 있는 기능</h3>
+    <p class="fine" style="margin:0">
+      리그 1개, 연습과 자유 게임은 무제한이에요. 기록한 투구는 원하는 만큼 계속 보관되고,
+      내 통계도 모두 볼 수 있어요.
+    </p>
+  </div>
+  <div class="card">
+    <h3>Pro에서 추가되는 기능</h3>
+    <p class="fine" style="margin:0">
+      참가하는 모든 리그와 팀, 맞대결과 팀원 비교, 볼 간 비교와 볼링장 간 비교, 시즌 간 비교,
+      점수표 가져오기, 그리고 AI 기능 — Nightcap, 분석, Brooklyn, Caddie, 코칭.
+    </p>
+  </div>
+
+  <h2 id="pricing">요금</h2>
+  <div class="plans">
+    <div class="plan">
+      <h3>연간</h3>
+      <!-- PRICE: must match the KRW option on the Stripe yearly price and the Play yearly base plan in South Korea (₩79,000, VAT included) -->
+      <div class="price" data-price="year">₩79,000</div>
+      <div class="per">1년 기준(부가가치세 포함)</div>
+      <a class="cta" href="/app/?subscribe=year">연간 구독하기</a>
+    </div>
+    <div class="plan">
+      <h3>월간</h3>
+      <!-- PRICE: must match the KRW option on the Stripe monthly price and the Play monthly base plan in South Korea (₩7,900, VAT included) -->
+      <div class="price" data-price="month">₩7,900</div>
+      <div class="per">1개월 기준(부가가치세 포함)</div>
+      <a class="cta" href="/app/?subscribe=month">월간 구독하기</a>
+    </div>
+  </div>
+  <p class="fine">
+    새 계정은 모두 처음 60일 동안 Pro를 무료로 이용할 수 있어요 &mdash;
+    카드 등록은 필요 없어요. 구독하기를 누르면 앱이 열려요. 로그인하거나 계정을 만든 다음 결제를 진행하면 돼요.
+  </p>
+
+  <div class="card">
+    <h3>구독하기 전에 확인하세요</h3>
+    <ul class="fine" style="margin:0">
+      <li>
+        새 계정은 모두 만든 날부터 <strong>60일 동안 Pro를 무료</strong>로 이용할 수 있고,
+        카드 정보는 요구하지 않아요. 무료 체험이 끝나면 구독할지, 무료 Basic 플랜으로 계속 쓸지 선택하면 돼요.
+      </li>
+      <li>
+        구독은 <strong>구매한 날 시작되고, 해지할 때까지 자동으로 갱신돼요</strong> — 매월 또는 매년.
+      </li>
+      <li>
+        <strong>언제든지 해지할 수 있어요.</strong> Android 앱에서는 Play 스토어 앱의 ‘정기 결제’에서
+        해지하면 돼요. 웹에서는 영수증에 있는 링크를 이용하거나 이메일로 연락해 주세요.
+        해지하면 다음 갱신이 중단되고, 이미 결제한 기간이 끝날 때까지 Pro를 계속 이용할 수 있어요.
+      </li>
+      <li>
+        <strong>환불.</strong> 기간이 끝날 때까지 계속 이용할 수 있기 때문에, 원칙적으로 일부 사용한
+        기간은 환불하지 않아요. 실수로 결제되었거나, 문제가 생겼는데 저희가 해결하지 못했다면 연락해 주세요.
+        제대로 해결해 드릴게요. Google Play에서 구매한 경우에는 Google Play의 자체 환불 정책도 적용돼요.
+        관련 법령에 따른 청약철회 등 소비자의 권리는 제한되지 않아요.
+      </li>
+      <li>
+        한국에서는 가격이 원화로 표시되며 부가가치세가 포함되어 있어요(월 ₩7,900 / 연 ₩79,000).
+        그 밖의 국가와 지역에서는 결제할 때 현지 통화로 가격이 표시돼요.
+      </li>
+      <li>
+        <strong>결제를 중단해도 기록한 데이터는 삭제되지 않아요.</strong> 리그 1개는 계속 사용할 수 있고,
+        나머지 리그는 다시 구독할 때까지 일시 중지돼요.
+      </li>
+    </ul>
+  </div>
+
+  <h2>문의</h2>
+  <p class="fine">
+    <a href="mailto:support@mybowlingjourney.com">support@mybowlingjourney.com</a>으로 이메일을 보내 주세요
+    — 결제, 버그, 환불, 원하는 기능 등 무엇이든 괜찮아요. 담당자가 직접 읽어요.
+  </p>
+
+  <a class="cta" href="/app/">앱 열기</a>
+
+  <footer>
+    My Bowling Journey는 미국 펜실베이니아주 유한책임회사인 <strong>My Bowling Journey LLC</strong>가 운영해요.<br>
+    <a href="/terms-ko.html">이용약관</a> ·
+    <a href="/privacy-ko.html">개인정보 처리방침</a> ·
+    <a href="/delete-account-ko.html">계정 삭제</a> ·
+    <a href="/terms-ko.html#business">사업자 정보</a> ·
+    <a href="mailto:support@mybowlingjourney.com">support@mybowlingjourney.com</a>
+  </footer>
+
+</main>
+</body>
+</html>

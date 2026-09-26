@@ -64,12 +64,12 @@ export function isCanadianTimeZone(tz) {
   return CANADA_ZONES.has(tz) || tz.startsWith("Canada/");
 }
 
-// ── Japan, Singapore, Malaysia, the Philippines, Mexico: local price ──
+// ── Japan, Singapore, Malaysia, the Philippines, Mexico, Korea ──────
 //
 // The same arrangement as Canada: Play charges these prices, both Stripe
 // prices carry the same amounts as a currency option, and create-checkout
 // asks for that currency when the device is on that country's time. In
-// these five the price shown is the price paid, tax included, on Play and
+// these six the price shown is the price paid, tax included, on Play and
 // on the web alike.
 const LOCAL_PRICING = [
   { zones: ["Asia/Tokyo", "Japan"], currency: "jpy",
@@ -82,6 +82,8 @@ const LOCAL_PRICING = [
     prices: Object.freeze({ month: "₱349", year: "₱3,490" }) },
   { zones: ["America/Mexico_City", "America/Cancun", "America/Merida", "America/Monterrey", "America/Matamoros", "America/Chihuahua", "America/Ciudad_Juarez", "America/Ojinaga", "America/Mazatlan", "America/Bahia_Banderas", "America/Hermosillo", "America/Tijuana", "Mexico/General", "Mexico/BajaNorte", "Mexico/BajaSur"], currency: "mxn",
     prices: Object.freeze({ month: "MX$99", year: "MX$999" }) },
+  { zones: ["Asia/Seoul", "ROK"], currency: "krw",
+    prices: Object.freeze({ month: "₩7,900", year: "₩79,000" }) },
 ];
 const localPricingFor = tz => LOCAL_PRICING.find(r => r.zones.includes(tz)) || null;
 
@@ -101,7 +103,7 @@ export function displayPricesFor(tz) {
 }
 
 // The currency create-checkout is asked for: "cad" in Canada, the local
-// currency in the five countries above, nothing anywhere else (Stripe
+// currency in the six countries above, nothing anywhere else (Stripe
 // then picks, as it always has).
 export function checkoutCurrencyFor(tz) {
   if (isCanadianTimeZone(tz)) return "cad";

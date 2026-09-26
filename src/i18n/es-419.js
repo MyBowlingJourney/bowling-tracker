@@ -2931,7 +2931,13 @@ export const ES_419 = {
 "milestone::Next ·": "Próximo ·",
 "newly::.": ".",
 "Japan": "",
-"Singapore": ""
+"Singapore": "",
+"Language · Idioma · Langue · 言語 · 언어": "",
+"Language · Idioma · Langue · 言語 · 언어 in Settings. Automatic follows your phone's language, or pick English, Español, Français, 日本語 or 한국어. The app restarts in the language you pick.": "Language · Idioma · Langue · 言語 · 언어 en Configuración. Automático sigue el idioma de tu celular, o elige English, Español, Français, 日本語 o 한국어. La app se reinicia en el idioma que elijas.",
+"hand::Right": "Derecha",
+"hand::Left": "Izquierda",
+"confidence::Not yet": "Aún no",
+"Frames where every teammate struck but one. Log your teammates' frames on a league night.": "Cuadros en los que todo el equipo hizo strike menos una persona. Registra los cuadros de tus compañeros en una noche de liga."
 },
 "patterns": [
 [
@@ -3881,10 +3887,6 @@ export const ES_419 = {
 [
 "Standings Tracked with {0} — {1}",
 "Posiciones Registrado con {0} — {1}"
-],
-[
-"{0}. {1}{2} — {3} avg, {4} games",
-"{0}. {1}{2} — prom. {3}, {4} {4|juego|juegos}"
 ],
 [
 "Qualifying: {0} across {1} game{2:s}",
@@ -5965,6 +5967,18 @@ export const ES_419 = {
 [
 "Your average is down {0} pin{1:s} on last season — {2}.",
 "Tu promedio bajó {0} {0|pino|pinos} respecto a la temporada pasada — {2}."
+],
+[
+"{0}. {1}{2} — {3} avg, {4} games",
+""
+],
+[
+"{0}. {1} — {2} avg, {3} games",
+"{0}. {1} — prom. {2}, {3} {3|juego|juegos}"
+],
+[
+"The {0} plan starts today at {1} and renews on its own until you cancel.",
+"El plan {0} empieza hoy con un precio de {1} y se renueva automáticamente hasta que lo canceles."
 ]
 ],
 "fragments": [

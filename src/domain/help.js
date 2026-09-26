@@ -201,8 +201,9 @@ export const HELP = [
     title: "Changing the language",
     keywords: ["language", "french", "english", "spanish", "francais", "langue", "anglais", "traduction",
                "idioma", "español", "espanol", "ingles", "traducción",
-               "japanese", "日本語", "言語", "英語", "翻訳"],
-    body: "Language · Idioma · Langue · 言語 in Settings. Automatic follows your phone's language, or pick English, Español, Français or 日本語. The app restarts in the language you pick.",
+               "japanese", "日本語", "言語", "英語", "翻訳",
+               "korean", "한국어", "언어", "영어", "번역"],
+    body: "Language · Idioma · Langue · 言語 · 언어 in Settings. Automatic follows your phone's language, or pick English, Español, Français, 日本語 or 한국어. The app restarts in the language you pick.",
   },
   {
     id: "tournament-finish",
@@ -308,10 +309,10 @@ export const HELP = [
 // Accents are folded ("réserve" matches "reserve"), so French searches
 // work however they are typed.
 // Accents come off Latin letters ("español" finds "espanol"), and
-// Japanese kana and kanji are kept whole: NFC puts a kana's voicing mark
+// Japanese kana and kanji and Korean hangul are kept whole: NFC puts a kana's voicing mark
 // back on after NFD takes it off, and full-width letters and digits
 // become their ASCII selves (NFKC).
-const CJK = "\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff";
+const CJK = "\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7a3";
 function norm(s) {
   return String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").normalize("NFKC")
     .toLowerCase().replace(new RegExp(`[^a-z0-9\\s${CJK}]`, "g"), " ").replace(/\s+/g, " ").trim();

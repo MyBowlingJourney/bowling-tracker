@@ -75,7 +75,7 @@ import { coachViewActive, setCoachView, applyEnvironment, setTrackingMode, toggl
 import { emptyBag, normalizeBag, bagToRow, bagFromRow, availableBalls, bagsForEnvironment, plasticLast, bagHasRoom, toggleBallInBag, removeBagMemberships, ballsByBagFor, membershipKey, lockedBagIds } from "./domain/bags.js";
 import { DEFAULT_BALL_GROUPS, emptyBallSpecs, normalizeBallSpecs, specsToRow, specsFromRow, groupToRow, groupFromRow } from "./domain/ballSpecs.js";
 import { ballKey, catalogState, bestEntry, rejectedBallsFor, clearedSpecsAfterRejection, canVote } from "./domain/ballCatalog.js";
-import { normalizeCenter, centerToRow, centerFromRow, findExistingCenter, statsByCenter, statsByRackType } from "./domain/centers.js";
+import { normalizeCenter, centerToRow, centerFromRow, findExistingCenter, statsByCenter, statsByRackType, deviceLocationAllowed, COUNTRY_SEARCH_ANCHOR } from "./domain/centers.js";
 import { rackTypeDetail } from "./domain/rackTypeDetail.js";
 import { TabBar } from "./Tabs.jsx";
 import { normalizePattern, patternFromRow, patternToRow, patternAverages, allVerifiedPbaPatterns } from "./domain/oilPatterns.js";
@@ -3242,8 +3242,14 @@ export default function BowlingTracker(){
     // Needs a location to search near -- HERE has no idea where to look
     // otherwise. Falls back to the bowler's last known center if geolocation
     // is refused, so the picker still works without location permission.
+    // Not in Korea: there the phone's location is never asked for (see
+    // deviceLocationAllowed), and the search is anchored on the bowler's
+    // last centre or the middle of the country instead.
+    let tz="";
+    try{tz=Intl.DateTimeFormat().resolvedOptions().timeZone||"";}catch{}
+    const locationAllowed=deviceLocationAllowed(tz);
     const coords=await new Promise(resolve=>{
-      if(!navigator?.geolocation)return resolve(null);
+      if(!locationAllowed||!navigator?.geolocation)return resolve(null);
       navigator.geolocation.getCurrentPosition(
         p=>resolve({lat:p.coords.latitude,lng:p.coords.longitude}),
         ()=>resolve(null),
@@ -3251,7 +3257,7 @@ export default function BowlingTracker(){
       );
     });
     const fallback=centers.find(c=>c.lat!=null);
-    const at=coords||(fallback?{lat:fallback.lat,lng:fallback.lng}:null);
+    const at=coords||(fallback?{lat:fallback.lat,lng:fallback.lng}:null)||(!locationAllowed?COUNTRY_SEARCH_ANCHOR[tz]||null:null);
     if(!at)return{error:"Location is needed to find nearby centers. Allow location access, or add the center by name."};
 
     try{

@@ -114,7 +114,7 @@ export default function Onboarding({ preferences, onApply, onFinish, profile, on
               onChange={e => setField("bowlerName", e.target.value)} />
 
             <div style={{ ...S.label, marginBottom: "6px" }}>Which hand?</div>
-            <div style={{ ...S.chips, marginBottom: "14px" }}>
+            <div data-i18n="hand" style={{ ...S.chips, marginBottom: "14px" }}>
               <Chip label="Right" selected={!leftHanded} onToggle={() => setField("leftHanded", false)} />
               <Chip label="Left" selected={leftHanded} onToggle={() => setField("leftHanded", true)} />
             </div>

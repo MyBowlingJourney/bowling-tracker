@@ -2923,7 +2923,13 @@ export const FR_CA = {
 "milestone::Next ·": "À venir ·",
 "newly::.": ".",
 "Japan": "",
-"Singapore": ""
+"Singapore": "",
+"Language · Idioma · Langue · 言語 · 언어": "",
+"Language · Idioma · Langue · 言語 · 언어 in Settings. Automatic follows your phone's language, or pick English, Español, Français, 日本語 or 한국어. The app restarts in the language you pick.": "Language · Idioma · Langue · 言語 · 언어 dans les Paramètres. Le mode automatique suit la langue de votre téléphone; vous pouvez aussi choisir English, Español, Français, 日本語 ou 한국어. L'application redémarre dans la langue choisie.",
+"hand::Right": "Droite",
+"hand::Left": "Gauche",
+"confidence::Not yet": "Pas encore",
+"Frames where every teammate struck but one. Log your teammates' frames on a league night.": "Carreaux où tous vos coéquipiers ont réussi un abat, sauf un. Enregistrez les carreaux de vos coéquipiers lors d'une soirée de ligue."
 },
 "patterns": [
 [
@@ -3873,10 +3879,6 @@ export const FR_CA = {
 [
 "Standings Tracked with {0} — {1}",
 "Classement Enregistré avec {0} — {1}"
-],
-[
-"{0}. {1}{2} — {3} avg, {4} games",
-"{0}. {1}{2} — moy. {3}, {4} {4|partie|parties}"
 ],
 [
 "Qualifying: {0} across {1} game{2:s}",
@@ -5873,6 +5875,30 @@ export const FR_CA = {
 [
 "You cancelled, so this ends on {0}. Everything stays unlocked until then, and you can start it again any time before it ends.",
 "Vous avez annulé, donc l'abonnement se termine le {0}. Tout reste débloqué d'ici là, et vous pouvez le réactiver en tout temps avant la fin."
+],
+[
+"{0}. {1}{2} — {3} avg, {4} games",
+""
+],
+[
+"{0}. {1} — {2} avg, {3} games",
+"{0}. {1} — moy. {2}, {3} {3|partie|parties}"
+],
+[
+"Finished {0}.",
+"Terminé au {0} rang."
+],
+[
+"Finished {0} to the {1} seed.",
+"Terminé au {0} rang après une défaite contre la {1} tête de série."
+],
+[
+"Finished {0} to {1}.",
+"Terminé au {0} rang après une défaite contre {1}."
+],
+[
+"The {0} plan starts today at {1} and renews on its own until you cancel.",
+"Le forfait {0} entre en vigueur aujourd'hui au prix de {1} et se renouvelle automatiquement jusqu'à ce que vous l'annuliez."
 ]
 ],
 "fragments": [

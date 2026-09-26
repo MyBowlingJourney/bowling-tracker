@@ -84,7 +84,7 @@
 <body>
 <main>
 
-  <div class="lang"><a href="/fr/" hreflang="fr-CA" lang="fr-CA">Français</a><a href="/es/" hreflang="es-419" lang="es-419">Español</a><a href="/ja/" hreflang="ja" lang="ja">日本語</a><a class="pro" href="#pricing">Get Pro</a></div>
+  <div class="lang"><a href="/fr/" hreflang="fr-CA" lang="fr-CA">Français</a><a href="/es/" hreflang="es-419" lang="es-419">Español</a><a href="/ja/" hreflang="ja" lang="ja">日本語</a><a href="/ko/" hreflang="ko" lang="ko">한국어</a><a class="pro" href="#pricing">Get Pro</a></div>
   <div class="brand">MY BOWLING JOURNEY</div>
   <h1>Every shot, not just every score.</h1>
   <p class="lead">
@@ -133,14 +133,14 @@
   <div class="plans">
     <div class="plan">
       <h3>Yearly</h3>
-      <!-- PRICE: must match the Stripe yearly price and the Play yearly base plan (the script at the bottom swaps in CAD, JPY, SGD, MYR, PHP and MXN by time zone -- those must match too) -->
+      <!-- PRICE: must match the Stripe yearly price and the Play yearly base plan (the script at the bottom swaps in CAD, JPY, SGD, MYR, PHP, MXN and KRW by time zone -- those must match too) -->
       <div class="price" data-price="year">$49.99</div>
       <div class="per">per year</div>
       <a class="cta" href="/app/?subscribe=year">Subscribe yearly</a>
     </div>
     <div class="plan">
       <h3>Monthly</h3>
-      <!-- PRICE: must match the Stripe monthly price and the Play monthly base plan (the script at the bottom swaps in CAD, JPY, SGD, MYR, PHP and MXN by time zone -- those must match too) -->
+      <!-- PRICE: must match the Stripe monthly price and the Play monthly base plan (the script at the bottom swaps in CAD, JPY, SGD, MYR, PHP, MXN and KRW by time zone -- those must match too) -->
       <div class="price" data-price="month">$4.99</div>
       <div class="per">per month</div>
       <a class="cta" href="/app/?subscribe=month">Subscribe monthly</a>
@@ -180,7 +180,7 @@
       <li>
         Prices are in US dollars. In Canada they are in Canadian dollars &mdash;
         $6.99 a month or $69.99 a year &mdash; and in Japan, Singapore, Malaysia,
-        the Philippines and Mexico they are in your own currency with tax included, in
+        the Philippines, Mexico and South Korea they are in your own currency with tax included, in
         the app and on the web alike. In the Android app elsewhere, Google Play
         shows the price in your own currency. If tax applies where you are, it
         is shown before you confirm.
@@ -211,7 +211,7 @@
 </main>
 <script>
   // Local prices on the web, as in the app: Canada 6.99 / 69.99 CAD, and
-  // Japan, Singapore, Malaysia, the Philippines and Mexico in their own currency,
+  // Japan, Singapore, Malaysia, the Philippines, Mexico and South Korea in their own currency,
   // tax included. Same time-zone test as src/domain/billing.js -- keep the
   // two lists together.
   (function () {
@@ -227,6 +227,7 @@
       "Asia/Singapore": { year: "S$69.98", month: "S$6.98" }, "Singapore": { year: "S$69.98", month: "S$6.98" },
       "Asia/Kuala_Lumpur": { year: "RM219.90", month: "RM21.90" }, "Asia/Kuching": { year: "RM219.90", month: "RM21.90" },
       "Asia/Manila": { year: "₱3,490", month: "₱349" },
+      "Asia/Seoul": { year: "₩79,000", month: "₩7,900" }, "ROK": { year: "₩79,000", month: "₩7,900" },
       "America/Mexico_City": { year: "MX$999", month: "MX$99" }, "America/Cancun": { year: "MX$999", month: "MX$99" }, "America/Merida": { year: "MX$999", month: "MX$99" }, "America/Monterrey": { year: "MX$999", month: "MX$99" }, "America/Matamoros": { year: "MX$999", month: "MX$99" }, "America/Chihuahua": { year: "MX$999", month: "MX$99" }, "America/Ciudad_Juarez": { year: "MX$999", month: "MX$99" }, "America/Ojinaga": { year: "MX$999", month: "MX$99" }, "America/Mazatlan": { year: "MX$999", month: "MX$99" }, "America/Bahia_Banderas": { year: "MX$999", month: "MX$99" }, "America/Hermosillo": { year: "MX$999", month: "MX$99" }, "America/Tijuana": { year: "MX$999", month: "MX$99" }, "Mexico/General": { year: "MX$999", month: "MX$99" }, "Mexico/BajaNorte": { year: "MX$999", month: "MX$99" }, "Mexico/BajaSur": { year: "MX$999", month: "MX$99" }
     };
     var p = ca ? { year: "$69.99 CAD", month: "$6.99 CAD" } : local[z];

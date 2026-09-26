@@ -156,9 +156,9 @@ Deno.serve(async (req: Request) => {
   // and asks for that currency here; both Stripe prices carry those
   // amounts as CAD and JPY currency options. Anything else: no currency,
   // and Stripe picks.
-  // Singapore, Malaysia, the Philippines and Mexico work the same way
-  // (SGD, MYR, PHP, MXN, tax included).
-  const CURRENCIES = ["cad", "jpy", "sgd", "myr", "php", "mxn"];
+  // Singapore, Malaysia, the Philippines, Mexico and South Korea work
+  // the same way (SGD, MYR, PHP, MXN, KRW, tax included).
+  const CURRENCIES = ["cad", "jpy", "sgd", "myr", "php", "mxn", "krw"];
   const currency = CURRENCIES.includes(String(body?.currency)) ? String(body?.currency) : "";
   // Resolved from a lookup key rather than read as a price id. See
   // _shared/stripe.ts: this is what makes test and live use the same

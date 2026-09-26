@@ -390,3 +390,13 @@ describe('mixed houses', () => {
     expect(st.average).toBe(150);
   });
 });
+
+import { deviceLocationAllowed, COUNTRY_SEARCH_ANCHOR } from './centers.js';
+describe('deviceLocationAllowed', () => {
+  it('never asks for the device location on Korean time', () => {
+    expect(deviceLocationAllowed('Asia/Seoul')).toBe(false);
+    expect(deviceLocationAllowed('America/New_York')).toBe(true);
+    expect(deviceLocationAllowed('')).toBe(true);
+    expect(COUNTRY_SEARCH_ANCHOR['Asia/Seoul']).toEqual({ lat: 36.35, lng: 127.8 });
+  });
+});

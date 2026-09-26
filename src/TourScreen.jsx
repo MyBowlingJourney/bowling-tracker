@@ -1062,7 +1062,7 @@ const SCREENS = {
         </div>
       </Spot>
       <div style={card}>
-        <div style={label}>Not yet</div>
+        <div data-i18n="confidence" style={label}>Not yet</div>
         <Row left="10 pin conversion" right="18 more" dim />
       </div>
       <Nav active={3} />

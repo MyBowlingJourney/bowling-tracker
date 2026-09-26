@@ -1388,3 +1388,14 @@ html:lang(ja) {
   word-break: auto-phrase;
   line-break: strict;
 }
+
+/* Korean breaks lines between words (spaces), never inside one. */
+html:lang(ko) {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+/* The home card's big league average ("193.1") is a touch wider than its
+   column; the other languages let it run on, break-word split it in two. */
+html:lang(ko) .mbj-home-card {
+  overflow-wrap: normal;
+}

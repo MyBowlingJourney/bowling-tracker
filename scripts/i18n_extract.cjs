@@ -344,9 +344,9 @@ const list = [...entries.values()].map(e => ({ ...e, kinds: [...e.kinds] }))
 
 // --missing: the English strings that have no entry (not even an empty
 // one) in a catalog -- what to translate after adding text. Checks every
-// catalog, or just one with --lang fr / es / ja.
+// catalog, or just one with --lang fr / es / ja / ko.
 if (process.argv.includes("--missing")) {
-  const CATALOGS = { fr: ["fr-CA.js", "French"], es: ["es-419.js", "Spanish"], ja: ["ja-JP.js", "Japanese"] };
+  const CATALOGS = { fr: ["fr-CA.js", "French"], es: ["es-419.js", "Spanish"], ja: ["ja-JP.js", "Japanese"], ko: ["ko-KR.js", "Korean"] };
   const li = process.argv.indexOf("--lang");
   const only = li > 0 ? process.argv[li + 1] : null;
   const norm2 = t => t.replace(/\{(\d+):s\}/g, "{$1}").replace(/\s+/g, " ").trim();

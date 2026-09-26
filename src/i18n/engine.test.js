@@ -260,3 +260,46 @@ describe("messages of several paragraphs", () => {
     expect(out).toContain("Aún no hay tiros.");
   });
 });
+
+describe("Korean (ko-KR)", () => {
+  const ko = createTranslator({
+    lang: "ko",
+    exact: { "Practice": "연습", "League": "리그" },
+    patterns: [
+      ["Starts at {0}", "{0} 시작"],
+      ["Finished {0}.", "{0}(으)로 마무리했어요."],
+      ["{0} seed", "{0} 시드"],
+      ["{0} joined the team", "{0}(이)가 팀에 가입했어요"],
+      ["{0} game{1:s} logged", "{0}게임(을)를 기록했어요"],
+    ],
+  });
+  it("writes times, places and seeds the Korean way", () => {
+    expect(ko.translate("Starts at 7:30 PM")).toBe("오후 7:30 시작");
+    expect(ko.translate("Finished 3rd.")).toBe("3위로 마무리했어요.");
+    expect(ko.translate("2nd seed")).toBe("2번 시드");
+  });
+  it("fits particles to the value dropped in", () => {
+    expect(ko.translate("민지 joined the team")).toBe("민지가 팀에 가입했어요");
+    expect(ko.translate("라이언 joined the team")).toBe("라이언이 팀에 가입했어요");
+    // A Latin name can't be read, so the marker stays, the usual Korean way.
+    expect(ko.translate("Ryan joined the team")).toBe("Ryan(이)가 팀에 가입했어요");
+    expect(ko.translate("3 games logged")).toBe("3게임을 기록했어요");
+  });
+  it("keeps English-style numbers", () => {
+    expect(ko.translate("198.4")).toBe("198.4");
+    expect(ko.translate("54%")).toBe("54%");
+  });
+});
+
+describe("messages of several lines", () => {
+  const ko = createTranslator({
+    lang: "ko",
+    exact: { "Standings": "순위표" },
+    patterns: [["{0}. {1} — {2} avg, {3} games", "{0}. {1} — 에버리지 {2}, {3}게임"], ["{0} games", "{0}게임"]],
+  });
+  it("are taken line by line when the whole would leave English in", () => {
+    ko.protect(["Ryan", "Minji"]);
+    const out = ko.translateMessage("Standings\n1. Ryan — 201 avg, 12 games\n2. Minji — 190 avg, 9 games");
+    expect(out).toBe("순위표\n1. Ryan — 에버리지 201, 12게임\n2. Minji — 에버리지 190, 9게임");
+  });
+});

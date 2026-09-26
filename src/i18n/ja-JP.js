@@ -2933,7 +2933,13 @@ export const JA_JP = {
 "milestone::Next ·": "次の目標 ·",
 "newly::.": "。",
 "Japan": "",
-"Singapore": ""
+"Singapore": "",
+"Language · Idioma · Langue · 言語 · 언어": "",
+"Language · Idioma · Langue · 言語 · 언어 in Settings. Automatic follows your phone's language, or pick English, Español, Français, 日本語 or 한국어. The app restarts in the language you pick.": "設定の「Language · Idioma · Langue · 言語 · 언어」で変更できます。「自動」はスマートフォンの言語に合わせます。English、Español、Français、日本語、한국어から選ぶこともできます。選んだ言語でアプリが再起動します。",
+"hand::Right": "右",
+"hand::Left": "左",
+"confidence::Not yet": "まだこれから",
+"Frames where every teammate struck but one. Log your teammates' frames on a league night.": "チームメイト全員がストライクを出し、1人だけが逃したフレームです。リーグの日にチームメイトのフレームも記録してください。"
 },
 "patterns": [
 [
@@ -3883,10 +3889,6 @@ export const JA_JP = {
 [
 "Standings Tracked with {0} — {1}",
 "順位表 {0}で記録 — {1}"
-],
-[
-"{0}. {1}{2} — {3} avg, {4} games",
-"{0}. {1}{2} — アベレージ{3}、{4}ゲーム"
 ],
 [
 "Qualifying: {0} across {1} game{2:s}",
@@ -6095,6 +6097,18 @@ export const JA_JP = {
 [
 "{0} wants to be your bowler",
 "{0}が指導を受けるボウラーとしてつながりを希望しています"
+],
+[
+"{0}. {1}{2} — {3} avg, {4} games",
+""
+],
+[
+"{0}. {1} — {2} avg, {3} games",
+"{0}. {1} — アベレージ{2}、{3}ゲーム"
+],
+[
+"The {0} plan starts today at {1} and renews on its own until you cancel.",
+"{0}プランは本日開始となり、料金は{1}です。解約するまで自動で更新されます。"
 ]
 ],
 "fragments": [

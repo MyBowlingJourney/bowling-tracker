@@ -9,7 +9,7 @@ import { chosenLanguage, resolvedLanguage, setLanguage, currentLanguage } from "
 
 // The public pages have French versions at name-fr.html. A function, not a
 // constant: this module can load before the language is decided.
-const pageSuffix = () => ({ fr: "-fr", es: "-es", ja: "-ja" }[currentLanguage()] || "");
+const pageSuffix = () => ({ fr: "-fr", es: "-es", ja: "-ja", ko: "-ko" }[currentLanguage()] || "");
 import { getPendingCount } from "./syncQueue.js";
 import CalendarView from "./CalendarView.jsx";
 import ImportCsv from "./ImportCsv.jsx";
@@ -710,9 +710,9 @@ export default function Settings({
           find it; each language's name is written in that language. */}
       {showCard("language") && (() => {
         const choice = chosenLanguage();
-        const names = { en: "English", es: "Español", fr: "Français", ja: "日本語" };
+        const names = { en: "English", es: "Español", fr: "Français", ja: "日本語", ko: "한국어" };
         return (
-      <CollapsibleCard title={<span translate="no">Language · Idioma · Langue · 言語</span>}
+      <CollapsibleCard title={<span translate="no">Language · Idioma · Langue · 言語 · 언어</span>}
         summary={choice === "auto"
           ? <>Automatic · <span translate="no">{names[resolvedLanguage()]}</span></>
           : <span translate="no">{names[choice]}</span>}
@@ -723,7 +723,7 @@ export default function Settings({
         <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
           <Chip label="Automatic" selected={choice === "auto"} onToggle={() => choice !== "auto" && setLanguage("auto")} />
           <span translate="no" style={{ display: "contents" }}>
-            {["en", "es", "fr", "ja"].map(l => (
+            {["en", "es", "fr", "ja", "ko"].map(l => (
               <Chip key={l} label={names[l]} selected={choice === l} onToggle={() => choice !== l && setLanguage(l)} />
             ))}
           </span>

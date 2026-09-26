@@ -178,3 +178,12 @@ describe('searchHelp in Japanese', () => {
     expect(searchHelp('arsenál', entries)[0]?.id).toBe('ball');
   });
 });
+
+describe('searchHelp in Korean', () => {
+  const entries = [{ id: 'spare', title: 'Spare practice', keywords: ['spare'], body: 'Practise spares.' }];
+  const ko = s => ({ 'Spare practice': '스페어 연습', spare: '스페어', 'Practise spares.': '스페어를 연습해요.' }[s] || s);
+  it('finds hangul words', () => {
+    expect(searchHelp('스페어', entries, ko)[0]?.id).toBe('spare');
+    expect(searchHelp('스페어 연습 방법', entries, ko)[0]?.id).toBe('spare');
+  });
+});

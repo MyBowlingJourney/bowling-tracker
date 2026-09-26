@@ -2,7 +2,8 @@
 //
 // "auto" (the default) follows the phone: a phone set to French gets
 // Quebec French, one set to Spanish gets Latin American Spanish, one set
-// to Japanese gets Japanese, and everything else English. Settings can pin
+// to Japanese gets Japanese, one set to Korean gets Korean, and everything
+// else English. Settings can pin
 // any of them.
 //
 // The choice is kept on the DEVICE, not the account, and read synchronously
@@ -16,7 +17,7 @@
 import { createTranslator } from "./engine.js";
 
 export const LANGUAGE_KEY = "mbj-language-v1";
-export const LANGUAGE_CHOICES = ["auto", "fr", "es", "ja", "en"];
+export const LANGUAGE_CHOICES = ["auto", "fr", "es", "ja", "ko", "en"];
 
 // Each language the app can show: its tag (what <html lang>, the AI
 // features and the sign-in email are told) and how its catalog loads.
@@ -24,6 +25,7 @@ const LANGUAGES = {
   fr: { tag: "fr-CA", load: () => import("./fr-CA.js").then(m => m.FR_CA) },
   es: { tag: "es-419", load: () => import("./es-419.js").then(m => m.ES_419) },
   ja: { tag: "ja-JP", load: () => import("./ja-JP.js").then(m => m.JA_JP) },
+  ko: { tag: "ko-KR", load: () => import("./ko-KR.js").then(m => m.KO_KR) },
 };
 
 export function chosenLanguage() {
@@ -42,6 +44,7 @@ export function phoneLanguage() {
     if (/^fr\b/i.test(first)) return "fr";
     if (/^es\b/i.test(first)) return "es";
     if (/^ja\b/i.test(first)) return "ja";
+    if (/^ko\b/i.test(first)) return "ko";
     return "en";
   } catch { return "en"; }
 }
@@ -73,7 +76,7 @@ export function t(text) {
 export function tMessage(text) {
   return active ? active.translateMessage(text) : String(text ?? "");
 }
-// "fr", "es", "ja" or "en".
+// "fr", "es", "ja", "ko" or "en".
 export function currentLanguage() {
   return active ? activeLang : "en";
 }
@@ -111,6 +114,7 @@ function followAppLanguage(lang) {
   const loc = lang === "fr" ? "fr-CA"
     : lang === "es" ? spanishLocale()
     : lang === "ja" ? "ja-JP"
+    : lang === "ko" ? "ko-KR"
     : (/^en\b/i.test(navigator.language || "") ? navigator.language : "en-US");
   const wrap = (proto, name) => {
     const orig = proto[name];

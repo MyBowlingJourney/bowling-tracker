@@ -78,8 +78,8 @@ describe('Japan pricing', () => {
     expect(displayPricesFor('Asia/Tokyo')).toEqual({ month: '¥800', year: '¥8,000' });
     expect(displayPricesFor('Japan')).toEqual({ month: '¥800', year: '¥8,000' });
     expect(checkoutCurrencyFor('Asia/Tokyo')).toBe('jpy');
-    expect(checkoutCurrencyFor('Asia/Seoul')).toBe('');
-    expect(displayPricesFor('Asia/Seoul')).toEqual({ month: '$4.99', year: '$49.99' });
+    expect(checkoutCurrencyFor('Asia/Bangkok')).toBe('');
+    expect(displayPricesFor('Asia/Bangkok')).toEqual({ month: '$4.99', year: '$49.99' });
   });
 });
 
@@ -100,5 +100,12 @@ describe('Mexico', () => {
     expect(displayPricesFor('America/Mexico_City')).toEqual({ month: 'MX$99', year: 'MX$999' });
     expect(checkoutCurrencyFor('America/Tijuana')).toBe('mxn');
     expect(checkoutCurrencyFor('America/Chicago')).toBe('');
+  });
+});
+
+describe('South Korea', () => {
+  it('shows won and asks checkout for KRW on Korean time', () => {
+    expect(displayPricesFor('Asia/Seoul')).toEqual({ month: '₩7,900', year: '₩79,000' });
+    expect(checkoutCurrencyFor('Asia/Seoul')).toBe('krw');
   });
 });

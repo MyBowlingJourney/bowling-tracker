@@ -19,7 +19,7 @@ export const CARD_HINTS = {
   handicapImpact: "How handicap changes results. Set a book average for the roster.",
   teamLeaderboard: "Team averages ranked. Add bowlers to your team.",
   giantKiller: "Wins against higher-average teams. Record match results.",
-  hung: "Games decided by a handful of pins. Record match results.",
+  hung: "Frames where every teammate struck but one. Log your teammates' frames on a league night.",
   teamSeries: "Team totals by night. Needs team-mates with logged scores.",
 
   // ── The house ──
