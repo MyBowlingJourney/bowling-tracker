@@ -19,6 +19,7 @@ import { COMPETITIVE_BADGES, REPEATABLE, canEarnIn, LEAGUE, TOURNAMENT, PRACTICE
 import { hangAssistCounts } from "./stats.js";
 import { attempts, conversionRate } from "./drills.js";
 import { isSplit } from "./splits.js";
+import { MONEY_BAGS_DOLLARS } from "./currency.js";
 
 const HONOR_GAME = 300;
 const HONOR_SERIES = 800;
@@ -199,7 +200,14 @@ export function seasonBadges(context) {
   if (num(c.currentAverage) !== null && num(c.lastSeasonBook) !== null
       && num(c.currentAverage) - num(c.lastSeasonBook) >= 5) out.add("raised-book-average");
   if (c.bookAverageConfirmed) out.add("locked-in");
-  if (num(c.lifetimeMoneyWon) !== null && num(c.lifetimeMoneyWon) >= 100) out.add("money-bags");
+  // The threshold is in the bowler's money (moneyBagsThreshold); $100
+  // when the context does not say. legacyMoneyWon is what was won before
+  // the threshold scaled, judged against the old flat 100 -- badges are
+  // recomputed from history, so without it one already shown to a yen or
+  // won bowler would vanish (see MONEY_SCALED_FROM in currency.js).
+  const moneyBar = num(c.moneyBagsThreshold) ?? MONEY_BAGS_DOLLARS;
+  if ((num(c.lifetimeMoneyWon) !== null && num(c.lifetimeMoneyWon) >= moneyBar)
+      || (num(c.legacyMoneyWon) !== null && num(c.legacyMoneyWon) >= MONEY_BAGS_DOLLARS)) out.add("money-bags");
   if (num(c.hangAssists) !== null && num(c.hangAssists) >= 30) out.add("executioner");
 
   return [...out].filter(id => canEarnIn(id, LEAGUE));

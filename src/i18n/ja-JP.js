@@ -590,7 +590,6 @@ export const JA_JP = {
 "Helped hang a teammate 30 times.": "チームメイト1人だけがストライクを逃したフレームで、30回ストライクを出しました。",
 "Won a side game.": "サイドゲームで勝ちました。",
 "Money bags": "がっぽり",
-"$100 won in side games, all-time.": "サイドゲームの獲得額が通算$100に到達。",
 "Locked in": "お墨付き",
 "Your book average was confirmed at season end.": "シーズン終了時に公認アベレージが確定しました。",
 "Twelve strikes. The one you'll be telling people about.": "ストライク12個。ずっと語り草になるゲームです。",
@@ -1485,12 +1484,8 @@ export const JA_JP = {
 "— you won't need to enter them again.": "— 次回から入力する必要はありません。",
 "Buy-in per game": "1ゲームあたりの参加費",
 "not playing": "不参加",
-"tonight · $": "（今日）· $",
 "paid in": "参加費",
-"Poker Winnings ($)": "ポーカー賞金（$）",
-"High Game Pot ($)": "ハイゲームポット（$）",
 "Highest game in the league takes it — enter what you won, if anything.": "リーグ内でハイゲームを出した人が獲得します — 獲得した額があれば入力してください。",
-"3-6-9 Winnings ($)": "3-6-9賞金（$）",
 "All nine struck — you took it": "対象の9フレームすべてでストライク — ポットを獲得",
 ", and the tenth carried for the jackpot": "、さらに10フレームも決めてジャックポットも獲得",
 "Pot": "ポット",
@@ -2289,8 +2284,6 @@ export const JA_JP = {
 "Tracked separately from the main entry, so you can see which of these actually pay for themselves.": "メインのエントリーとは別に記録するので、どれが実際に元を取れているかがわかります。",
 "Label (optional)": "名前（任意）",
 "Entries": "口数",
-"$ Each": "1口あたり（$）",
-"Cost $": "費用 $",
 "won in brackets": "ブラケットでの獲得額",
 "The head-to-head block after the cut. Bonus pins vary by tournament — set them to whatever this event uses.": "予選カット後の直接対決ブロックです。ボーナスピンは大会によって異なるので、この大会のルールに合わせて設定してください。",
 "Date bowled": "投球日",
@@ -2668,8 +2661,6 @@ export const JA_JP = {
 "Free fall against string pins. Set the rack type on two centers — or on one mixed house, with its free-fall lanes.": "フリーフォール式とストリング式の比較です。2つのボウリング場でピンセッターの種類を設定してください — または、フリーフォール式のレーンがある混在型のボウリング場1つでも比較できます。",
 "Right-handed, backup": "右投げ、バックアップ",
 "Left-handed, backup": "左投げ、バックアップ",
-"Tournament buy in $": "大会の参加費（$）",
-"Tournament winnings $": "大会の賞金（$）",
 "milestones": "マイルストーン",
 "Spring Masters": "Spring Masters",
 "Changing the language": "言語を変更する",
@@ -2714,7 +2705,6 @@ export const JA_JP = {
 "Runner-up": "準優勝",
 "Pin-to-PAP": "ピン〜PAP",
 "Pin-to-COG": "ピン〜COG",
-"Won $": "獲得額（$）",
 "placeholder::Score": "スコア",
 "— choose a ball —": "— ボールを選択 —",
 "field::Rev rate": "回転数",
@@ -2939,7 +2929,9 @@ export const JA_JP = {
 "hand::Right": "右",
 "hand::Left": "左",
 "confidence::Not yet": "まだこれから",
-"Frames where every teammate struck but one. Log your teammates' frames on a league night.": "チームメイト全員がストライクを出し、1人だけが逃したフレームです。リーグの日にチームメイトのフレームも記録してください。"
+"Frames where every teammate struck but one. Log your teammates' frames on a league night.": "チームメイト全員がストライクを出し、1人だけが逃したフレームです。リーグの日にチームメイトのフレームも記録してください。",
+"tonight ·": "（今日）·",
+"Cost": "費用"
 },
 "patterns": [
 [
@@ -3747,8 +3739,8 @@ export const JA_JP = {
 "ストライク率{0}% · スペア率{1}%"
 ],
 [
-"{0}${1} on the season",
-"シーズン収支{0}${1}"
+"{0}{1} on the season",
+"シーズン収支{0}{1}"
 ],
 [
 "{0} – now",
@@ -3839,8 +3831,8 @@ export const JA_JP = {
 "ほか{0}個"
 ],
 [
-"Won ${0} in side pots",
-"サイドポットで${0}獲得"
+"Won {0} in side pots",
+"サイドポットで{0}獲得"
 ],
 [
 "Hit my goal: {0}",
@@ -3927,12 +3919,12 @@ export const JA_JP = {
 "ステップラダー：{1}ステップ中{0}勝{2}"
 ],
 [
-"Up ${0} on the day",
-"この日の収支：プラス${0}"
+"Up {0} on the day",
+"この日の収支：プラス{0}"
 ],
 [
-"Down ${0} on the day",
-"この日の収支：マイナス${0}"
+"Down {0} on the day",
+"この日の収支：マイナス{0}"
 ],
 [
 "{0} game{1:s} · {2} average",
@@ -4411,16 +4403,16 @@ export const JA_JP = {
 "参加するものをタップしてください。参加費は{0}用に保存されます — 次回から入力する必要はありません。"
 ],
 [
-"{0} game{1:s} tonight · ${2} paid in",
-"今日{0}ゲーム · 参加費${2}"
+"{0} game{1:s} tonight · {2} paid in",
+"今日{0}ゲーム · 参加費{2}"
 ],
 [
 "All nine struck — you took it{0}.",
 "対象の9フレームすべてでストライク — ポットを獲得{0}しました。"
 ],
 [
-"${0} paid in — {1} ${2} on the night.",
-"参加費${0} — 今日の収支は{1}${2}。"
+"{0} paid in — {1} {2} on the night.",
+"参加費{0} — 今日の収支は{1}{2}。"
 ],
 [
 "Counts for {0}. Bowled today — change the date above if that's the wrong week.",
@@ -4947,8 +4939,8 @@ export const JA_JP = {
 "チーム：{0}"
 ],
 [
-"${0} paid in — {1} {2} overall.",
-"参加費${0} — 通算{1}{2}。"
+"{0} paid in — {1} {2} overall.",
+"参加費{0} — 通算{1}{2}。"
 ],
 [
 "{0} win{1:s} and {2} jackpot{3:s}.",
@@ -5119,8 +5111,8 @@ export const JA_JP = {
 "{0} ブラケット・サイドポット"
 ],
 [
-"${0} paid in — {1} ${2} on side action.",
-"参加費${0} — ブラケット・サイドポットの収支は{1}${2}。"
+"{0} paid in — {1} {2} on side action.",
+"参加費{0} — ブラケット・サイドポットの収支は{1}{2}。"
 ],
 [
 "{0} Match Play",
@@ -5199,8 +5191,8 @@ export const JA_JP = {
 "ステップラダーの結果：{0} — {1}"
 ],
 [
-"{0}${1} net",
-"収支 {0}${1}"
+"{0}{1} net",
+"収支 {0}{1}"
 ],
 [
 "({0} game{1:s})",
@@ -5291,8 +5283,8 @@ export const JA_JP = {
 "アベレージ{0} ⟨0⟩ · {1}ゲーム"
 ],
 [
-"${0} won⟨0⟩${1} in",
-"獲得${0}⟨0⟩参加費${1}"
+"{0} won⟨0⟩{1} in",
+"獲得{0}⟨0⟩参加費{1}"
 ],
 [
 "Suggested new book average: ⟨0⟩ — {0}.{1} Change the number below if this doesn't match your full season.",
@@ -5323,8 +5315,8 @@ export const JA_JP = {
 "⟨0⟩が{0}への参加を希望しています"
 ],
 [
-"Cost ${0} · ⟨0⟩",
-"費用 ${0} · ⟨0⟩"
+"Cost {0} · ⟨0⟩",
+"費用 {0} · ⟨0⟩"
 ],
 [
 "{0}% strikes",
@@ -5527,28 +5519,28 @@ export const JA_JP = {
 "この期間で約{0}の下降傾向です。"
 ],
 [
-"${0} paid in — up ${1} on the night.",
-"参加費${0} — 今日の収支はプラス${1}。"
+"{0} paid in — up {1} on the night.",
+"参加費{0} — 今日の収支はプラス{1}。"
 ],
 [
-"${0} paid in — down ${1} on the night.",
-"参加費${0} — 今日の収支はマイナス${1}。"
+"{0} paid in — down {1} on the night.",
+"参加費{0} — 今日の収支はマイナス{1}。"
 ],
 [
-"${0} paid in — up {1} overall.",
-"参加費${0} — 通算の収支はプラス{1}。"
+"{0} paid in — up {1} overall.",
+"参加費{0} — 通算の収支はプラス{1}。"
 ],
 [
-"${0} paid in — down {1} overall.",
-"参加費${0} — 通算の収支はマイナス{1}。"
+"{0} paid in — down {1} overall.",
+"参加費{0} — 通算の収支はマイナス{1}。"
 ],
 [
-"${0} paid in — up ${1} on side action.",
-"参加費${0} — ブラケット・サイドポットの収支はプラス${1}。"
+"{0} paid in — up {1} on side action.",
+"参加費{0} — ブラケット・サイドポットの収支はプラス{1}。"
 ],
 [
-"${0} paid in — down ${1} on side action.",
-"参加費${0} — ブラケット・サイドポットの収支はマイナス${1}。"
+"{0} paid in — down {1} on side action.",
+"参加費{0} — ブラケット・サイドポットの収支はマイナス{1}。"
 ],
 [
 "Hide {0}",
@@ -6109,6 +6101,42 @@ export const JA_JP = {
 [
 "The {0} plan starts today at {1} and renews on its own until you cancel.",
 "{0}プランは本日開始となり、料金は{1}です。解約するまで自動で更新されます。"
+],
+[
+"{0:m} game",
+"{0}ゲーム"
+],
+[
+"{0} won in side games, all-time.",
+"サイドゲームの獲得額が通算{0}に到達。"
+],
+[
+"Poker Winnings ({0})",
+"ポーカー賞金（{0}）"
+],
+[
+"High Game Pot ({0})",
+"ハイゲームポット（{0}）"
+],
+[
+"3-6-9 Winnings ({0})",
+"3-6-9賞金（{0}）"
+],
+[
+"{0} Each",
+"1口あたり（{0}）"
+],
+[
+"Tournament buy in {0}",
+"大会の参加費（{0}）"
+],
+[
+"Tournament winnings {0}",
+"大会の賞金（{0}）"
+],
+[
+"Won {0}",
+"獲得額（{0}）"
 ]
 ],
 "fragments": [
@@ -6165,7 +6193,7 @@ export const JA_JP = {
 "Clear all",
 "Composite average at each position in the night, across the whole season — shows whether",
 "Connected. They",
-"Cost $",
+"Cost",
 "Delete game",
 "Delete this night?",
 "Do I fall off in game three?",
@@ -6403,7 +6431,7 @@ export const JA_JP = {
 "to see who owes a round.",
 "to tell a real pattern from noise. Treat this as a preview, not a conclusion, until then.",
 "today.",
-"tonight · $",
+"tonight ·",
 "total ·",
 "tournament bag. Extra bags — a short-pattern tournament bag, a sport shot bag — are part of the paid plan. Nothing you have already packed goes anywhere.",
 "vs the cut",

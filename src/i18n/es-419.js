@@ -591,7 +591,6 @@ export const ES_419 = {
 "Helped hang a teammate 30 times.": "Ayudaste 30 veces a dejar colgado a un integrante del equipo.",
 "Won a side game.": "Ganaste un juego extra.",
 "Money bags": "Cartera llena",
-"$100 won in side games, all-time.": "$100 ganados en juegos extra, en total.",
 "Locked in": "Sellado",
 "Your book average was confirmed at season end.": "Tu promedio establecido se confirmó al final de la temporada.",
 "Twelve strikes. The one you'll be telling people about.": "Doce strikes. El juego que le vas a contar a todo el mundo.",
@@ -1486,12 +1485,8 @@ export const ES_419 = {
 "— you won't need to enter them again.": "— no tendrás que volver a ingresarlas.",
 "Buy-in per game": "Entrada por juego",
 "not playing": "no participas",
-"tonight · $": "esta noche · $",
 "paid in": "pagados",
-"Poker Winnings ($)": "Ganancias de póker ($)",
-"High Game Pot ($)": "Bote del juego más alto ($)",
 "Highest game in the league takes it — enter what you won, if anything.": "El juego más alto de la liga se lo lleva — ingresa lo que ganaste, si ganaste algo.",
-"3-6-9 Winnings ($)": "Ganancias del 3-6-9 ($)",
 "All nine struck — you took it": "Strike en los nueve cuadros — te llevaste el bote",
 ", and the tenth carried for the jackpot": ", y con el décimo, también el acumulado",
 "Pot": "Bote",
@@ -2290,8 +2285,6 @@ export const ES_419 = {
 "Tracked separately from the main entry, so you can see which of these actually pay for themselves.": "Se registran aparte de la entrada principal, para que veas cuáles de verdad se pagan solos.",
 "Label (optional)": "Nombre (opcional)",
 "Entries": "Entradas",
-"$ Each": "$ c/u",
-"Cost $": "Costo $",
 "won in brackets": "ganado en brackets",
 "The head-to-head block after the cut. Bonus pins vary by tournament — set them to whatever this event uses.": "El bloque mano a mano después del corte. Los pinos de bono varían según el torneo — pon los que use este evento.",
 "Date bowled": "Fecha de juego",
@@ -2669,8 +2662,6 @@ export const ES_419 = {
 "Free fall against string pins. Set the rack type on two centers — or on one mixed house, with its free-fall lanes.": "Caída libre contra cuerdas. Indica el tipo de armadora en dos centros — o en un solo centro mixto, con sus pistas de caída libre.",
 "Right-handed, backup": "Diestro, bola backup",
 "Left-handed, backup": "Zurdo, bola backup",
-"Tournament buy in $": "Entrada del torneo ($)",
-"Tournament winnings $": "Ganancias del torneo ($)",
 "milestones": "hitos",
 "Spring Masters": "Masters de primavera",
 "Changing the language": "Cambiar el idioma",
@@ -2715,7 +2706,6 @@ export const ES_419 = {
 "Runner-up": "Segundo lugar",
 "Pin-to-PAP": "Pin-to-PAP",
 "Pin-to-COG": "Pin-to-COG",
-"Won $": "Ganado ($)",
 "placeholder::Score": "Puntaje",
 "— choose a ball —": "— elige una bola —",
 "field::Rev rate": "RPM",
@@ -2937,7 +2927,9 @@ export const ES_419 = {
 "hand::Right": "Derecha",
 "hand::Left": "Izquierda",
 "confidence::Not yet": "Aún no",
-"Frames where every teammate struck but one. Log your teammates' frames on a league night.": "Cuadros en los que todo el equipo hizo strike menos una persona. Registra los cuadros de tus compañeros en una noche de liga."
+"Frames where every teammate struck but one. Log your teammates' frames on a league night.": "Cuadros en los que todo el equipo hizo strike menos una persona. Registra los cuadros de tus compañeros en una noche de liga.",
+"tonight ·": "esta noche ·",
+"Cost": "Costo"
 },
 "patterns": [
 [
@@ -3745,8 +3737,8 @@ export const ES_419 = {
 "{0}% strikes · {1}% spares"
 ],
 [
-"{0}${1} on the season",
-"{0}${1} en la temporada"
+"{0}{1} on the season",
+"{0}{1} en la temporada"
 ],
 [
 "{0} – now",
@@ -3837,8 +3829,8 @@ export const ES_419 = {
 "+{0} más"
 ],
 [
-"Won ${0} in side pots",
-"Gané ${0} en botes"
+"Won {0} in side pots",
+"Gané {0} en botes"
 ],
 [
 "Hit my goal: {0}",
@@ -3925,12 +3917,12 @@ export const ES_419 = {
 "Final escalonada: {0} de {1} {1|escalón ganado|escalones ganados}{2}"
 ],
 [
-"Up ${0} on the day",
-"Arriba ${0} en el día"
+"Up {0} on the day",
+"Arriba {0} en el día"
 ],
 [
-"Down ${0} on the day",
-"Abajo ${0} en el día"
+"Down {0} on the day",
+"Abajo {0} en el día"
 ],
 [
 "{0} game{1:s} · {2} average",
@@ -4409,16 +4401,16 @@ export const ES_419 = {
 "Toca los juegos en los que participas. Las entradas se guardan para {0} — no tendrás que volver a ingresarlas."
 ],
 [
-"{0} game{1:s} tonight · ${2} paid in",
-"{0} {0|juego|juegos} esta noche · ${2} pagados"
+"{0} game{1:s} tonight · {2} paid in",
+"{0} {0|juego|juegos} esta noche · {2} pagados"
 ],
 [
 "All nine struck — you took it{0}.",
 "Strike en los nueve cuadros — te llevaste el bote{0}."
 ],
 [
-"${0} paid in — {1} ${2} on the night.",
-"${0} pagados — {1} ${2} en la noche."
+"{0} paid in — {1} {2} on the night.",
+"{0} pagados — {1} {2} en la noche."
 ],
 [
 "Counts for {0}. Bowled today — change the date above if that's the wrong week.",
@@ -4945,8 +4937,8 @@ export const ES_419 = {
 "Equipo: {0}"
 ],
 [
-"${0} paid in — {1} {2} overall.",
-"${0} pagados — {1} {2} en total."
+"{0} paid in — {1} {2} overall.",
+"{0} pagados — {1} {2} en total."
 ],
 [
 "{0} win{1:s} and {2} jackpot{3:s}.",
@@ -5117,8 +5109,8 @@ export const ES_419 = {
 "{0} Brackets y botes"
 ],
 [
-"${0} paid in — {1} ${2} on side action.",
-"${0} pagados — {1} ${2} en botes y brackets."
+"{0} paid in — {1} {2} on side action.",
+"{0} pagados — {1} {2} en botes y brackets."
 ],
 [
 "{0} Match Play",
@@ -5197,8 +5189,8 @@ export const ES_419 = {
 "Según la final escalonada: {0} — {1}"
 ],
 [
-"{0}${1} net",
-"{0}${1} neto"
+"{0}{1} net",
+"{0}{1} neto"
 ],
 [
 "({0} game{1:s})",
@@ -5289,8 +5281,8 @@ export const ES_419 = {
 "Prom. {0} ⟨0⟩ · {1} {1|juego|juegos}"
 ],
 [
-"${0} won⟨0⟩${1} in",
-"${0} ganados⟨0⟩${1} pagados"
+"{0} won⟨0⟩{1} in",
+"{0} ganados⟨0⟩{1} pagados"
 ],
 [
 "Suggested new book average: ⟨0⟩ — {0}.{1} Change the number below if this doesn't match your full season.",
@@ -5321,8 +5313,8 @@ export const ES_419 = {
 "⟨0⟩ quiere unirse a {0}"
 ],
 [
-"Cost ${0} · ⟨0⟩",
-"Costo ${0} · ⟨0⟩"
+"Cost {0} · ⟨0⟩",
+"Costo {0} · ⟨0⟩"
 ],
 [
 "{0} wants to be your coach",
@@ -5533,28 +5525,28 @@ export const ES_419 = {
 "Bajó unos {0} en este tramo."
 ],
 [
-"${0} paid in — up ${1} on the night.",
-"${0} pagados — ganaste ${1} en la noche."
+"{0} paid in — up {1} on the night.",
+"{0} pagados — ganaste {1} en la noche."
 ],
 [
-"${0} paid in — down ${1} on the night.",
-"${0} pagados — perdiste ${1} en la noche."
+"{0} paid in — down {1} on the night.",
+"{0} pagados — perdiste {1} en la noche."
 ],
 [
-"${0} paid in — up {1} overall.",
-"${0} pagados — vas ganando {1} en total."
+"{0} paid in — up {1} overall.",
+"{0} pagados — vas ganando {1} en total."
 ],
 [
-"${0} paid in — down {1} overall.",
-"${0} pagados — vas perdiendo {1} en total."
+"{0} paid in — down {1} overall.",
+"{0} pagados — vas perdiendo {1} en total."
 ],
 [
-"${0} paid in — up ${1} on side action.",
-"${0} pagados — ganaste ${1} en botes y brackets."
+"{0} paid in — up {1} on side action.",
+"{0} pagados — ganaste {1} en botes y brackets."
 ],
 [
-"${0} paid in — down ${1} on side action.",
-"${0} pagados — perdiste ${1} en botes y brackets."
+"{0} paid in — down {1} on side action.",
+"{0} pagados — perdiste {1} en botes y brackets."
 ],
 [
 "Hide {0}",
@@ -5979,6 +5971,42 @@ export const ES_419 = {
 [
 "The {0} plan starts today at {1} and renews on its own until you cancel.",
 "El plan {0} empieza hoy con un precio de {1} y se renueva automáticamente hasta que lo canceles."
+],
+[
+"{0:m} game",
+"Juego de {0}"
+],
+[
+"{0} won in side games, all-time.",
+"{0} ganados en juegos extra, en total."
+],
+[
+"Poker Winnings ({0})",
+"Ganancias de póker ({0})"
+],
+[
+"High Game Pot ({0})",
+"Bote del juego más alto ({0})"
+],
+[
+"3-6-9 Winnings ({0})",
+"Ganancias del 3-6-9 ({0})"
+],
+[
+"{0} Each",
+"{0} c/u"
+],
+[
+"Tournament buy in {0}",
+"Entrada del torneo ({0})"
+],
+[
+"Tournament winnings {0}",
+"Ganancias del torneo ({0})"
+],
+[
+"Won {0}",
+"Ganado ({0})"
 ]
 ],
 "fragments": [
@@ -6035,7 +6063,7 @@ export const ES_419 = {
 "Clear all",
 "Composite average at each position in the night, across the whole season — shows whether",
 "Connected. They",
-"Cost $",
+"Cost",
 "Delete game",
 "Delete this night?",
 "Do I fall off in game three?",
@@ -6273,7 +6301,7 @@ export const ES_419 = {
 "to see who owes a round.",
 "to tell a real pattern from noise. Treat this as a preview, not a conclusion, until then.",
 "today.",
-"tonight · $",
+"tonight ·",
 "total ·",
 "tournament bag. Extra bags — a short-pattern tournament bag, a sport shot bag — are part of the paid plan. Nothing you have already packed goes anywhere.",
 "vs the cut",

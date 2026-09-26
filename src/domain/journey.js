@@ -1,6 +1,7 @@
 import { isStk } from "./scoring.js";
 
 import { isSplit } from "./splits.js";
+import { moneySymbol } from "./currency.js";
 // My Journey: the milestones of a bowling life, in the order they come.
 //
 // A vertical path rather than a badge grid. The difference is that a path
@@ -512,10 +513,13 @@ const GLYPHS = {
   "first-strike": "X", "first-spare": "/", "first-double": "XX",
   "first-turkey": "\u{1F983}", "first-four-bagger": "4X", "first-five-bagger": "5X",
   "split-convert": "S/", "big-four": "B4",
-  "tourney-first": "\u{1F3C6}", "tourney-cash": "$",
+  "tourney-first": "\u{1F3C6}",
 };
-export function milestoneGlyph(m) {
+// First cash is the bowler's own money sign: "$" in a dollar country,
+// "¥" or "₩" where that is what they cashed.
+export function milestoneGlyph(m, currency) {
   if (!m || typeof m !== "object") return "";
+  if (m.id === "tourney-cash") return moneySymbol(currency);
   if (GLYPHS[m.id]) return GLYPHS[m.id];
   return String(m.target ?? "");
 }

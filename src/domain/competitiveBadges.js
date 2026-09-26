@@ -23,6 +23,8 @@
 //   across three games means something under pressure; in practice it
 //   might just mean you started cold on purpose.
 
+import { formatMoney, moneyBagsThreshold } from "./currency.js";
+
 export const LEAGUE = "league";
 export const TOURNAMENT = "tournament";
 export const PRACTICE = "practice";
@@ -91,8 +93,12 @@ export const COMPETITIVE_BADGES = [
   // ── League: money ─────────────────────────────────────────────────
   { id: "cashed", emoji: "\u{1F4B5}", name: "Cashed",
     blurb: "Won a side game.", modes: [LEAGUE] },
+  // The threshold is in the bowler's money (¥10,000, ₩100,000), so the
+  // text is worked out when it is read rather than fixed here: a getter
+  // keeps b.blurb working for every screen and share card that reads it.
   { id: "money-bags", emoji: "\u{1F4B0}", name: "Money bags",
-    blurb: "$100 won in side games, all-time.", modes: [LEAGUE] },
+    get blurb() { return `${formatMoney(moneyBagsThreshold(), { decimals: 0 })} won in side games, all-time.`; },
+    modes: [LEAGUE] },
   { id: "locked-in", emoji: "\u{1F512}", name: "Locked in",
     blurb: "Your book average was confirmed at season end.", modes: [LEAGUE] },
 

@@ -10,6 +10,8 @@
 // Costs are what the bowler PAID to enter. A game that was never entered
 // has zero cost and zero winnings, which nets to zero -- not a loss.
 
+import { isDollar, pokerStakes } from "./currency.js";
+
 const EMPTY3 = [0, 0, 0];
 
 function sum3(arr) {
@@ -107,13 +109,28 @@ export const DEFAULT_BUY_INS = {
   threeSixNine: 0,
 };
 
-export function buyInsForLeague(buyIns, league) {
+// The same defaults in the bowler's own money. A quarter game in Seoul
+// is a ₩500 game: offering 0.25 there pre-fills a rate nobody charges,
+// and it would be saved as the league's rate the first time the bowler
+// ticked the pot. High game and 3-6-9 default to nothing in every
+// currency (zero scales to zero), so only the poker stakes differ.
+// Dollars get DEFAULT_BUY_INS itself, unchanged.
+export function defaultBuyIns(currency) {
+  if (isDollar(currency)) return DEFAULT_BUY_INS;
+  return { ...DEFAULT_BUY_INS, ...pokerStakes(currency) };
+}
+
+// `defaults` is what a league with no saved rate starts from --
+// defaultBuyIns() for the bowler's currency. Left out, it is the dollar
+// set, which every existing caller and test expects.
+export function buyInsForLeague(buyIns, league, defaults = DEFAULT_BUY_INS) {
   const saved = (buyIns || {})[league] || {};
+  const d = defaults && typeof defaults === "object" ? defaults : DEFAULT_BUY_INS;
   return {
-    pokerQuarter: saved.pokerQuarter ?? DEFAULT_BUY_INS.pokerQuarter,
-    pokerDollar: saved.pokerDollar ?? DEFAULT_BUY_INS.pokerDollar,
-    highGame: saved.highGame ?? DEFAULT_BUY_INS.highGame,
-    threeSixNine: saved.threeSixNine ?? DEFAULT_BUY_INS.threeSixNine,
+    pokerQuarter: saved.pokerQuarter ?? d.pokerQuarter,
+    pokerDollar: saved.pokerDollar ?? d.pokerDollar,
+    highGame: saved.highGame ?? d.highGame,
+    threeSixNine: saved.threeSixNine ?? d.threeSixNine,
   };
 }
 

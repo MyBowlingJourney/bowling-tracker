@@ -17,6 +17,7 @@ import {
 } from "./competitiveBadgeEarning.js";
 import { hangAssistCounts } from "./stats.js";
 import { totalMoney, sessionMoney } from "./money.js";
+import { moneyBagsThreshold, MONEY_SCALED_FROM } from "./currency.js";
 import { attempts, conversionRate } from "./drills.js";
 
 // Number(null) is 0, and 0 is finite -- so the obvious version of
@@ -147,6 +148,13 @@ export function competitiveBadges(args) {
   // Season-long badges, from the whole history rather than any one night.
   let lifetimeMoney = null;
   try { lifetimeMoney = totalMoney(nights)?.gross ?? null; } catch { lifetimeMoney = null; }
+  // Money bags is judged in the bowler's own money (a.currency, the
+  // device's when absent). What was won before the threshold scaled is
+  // kept apart so a badge earned under the old flat $100 stays earned.
+  let legacyMoney = null;
+  try {
+    legacyMoney = totalMoney(nights.filter(n => String(n.date || "") < MONEY_SCALED_FROM))?.gross ?? null;
+  } catch { legacyMoney = null; }
 
   const assists = (() => {
     try { return hangAssistCounts(shots, league)[bowler] ?? 0; } catch { return 0; }
@@ -183,6 +191,8 @@ export function competitiveBadges(args) {
       && t.members.some(mem => mem && mem.isSub
         && (mem.name === bowler || mem.displayName === bowler))),
     lifetimeMoneyWon: lifetimeMoney,
+    legacyMoneyWon: legacyMoney,
+    moneyBagsThreshold: moneyBagsThreshold(a.currency),
     hangAssists: assists,
     currentAverage: (() => {
       const all = nights.flatMap(n => (Array.isArray(n.scores) ? n.scores : []).map(num).filter(v => v !== null));

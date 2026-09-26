@@ -16,6 +16,7 @@ import { canPourNightcap, BILLING_LIVE } from "./domain/entitlements.js";
 import { friendlyFunctionError, readFunctionFailure, failureDetail } from "./domain/functionErrors.js";
 import { recordError } from "./errorLogStore.js";
 import { aiLanguage } from "./i18n/index.js";
+import { moneySymbol } from "./domain/currency.js";
 
 // Nightcap's own voice for "it didn't work". The real reason is logged.
 const NIGHTCAP_FALLBACK = "Couldn't pour the nightcap just then. Tap to try again.";
@@ -133,7 +134,10 @@ export default function Nightcap({
     inFlight.current = true;
     setState({ status: "loading", result: null, error: null });
     try {
-      const { data, error } = await supabase.functions.invoke("nightcap", { body: { payload, language: aiLanguage() } });
+      // currency: the money sign the app shows, so the read-back of a
+      // bracket night says ₩ in Korea. The server takes it from a closed
+      // list and falls back to "$".
+      const { data, error } = await supabase.functions.invoke("nightcap", { body: { payload, language: aiLanguage(), currency: moneySymbol() } });
       if (error) {
         // supabase-js v2 collapses every non-2xx into an opaque error and
         // hangs the real body off error.context. readFunctionFailure reads

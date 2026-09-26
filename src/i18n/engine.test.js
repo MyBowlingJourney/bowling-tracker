@@ -303,3 +303,54 @@ describe("messages of several lines", () => {
     expect(out).toBe("순위표\n1. Ryan — 에버리지 201, 12게임\n2. Minji — 에버리지 190, 9게임");
   });
 });
+
+// Money arrives already formatted by src/domain/currency.js, symbol and
+// all ("$12.00", "₩5,000"), so a catalog pattern has "{0}" where it used
+// to have "${0}". Dollars must still come out the French way, and every
+// other currency must come through untouched.
+describe("money values", () => {
+  it("writes a dollar amount the French way, the symbol after", () => {
+    expect(frenchNumbers("$12.00")).toBe(`12,00${NB}$`);
+    expect(frenchNumbers("−$5.00")).toBe(`−5,00${NB}$`);
+    expect(frenchNumbers("+$45")).toBe(`+45${NB}$`);
+    expect(frenchNumbers("$1,234.50")).toBe(`1${NN}234,50${NB}$`);
+  });
+
+  it("fills a pattern with the formatted amount", () => {
+    const fr = createTranslator({ patterns: [["Entry {0}", "Entrée {0}"]] });
+    expect(fr.translate("Entry $12.00")).toBe(`Entrée 12,00${NB}$`);
+  });
+
+  it("leaves won and yen alone in Korean and Japanese", () => {
+    const ko = createTranslator({ lang: "ko", patterns: [["Entry {0}", "참가비 {0}"]] });
+    const ja = createTranslator({ lang: "ja", patterns: [["Entry {0}", "参加費{0}"]] });
+    expect(ko.translate("₩5,000")).toBe("₩5,000");
+    expect(ja.translate("¥1,500")).toBe("¥1,500");
+    expect(ko.translate("Entry ₩5,000")).toBe("참가비 ₩5,000");
+    expect(ja.translate("Entry ¥1,500")).toBe("参加費¥1,500");
+  });
+
+  it("fits a Korean particle after a won amount", () => {
+    // ₩5,000 ends in 0 (공), a consonant.
+    const ko = createTranslator({ lang: "ko", patterns: [["Paid {0}", "{0}(을)를 냈어요"]] });
+    expect(ko.translate("Paid ₩5,000")).toBe("₩5,000을 냈어요");
+  });
+
+  describe("{0:m}, a value that must be money", () => {
+    const fr = createTranslator({
+      patterns: [
+        ["{0} game{1:s}", "{0} {0|partie|parties}"],
+        ["{0:m} game", "Partie à {0}"],
+      ],
+    });
+    it("names a poker game by its stake", () => {
+      expect(fr.translate("¥100 game")).toBe("Partie à ¥100");
+      expect(fr.translate("₩1,000 game")).toBe(`Partie à ₩1${NN}000`);
+      expect(fr.translate("RM5 game")).toBe("Partie à RM5");
+    });
+    it("never takes a count, which stays with the plural pattern", () => {
+      expect(fr.translate("1 game")).toBe("1 partie");
+      expect(fr.translate("3 games")).toBe("3 parties");
+    });
+  });
+});

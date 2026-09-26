@@ -1,4 +1,5 @@
 import { normalizeThemeId, DEFAULT_THEME } from "./themes.js";
+import { pokerGameLabels } from "./currency.js";
 // User customization preferences -- which optional fields are tracked, and
 // which "environment" (practice/league/tournament) the app is styled for.
 //
@@ -689,6 +690,13 @@ export const MONEY_GAME_LABELS = {
   highGame: "High game",
   threeSixNine: "3-6-9",
 };
+
+// The label in the bowler's money. MONEY_GAME_LABELS is the dollar set;
+// outside dollar countries the poker games are named by their stake
+// ("₩500 game"), because a quarter game in won is not a thing.
+export function moneyGameLabel(game, currency) {
+  return { ...MONEY_GAME_LABELS, ...pokerGameLabels(currency) }[game];
+}
 
 export function hiddenMoneyGames(prefs) {
   const raw = prefs?.hiddenMoneyGames;

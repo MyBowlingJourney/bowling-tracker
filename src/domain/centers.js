@@ -460,8 +460,8 @@ export function centerFromRow(row) {
 // South Korea: using a phone's location is regulated as a location-based
 // service there (registration and extra consent), so the app never asks
 // for it on a phone set to Korean time. Centres are still searched, by
-// name, around the bowler's last known centre -- or, with none yet,
-// around the middle of the country, which is not the bowler's location.
+// name, always around the middle of the country -- never the bowler's
+// location, nor their last centre, which would say roughly where they are.
 const NO_DEVICE_LOCATION = new Set(["Asia/Seoul", "ROK"]);
 export function deviceLocationAllowed(tz) {
   return !NO_DEVICE_LOCATION.has(String(tz || ""));

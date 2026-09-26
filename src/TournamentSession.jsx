@@ -18,6 +18,7 @@ import {
   SIDE_POT_TYPES, addSidePot, removeSidePot, setSidePotField, sidePotMoney, sidePotTotals,
 } from "./domain/sidePots.js";
 import { canUseBracketsAndSidePots } from "./domain/entitlements.js";
+import { formatMoney, moneySymbol, scaleMoney } from "./domain/currency.js";
 import {
   addMatch, removeMatch, setMatchField, setBonus, matchResult, matchPlayTotals, pinDifferential,
   matchMargin, competitiveness, describeCompetitiveness,
@@ -614,7 +615,7 @@ function SidePots({ tournament, onChange }) {
         </div>
         {totals.count > 0 && (
           <div style={{ fontSize: "12px", fontWeight: 700, color: totals.net >= 0 ? C.strike : C.miss }}>
-            {totals.net < 0 ? "\u2212" : ""}${Math.abs(totals.net).toFixed(2)}
+            {totals.net < 0 ? "\u2212" : ""}{formatMoney(Math.abs(totals.net))}
           </div>
         )}
       </div>
@@ -647,8 +648,10 @@ function SidePots({ tournament, onChange }) {
                   onChange={e => onChange({ ...tournament, sidePots: setSidePotField(pots, pot.id, "entries", e.target.value) })} />
               </div>
               <div style={{ flex: 1 }}>
-                {fieldLabel("$ Each")}
-                <input style={{ ...S.input, fontSize: "12px" }} type="number" inputMode="decimal" placeholder="5"
+                {fieldLabel(`${moneySymbol()} Each`)}
+                {/* The suggested bracket price, in local money: a ¥5
+                    bracket does not exist. */}
+                <input style={{ ...S.input, fontSize: "12px" }} type="number" inputMode="decimal" placeholder={String(scaleMoney(5))}
                   value={pot.costPerEntry}
                   onChange={e => onChange({ ...tournament, sidePots: setSidePotField(pots, pot.id, "costPerEntry", e.target.value) })} />
               </div>
@@ -661,9 +664,9 @@ function SidePots({ tournament, onChange }) {
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ fontSize: "11px", color: C.textMuted }}>
-                Cost ${m.cost.toFixed(2)} &middot;{" "}
+                Cost {formatMoney(m.cost)} &middot;{" "}
                 <span style={{ color: m.net >= 0 ? C.strike : C.miss, fontWeight: 600 }}>
-                  {m.net < 0 ? "\u2212" : "+"}${Math.abs(m.net).toFixed(2)}
+                  {m.net < 0 ? "\u2212" : "+"}{formatMoney(Math.abs(m.net))}
                 </span>
               </div>
               <button style={{ background: "none", border: "none", color: C.textMuted, cursor: "pointer", fontSize: "11px", textDecoration: "underline", padding: 0 }}
@@ -681,7 +684,7 @@ function SidePots({ tournament, onChange }) {
             <div key={b.type} style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", marginBottom: "2px" }}>
               <span style={{ color: C.textMuted }}>{b.type} ({b.entries})</span>
               <span style={{ color: b.net >= 0 ? C.strike : C.miss }}>
-                {b.net < 0 ? "\u2212" : "+"}${Math.abs(b.net).toFixed(2)}
+                {b.net < 0 ? "\u2212" : "+"}{formatMoney(Math.abs(b.net))}
               </span>
             </div>
           ))}
@@ -704,9 +707,9 @@ function SidePots({ tournament, onChange }) {
       {totals.count > 0 && (
         <div style={{ marginTop: "12px", paddingTop: "10px", borderTop: `1px solid ${C.border}` }}>
           <StatLead
-            value={`$${totals.won.toFixed(2)}`}
+            value={formatMoney(totals.won)}
             caption="won in brackets" color={C.strike}
-            detail={`$${totals.cost.toFixed(2)} paid in — ${totals.net >= 0 ? "up" : "down"} $${Math.abs(totals.net).toFixed(2)} on side action.`} />
+            detail={`${formatMoney(totals.cost)} paid in — ${totals.net >= 0 ? "up" : "down"} ${formatMoney(Math.abs(totals.net))} on side action.`} />
         </div>
       )}
 
@@ -1963,12 +1966,12 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
       <CollapsibleCard title="Entry &amp; Winnings" expanded={isOpen("money")} onToggle={() => toggle("money")}>
         <div style={S.row}>
           <div style={{ flex: 1 }}>
-            {fieldLabel("Tournament buy in $")}
+            {fieldLabel(`Tournament buy in ${moneySymbol()}`)}
             <input style={S.input} type="number" inputMode="decimal" placeholder="0"
               value={tournament.buyIn} onChange={e => onChange({ ...tournament, buyIn: e.target.value })} />
           </div>
           <div style={{ flex: 1 }}>
-            {fieldLabel("Tournament winnings $")}
+            {fieldLabel(`Tournament winnings ${moneySymbol()}`)}
             <input style={S.input} type="number" inputMode="decimal" placeholder="0"
               value={tournament.winnings} onChange={e => onChange({ ...tournament, winnings: e.target.value })} />
           </div>
@@ -1995,7 +1998,7 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span style={{ color: C.textMuted }}>Tournament buy in</span>
                 <span style={{ color: C.miss, fontWeight: 600 }}>
-                  −${Math.abs(money.buyIn || 0).toFixed(2)}
+                  −{formatMoney(Math.abs(money.buyIn || 0))}
                 </span>
               </div>
               {/* Winnings show even at zero once there was a buy-in:
@@ -2004,7 +2007,7 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
               <div style={{ display: "flex", justifyContent: "space-between", marginTop: "2px" }}>
                 <span style={{ color: C.textMuted }}>Tournament winnings</span>
                 <span style={{ color: C.strike, fontWeight: 600 }}>
-                  +${Math.abs(money.winnings || 0).toFixed(2)}
+                  +{formatMoney(Math.abs(money.winnings || 0))}
                 </span>
               </div>
               {/* Side action on its own two lines, for the same reason
@@ -2014,13 +2017,13 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
                 <div style={{ display: "flex", justifyContent: "space-between", marginTop: "2px" }}>
                   <span style={{ color: C.textMuted }}>Brackets buy in</span>
                   <span style={{ color: C.miss, fontWeight: 600 }}>
-                    −${Math.abs(money.side.cost || 0).toFixed(2)}
+                    −{formatMoney(Math.abs(money.side.cost || 0))}
                   </span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", marginTop: "2px" }}>
                   <span style={{ color: C.textMuted }}>Brackets winnings</span>
                   <span style={{ color: C.strike, fontWeight: 600 }}>
-                    +${Math.abs(money.side.won || 0).toFixed(2)}
+                    +{formatMoney(Math.abs(money.side.won || 0))}
                   </span>
                 </div>
               </>)}
@@ -2028,7 +2031,7 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
             <div style={{ textAlign: "center", fontSize: "13px", fontWeight: 700,
               color: money.net >= 0 ? C.strike : C.miss,
               borderTop: `1px solid ${C.border}`, paddingTop: "6px" }}>
-              {money.net < 0 ? "−" : ""}${Math.abs(money.net).toFixed(2)} net
+              {money.net < 0 ? "−" : ""}{formatMoney(Math.abs(money.net))} net
             </div>
           </div>
         )}
@@ -2152,7 +2155,7 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", padding: "2px 0" }}>
                   <span style={{ color: C.textMuted }}>{b.type || "Side pot"}</span>
                   <span style={{ color: (b.net ?? 0) >= 0 ? C.strike : C.miss }}>
-                    {(b.net ?? 0) < 0 ? "−" : "+"}${Math.abs(b.net ?? 0).toFixed(2)}
+                    {(b.net ?? 0) < 0 ? "−" : "+"}{formatMoney(Math.abs(b.net ?? 0))}
                   </span>
                 </div>
               ))}
@@ -2173,12 +2176,12 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
               display: "flex", justifyContent: "space-between", fontSize: "12px" }}>
               <span style={{ color: C.textMuted }}>Money</span>
               <span>
-                <span style={{ color: C.miss }}>−${Math.abs(money.totalCost).toFixed(2)}</span>
+                <span style={{ color: C.miss }}>−{formatMoney(Math.abs(money.totalCost))}</span>
                 {" / "}
-                <span style={{ color: C.strike }}>+${Math.abs(money.totalWon).toFixed(2)}</span>
+                <span style={{ color: C.strike }}>+{formatMoney(Math.abs(money.totalWon))}</span>
                 {" = "}
                 <span style={{ color: money.net >= 0 ? C.strike : C.miss, fontWeight: 700 }}>
-                  {money.net < 0 ? "−" : ""}${Math.abs(money.net).toFixed(2)}
+                  {money.net < 0 ? "−" : ""}{formatMoney(Math.abs(money.net))}
                 </span>
               </span>
             </div>

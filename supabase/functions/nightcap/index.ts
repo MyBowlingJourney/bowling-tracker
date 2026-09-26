@@ -27,7 +27,7 @@ import { answerLanguage, languageInstruction } from "../_shared/language.ts";
 // is numbers and ids from a closed set; render.ts owns every word of
 // structure, and an id or a value it does not recognise is dropped rather
 // than passed through. See its header -- it is the security boundary.
-import { renderFacts } from "./render.ts";
+import { renderFacts, moneyCurrency } from "./render.ts";
 
 const GEMINI_API_KEY = geminiKey();
 // Flash-Lite, not Flash.
@@ -314,10 +314,14 @@ Deno.serve(async (req) => {
     }
     let payload: Record<string, unknown> | undefined;
     let lang = answerLanguage(null);
+    // The bowler's money sign, from render.ts's closed list; "$" when
+    // absent, which is every app released before it was sent.
+    let currency = "$";
     try {
       const parsed = JSON.parse(raw);
       ({ payload } = parsed);
       lang = answerLanguage(parsed);
+      currency = moneyCurrency(parsed?.currency);
     } catch {
       return json({ error: "Bad request." }, CORS, 400);
     }
@@ -371,6 +375,7 @@ Deno.serve(async (req) => {
       ballNames: NAME_BALLS,
       teamNames: NAME_TEAMMATES,
       event: isTournamentEvent ? "tournament" : "league",
+      currency,
     });
 
     // Defence in depth. The client already refuses to call with a thin

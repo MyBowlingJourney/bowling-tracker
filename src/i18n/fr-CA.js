@@ -588,7 +588,6 @@ export const FR_CA = {
 "Helped hang a teammate 30 times.": "Vous avez contribué 30 fois à laisser un membre de l'équipe en plan.",
 "Won a side game.": "Vous avez gagné une cagnotte.",
 "Money bags": "Plein aux as",
-"$100 won in side games, all-time.": "$100 gagnés en cagnottes, au total.",
 "Locked in": "Coulé dans le béton",
 "Your book average was confirmed at season end.": "Votre moyenne établie a été confirmée à la fin de la saison.",
 "Twelve strikes. The one you'll be telling people about.": "Douze abats. Celle que vous allez raconter à tout le monde.",
@@ -1483,12 +1482,8 @@ export const FR_CA = {
 "— you won't need to enter them again.": "— vous n'aurez pas à les saisir de nouveau.",
 "Buy-in per game": "Mise par partie",
 "not playing": "ne participe pas",
-"tonight · $": "ce soir · $",
 "paid in": "misés",
-"Poker Winnings ($)": "Gains au poker ($)",
-"High Game Pot ($)": "Cagnotte de la meilleure partie ($)",
 "Highest game in the league takes it — enter what you won, if anything.": "La meilleure partie de la ligue la remporte — indiquez ce que vous avez gagné, s'il y a lieu.",
-"3-6-9 Winnings ($)": "Gains au 3-6-9 ($)",
 "All nine struck — you took it": "Les neuf abats réussis — la cagnotte est à vous",
 ", and the tenth carried for the jackpot": ", et votre 10e carreau vous donne droit au gros lot",
 "Pot": "Cagnotte",
@@ -2287,8 +2282,6 @@ export const FR_CA = {
 "Tracked separately from the main entry, so you can see which of these actually pay for themselves.": "Suivis séparément de l'inscription principale, pour voir lesquels sont vraiment rentables.",
 "Label (optional)": "Nom (facultatif)",
 "Entries": "Inscriptions",
-"$ Each": "$ chacune",
-"Cost $": "Coût $",
 "won in brackets": "gagnés dans les tableaux",
 "The head-to-head block after the cut. Bonus pins vary by tournament — set them to whatever this event uses.": "Le bloc en face-à-face qui suit le seuil de qualification. Le boni en quilles varie d'un tournoi à l'autre — inscrivez celui de cet événement.",
 "Date bowled": "Date de jeu",
@@ -2666,8 +2659,6 @@ export const FR_CA = {
 "Free fall against string pins. Set the rack type on two centers — or on one mixed house, with its free-fall lanes.": "Chute libre contre planteuse à ficelles. Indiquez le type de planteuse de deux salles de quilles — ou d'une seule salle mixte, avec ses allées à chute libre.",
 "Right-handed, backup": "Droitier, effet inversé",
 "Left-handed, backup": "Gaucher, effet inversé",
-"Tournament buy in $": "Inscription au tournoi ($)",
-"Tournament winnings $": "Gains du tournoi ($)",
 "milestones": "jalons",
 "Spring Masters": "Classique du printemps",
 "Changing the language": "Changer la langue",
@@ -2712,7 +2703,6 @@ export const FR_CA = {
 "Runner-up": "Deuxième place",
 "Pin-to-PAP": "Pin-to-PAP",
 "Pin-to-COG": "Pin-to-COG",
-"Won $": "Gains ($)",
 "placeholder::Score": "Pts",
 "— choose a ball —": "— boule —",
 "field::Rev rate": "Rotation",
@@ -2929,7 +2919,9 @@ export const FR_CA = {
 "hand::Right": "Droite",
 "hand::Left": "Gauche",
 "confidence::Not yet": "Pas encore",
-"Frames where every teammate struck but one. Log your teammates' frames on a league night.": "Carreaux où tous vos coéquipiers ont réussi un abat, sauf un. Enregistrez les carreaux de vos coéquipiers lors d'une soirée de ligue."
+"Frames where every teammate struck but one. Log your teammates' frames on a league night.": "Carreaux où tous vos coéquipiers ont réussi un abat, sauf un. Enregistrez les carreaux de vos coéquipiers lors d'une soirée de ligue.",
+"tonight ·": "ce soir ·",
+"Cost": "Coût"
 },
 "patterns": [
 [
@@ -3737,8 +3729,8 @@ export const FR_CA = {
 "{0}% d'abats · {1}% de réserves"
 ],
 [
-"{0}${1} on the season",
-"{0}${1} sur la saison"
+"{0}{1} on the season",
+"{0}{1} sur la saison"
 ],
 [
 "{0} – now",
@@ -3829,8 +3821,8 @@ export const FR_CA = {
 "+{0} autres"
 ],
 [
-"Won ${0} in side pots",
-"Gains de ${0} dans les cagnottes"
+"Won {0} in side pots",
+"Gains de {0} dans les cagnottes"
 ],
 [
 "Hit my goal: {0}",
@@ -3917,12 +3909,12 @@ export const FR_CA = {
 "Finale à échelons : {0} {0|match remporté|matchs remportés} sur {1}{2}"
 ],
 [
-"Up ${0} on the day",
-"Gain de ${0} pour la journée"
+"Up {0} on the day",
+"Gain de {0} pour la journée"
 ],
 [
-"Down ${0} on the day",
-"Perte de ${0} pour la journée"
+"Down {0} on the day",
+"Perte de {0} pour la journée"
 ],
 [
 "{0} game{1:s} · {2} average",
@@ -4401,16 +4393,16 @@ export const FR_CA = {
 "Touchez celles auxquelles vous participez. Les mises sont enregistrées pour {0} — vous n'aurez pas à les saisir de nouveau."
 ],
 [
-"{0} game{1:s} tonight · ${2} paid in",
-"{0} {0|partie|parties} ce soir · ${2} misés"
+"{0} game{1:s} tonight · {2} paid in",
+"{0} {0|partie|parties} ce soir · {2} misés"
 ],
 [
 "All nine struck — you took it{0}.",
 "Les neuf abats réussis — la cagnotte est à vous{0}."
 ],
 [
-"${0} paid in — {1} ${2} on the night.",
-"${0} misés — {1} de ${2} pour la soirée."
+"{0} paid in — {1} {2} on the night.",
+"{0} misés — {1} de {2} pour la soirée."
 ],
 [
 "Counts for {0}. Bowled today — change the date above if that's the wrong week.",
@@ -4937,8 +4929,8 @@ export const FR_CA = {
 "Équipe : {0}"
 ],
 [
-"${0} paid in — {1} {2} overall.",
-"${0} en mises — {1} de {2} au total."
+"{0} paid in — {1} {2} overall.",
+"{0} en mises — {1} de {2} au total."
 ],
 [
 "{0} win{1:s} and {2} jackpot{3:s}.",
@@ -5109,8 +5101,8 @@ export const FR_CA = {
 "{0} Tableaux et cagnottes"
 ],
 [
-"${0} paid in — {1} ${2} on side action.",
-"${0} misés — {1} de ${2} en cagnottes et tableaux."
+"{0} paid in — {1} {2} on side action.",
+"{0} misés — {1} de {2} en cagnottes et tableaux."
 ],
 [
 "{0} Match Play",
@@ -5189,8 +5181,8 @@ export const FR_CA = {
 "Selon la finale à échelons : {0} — {1}"
 ],
 [
-"{0}${1} net",
-"{0}${1} net"
+"{0}{1} net",
+"{0}{1} net"
 ],
 [
 "({0} game{1:s})",
@@ -5281,8 +5273,8 @@ export const FR_CA = {
 "Moy. {0} ⟨0⟩ · {1} p."
 ],
 [
-"${0} won⟨0⟩${1} in",
-"${0} gagnés⟨0⟩${1} misés"
+"{0} won⟨0⟩{1} in",
+"{0} gagnés⟨0⟩{1} misés"
 ],
 [
 "Suggested new book average: ⟨0⟩ — {0}.{1} Change the number below if this doesn't match your full season.",
@@ -5313,8 +5305,8 @@ export const FR_CA = {
 "⟨0⟩ veut rejoindre {0}"
 ],
 [
-"Cost ${0} · ⟨0⟩",
-"Coût ${0} · ⟨0⟩"
+"Cost {0} · ⟨0⟩",
+"Coût {0} · ⟨0⟩"
 ],
 [
 "{0} wants to be your coach",
@@ -5525,28 +5517,28 @@ export const FR_CA = {
 "En baisse d'environ {0} sur cette période."
 ],
 [
-"${0} paid in — up ${1} on the night.",
-"Mise : ${0} — gain de ${1} pour la soirée."
+"{0} paid in — up {1} on the night.",
+"Mise : {0} — gain de {1} pour la soirée."
 ],
 [
-"${0} paid in — down ${1} on the night.",
-"Mise : ${0} — perte de ${1} pour la soirée."
+"{0} paid in — down {1} on the night.",
+"Mise : {0} — perte de {1} pour la soirée."
 ],
 [
-"${0} paid in — up {1} overall.",
-"Mises : ${0} — gain de {1} au total."
+"{0} paid in — up {1} overall.",
+"Mises : {0} — gain de {1} au total."
 ],
 [
-"${0} paid in — down {1} overall.",
-"Mises : ${0} — perte de {1} au total."
+"{0} paid in — down {1} overall.",
+"Mises : {0} — perte de {1} au total."
 ],
 [
-"${0} paid in — up ${1} on side action.",
-"Mises : ${0} — gain de ${1} en cagnottes et tableaux."
+"{0} paid in — up {1} on side action.",
+"Mises : {0} — gain de {1} en cagnottes et tableaux."
 ],
 [
-"${0} paid in — down ${1} on side action.",
-"Mises : ${0} — perte de ${1} en cagnottes et tableaux."
+"{0} paid in — down {1} on side action.",
+"Mises : {0} — perte de {1} en cagnottes et tableaux."
 ],
 [
 "Hide {0}",
@@ -5899,6 +5891,42 @@ export const FR_CA = {
 [
 "The {0} plan starts today at {1} and renews on its own until you cancel.",
 "Le forfait {0} entre en vigueur aujourd'hui au prix de {1} et se renouvelle automatiquement jusqu'à ce que vous l'annuliez."
+],
+[
+"{0:m} game",
+"Partie à {0}"
+],
+[
+"{0} won in side games, all-time.",
+"{0} gagnés en cagnottes, au total."
+],
+[
+"Poker Winnings ({0})",
+"Gains au poker ({0})"
+],
+[
+"High Game Pot ({0})",
+"Cagnotte de la meilleure partie ({0})"
+],
+[
+"3-6-9 Winnings ({0})",
+"Gains au 3-6-9 ({0})"
+],
+[
+"{0} Each",
+"{0} chacune"
+],
+[
+"Tournament buy in {0}",
+"Inscription au tournoi ({0})"
+],
+[
+"Tournament winnings {0}",
+"Gains du tournoi ({0})"
+],
+[
+"Won {0}",
+"Gains ({0})"
 ]
 ],
 "fragments": [
@@ -5955,7 +5983,7 @@ export const FR_CA = {
 "Clear all",
 "Composite average at each position in the night, across the whole season — shows whether",
 "Connected. They",
-"Cost $",
+"Cost",
 "Delete game",
 "Delete this night?",
 "Do I fall off in game three?",
@@ -6193,7 +6221,7 @@ export const FR_CA = {
 "to see who owes a round.",
 "to tell a real pattern from noise. Treat this as a preview, not a conclusion, until then.",
 "today.",
-"tonight · $",
+"tonight ·",
 "total ·",
 "tournament bag. Extra bags — a short-pattern tournament bag, a sport shot bag — are part of the paid plan. Nothing you have already packed goes anywhere.",
 "vs the cut",

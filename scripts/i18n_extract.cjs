@@ -349,7 +349,9 @@ if (process.argv.includes("--missing")) {
   const CATALOGS = { fr: ["fr-CA.js", "French"], es: ["es-419.js", "Spanish"], ja: ["ja-JP.js", "Japanese"], ko: ["ko-KR.js", "Korean"] };
   const li = process.argv.indexOf("--lang");
   const only = li > 0 ? process.argv[li + 1] : null;
-  const norm2 = t => t.replace(/\{(\d+):s\}/g, "{$1}").replace(/\s+/g, " ").trim();
+  // {1:s} (plural ending) and {0:m} (money) are the engine's markers on a
+  // placeholder; the code's own text has a bare {n} there.
+  const norm2 = t => t.replace(/\{(\d+):[sm]\}/g, "{$1}").replace(/\s+/g, " ").trim();
   let total = 0;
   for (const [code, [file, name]] of Object.entries(CATALOGS)) {
     if (only && only !== code) continue;

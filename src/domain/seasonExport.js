@@ -1,3 +1,4 @@
+import { formatMoney } from "./currency.js";
 
 // Money fields are per-game triples, not a single winnings array.
 function sum3(v) {
@@ -182,6 +183,6 @@ export function summaryToText(sum) {
   ];
   if (sum.gamesOver200) lines.push(`${sum.gamesOver200} game${sum.gamesOver200 === 1 ? "" : "s"} over 200`);
   if (sum.strikeRate !== null) lines.push(`${sum.strikeRate}% strikes · ${sum.spareRate}% spares`);
-  if (sum.won || sum.paid) lines.push(`${sum.net >= 0 ? "+" : "−"}$${Math.abs(sum.net).toFixed(0)} on the season`);
+  if (sum.won || sum.paid) lines.push(`${sum.net >= 0 ? "+" : "−"}${formatMoney(Math.abs(sum.net), { decimals: 0 })} on the season`);
   return lines.join("\n");
 }

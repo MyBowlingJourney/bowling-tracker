@@ -10,6 +10,7 @@
 // for the ones that show it (Messages, Instagram, WhatsApp).
 
 import { APP_NAME, APP_URL } from "../constants.js";
+import { formatMoney } from "./currency.js";
 
 // Re-exported, not redeclared.
 //
@@ -266,7 +267,7 @@ export function sessionHighlights(arg) {
   const high = clean.length ? Math.max(...clean) : null;
 
   // 1. Money first -- it's the least common and the most fun to post.
-  if (moneyWon > 0) out.push(`Won $${moneyWon} in side pots`);
+  if (moneyWon > 0) out.push(`Won ${formatMoney(moneyWon, { raw: true })} in side pots`);
 
   // 2. A goal you set and then hit is the whole point of setting it.
   for (const g of goalsHit.slice(0, 2)) out.push(`Hit my goal: ${g}`);
@@ -670,7 +671,7 @@ export function tournamentLines(t) {
   }
   const net = num(o.net);
   if (net !== null && net !== 0) {
-    out.push(net > 0 ? `Up $${Math.abs(net).toFixed(2)} on the day` : `Down $${Math.abs(net).toFixed(2)} on the day`);
+    out.push(net > 0 ? `Up ${formatMoney(Math.abs(net))} on the day` : `Down ${formatMoney(Math.abs(net))} on the day`);
   }
   return out;
 }

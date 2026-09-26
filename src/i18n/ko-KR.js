@@ -592,7 +592,6 @@ export const KO_KR = {
 "Helped hang a teammate 30 times.": "팀원 한 명만 스트라이크를 놓친 프레임에서 30번 스트라이크를 쳤어요.",
 "Won a side game.": "사이드 게임에서 이겼어요.",
 "Money bags": "돈방석",
-"$100 won in side games, all-time.": "사이드 게임에서 통산 $100 획득.",
 "Locked in": "도장 쾅",
 "Your book average was confirmed at season end.": "시즌이 끝나고 공인 에버리지가 확정됐어요.",
 "Twelve strikes. The one you'll be telling people about.": "스트라이크 12개. 두고두고 이야기하게 될 게임이에요.",
@@ -1487,12 +1486,8 @@ export const KO_KR = {
 "— you won't need to enter them again.": "— 다시 입력할 필요가 없어요.",
 "Buy-in per game": "게임당 참가비",
 "not playing": "참가 안 함",
-"tonight · $": "(오늘) · $",
 "paid in": "참가비",
-"Poker Winnings ($)": "포커 상금($)",
-"High Game Pot ($)": "하이 게임 팟($)",
 "Highest game in the league takes it — enter what you won, if anything.": "리그에서 가장 높은 게임을 친 볼러가 가져가요 — 받은 금액이 있으면 입력하세요.",
-"3-6-9 Winnings ($)": "3-6-9 상금($)",
 "All nine struck — you took it": "9개 프레임 모두 스트라이크 — 팟을 획득",
 ", and the tenth carried for the jackpot": "하고, 10프레임까지 스트라이크로 잭팟도 획득",
 "Pot": "팟",
@@ -2291,8 +2286,6 @@ export const KO_KR = {
 "Tracked separately from the main entry, so you can see which of these actually pay for themselves.": "메인 참가비와 따로 기록하니, 이 중 어떤 게 실제로 본전을 뽑는지 알 수 있어요.",
 "Label (optional)": "이름(선택)",
 "Entries": "엔트리 수",
-"$ Each": "엔트리당 $",
-"Cost $": "비용 $",
 "won in brackets": "브래킷 획득 상금",
 "The head-to-head block after the cut. Bonus pins vary by tournament — set them to whatever this event uses.": "컷 통과 후 치르는 맞대결 블록이에요. 보너스 핀은 대회마다 다르니, 이 대회 규정에 맞게 설정하세요.",
 "Date bowled": "경기 날짜",
@@ -2670,8 +2663,6 @@ export const KO_KR = {
 "Free fall against string pins. Set the rack type on two centers — or on one mixed house, with its free-fall lanes.": "프리폴과 스트링을 비교해요. 볼링장 두 곳의 핀세터 종류를 설정하세요 — 또는 프리폴 레인이 있는 혼합형 볼링장 한 곳이면 돼요.",
 "Right-handed, backup": "오른손, 백업 볼",
 "Left-handed, backup": "왼손, 백업 볼",
-"Tournament buy in $": "대회 참가비($)",
-"Tournament winnings $": "대회 상금($)",
 "milestones": "마일스톤",
 "Spring Masters": "스프링 마스터스",
 "Changing the language": "언어 바꾸기",
@@ -2716,7 +2707,6 @@ export const KO_KR = {
 "Runner-up": "준우승",
 "Pin-to-PAP": "핀~PAP 거리",
 "Pin-to-COG": "핀~COG 거리",
-"Won $": "획득 상금($)",
 "placeholder::Score": "점수",
 "— choose a ball —": "— 볼 선택 —",
 "field::Rev rate": "회전수",
@@ -2943,7 +2933,9 @@ export const KO_KR = {
 "hand::Right": "오른손",
 "hand::Left": "왼손",
 "confidence::Not yet": "아직 표본 부족",
-"Frames where every teammate struck but one. Log your teammates' frames on a league night.": "팀원이 모두 스트라이크를 친 프레임에서 혼자만 놓친 횟수예요. 리그 날에 팀원들의 프레임도 기록해 주세요."
+"Frames where every teammate struck but one. Log your teammates' frames on a league night.": "팀원이 모두 스트라이크를 친 프레임에서 혼자만 놓친 횟수예요. 리그 날에 팀원들의 프레임도 기록해 주세요.",
+"tonight ·": "(오늘) ·",
+"Cost": "비용"
 },
 "patterns": [
 [
@@ -3751,8 +3743,8 @@ export const KO_KR = {
 "스트라이크 {0}% · 스페어 {1}%"
 ],
 [
-"{0}${1} on the season",
-"시즌 손익 {0}${1}"
+"{0}{1} on the season",
+"시즌 손익 {0}{1}"
 ],
 [
 "{0} – now",
@@ -3843,8 +3835,8 @@ export const KO_KR = {
 "외 {0}개"
 ],
 [
-"Won ${0} in side pots",
-"사이드 팟에서 ${0} 획득"
+"Won {0} in side pots",
+"사이드 팟에서 {0} 획득"
 ],
 [
 "Hit my goal: {0}",
@@ -3931,12 +3923,12 @@ export const KO_KR = {
 "스텝래더: {1}스텝 중 {0}승{2}"
 ],
 [
-"Up ${0} on the day",
-"이날 ${0} 이익"
+"Up {0} on the day",
+"이날 {0} 이익"
 ],
 [
-"Down ${0} on the day",
-"이날 ${0} 손실"
+"Down {0} on the day",
+"이날 {0} 손실"
 ],
 [
 "{0} game{1:s} · {2} average",
@@ -4415,16 +4407,16 @@ export const KO_KR = {
 "참가하는 게임을 탭하세요. 참가비는 {0} 기준으로 저장돼요 — 다시 입력할 필요가 없어요."
 ],
 [
-"{0} game{1:s} tonight · ${2} paid in",
-"오늘 {0}게임 · 참가비 ${2}"
+"{0} game{1:s} tonight · {2} paid in",
+"오늘 {0}게임 · 참가비 {2}"
 ],
 [
 "All nine struck — you took it{0}.",
 "9개 프레임 모두 스트라이크 — 팟을 획득{0}했어요."
 ],
 [
-"${0} paid in — {1} ${2} on the night.",
-"참가비 ${0} — 오늘 잔액 ${2} {1}."
+"{0} paid in — {1} {2} on the night.",
+"참가비 {0} — 오늘 잔액 {2} {1}."
 ],
 [
 "Counts for {0}. Bowled today — change the date above if that's the wrong week.",
@@ -4951,8 +4943,8 @@ export const KO_KR = {
 "팀: {0}"
 ],
 [
-"${0} paid in — {1} {2} overall.",
-"참가비 ${0} — 총 잔액 {2} {1}."
+"{0} paid in — {1} {2} overall.",
+"참가비 {0} — 총 잔액 {2} {1}."
 ],
 [
 "{0} win{1:s} and {2} jackpot{3:s}.",
@@ -5123,8 +5115,8 @@ export const KO_KR = {
 "{0} 브래킷 및 사이드 팟"
 ],
 [
-"${0} paid in — {1} ${2} on side action.",
-"참가비 ${0} — 브래킷·사이드 팟 잔액 ${2} {1}."
+"{0} paid in — {1} {2} on side action.",
+"참가비 {0} — 브래킷·사이드 팟 잔액 {2} {1}."
 ],
 [
 "{0} Match Play",
@@ -5203,8 +5195,8 @@ export const KO_KR = {
 "스텝래더 결과: {0} — {1}"
 ],
 [
-"{0}${1} net",
-"순손익 {0}${1}"
+"{0}{1} net",
+"순손익 {0}{1}"
 ],
 [
 "({0} game{1:s})",
@@ -5295,8 +5287,8 @@ export const KO_KR = {
 "에버 {0} ⟨0⟩ · {1}게임"
 ],
 [
-"${0} won⟨0⟩${1} in",
-"획득 상금 ${0}⟨0⟩참가비 ${1}"
+"{0} won⟨0⟩{1} in",
+"획득 상금 {0}⟨0⟩참가비 {1}"
 ],
 [
 "Suggested new book average: ⟨0⟩ — {0}.{1} Change the number below if this doesn't match your full season.",
@@ -5327,8 +5319,8 @@ export const KO_KR = {
 "⟨0⟩ 님이 {0}에 가입을 요청했어요"
 ],
 [
-"Cost ${0} · ⟨0⟩",
-"비용 ${0} · ⟨0⟩"
+"Cost {0} · ⟨0⟩",
+"비용 {0} · ⟨0⟩"
 ],
 [
 "{0}% strikes",
@@ -5531,28 +5523,28 @@ export const KO_KR = {
 "이 기간 동안 약 {0} 떨어졌어요."
 ],
 [
-"${0} paid in — up ${1} on the night.",
-"참가비 ${0} — 오늘 이익 ${1}."
+"{0} paid in — up {1} on the night.",
+"참가비 {0} — 오늘 이익 {1}."
 ],
 [
-"${0} paid in — down ${1} on the night.",
-"참가비 ${0} — 오늘 손실 ${1}."
+"{0} paid in — down {1} on the night.",
+"참가비 {0} — 오늘 손실 {1}."
 ],
 [
-"${0} paid in — up {1} overall.",
-"참가비 ${0} — 총 이익 {1}."
+"{0} paid in — up {1} overall.",
+"참가비 {0} — 총 이익 {1}."
 ],
 [
-"${0} paid in — down {1} overall.",
-"참가비 ${0} — 총 손실 {1}."
+"{0} paid in — down {1} overall.",
+"참가비 {0} — 총 손실 {1}."
 ],
 [
-"${0} paid in — up ${1} on side action.",
-"참가비 ${0} — 브래킷·사이드 팟에서 ${1} 이익."
+"{0} paid in — up {1} on side action.",
+"참가비 {0} — 브래킷·사이드 팟에서 {1} 이익."
 ],
 [
-"${0} paid in — down ${1} on side action.",
-"참가비 ${0} — 브래킷·사이드 팟에서 ${1} 손실."
+"{0} paid in — down {1} on side action.",
+"참가비 {0} — 브래킷·사이드 팟에서 {1} 손실."
 ],
 [
 "Hide {0}",
@@ -6141,6 +6133,42 @@ export const KO_KR = {
 [
 "The {0} plan starts today at {1} and renews on its own until you cancel.",
 "{0} 플랜이 오늘 시작되며 요금은 {1}(이)에요. 해지할 때까지 자동으로 갱신돼요."
+],
+[
+"{0:m} game",
+"{0} 게임"
+],
+[
+"{0} won in side games, all-time.",
+"사이드 게임에서 통산 {0} 획득."
+],
+[
+"Poker Winnings ({0})",
+"포커 상금({0})"
+],
+[
+"High Game Pot ({0})",
+"하이 게임 팟({0})"
+],
+[
+"3-6-9 Winnings ({0})",
+"3-6-9 상금({0})"
+],
+[
+"{0} Each",
+"엔트리당 {0}"
+],
+[
+"Tournament buy in {0}",
+"대회 참가비({0})"
+],
+[
+"Tournament winnings {0}",
+"대회 상금({0})"
+],
+[
+"Won {0}",
+"획득 상금({0})"
 ]
 ],
 "fragments": [
@@ -6197,7 +6225,7 @@ export const KO_KR = {
 "Clear all",
 "Composite average at each position in the night, across the whole season — shows whether",
 "Connected. They",
-"Cost $",
+"Cost",
 "Delete game",
 "Delete this night?",
 "Do I fall off in game three?",
@@ -6435,7 +6463,7 @@ export const KO_KR = {
 "to see who owes a round.",
 "to tell a real pattern from noise. Treat this as a preview, not a conclusion, until then.",
 "today.",
-"tonight · $",
+"tonight ·",
 "total ·",
 "tournament bag. Extra bags — a short-pattern tournament bag, a sport shot bag — are part of the paid plan. Nothing you have already packed goes anywhere.",
 "vs the cut",

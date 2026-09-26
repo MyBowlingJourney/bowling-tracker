@@ -1,6 +1,12 @@
 import { C, S, F } from "./ui.jsx";
 import { TOUR_TRACKS, FIRST_TOUR } from "./domain/tour.js";
 import journeyIcon from "../journey-icon.png";
+import { formatMoney, scaleMoney } from "./domain/currency.js";
+
+// A whole-number sample amount, scaled to the local currency: "$12" in
+// dollars (as these screens always read), "₩12,000" in won.
+const sampleMoney = (dollars, signed = false) =>
+  formatMoney(scaleMoney(dollars), { decimals: 0, signed });
 
 // Mock-ups built from the app's OWN style tokens.
 //
@@ -801,7 +807,9 @@ const SCREENS = {
         <Row left="Games" right="212 · 187 · 226" />
         <Row left="Series" right="625" colour={C.strike} />
         <Row left="vs average" right="+18" colour={C.strike} />
-        <Row left="Won" right="$12 (3-6-10)" />
+        {/* Sample money in the bowler's own currency: a walkthrough
+            showing "$12" to a bowler in Seoul teaches the wrong screen. */}
+        <Row left="Won" right={`${sampleMoney(12)} (3-6-10)`} />
       </div>
       <Nav active={0} />
     </Phone>
@@ -1004,8 +1012,8 @@ const SCREENS = {
         </div>
       </Spot>
       <div style={card}>
-        <Row left="Brackets" right="+$45" colour={C.strike} />
-        <Row left="Net" right="+$20" colour={C.strike} />
+        <Row left="Brackets" right={sampleMoney(45, true)} colour={C.strike} />
+        <Row left="Net" right={sampleMoney(20, true)} colour={C.strike} />
       </div>
       <Note up={false}>Every phase, and what it paid</Note>
       <Nav active={0} />

@@ -58,7 +58,7 @@ import { maxPossibleScore,
 } from "./domain/scoring.js";
 import { emptyShot, computeSessionStats, findExistingShotSlot } from "./domain/sessions.js";
 import { teammateImportRows } from "./domain/teamImports.js";
-import { buyInsForLeague, costArraysFor } from "./domain/money.js";
+import { buyInsForLeague, costArraysFor, defaultBuyIns } from "./domain/money.js";
 import { normalizeLayout } from "./domain/layouts.js";
 import { profileFromRow, profileToRow, emptyProfile, normalizeProfile, resolveHandedness, effectiveLeftHanded, suggestBookAverage, resolveHomeCenters } from "./domain/profiles.js";
 import { emptyTournament, normalizeTournament, tournamentToRow, tournamentFromRow, scratchExcludedLeagues } from "./domain/tournaments.js";
@@ -3250,8 +3250,9 @@ export default function BowlingTracker(){
     // otherwise. Falls back to the bowler's last known center if geolocation
     // is refused, so the picker still works without location permission.
     // Not in Korea: there the phone's location is never asked for (see
-    // deviceLocationAllowed), and the search is anchored on the bowler's
-    // last centre or the middle of the country instead.
+    // deviceLocationAllowed), and the search is always anchored on the
+    // middle of the country -- not on the bowler's last centre either,
+    // since where someone bowls says roughly where they are.
     let tz="";
     try{tz=Intl.DateTimeFormat().resolvedOptions().timeZone||"";}catch{}
     const locationAllowed=deviceLocationAllowed(tz);
@@ -3264,17 +3265,22 @@ export default function BowlingTracker(){
       );
     });
     const fallback=centers.find(c=>c.lat!=null);
-    const at=coords||(fallback?{lat:fallback.lat,lng:fallback.lng}:null)||(!locationAllowed?COUNTRY_SEARCH_ANCHOR[tz]||null:null);
+    const at=!locationAllowed
+      ?(COUNTRY_SEARCH_ANCHOR[tz]||null)
+      :(coords||(fallback?{lat:fallback.lat,lng:fallback.lng}:null));
     if(!at)return{error:"Location is needed to find nearby centers. Allow location access, or add the center by name."};
 
     // Nearby centres already fetched: match the typing against them first.
     // Only when none match (a farther house, or a name typed out in full)
     // does it ask the server again.
+    // A distance measured from the middle of the country means nothing to
+    // the bowler, so it isn't shown there.
+    const withoutDistance=list=>locationAllowed?list:list.map(c=>({...c,distance:null}));
     const cacheKey=`${at.lat.toFixed(2)},${at.lng.toFixed(2)}`;
     const cached=nearbyCentersCache;
     if(cached&&cached.key===cacheKey&&Date.now()-cached.at<NEARBY_CENTERS_TTL){
       const local=matchCentersByName(query,cached.list);
-      if(local.length)return{centers:local.slice(0,20)};
+      if(local.length)return{centers:withoutDistance(local.slice(0,20))};
     }
 
     try{
@@ -3289,7 +3295,7 @@ export default function BowlingTracker(){
       }
       if(data?.error)return{error:friendlyFunctionError({status:500,body:data},CENTERS_FALLBACK).text};
       if(Array.isArray(data?.nearby)&&data.nearby.length)nearbyCentersCache={key:cacheKey,at:Date.now(),list:data.nearby};
-      return{centers:data?.centers||[]};
+      return{centers:withoutDistance(data?.centers||[])};
     }catch(e){
       recordError({kind:"function",where:"find-centers",message:String(e?.message||e)});
       return{error:"Couldn't search for centers right now. You can add the center by name instead."};
@@ -7316,7 +7322,9 @@ export default function BowlingTracker(){
       // have to be typed again. Still stored per game on the session, so
       // a one-off week -- skipped the dollar game in game 3 -- stays
       // representable and past nights keep whatever they actually cost.
-      ...costArraysFor(buyInsForLeague(leagueBuyIns,effectiveSessionLeague),scores.length),
+      // Defaults in the bowler's own money: a league with no saved rate
+      // starts from a ₩500 game in Korea, not a quarter.
+      ...costArraysFor(buyInsForLeague(leagueBuyIns,effectiveSessionLeague,defaultBuyIns()),scores.length),
       ...computeSessionStats(nightShots),
     };
     const updated=[...sessions,draft];

@@ -25,6 +25,7 @@ import CenterPicker from "./CenterPicker.jsx";
 import OilPatternPicker from "./OilPatternPicker.jsx";
 import { isContainerLeague, isLeagueHidden, teamsInLeague } from "./domain/leagueMembership.js";
 import { sessionsToCsv, shotsToCsv, seasonSummary, summaryToText } from "./domain/seasonExport.js";
+import { formatMoney } from "./domain/currency.js";
 import { inferLeagueDay, dayName, reminderSpec, reminderToIcs, reminderToGoogleCalendarUrl } from "./domain/reminders.js";
 import { localDateString, APP_URL, APP_NAME } from "./constants.js";
 import { leagueLimit, teamLimit, isSubscriber, isTestAccount, hasPaidSubscription, isTrialing, trialDaysLeft, onProTrial, proTrialDaysLeft } from "./domain/entitlements.js";
@@ -32,7 +33,7 @@ import {
   ENVIRONMENT_LABELS,
   ENVIRONMENT_DESCRIPTIONS,
   MONEY_GAMES,
-  MONEY_GAME_LABELS,
+  moneyGameLabel,
   isMoneyGameShown,
   setMoneyGameHidden,
   setTheme,
@@ -630,7 +631,7 @@ export default function Settings({
                       {(sum.won || sum.paid) ? (
                         <div className="mbj-history-stat" style={S.statBox}>
                           <div style={{ ...S.statNum, fontSize: "18px", color: sum.net >= 0 ? C.strike : C.miss }}>
-                            {sum.net < 0 ? "−" : "+"}${Math.abs(sum.net).toFixed(0)}
+                            {sum.net < 0 ? "−" : "+"}{formatMoney(Math.abs(sum.net), { decimals: 0 })}
                           </div>
                           <div style={S.statLbl}>Net</div>
                         </div>
@@ -1729,7 +1730,7 @@ export default function Settings({
               return (
                 <div key={g} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0" }}>
                   <span style={{ fontSize: "13px", color: shown ? C.text : C.textMuted }}>
-                    {MONEY_GAME_LABELS[g]}
+                    {moneyGameLabel(g)}
                   </span>
                   <Chip label={shown ? "Shown" : "Hidden"} dense selected={shown}
                     onToggle={() => apply(prev => setMoneyGameHidden(prev, g, shown))}

@@ -12,6 +12,7 @@ import {
 } from "./domain/stats.js";
 import { lineupSort } from "./domain/leagues.js";
 import { totalMoney } from "./domain/money.js";
+import { formatMoney } from "./domain/currency.js";
 import { isContainerLeague } from "./domain/leagueMembership.js";
 import { anyMoneyGameShown, visibleStatsCardOrder, MOVABLE_STATS_CARDS, defaultStatsCardOrder } from "./domain/preferences.js";
 
@@ -1607,7 +1608,7 @@ anyMoneyGameShown(preferences)&&(()=>{
                     {label:"High Game Pot",data:m.highGame},
                     {label:"3-6-9",data:m.threeSixNine},
                   ].filter(r=>r.data.gross!==0||r.data.cost!==0);
-                  const fmt=v=>`${v<0?"−":""}$${Math.abs(v).toFixed(2)}`;
+                  const fmt=v=>`${v<0?"−":""}${formatMoney(Math.abs(v))}`;
                   return(
                     <div style={S.card}>
                       <div style={S.label}>{isTeamView?"Team Side Games":"Side Games"}</div>
@@ -1619,9 +1620,9 @@ anyMoneyGameShown(preferences)&&(()=>{
                           forty" is how the night gets described on the way
                           home. Net is still here, one line down. */}
                       <StatLead
-                        value={`$${m.gross.toFixed(2)}`}
+                        value={formatMoney(m.gross)}
                         caption="won this season" color={C.strike}
-                        detail={`$${m.cost.toFixed(2)} paid in — ${m.net>=0?"up":"down"} ${fmt(Math.abs(m.net))} overall.`}/>
+                        detail={`${formatMoney(m.cost)} paid in — ${m.net>=0?"up":"down"} ${fmt(Math.abs(m.net))} overall.`}/>
                       {rows.length>0&&(
                         <>
                           {/* A table with headers, not a sum per row.
@@ -1643,10 +1644,10 @@ anyMoneyGameShown(preferences)&&(()=>{
                               alignItems:"center",marginBottom:"4px",fontSize:"13px"}}>
                               <span style={{flex:1,minWidth:0}}>{r.label}</span>
                               <span style={{width:"62px",textAlign:"right",color:C.textMuted}}>
-                                ${r.data.cost.toFixed(2)}
+                                {formatMoney(r.data.cost)}
                               </span>
                               <span style={{width:"62px",textAlign:"right",color:C.textMuted}}>
-                                ${r.data.gross.toFixed(2)}
+                                {formatMoney(r.data.gross)}
                               </span>
                               <span style={{width:"66px",textAlign:"right",fontWeight:700,
                                 color:r.data.net>=0?C.strike:C.miss}}>
@@ -1689,7 +1690,7 @@ anyMoneyGameShown(preferences)&&statsBowler&&(()=>{
                       {/* Money leads -- same call as the Money Games card;
                           wins and jackpots are how it was won. */}
                       <StatLead
-                        value={`$${total369Money}`} caption="won on 3-6-9" color={C.accent}
+                        value={formatMoney(total369Money,{raw:true})} caption="won on 3-6-9" color={C.accent}
                         detail={`${totalWins} win${totalWins===1?"":"s"} and ${totalJackpots} jackpot${totalJackpots===1?"":"s"}.`}/>
                       {/* Night-by-night history removed: this card is about
                           the season total. The per-night detail is already

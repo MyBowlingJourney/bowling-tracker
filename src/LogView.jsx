@@ -2,7 +2,8 @@ import { useState, useRef, useEffect, useMemo, lazy, Suspense} from "react";
 import { C, S, F, Chip, PinDeck, CollapsibleCard, StatLead } from "./ui.jsx";
 import { PLASTIC_BALL, formatDate, localDateString, RESULTS, SURFACES, RELEASES, MISSES, BALL_CHANGE_REASONS, resultsForHandedness, storedResultFor, strikeDescriptionsForHand, storedStrikeDescriptionFor, practiceLeagueDisplayName, tournamentBaseLeagueName } from "./constants.js";
 import { rAvg, cAvg, threeSixNineResults, cumulativeAvgBeforeDate } from "./domain/stats.js";
-import { buyInsForLeague, costArraysFor, sessionMoney } from "./domain/money.js";
+import { buyInsForLeague, costArraysFor, sessionMoney, defaultBuyIns } from "./domain/money.js";
+import { formatMoney, moneySymbol, moneyStep, isDollar, pokerGameLabels } from "./domain/currency.js";
 import { anyMoneyGameShown, visibleMoneyGames } from "./domain/preferences.js";
 import { nextLeagueDate, prebowlConflict } from "./domain/sessions.js";
 import { needsLeagueSetup } from "./domain/tour.js";
@@ -1074,10 +1075,10 @@ export default function LogView({
                         <div style={{fontSize:"19px",fontWeight:700,marginTop:"4px",
                           color:up?C.strike:C.miss,fontVariantNumeric:"tabular-nums",
                           whiteSpace:"nowrap"}}>
-                          {up?"+":"−"}${Math.abs(money.net).toFixed(2)}
+                          {up?"+":"−"}{formatMoney(Math.abs(money.net))}
                         </div>
                         <div style={{fontSize:"10px",color:C.textMuted,marginTop:"2px",lineHeight:1.4}}>
-                          ${money.gross.toFixed(2)} won<br/>${money.cost.toFixed(2)} in
+                          {formatMoney(money.gross)} won<br/>{formatMoney(money.cost)} in
                         </div>
                       </div>
                     </div>
@@ -1177,7 +1178,7 @@ export default function LogView({
                           applies it to tonight. Past nights keep whatever
                           they actually cost. */}
                       {(()=>{
-                        const rates=buyInsForLeague(leagueBuyIns,cs.league);
+                        const rates=buyInsForLeague(leagueBuyIns,cs.league,defaultBuyIns());
                         // Games to charge for. Defaults to a FULL night.
                         //
                         // This was the count of scores entered, which is
@@ -1238,9 +1239,13 @@ export default function LogView({
                           applyCosts(rates,{...playingNow(),[key]:next});
                         };
 
+                        // The poker games are named by their stake outside
+                        // dollar countries ("¥100 game"); a "Quarter game"
+                        // in yen is a game nobody runs.
                         const label={pokerQuarter:"Quarter game",pokerDollar:"Dollar game",
-                                     highGame:"High game",threeSixNine:"3-6-9 (whole night)"};
-                        const step={pokerQuarter:"0.25",pokerDollar:"1",highGame:"1",threeSixNine:"1"};
+                                     highGame:"High game",threeSixNine:"3-6-9 (whole night)",
+                                     ...pokerGameLabels()};
+                        const step={pokerQuarter:moneyStep("0.25"),pokerDollar:"1",highGame:"1",threeSixNine:"1"};
 
                         const owed=pots.reduce((sum,k)=>{
                           if(!isIn(k))return sum;
@@ -1281,14 +1286,14 @@ export default function LogView({
                                   </button>
                                   <input style={{...S.input,width:"90px",fontSize:"13px",padding:"6px 10px",textAlign:"right",
                                     opacity:inIt?1:0.45}}
-                                    type="number" step={step[key]} placeholder="$"
+                                    type="number" step={step[key]} placeholder={moneySymbol()}
                                     value={rates[key]===0?"":rates[key]}
                                     onChange={e=>setRate(key,e.target.value)}/>
                                 </div>
                               );
                             })}
                             <div style={{fontSize:"11px",color:C.textMuted,marginTop:"6px"}}>
-                              {games} game{games===1?"":"s"} tonight · ${owed.toFixed(2)} paid in
+                              {games} game{games===1?"":"s"} tonight · {formatMoney(owed)} paid in
                             </div>
                           </div>
                         );
@@ -1305,7 +1310,7 @@ export default function LogView({
                           selected" is not. */}
                       {(potIsIn(cs,"pokerQuarter")||potIsIn(cs,"pokerDollar"))&&(
                       <div style={{marginBottom:"12px"}}>
-                        <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"6px"}}>Poker Winnings ($)</div>
+                        <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"6px"}}>{`Poker Winnings (${moneySymbol()})`}</div>
                         {/* A row per game of the NIGHT, not per game that
                             already has a score.
                             
@@ -1332,11 +1337,13 @@ export default function LogView({
                             <div key={gameIdx} style={{display:"flex",gap:"8px",alignItems:"center",marginBottom:"6px"}}>
                               <div style={{fontSize:"12px",color:C.textMuted,width:"28px"}}>G{gameIdx+1}</div>
                               {inQuarter&&(
-                                <input style={{...S.input,flex:1,fontSize:"13px",padding:"6px 10px"}} type="number" step="0.25" placeholder="Quarter $"
+                                <input style={{...S.input,flex:1,fontSize:"13px",padding:"6px 10px"}} type="number" step={moneyStep("0.25")}
+                                  placeholder={isDollar()?"Quarter $":pokerGameLabels().pokerQuarter}
                                   value={quarterVal||""} onChange={e=>setPokerWinnings(cs.id,gameIdx,"quarter",e.target.value===""?0:parseFloat(e.target.value))}/>
                               )}
                               {inDollar&&(
-                                <input style={{...S.input,flex:1,fontSize:"13px",padding:"6px 10px"}} type="number" step="1" placeholder="Dollar $"
+                                <input style={{...S.input,flex:1,fontSize:"13px",padding:"6px 10px"}} type="number" step="1"
+                                  placeholder={isDollar()?"Dollar $":pokerGameLabels().pokerDollar}
                                   value={dollarVal||""} onChange={e=>setPokerWinnings(cs.id,gameIdx,"dollar",e.target.value===""?0:parseFloat(e.target.value))}/>
                               )}
                             </div>
@@ -1347,7 +1354,7 @@ export default function LogView({
 
                       {potIsIn(cs,"highGame")&&(
                       <div style={{marginBottom:"12px"}}>
-                        <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"6px"}}>High Game Pot ($)</div>
+                        <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"6px"}}>{`High Game Pot (${moneySymbol()})`}</div>
                         <div style={{fontSize:"11px",color:C.textMuted,marginBottom:"6px"}}>
                           Highest game in the league takes it — enter what you won, if anything.
                         </div>
@@ -1357,7 +1364,7 @@ export default function LogView({
                           return(
                             <div key={gameIdx} style={{display:"flex",gap:"8px",alignItems:"center",marginBottom:"6px"}}>
                               <div style={{fontSize:"12px",color:C.textMuted,width:"64px"}}>G{gameIdx+1}{sc!=null?` · ${sc}`:""}</div>
-                              <input style={{...S.input,flex:1,fontSize:"13px",padding:"6px 10px"}} type="number" step="1" placeholder="Won $"
+                              <input style={{...S.input,flex:1,fontSize:"13px",padding:"6px 10px"}} type="number" step="1" placeholder={`Won ${moneySymbol()}`}
                                 value={val||""} onChange={e=>setSessionMoneyArray(cs.id,"highGameWinnings",gameIdx,e.target.value===""?0:parseFloat(e.target.value))}/>
                             </div>
                           );
@@ -1384,7 +1391,7 @@ export default function LogView({
                         const r369=threeSixNineResults(shots,cs.bowler,cs.league,cs.date);
                         return(
                           <div style={{marginBottom:"12px"}}>
-                            <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"6px"}}>3-6-9 Winnings ($)</div>
+                            <div style={{fontSize:"12px",color:C.textMuted,marginBottom:"6px"}}>{`3-6-9 Winnings (${moneySymbol()})`}</div>
                             {r369.qualifies&&(
                               <div style={{fontSize:"11px",color:C.strike,marginBottom:"6px"}}>
                                 All nine struck — you took it{r369.jackpotEligible?", and the tenth carried for the jackpot":""}.
@@ -1392,13 +1399,13 @@ export default function LogView({
                             )}
                             <div style={{display:"flex",gap:"8px",alignItems:"center",marginBottom:"6px"}}>
                               <div style={{fontSize:"12px",color:C.strike,width:"56px"}}>Pot</div>
-                              <input style={{...S.input,flex:1,fontSize:"13px",padding:"6px 10px"}} type="number" step="1" placeholder="$"
+                              <input style={{...S.input,flex:1,fontSize:"13px",padding:"6px 10px"}} type="number" step="1" placeholder={moneySymbol()}
                                 value={cs.threeSixNineWinnings||""} onChange={e=>setThreeSixNineWinnings(cs.id,"pot",e.target.value===""?0:parseFloat(e.target.value))}/>
                             </div>
                             {(
                               <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
                                 <div style={{fontSize:"12px",color:C.spare,width:"56px"}}>Jackpot</div>
-                                <input style={{...S.input,flex:1,fontSize:"13px",padding:"6px 10px"}} type="number" step="1" placeholder="$"
+                                <input style={{...S.input,flex:1,fontSize:"13px",padding:"6px 10px"}} type="number" step="1" placeholder={moneySymbol()}
                                   value={cs.jackpotWinnings||""} onChange={e=>setThreeSixNineWinnings(cs.id,"jackpot",e.target.value===""?0:parseFloat(e.target.value))}/>
                               </div>
                             )}
@@ -1415,9 +1422,9 @@ export default function LogView({
                         return(
                           <div style={{marginBottom:"12px"}}>
                             <StatLead
-                              value={`$${m.gross.toFixed(2)}`}
+                              value={formatMoney(m.gross)}
                               caption="won tonight" color={C.strike}
-                              detail={`$${m.cost.toFixed(2)} paid in — ${m.net>=0?"up":"down"} $${Math.abs(m.net).toFixed(2)} on the night.`}/>
+                              detail={`${formatMoney(m.cost)} paid in — ${m.net>=0?"up":"down"} ${formatMoney(Math.abs(m.net))} on the night.`}/>
                           </div>
                         );
                       })()}
