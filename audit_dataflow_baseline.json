@@ -7,5 +7,6 @@
   "attributeName": "Not an app data field -- properties of the browser's MutationRecord, read in src/i18n/dom.js where the page translator watches React's changes to the page.",
   "removedNodes": "Not an app data field -- properties of the browser's MutationRecord, read in src/i18n/dom.js where the page translator watches React's changes to the page.",
   "charCodeAt": "String method (caddie.js fingerprint hash), not a record field.",
-  "calls": "Column returned by the my_pro_usage() RPC (20260927130000_reverse_trial.sql)."
+  "calls": "Column returned by the my_pro_usage() RPC (20260927130000_reverse_trial.sql).",
+  "getPropertyValue": "DOM CSSStyleDeclaration method (cardSnapshot.js), not a record field."
 }

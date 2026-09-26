@@ -2895,7 +2895,8 @@ export const FR_CA = {
 "No card is on file, so nothing is charged when the trial ends — you move to Basic unless you choose Pro.": "Aucune carte n'est enregistrée, donc rien n'est facturé à la fin de l'essai — vous passez à Basic à moins de choisir Pro.",
 "You against a teammate. Needs frames for you and at least one teammate in this league.": "Vous contre un coéquipier. Il faut des carreaux pour vous et au moins un coéquipier dans cette ligue.",
 "Teammate": "Coéquipier",
-"This league only. Split Rate is the one where lower is better.": "Cette ligue seulement. Le taux de splits est le seul où plus bas, c'est mieux."
+"This league only. Split Rate is the one where lower is better.": "Cette ligue seulement. Le taux de splits est le seul où plus bas, c'est mieux.",
+"All leagues": "Toutes les ligues"
 },
 "patterns": [
 [
@@ -5829,6 +5830,18 @@ export const FR_CA = {
 [
 "⟨0⟩ {0} · {1} shots",
 "⟨0⟩ {0} · {1} lancers"
+],
+[
+"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{0}\" height=\"{1}\">",
+""
+],
+[
+"<foreignObject x=\"0\" y=\"0\" width=\"100%\" height=\"100%\">{0}</foreignObject></svg>",
+""
+],
+[
+"data:image/svg+xml;charset=utf-8,{0}",
+""
 ]
 ],
 "fragments": [

@@ -106,7 +106,7 @@ async function shareNative({ blob, title, text }) {
   }
 }
 
-export default function ShareButton({ summary, label = "Share", compact = false }) {
+export default function ShareButton({ summary, label = "Share", compact = false, iconOnly = false }) {
   const [state, setState] = useState("idle"); // idle | working | copied | done | failed
   // The rendered card, held open for the preview sheet. Nothing else
   // keeps the object URL, so this component revokes it.
@@ -130,12 +130,15 @@ export default function ShareButton({ summary, label = "Share", compact = false 
     // language: this text leaves the app, so the page translator never
     // sees it. (The picture is drawn in the app's language by the canvas
     // hook in i18n/index.js.)
-    const text = tMessage(summary?.tournament ? tournamentShareText(summary)
+    // A picture made by the caller (a stat card, as it is on screen)
+    // brings its own title and text; everything else is drawn here.
+    const custom = typeof summary?.makeBlob === "function";
+    const text = custom ? tMessage(summary.text || "") : tMessage(summary?.tournament ? tournamentShareText(summary)
       : summary?.trend ? trendShareText(summary)
       : summary?.standings ? standingsShareText(summary)
       : summary?.badges ? badgeShareText(summary.bowler, summary.badges, summary.link, { collection: !!summary.collection, total: summary.total })
       : shareText(summary));
-    const title = t(summary?.tournament ? (summary.event || "Tournament")
+    const title = custom ? t(summary.title || "") : t(summary?.tournament ? (summary.event || "Tournament")
       : summary?.trend ? (summary.label || "Trend")
       : summary?.standings ? "Standings"
       : summary?.badges ? "Badges"
@@ -143,7 +146,9 @@ export default function ShareButton({ summary, label = "Share", compact = false 
     try {
       // The picture is the point, so it is drawn before anything decides
       // how to send it.
-      const blob = await renderCardBlob(summary);
+      const blob = custom
+        ? await summary.makeBlob({ logo: await loadLogo(), colors: C, fonts: F }).catch(() => null)
+        : await renderCardBlob(summary);
 
       if (await shareNative({ blob, title, text })) {
         setState("done"); setTimeout(() => setState("idle"), 1500);
@@ -214,6 +219,31 @@ export default function ShareButton({ summary, label = "Share", compact = false 
       </div>
     </div>
   );
+
+  // Icon only, for the corner of a stat card beside the eye. A state
+  // other than idle still says what happened, next to the icon.
+  if (iconOnly) {
+    return (
+      <>
+      {sheet}
+      <button onClick={share} disabled={state === "working"} data-share-exclude=""
+        aria-label={`Share ${summary?.title || "this card"}`} title={`Share ${summary?.title || "this card"}`}
+        style={{ height: "30px", minWidth: "30px", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px",
+          background: "none", border: "none", padding: 0, cursor: "pointer",
+          color: C.textMuted, opacity: state === "working" ? 0.4 : 0.7, WebkitTapHighlightColor: "transparent" }}>
+        {state !== "idle" && state !== "working" && (
+          <span style={{ fontSize: "10px", color: C.textMuted, whiteSpace: "nowrap" }}>{caption}</span>
+        )}
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7" />
+          <polyline points="16 6 12 2 8 6" />
+          <line x1="12" y1="2" x2="12" y2="15" />
+        </svg>
+      </button>
+      </>
+    );
+  }
 
   return (
     <>

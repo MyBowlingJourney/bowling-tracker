@@ -1,4 +1,7 @@
-import { Fragment, useState } from "react";
+import { Fragment, useState, useRef } from "react";
+import ShareButton from "./ShareButton.jsx";
+import { renderCardShare } from "./cardSnapshot.js";
+import { APP_URL } from "./domain/shareCard.js";
 import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { C, S, F, Chip, CompareBadge, StatLead, StatRow, StatRows, ActionRow, LockedNote, currentThemeId } from "./ui.jsx";
 import { PRACTICE_SESSION_KEY, CASUAL_SESSION_KEY, formatDate, STRIKE_DESCRIPTIONS, RELEASES, BALL_CHANGE_REASONS, strikeDescriptionsForHand, storedStrikeDescriptionFor } from "./constants.js";
@@ -1792,6 +1795,14 @@ anyMoneyGameShown(preferences)&&statsBowler&&(()=>{
                 // whatever Viewing was set to on Mine, so it showed a
                 // teammate's individual numbers, or nothing, until the
                 // bowler went back to Mine and changed it there.
+                // What a shared card says about itself: whose numbers, which
+                // league, and what they are being compared against -- the
+                // same choices that shaped the card on screen.
+                const shareContext = [
+                  statsBowler || (statsLeague ? teamNameForLeague(statsLeague) : displayName),
+                  statsBowler && statsLeague ? teamNameForLeague(statsLeague) : (!statsLeague ? "All leagues" : ""),
+                  showTeamCompare && compareLabel ? `vs ${compareLabel}` : "",
+                ].filter(Boolean).join(" · ");
                 const teamPicker = statsGroup === "team" && leagues.length > 0 && (
                   <div style={S.card}>
                     <div style={S.label}>Team</div>
@@ -1820,7 +1831,7 @@ anyMoneyGameShown(preferences)&&statsBowler&&(()=>{
                         Settings. */}
                     {groupShownCards(shown).map(entry => entry.kind === "group" ? (
                       <Fragment key={`group:${entry.group.id}`}>
-                        <HideableCard label={entry.group.title}
+                        <HideableCard label={entry.group.title} shareContext={shareContext}
                           onHide={() => entry.tabs.forEach(t => onHideStatsCard(t.card))}>
                           <TabbedGroupCard group={entry.group} tabs={entry.tabs}
                             render={card => byId[card]} />
@@ -1829,7 +1840,7 @@ anyMoneyGameShown(preferences)&&statsBowler&&(()=>{
                     ) : (
                       <Fragment key={entry.id}>
                         {entry.id === "viewing" ? byId[entry.id] : (
-                          <HideableCard label={CARD_LABELS[entry.id] || "this card"} onHide={() => onHideStatsCard(entry.id)}>
+                          <HideableCard label={CARD_LABELS[entry.id] || "this card"} shareContext={shareContext} onHide={() => onHideStatsCard(entry.id)}>
                             {byId[entry.id]}
                           </HideableCard>
                         )}
@@ -1871,11 +1882,25 @@ anyMoneyGameShown(preferences)&&statsBowler&&(()=>{
 // sits on the card -- not three screens away in Settings, where it was
 // the only way until now. Brought back with "Unhide Stat Cards" at the
 // bottom of the same chip, or from Settings.
-function HideableCard({ label, onHide, children }) {
+function HideableCard({ label, onHide, children, shareContext = "" }) {
+  const ref = useRef(null);
+  const summary = {
+    title: label,
+    text: [label, shareContext].filter(Boolean).join(" · ") + `\n${APP_URL}`,
+    // The card itself (the shell's first child), not the shell: the shell
+    // also holds the card's bottom margin, which would frame the picture.
+    makeBlob: ({ logo, colors, fonts }) => renderCardShare(ref.current?.firstElementChild || ref.current, { title: label, context: shareContext, colors, fonts, logo }),
+  };
   return (
-    <div className="mbj-stat-card-shell" style={{ position: "relative" }}>
+    <div ref={ref} className="mbj-stat-card-shell" style={{ position: "relative" }}>
       {children}
-      <button
+      {/* Share sits beside the eye. Both are left out of the picture. */}
+      {/* A span, not a div: the stat-card styles paint every direct div
+          child of the shell as a card surface. */}
+      <span data-share-exclude="" style={{ position: "absolute", top: "8px", right: "40px", display: "block" }}>
+        <ShareButton summary={summary} iconOnly />
+      </span>
+      <button data-share-exclude=""
         onClick={onHide}
         aria-label={`Hide ${label}`}
         title={`Hide ${label}`}
