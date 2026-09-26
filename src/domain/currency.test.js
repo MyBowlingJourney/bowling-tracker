@@ -363,3 +363,14 @@ describe('Kuwait', () => {
     expect(inZone('Asia/Kuwait', net)).toBe('Up KD 1.500 on the day');
   });
 });
+
+describe('Taiwan', () => {
+  it('writes New Taiwan dollars whole, with NT$', () => {
+    expect(currencyForZone('Asia/Taipei').id).toBe('twd');
+    expect(formatMoney(1500, { currency: 'twd' })).toBe('NT$1,500');
+    expect(formatMoney(-12.4, { currency: 'twd' })).toBe('−NT$12');
+    expect(moneyBagsThreshold('twd')).toBe(3000);
+    expect(pokerGameLabels('twd')).toEqual({ pokerQuarter: 'NT$10 game', pokerDollar: 'NT$50 game' });
+    expect(milestoneGlyph({ id: 'tourney-cash', target: 1 }, 'twd')).toBe('NT$');
+  });
+});

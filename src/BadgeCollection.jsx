@@ -186,7 +186,7 @@ export default function BadgeCollection({
                 <div style={{ fontSize: "20px", lineHeight: 1.2, opacity: have ? 1 : 0.3, flexShrink: 0 }}
                   aria-hidden="true">{b.emoji}</div>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{
+                  <div data-i18n="badges" style={{
                     fontSize: "13px", fontWeight: have ? 600 : 500,
                     color: have ? C.text : C.textMuted,
                   }}>

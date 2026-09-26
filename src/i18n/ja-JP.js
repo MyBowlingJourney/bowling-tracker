@@ -2931,7 +2931,21 @@ export const JA_JP = {
 "confidence::Not yet": "まだこれから",
 "Frames where every teammate struck but one. Log your teammates' frames on a league night.": "チームメイト全員がストライクを出し、1人だけが逃したフレームです。リーグの日にチームメイトのフレームも記録してください。",
 "tonight ·": "（今日）·",
-"Cost": "費用"
+"Cost": "費用",
+"Hongkong": "",
+"AED 18.99": "",
+"AED 189.99": "",
+"Language · Idioma · Langue · 言語 · 언어 · 語言": "",
+"Language · Idioma · Langue · 言語 · 언어 · 語言 in Settings. Automatic follows your phone's language, or pick English, Español, Français, 日本語, 한국어 or 繁體中文. The app restarts in the language you pick.": "設定の「Language · Idioma · Langue · 言語 · 언어 · 語言」で変更できます。「自動」はスマートフォンの言語に合わせます。English、Español、Français、日本語、한국어、繁體中文から選ぶこともできます。選んだ言語でアプリが再起動します。",
+"format::10 pin": "10ピン",
+"result::Ringing 10": "リンギング",
+"result::Ringing 7": "リンギング",
+"badges::Cashed": "賞金圏入り",
+"tile::Games": "ゲーム",
+"aria-label::Practice. For working on your game. Drills, frame tracking and every detail field are available, and practice scores stay out of your league averages.": "練習. 自分のプレーを磨くためのモードです。ドリル練習、フレームごとの記録、すべての詳細項目が使え、練習のスコアはリーグのアベレージに含まれません。",
+"aria-label::League. For your weekly team night. Your team roster and standings are available, along with side games.": "リーグ. 毎週チームで投げるリーグの日に。チームのメンバーと順位表に加えて、サイドゲームも使えます。",
+"aria-label::Tournament. For higher-stakes competition. Blocks, squads, side pots, brackets, match play and the cut line are all available.": "大会. より真剣勝負の競技に。ブロック、シフト、サイドポット、ブラケット、マッチプレー、カットラインがすべて使えます。",
+"aria-label::Open bowling. For a fun activity. You get the scoresheet, standings and badges — all other views are hidden, not deleted, to keep it quick and simple.": "フリー投球. 気軽に楽しむために。スコアシート、順位表、バッジが使えます — ほかの画面は削除ではなく非表示になり、手早くシンプルに使えます。"
 },
 "patterns": [
 [

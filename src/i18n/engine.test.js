@@ -291,6 +291,47 @@ describe("Korean (ko-KR)", () => {
   });
 });
 
+describe("Traditional Chinese (zh-TW)", () => {
+  const zh = createTranslator({
+    lang: "zh",
+    exact: { "Practice": "練習", "League": "聯賽", "Strikes": "全倒", "Spares": "補中", "Opens": "失誤" },
+    patterns: [
+      ["Starts at {0}", "{0} 開始"],
+      ["Finished {0}.", "拿下{0}。"],
+      ["{0} seed", "{0}種子"],
+      ["{0} joined the team", "{0}加入了球隊"],
+      ["{0} game{1:s} logged", "已記錄{0}局"],
+      ["Frame {0}", "第{0}格"],
+      ["League: {0}", "聯賽：{0}"],
+      ["Tracked: {0}", "已追蹤：{0}"],
+    ],
+  });
+  it("writes times, places and seeds the Taiwanese way", () => {
+    expect(zh.translate("Starts at 7:30 PM")).toBe("下午 7:30 開始");
+    expect(zh.translate("Starts at 9 AM")).toBe("上午 9 開始");
+    expect(zh.translate("Finished 3rd.")).toBe("拿下第 3 名。");
+    expect(zh.translate("2nd seed")).toBe("第 2 種子");
+  });
+  it("puts a space between Chinese and digits or Latin, none by full-width punctuation", () => {
+    expect(zh.translate("3 games logged")).toBe("已記錄 3 局");
+    expect(zh.translate("Frame 10")).toBe("第 10 格");
+    expect(zh.translate("Ryan joined the team")).toBe("Ryan 加入了球隊");
+    expect(zh.translate("League: Practice")).toBe("聯賽：練習");
+  });
+  it("joins a list with 、 and 和", () => {
+    expect(zh.translate("Tracked: Strikes, Spares and Opens")).toBe("已追蹤：全倒、補中和失誤");
+  });
+  it("leaves a typed name exactly as it was typed", () => {
+    zh.protect(["台北Strikers"]);
+    expect(zh.translate("台北Strikers joined the team")).toBe("台北Strikers 加入了球隊");
+    zh.protect([]);
+  });
+  it("keeps English-style numbers", () => {
+    expect(zh.translate("198.4")).toBe("198.4");
+    expect(zh.translate("54%")).toBe("54%");
+  });
+});
+
 describe("messages of several lines", () => {
   const ko = createTranslator({
     lang: "ko",
@@ -352,5 +393,19 @@ describe("money values", () => {
       expect(fr.translate("1 game")).toBe("1 partie");
       expect(fr.translate("3 games")).toBe("3 parties");
     });
+  });
+});
+
+describe("Traditional Chinese values dropped next to Chinese words", () => {
+  const zh = createTranslator({ lang: "zh", patterns: [["Bowls at {0}", "於{0}開打"], ["Took {0}", "拿下{0}"]] });
+  it("writes dates solid and keeps a weight's unit apart", () => {
+    const d = createTranslator({ lang: "zh", patterns: [["Bowled {0}", "打球日期：{0}"], ["Ball weight {0}", "球重 {0}"]] });
+    expect(d.translate("Bowled 9月14日")).toBe("打球日期：9月14日");
+    expect(createTranslator({ lang: "zh", patterns: [["Night of {0}", "{0}的結果"]] }).translate("Night of 9月21日")).toBe("9月21日的結果");
+    expect(d.translate("Ball weight 15lb")).toBe("球重 15 lb");
+  });
+  it("keeps 第 and 下午 against the word before them", () => {
+    expect(zh.translate("Bowls at 7:30 PM")).toBe("於下午 7:30 開打");
+    expect(zh.translate("Took 2nd")).toBe("拿下第 2 名");
   });
 });

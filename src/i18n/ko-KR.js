@@ -2935,7 +2935,21 @@ export const KO_KR = {
 "confidence::Not yet": "아직 표본 부족",
 "Frames where every teammate struck but one. Log your teammates' frames on a league night.": "팀원이 모두 스트라이크를 친 프레임에서 혼자만 놓친 횟수예요. 리그 날에 팀원들의 프레임도 기록해 주세요.",
 "tonight ·": "(오늘) ·",
-"Cost": "비용"
+"Cost": "비용",
+"Hongkong": "",
+"AED 18.99": "",
+"AED 189.99": "",
+"Language · Idioma · Langue · 言語 · 언어 · 語言": "",
+"Language · Idioma · Langue · 言語 · 언어 · 語言 in Settings. Automatic follows your phone's language, or pick English, Español, Français, 日本語, 한국어 or 繁體中文. The app restarts in the language you pick.": "‘설정’의 ‘Language · Idioma · Langue · 言語 · 언어 · 語言’에서 바꿀 수 있어요. ‘자동’은 휴대폰의 언어를 따르며, English, Español, Français, 日本語, 한국어, 繁體中文 중에서 고를 수도 있어요. 선택한 언어로 앱이 다시 시작돼요.",
+"format::10 pin": "10핀",
+"result::Ringing 10": "링잉 텐",
+"result::Ringing 7": "링잉 세븐",
+"badges::Cashed": "상금권 입상",
+"tile::Games": "게임",
+"aria-label::Practice. For working on your game. Drills, frame tracking and every detail field are available, and practice scores stay out of your league averages.": "연습. 실력을 키우기 위한 모드예요. 연습 드릴, 프레임별 기록, 모든 세부 항목을 사용할 수 있고, 연습 점수는 리그 에버리지에 반영되지 않아요.",
+"aria-label::League. For your weekly team night. Your team roster and standings are available, along with side games.": "리그. 매주 팀과 함께하는 리그 날을 위한 모드예요. 팀원 명단과 순위표에 사이드 게임까지 사용할 수 있어요.",
+"aria-label::Tournament. For higher-stakes competition. Blocks, squads, side pots, brackets, match play and the cut line are all available.": "대회. 더 치열한 경쟁을 위한 모드예요. 블록, 조, 사이드 팟, 브래킷, 매치 플레이, 컷라인을 모두 사용할 수 있어요.",
+"aria-label::Open bowling. For a fun activity. You get the scoresheet, standings and badges — all other views are hidden, not deleted, to keep it quick and simple.": "자유 게임. 가볍게 즐기기 위한 모드예요. 점수표, 순위표, 배지를 사용할 수 있어요 — 빠르고 간단하게 쓸 수 있도록 나머지 화면은 삭제하지 않고 숨겨 둬요."
 },
 "patterns": [
 [

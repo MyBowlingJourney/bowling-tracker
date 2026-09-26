@@ -65,12 +65,12 @@ export function isCanadianTimeZone(tz) {
 }
 
 // ── Local prices: Japan, Singapore, Malaysia, the Philippines, Mexico,
-//    South Korea, Hong Kong, India, the UAE and Costa Rica ────────────
+//    South Korea, Hong Kong, India, the UAE, Costa Rica and Taiwan ────
 //
 // The same arrangement as Canada: Play charges these prices, both Stripe
 // prices carry the same amounts as a currency option, and create-checkout
 // asks for that currency when the device is on that country's time. In
-// these ten the price shown is the price paid, tax included, on Play and
+// these eleven the price shown is the price paid, tax included, on Play and
 // on the web alike.
 //
 // Puerto Rico and Bermuda are not here on purpose: they pay in US dollars
@@ -78,9 +78,9 @@ export function isCanadianTimeZone(tz) {
 // get the US prices like any other.
 //
 // Kuwait is not here either: Stripe cannot charge Kuwaiti dinars, so the
-// web charges Kuwait in US dollars, and Play charges its own KD 1.500 /
-// KD 15.000 (Subscribe shows Google's price on Play). Side games there are
-// still in dinars -- see KWD_ZONES in currency.js.
+// web charges Kuwait in US dollars -- as Play does there too ($4.99 /
+// $49.99). Side games there are still in dinars, the house's money -- see
+// KWD_ZONES in currency.js.
 //
 // Asia/Dubai is the UAE's only zone. Oman's phones report Asia/Muscat,
 // so they are not caught by it.
@@ -105,6 +105,8 @@ const LOCAL_PRICING = [
     prices: Object.freeze({ month: "AED 18.99", year: "AED 189.99" }) },
   { zones: ["America/Costa_Rica"], currency: "crc",
     prices: Object.freeze({ month: "₡2,700", year: "₡27,000" }) },
+  { zones: ["Asia/Taipei", "ROC"], currency: "twd",
+    prices: Object.freeze({ month: "NT$170", year: "NT$1,690" }) },
 ];
 const localPricingFor = tz => LOCAL_PRICING.find(r => r.zones.includes(tz)) || null;
 
@@ -124,7 +126,7 @@ export function displayPricesFor(tz) {
 }
 
 // The currency create-checkout is asked for: "cad" in Canada, the local
-// currency in the ten countries above, nothing anywhere else (Stripe
+// currency in the eleven countries above, nothing anywhere else (Stripe
 // then picks, as it always has).
 export function checkoutCurrencyFor(tz) {
   if (isCanadianTimeZone(tz)) return "cad";

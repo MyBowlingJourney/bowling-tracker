@@ -711,9 +711,9 @@ export default function Settings({
           find it; each language's name is written in that language. */}
       {showCard("language") && (() => {
         const choice = chosenLanguage();
-        const names = { en: "English", es: "Español", fr: "Français", ja: "日本語", ko: "한국어" };
+        const names = { en: "English", es: "Español", fr: "Français", ja: "日本語", ko: "한국어", zh: "繁體中文" };
         return (
-      <CollapsibleCard title={<span translate="no">Language · Idioma · Langue · 言語 · 언어</span>}
+      <CollapsibleCard title={<span translate="no">Language · Idioma · Langue · 言語 · 언어 · 語言</span>}
         summary={choice === "auto"
           ? <>Automatic · <span translate="no">{names[resolvedLanguage()]}</span></>
           : <span translate="no">{names[choice]}</span>}
@@ -724,7 +724,7 @@ export default function Settings({
         <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
           <Chip label="Automatic" selected={choice === "auto"} onToggle={() => choice !== "auto" && setLanguage("auto")} />
           <span translate="no" style={{ display: "contents" }}>
-            {["en", "es", "fr", "ja", "ko"].map(l => (
+            {["en", "es", "fr", "ja", "ko", "zh"].map(l => (
               <Chip key={l} label={names[l]} selected={choice === l} onToggle={() => choice !== l && setLanguage(l)} />
             ))}
           </span>
@@ -950,7 +950,7 @@ export default function Settings({
                     <div data-i18n="field" style={{ fontSize: "11px", color: C.textMuted, marginTop: "8px", marginBottom: "4px" }}>
                       Scoring
                     </div>
-                    <div style={S.chips}>
+                    <div data-i18n="format" style={S.chips}>
                       {LEAGUE_FORMATS.map(f => (
                         <Chip key={f.id} label={f.label} dense
                           selected={leagueFormat(leagueFormats?.[league]) === f.id}
@@ -1402,7 +1402,7 @@ export default function Settings({
                     <div data-i18n="field" style={{ fontSize: "11px", color: C.textMuted, marginTop: "8px", marginBottom: "4px" }}>
                       Scoring
                     </div>
-                    <div style={S.chips}>
+                    <div data-i18n="format" style={S.chips}>
                       {LEAGUE_FORMATS.map(f => (
                         <Chip key={f.id} label={f.label} dense
                           selected={leagueFormat(leagueFormats?.[league]) === f.id}

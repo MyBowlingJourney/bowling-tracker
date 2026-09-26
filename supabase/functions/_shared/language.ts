@@ -2,17 +2,18 @@
 //
 // The app sends `language: "fr-CA"` when it is showing Quebec French and
 // `language: "es-419"` for Latin American Spanish, `language: "ja-JP"`
-// for Japanese and `language: "ko-KR"` for Korean (see src/i18n/index.js aiLanguage); anything else, or
+// for Japanese, `language: "ko-KR"` for Korean and `language: "zh-TW"`
+// for Traditional Chinese (see src/i18n/index.js aiLanguage); anything else, or
 // nothing, is English.
 // Only the words the bowler reads change: JSON keys, fixed values the
 // app compares against, and the numbers themselves stay exactly as the
 // prompt specifies.
 
-export type AnswerLanguage = "fr-CA" | "es-419" | "ja-JP" | "ko-KR" | "en";
+export type AnswerLanguage = "fr-CA" | "es-419" | "ja-JP" | "ko-KR" | "zh-TW" | "en";
 
 export function answerLanguage(body: unknown): AnswerLanguage {
   const v = (body as { language?: unknown } | null)?.language;
-  return v === "fr-CA" || v === "es-419" || v === "ja-JP" || v === "ko-KR" ? v : "en";
+  return v === "fr-CA" || v === "es-419" || v === "ja-JP" || v === "ko-KR" || v === "zh-TW" ? v : "en";
 }
 
 // Appended to a system prompt. Empty for English, so the English prompts
@@ -21,6 +22,7 @@ export function languageInstruction(lang: AnswerLanguage): string {
   if (lang === "es-419") return SPANISH;
   if (lang === "ja-JP") return JAPANESE;
   if (lang === "ko-KR") return KOREAN;
+  if (lang === "zh-TW") return CHINESE;
   if (lang !== "fr-CA") return "";
   return `
 
@@ -63,3 +65,14 @@ Use these bowling terms: 볼링 (the sport), 스트라이크, 스페어, 스플�
 Write numbers as Korean apps do: 198.4, 1,250, 54%.
 Keep names exactly as given: the bowler's, teammates', leagues', centers' and balls' names, and brand names — do not convert them to Hangul.
 If you are asked to return JSON, the keys and any fixed values listed in the instructions stay exactly as specified in English; only the free text inside is in Korean.`;
+
+// Traditional Chinese for Taiwan. Taiwanese bowlers mix Chinese terms with
+// a few English ones; these match the app's own Chinese
+// (src/i18n/glossary-zh-TW.md).
+const CHINESE = `
+
+LANGUAGE. The bowler reads the app in Traditional Chinese as written in Taiwan. Write every word they will read in natural Taiwanese Mandarin using Traditional characters (繁體中文, 臺灣用語) — never Simplified characters and never mainland vocabulary (use 設定, 資料, 網路, 訊息, 影片, not 設置, 數據, 網絡, 信息, 視頻). Address the bowler as 你, friendly and polite. The statistics you are given are labelled in English; translate what you say, never quote the English labels.
+Use these bowling terms: 保齡球 (the sport), 全倒 (strike), 補中 (spare), 技術球 (split), 洗溝 (gutter), 格 (frame; 第 10 格), 失誤 (open frame), 局 (game), 系列 (series), 分數 (score), 平均 (average), 殘瓶 (leave), 1 號瓶 (headpin), Pocket, 球道 (lane), 球 (ball), 攻擊球 / 補中球 (strike ball / spare ball), 油型 (oil pattern), 曲球 (hook), 出手 (release), 聯賽 (league), 球隊 (team), 聯賽日 (league night), 練習 (practice), 比賽 (tournament), Double, 火雞 (turkey), 球友 (bowler).
+Use full-width Chinese punctuation (，。：！？「」) and put a half-width space between Chinese and Latin letters or digits (3 局, 平均 198.4). Write numbers as Taiwanese apps do: 198.4, 1,250, 54%, NT$170.
+Keep names exactly as given: the bowler's, teammates', leagues', centers' and balls' names, and brand names — do not translate or transliterate them.
+If you are asked to return JSON, the keys and any fixed values listed in the instructions stay exactly as specified in English; only the free text inside is in Traditional Chinese.`;

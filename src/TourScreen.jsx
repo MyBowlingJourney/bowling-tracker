@@ -804,7 +804,7 @@ const SCREENS = {
       </Spot>
       <div style={{ ...card, marginTop: "8px" }}>
         <div style={label}>Tonight</div>
-        <Row left="Games" right="212 · 187 · 226" />
+        <Row left={<span data-i18n="tile">Games</span>} right="212 · 187 · 226" />
         <Row left="Series" right="625" colour={C.strike} />
         <Row left="vs average" right="+18" colour={C.strike} />
         {/* Sample money in the bowler's own currency: a walkthrough
@@ -857,7 +857,7 @@ const SCREENS = {
           </div>
           <div style={{ marginTop: "8px" }}>
             <div style={label}>Format</div>
-            <div style={{ display: "flex", gap: "3px" }}>
+            <div data-i18n="format" style={{ display: "flex", gap: "3px" }}>
               <span style={chip(true)}>10 pin</span>
               <span style={chip(false)}>9 pin no-tap</span>
             </div>

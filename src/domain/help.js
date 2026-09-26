@@ -202,8 +202,9 @@ export const HELP = [
     keywords: ["language", "french", "english", "spanish", "francais", "langue", "anglais", "traduction",
                "idioma", "español", "espanol", "ingles", "traducción",
                "japanese", "日本語", "言語", "英語", "翻訳",
-               "korean", "한국어", "언어", "영어", "번역"],
-    body: "Language · Idioma · Langue · 言語 · 언어 in Settings. Automatic follows your phone's language, or pick English, Español, Français, 日本語 or 한국어. The app restarts in the language you pick.",
+               "korean", "한국어", "언어", "영어", "번역",
+               "chinese", "中文", "繁體中文", "語言", "英文", "翻譯"],
+    body: "Language · Idioma · Langue · 言語 · 언어 · 語言 in Settings. Automatic follows your phone's language, or pick English, Español, Français, 日本語, 한국어 or 繁體中文. The app restarts in the language you pick.",
   },
   {
     id: "tournament-finish",

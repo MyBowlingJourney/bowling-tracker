@@ -2,8 +2,10 @@
 //
 // "auto" (the default) follows the phone: a phone set to French gets
 // Quebec French, one set to Spanish gets Latin American Spanish, one set
-// to Japanese gets Japanese, one set to Korean gets Korean, and everything
-// else English. Settings can pin
+// to Japanese gets Japanese, one set to Korean gets Korean, one set to
+// Traditional Chinese (Taiwan, Hong Kong, Macau) gets Taiwan's Traditional
+// Chinese, and everything else English -- Simplified Chinese included,
+// since the app has none. Settings can pin
 // any of them.
 //
 // The choice is kept on the DEVICE, not the account, and read synchronously
@@ -17,7 +19,7 @@
 import { createTranslator } from "./engine.js";
 
 export const LANGUAGE_KEY = "mbj-language-v1";
-export const LANGUAGE_CHOICES = ["auto", "fr", "es", "ja", "ko", "en"];
+export const LANGUAGE_CHOICES = ["auto", "fr", "es", "ja", "ko", "zh", "en"];
 
 // Each language the app can show: its tag (what <html lang>, the AI
 // features and the sign-in email are told) and how its catalog loads.
@@ -26,6 +28,7 @@ const LANGUAGES = {
   es: { tag: "es-419", load: () => import("./es-419.js").then(m => m.ES_419) },
   ja: { tag: "ja-JP", load: () => import("./ja-JP.js").then(m => m.JA_JP) },
   ko: { tag: "ko-KR", load: () => import("./ko-KR.js").then(m => m.KO_KR) },
+  zh: { tag: "zh-TW", load: () => import("./zh-TW.js").then(m => m.ZH_TW) },
 };
 
 export function chosenLanguage() {
@@ -45,6 +48,9 @@ export function phoneLanguage() {
     if (/^es\b/i.test(first)) return "es";
     if (/^ja\b/i.test(first)) return "ja";
     if (/^ko\b/i.test(first)) return "ko";
+    // Traditional Chinese: a Taiwan, Hong Kong or Macau phone, or any
+    // phone that names the Hant script. zh-CN / zh-Hans stay English.
+    if (/^zh-(?:Hant|TW|HK|MO)\b/i.test(first)) return "zh";
     return "en";
   } catch { return "en"; }
 }
@@ -76,7 +82,7 @@ export function t(text) {
 export function tMessage(text) {
   return active ? active.translateMessage(text) : String(text ?? "");
 }
-// "fr", "es", "ja", "ko" or "en".
+// "fr", "es", "ja", "ko", "zh" or "en".
 export function currentLanguage() {
   return active ? activeLang : "en";
 }
@@ -115,6 +121,7 @@ function followAppLanguage(lang) {
     : lang === "es" ? spanishLocale()
     : lang === "ja" ? "ja-JP"
     : lang === "ko" ? "ko-KR"
+    : lang === "zh" ? "zh-TW"
     : (/^en\b/i.test(navigator.language || "") ? navigator.language : "en-US");
   const wrap = (proto, name) => {
     const orig = proto[name];

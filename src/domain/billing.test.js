@@ -122,6 +122,11 @@ describe('Hong Kong, India, the UAE, Costa Rica and Kuwait', () => {
     expect(checkoutCurrencyFor('America/Costa_Rica')).toBe('crc');
   });
 
+  it('shows New Taiwan dollars on Taiwan time', () => {
+    expect(displayPricesFor('Asia/Taipei')).toEqual({ month: 'NT$170', year: 'NT$1,690' });
+    expect(checkoutCurrencyFor('ROC')).toBe('twd');
+  });
+
   it('shows US dollars on the web in Kuwait (Stripe has no KWD)', () => {
     expect(displayPricesFor('Asia/Kuwait')).toEqual({ month: '$4.99', year: '$49.99' });
     expect(checkoutCurrencyFor('Asia/Kuwait')).toBe('');

@@ -202,6 +202,7 @@ const MONEY: Record<string, { factor: number; group: boolean; sep?: string; deci
   "AED": { factor: 5, group: true, sep: " " },
   "₡": { factor: 500, group: true },
   "KD": { factor: 0.3, group: true, sep: " ", decimals: 3 },
+  "NT$": { factor: 30, group: true },
 };
 export function moneyCurrency(v: unknown): string {
   return typeof v === "string" && Object.prototype.hasOwnProperty.call(MONEY, v) ? v : "$";

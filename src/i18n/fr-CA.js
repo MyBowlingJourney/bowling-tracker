@@ -2921,7 +2921,21 @@ export const FR_CA = {
 "confidence::Not yet": "Pas encore",
 "Frames where every teammate struck but one. Log your teammates' frames on a league night.": "Carreaux où tous vos coéquipiers ont réussi un abat, sauf un. Enregistrez les carreaux de vos coéquipiers lors d'une soirée de ligue.",
 "tonight ·": "ce soir ·",
-"Cost": "Coût"
+"Cost": "Coût",
+"Hongkong": "",
+"AED 18.99": "",
+"AED 189.99": "",
+"Language · Idioma · Langue · 言語 · 언어 · 語言": "",
+"Language · Idioma · Langue · 言語 · 언어 · 語言 in Settings. Automatic follows your phone's language, or pick English, Español, Français, 日本語, 한국어 or 繁體中文. The app restarts in the language you pick.": "Language · Idioma · Langue · 言語 · 언어 · 語言 dans les Paramètres. Le mode automatique suit la langue de votre téléphone; vous pouvez aussi choisir English, Español, Français, 日本語, 한국어 ou 繁體中文. L'application redémarre dans la langue choisie.",
+"format::10 pin": "10 quilles",
+"result::Ringing 10": "10 isolée",
+"result::Ringing 7": "7 isolée",
+"badges::Cashed": "Dans l'argent",
+"tile::Games": "Parties",
+"aria-label::Practice. For working on your game. Drills, frame tracking and every detail field are available, and practice scores stay out of your league averages.": "Entraînement. Pour travailler votre jeu. Les exercices, le suivi par carreau et tous les champs de détails sont disponibles, et les pointages d'entraînement ne comptent pas dans vos moyennes de ligue.",
+"aria-label::League. For your weekly team night. Your team roster and standings are available, along with side games.": "Ligue. Pour votre soirée d'équipe hebdomadaire. La liste des joueurs et le classement de votre équipe sont disponibles, ainsi que les cagnottes.",
+"aria-label::Tournament. For higher-stakes competition. Blocks, squads, side pots, brackets, match play and the cut line are all available.": "Tournoi. Pour la compétition à enjeux élevés. Blocs, escouades, cagnottes, tableaux à élimination, jeu par match et seuil de qualification : tout est disponible.",
+"aria-label::Open bowling. For a fun activity. You get the scoresheet, standings and badges — all other views are hidden, not deleted, to keep it quick and simple.": "Jeu libre. Pour une activité amusante. Vous avez la feuille de pointage, le classement et les badges — toutes les autres vues sont masquées, pas supprimées, pour que ce soit simple et rapide."
 },
 "patterns": [
 [

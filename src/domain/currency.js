@@ -58,13 +58,16 @@ export const CURRENCIES = Object.freeze({
   aed: Object.freeze({ id: "aed", symbol: "AED", sep: " ", decimals: 2, factor: 5, stakes: Object.freeze([1, 5]) }),
   crc: Object.freeze({ id: "crc", symbol: "₡", decimals: 0, factor: 500, stakes: Object.freeze([100, 500]) }),
   kwd: Object.freeze({ id: "kwd", symbol: "KD", sep: " ", decimals: 3, factor: 0.3, stakes: Object.freeze([0.1, 0.5]) }),
+  // Taiwan writes "NT$" wherever "$" alone could be US dollars; a side pot
+  // is whole dollars.
+  twd: Object.freeze({ id: "twd", symbol: "NT$", decimals: 0, factor: 30, stakes: Object.freeze([10, 50]) }),
 });
 
-// The seven with their own money here (plus Kuwait, below). Singapore,
+// The eight with their own money here (plus Kuwait, below). Singapore,
 // Mexico and Hong Kong have local subscription PRICES (S$, MX$, HK$) but
 // are dollar countries here: a bare "$" is what a bowler there writes on a
 // bracket sheet.
-const BY_CHECKOUT = { jpy: "jpy", krw: "krw", myr: "myr", php: "php", inr: "inr", aed: "aed", crc: "crc" };
+const BY_CHECKOUT = { jpy: "jpy", krw: "krw", myr: "myr", php: "php", inr: "inr", aed: "aed", crc: "crc", twd: "twd" };
 
 // Kuwait: the one country whose money the app shows but whose
 // subscription is not priced here -- Stripe cannot charge dinars, so

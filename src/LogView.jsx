@@ -3128,7 +3128,7 @@ export default function LogView({
                   phone width -- and the four are one choice, which reads
                   wrong split across lines. A grid keeps them level and
                   each cell stays above the touch minimum at 380px. */}
-              <div style={{display:"grid",
+              <div data-i18n="result" style={{display:"grid",
                 gridTemplateColumns:"repeat(4, minmax(0, 1fr))",
                 gap:"6px",marginBottom:"12px"}}>
                 {resultsForHandedness(activeBowlerLeftHanded).map(label=>{

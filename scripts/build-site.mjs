@@ -9,10 +9,11 @@
 //   dist/es/index.html       <- public/welcome-es.html (Spanish welcome)
 //   dist/ja/index.html       <- public/welcome-ja.html (Japanese welcome)
 //   dist/ko/index.html       <- public/welcome-ko.html (Korean welcome)
+//   dist/zh-TW/index.html    <- public/welcome-zh-TW.html (Traditional Chinese welcome)
 //   dist/tokushoho.html      <- the seller disclosure Japanese law requires
 //   dist/privacy.html, terms.html, delete-account.html, and their -fr.html
-//   French, -es.html Spanish, -ja.html Japanese and -ko.html Korean
-//   versions, and privacy-ms.html (Malay)
+//   French, -es.html Spanish, -ja.html Japanese, -ko.html Korean and
+//   -zh-TW.html Traditional Chinese versions, and privacy-ms.html (Malay)
 //   dist/icon-*.png, apple-touch-icon.png
 //
 // The same files also ship inside dist/app (Vite copies public/), which
@@ -36,6 +37,7 @@ const ROOT_PAGES = [
   "privacy-es.html", "terms-es.html", "delete-account-es.html",
   "privacy-ja.html", "terms-ja.html", "delete-account-ja.html", "tokushoho.html",
   "privacy-ko.html", "terms-ko.html", "delete-account-ko.html",
+  "privacy-zh-TW.html", "terms-zh-TW.html", "delete-account-zh-TW.html",
   "privacy-ms.html",
 ];
 
@@ -54,6 +56,9 @@ await copyFile(join(pub, "welcome-ja.html"), join(out, "ja", "index.html"));
 // And the Korean one at /ko/.
 await mkdir(join(out, "ko"), { recursive: true });
 await copyFile(join(pub, "welcome-ko.html"), join(out, "ko", "index.html"));
+// And the Traditional Chinese one at /zh-TW/.
+await mkdir(join(out, "zh-TW"), { recursive: true });
+await copyFile(join(pub, "welcome-zh-TW.html"), join(out, "zh-TW", "index.html"));
 for (const f of ROOT_PAGES) await copyFile(join(pub, f), join(out, f));
 // Icons, so the welcome page has a favicon and a share image of its own.
 for (const f of await readdir(pub)) {

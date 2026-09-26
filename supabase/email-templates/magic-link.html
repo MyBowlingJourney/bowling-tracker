@@ -27,6 +27,13 @@
   <p style="margin:0 0 14px">앱에 입력해 주세요. 1시간 후에 만료돼요.</p>
   <p style="margin:0 0 14px">또는 <a href="{{ .ConfirmationURL }}">여기를 눌러 로그인</a>하세요.</p>
   <p style="margin:0;color:#5B6472;font-size:13px">이 코드를 요청하지 않았다면 이 메일은 무시하셔도 돼요.</p>
+</div>{{ else if and .Data .Data.language (eq .Data.language "zh") }}<div lang="zh-Hant-TW" style="font-family:Arial,Helvetica,sans-serif;color:#11151C;max-width:480px">
+  <h2 style="margin:0 0 18px">登入 My Bowling Journey</h2>
+  <p style="margin:0 0 6px">你的登入驗證碼：</p>
+  <p style="margin:0 0 14px;font-size:28px;font-weight:700;letter-spacing:4px">{{ .Token }}</p>
+  <p style="margin:0 0 14px">請在 App 中輸入，驗證碼 1 小時後失效。</p>
+  <p style="margin:0 0 14px">或<a href="{{ .ConfirmationURL }}">點這裡登入</a>。</p>
+  <p style="margin:0;color:#5B6472;font-size:13px">如果你沒有要求這組驗證碼，可以忽略這封信。</p>
 </div>{{ else }}<div lang="en" style="font-family:Arial,Helvetica,sans-serif;color:#11151C;max-width:480px">
   <h2 style="margin:0 0 18px">Sign in to My Bowling Journey</h2>
   <p style="margin:0 0 6px">Your sign-in code:</p>

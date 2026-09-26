@@ -1,8 +1,8 @@
-// The translation engine: English text in, French, Spanish, Japanese or
-// Korean text out.
+// The translation engine: English text in, French, Spanish, Japanese,
+// Korean or Traditional Chinese text out.
 //
-// The language comes from the catalog (catalog.lang: "fr", "es", "ja" or
-// "ko"; French when absent). What differs between them is kept in LANGUAGE_RULES below:
+// The language comes from the catalog (catalog.lang: "fr", "es", "ja",
+// "ko" or "zh"; French when absent). What differs between them is kept in LANGUAGE_RULES below:
 // how numbers and punctuation are written, the word for "and", and which
 // numbers take the singular.
 //
@@ -57,7 +57,7 @@ function escapeRegex(s) {
 
 const PLACEHOLDER = /(\{\d+(?::[sm])?\})/;
 // A formatted amount (src/domain/currency.js): sign, symbol, digits.
-const MONEY_VALUE = "([-+\u2212]?(?:\\$|¥|₩|₱|₹|₡|RM|AED |KD )\\d[\\d,]*(?:\\.\\d+)?)";
+const MONEY_VALUE = "([-+\u2212]?(?:NT\\$|\\$|¥|₩|₱|₹|₡|RM|AED |KD )\\d[\\d,]*(?:\\.\\d+)?)";
 
 // English pattern -> anchored regex.
 //
@@ -321,6 +321,48 @@ function koreanPunctuation(s) {
     .replace(/ {2,}/g, " ");
 }
 
+// ── Traditional Chinese (Taiwan) ───────────────────────────────────────
+//
+// Taiwan writes 198.4, 1,250 and 54% as English does. A 12-hour time reads
+// "下午 7:30", an English ordinal from code is a place ("3rd" -> "第 3 名")
+// and a seed "第 2 種子".
+export function chineseNumbers(text) {
+  let s = String(text);
+  if (!/\d/.test(s) || /:\/\/|@\w/.test(s)) return s;
+  s = s.replace(/\b(\d{1,2}(?::\d{2})?)\s?([AaPp])\.?\s?[Mm]\.?(?![A-Za-z])/g,
+    (_, t, ap) => `${/[Pp]/.test(ap) ? "下午" : "上午"} ${t}`);
+  s = s.replace(/\b(\d+)(?:st|nd|rd|th)(?=\s?種子)\s?/g, "第 $1 ");
+  s = s.replace(/\b(\d+)(?:st|nd|rd|th)\b/g, "第 $1 名");
+  // A weight keeps its unit apart: "15lb" -> "15 lb".
+  s = s.replace(/(\d)\s?(lbs?)\b/g, "$1 $2");
+  // The spacing pass may already have put a space between a Chinese word
+  // and "3rd" or "7:30"; next to 第, 上午 or 下午 that space goes.
+  return s.replace(new RegExp(`([${HAN}]) (第 \\d|[上下]午 )`, "g"), "$1$2");
+}
+
+// Taiwanese spacing, as Taiwan's Google and Apple software write it: a
+// half-width space between a Chinese character and a Latin letter or a
+// digit ("3 局", "Pro 方案"), none next to full-width punctuation, never
+// two in a row. The space is added here rather than left to each
+// translation, because a value dropped into a sentence ("第{0}格") can't
+// know what it will sit beside.
+const HAN = "\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff";
+const FULLWIDTH_CLOSE = "，。：；！？、」』）》…";
+const FULLWIDTH_OPEN = "「『（《";
+function chinesePunctuation(s) {
+  return String(s)
+    .replace(new RegExp(`([${HAN}])([A-Za-z0-9$])`, "g"), "$1 $2")
+    .replace(new RegExp(`([A-Za-z0-9%])([${HAN}])`, "g"), "$1 $2")
+    // Dates are written solid, as the phone's own date format writes
+    // them: "9月14日", "2026年9月" -- never "9 月 14 日".
+    .replace(/(\d) (?=[年月日])/g, "$1")
+    .replace(/([年月]) (?=\d)/g, "$1")
+    .replace(new RegExp(` +([${FULLWIDTH_CLOSE}])`, "g"), "$1")
+    .replace(new RegExp(`([${FULLWIDTH_CLOSE}${FULLWIDTH_OPEN}]) +`, "g"), "$1")
+    .replace(/ +([.,])(?=\s|$)/g, "$1")
+    .replace(/ {2,}/g, " ");
+}
+
 // French spacing: a non-breaking space before a colon, none before ; ! ?
 // (Quebec usage, unlike France); no space before . or , (a value that
 // came out empty leaves one behind); never two spaces in a row.
@@ -341,6 +383,10 @@ const LANGUAGE_RULES = {
   // Korean: spaces between words as in English, a list's last item joined
   // with "및", no capitals, and particles fitted to the values dropped in.
   ko: { numbers: koreanNumbers, punctuation: s => koreanPunctuation(s), and: " 및 ", oneOnly: true, spaced: true, caps: false },
+  // Traditional Chinese: lists joined with 、 and a last 和; spacing
+  // between Chinese and Latin or digits is the punctuation pass's job, so
+  // a translated value brings no English spaces with it.
+  zh: { numbers: chineseNumbers, punctuation: s => chinesePunctuation(s), and: "和", comma: "、", oneOnly: true, spaced: false, caps: false },
 };
 
 export function createTranslator(catalog = {}) {
@@ -369,6 +415,7 @@ export function createTranslator(catalog = {}) {
   // "Split Happens").
   let protectedNames = new Set();
   let protectedRe = null; // finds those names inside a longer text
+  let protectedHanRe = null; // the names with Chinese characters in them
   let partials = 0;       // how many lookups came back only partly translated
   const cache = new Map();
   const partialKeys = new Set(); // texts a pattern matched with a value left in English
@@ -384,6 +431,24 @@ export function createTranslator(catalog = {}) {
     const s = String(text);
     if (!protectedRe || !/\d/.test(s)) return rules.numbers(s);
     return s.split(protectedRe).map((part, i) => (i % 2 ? part : rules.numbers(part))).join("");
+  }
+
+  // The language's spacing, except inside a protected name: a team
+  // called "台北Strikers" is written the way its bowlers typed it.
+  //
+  // The name is swapped for a stand-in that keeps its first and last
+  // character, so the space between the name and the text around it is
+  // still decided ("台北Strikers 加入了球隊"), and put back afterwards.
+  function punctuate(text) {
+    if (!protectedHanRe) return rules.punctuation(text);
+    const names = [];
+    const hidden = String(text).split(protectedHanRe).map((part, i) => {
+      if (i % 2 === 0) return part;
+      names.push(part);
+      const last = part.length > 1 ? part[part.length - 1] : "";
+      return `${part[0]}\uE000${names.length - 1}\uE001${last}`;
+    }).join("");
+    return rules.punctuation(hidden).replace(/(.)\uE000(\d+)\uE001(.?)/gu, (m, a, n, b) => names[Number(n)] ?? m);
   }
 
   function lookupExact(key, depth = 0) {
@@ -526,7 +591,7 @@ export function createTranslator(catalog = {}) {
     if (out === null) out = lookupSentences(key);
     if (out === null) out = lookupSegments(key);
     if (out !== null) {
-      out = rules.punctuation(out);
+      out = punctuate(out);
       // A label or a sentence starts with a capital in both languages.
       // (Japanese has no capitals: a Latin value at the start -- a name,
       // an email -- stays exactly as it was.)
@@ -616,6 +681,8 @@ export function createTranslator(catalog = {}) {
     protectedNames = new Set([...(names || [])].map(n => collapse(n)).filter(Boolean));
     const withDigits = [...protectedNames].filter(n => /\d/.test(n)).sort((a, b) => b.length - a.length);
     protectedRe = withDigits.length ? new RegExp("(" + withDigits.map(escapeRegex).join("|") + ")") : null;
+    const withHan = [...protectedNames].filter(n => new RegExp(`[${HAN}]`).test(n)).sort((a, b) => b.length - a.length);
+    protectedHanRe = withHan.length ? new RegExp("(" + withHan.map(escapeRegex).join("|") + ")") : null;
     cache.clear();
     partialKeys.clear();
   }
@@ -624,7 +691,7 @@ export function createTranslator(catalog = {}) {
   // label, never a sentence to match patterns against.
   function context(ctx, text) {
     const hit = lookupExact(`${ctx}::${collapse(text)}`);
-    return hit ? rules.punctuation(hit) : null;
+    return hit ? punctuate(hit) : null;
   }
 
   return { lang, lookup, translate, translateMessage, protect, numbers, context, has: t => lookup(t) !== null };

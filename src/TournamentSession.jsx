@@ -1754,7 +1754,7 @@ export default function TournamentSession({ onCancelTournament = null, resultsSu
 
           <div>
             {fieldLabel("Format")}
-            <div style={S.chips}>
+            <div data-i18n="format" style={S.chips}>
               {PIN_FORMATS.map(o => (
                 <Chip key={o.id} label={o.label} dense
                   selected={pinFormat(tournament) === o.id}

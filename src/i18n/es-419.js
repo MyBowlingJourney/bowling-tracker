@@ -2929,7 +2929,21 @@ export const ES_419 = {
 "confidence::Not yet": "Aún no",
 "Frames where every teammate struck but one. Log your teammates' frames on a league night.": "Cuadros en los que todo el equipo hizo strike menos una persona. Registra los cuadros de tus compañeros en una noche de liga.",
 "tonight ·": "esta noche ·",
-"Cost": "Costo"
+"Cost": "Costo",
+"Hongkong": "",
+"AED 18.99": "",
+"AED 189.99": "",
+"Language · Idioma · Langue · 言語 · 언어 · 語言": "",
+"Language · Idioma · Langue · 言語 · 언어 · 語言 in Settings. Automatic follows your phone's language, or pick English, Español, Français, 日本語, 한국어 or 繁體中文. The app restarts in the language you pick.": "Language · Idioma · Langue · 言語 · 언어 · 語言 en Configuración. Automático sigue el idioma de tu celular, o elige English, Español, Français, 日本語, 한국어 o 繁體中文. La app se reinicia en el idioma que elijas.",
+"format::10 pin": "10 pinos",
+"result::Ringing 10": "10 aislado",
+"result::Ringing 7": "7 aislado",
+"badges::Cashed": "Cobraste premio",
+"tile::Games": "Juegos",
+"aria-label::Practice. For working on your game. Drills, frame tracking and every detail field are available, and practice scores stay out of your league averages.": "Práctica. Para trabajar en tu juego. Tienes ejercicios, registro por cuadro y todos los campos de detalle, y los puntajes de práctica no cuentan para tus promedios de liga.",
+"aria-label::League. For your weekly team night. Your team roster and standings are available, along with side games.": "Liga. Para tu noche semanal con el equipo. Tienes la lista del equipo y la tabla de posiciones, además de los juegos extra.",
+"aria-label::Tournament. For higher-stakes competition. Blocks, squads, side pots, brackets, match play and the cut line are all available.": "Torneo. Para competencias con más en juego. Tienes bloques, turnos, botes, brackets, match play y la línea de corte.",
+"aria-label::Open bowling. For a fun activity. You get the scoresheet, standings and badges — all other views are hidden, not deleted, to keep it quick and simple.": "Juego libre. Para una actividad divertida. Tienes la hoja de puntaje, la tabla de posiciones y las insignias — las demás vistas se ocultan, no se borran, para que todo sea rápido y sencillo."
 },
 "patterns": [
 [
