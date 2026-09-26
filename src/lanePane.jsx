@@ -211,7 +211,6 @@ export default function LanePane({
   }, [mine, at, activeNight, pattern, lanePatterns, leaguePatterns, bowler, league, leftHanded,
       drift, lateralOffset, twoHanded, oilPatterns, scrubbing, nights.length]);
 
-  if (!allBalls.length) return null;
 
   // ── Fitting on a phone ────────────────────────────────────────────
   //
@@ -311,6 +310,11 @@ export default function LanePane({
     return () => window.removeEventListener("resize", checkFilterOverflow);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allBalls.length]);
+
+  // After every hook, never before one: returning early above a hook
+  // means the first night with a ball renders more hooks than the render
+  // before it, and React throws.
+  if (!allBalls.length) return null;
 
   // ── The filter column ─────────────────────────────────────────────
   //
