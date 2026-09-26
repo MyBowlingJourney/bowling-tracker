@@ -412,7 +412,7 @@ export default function LanePane({
           side by side and much better than two dropdowns too cramped to
           read a pattern name in. */}
       {(patterns.length > 0 || visibleNights.length > 1) && (
-        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap",
+        <div data-i18n="picker" style={{ display: "flex", gap: "8px", flexWrap: "wrap",
           alignItems: "flex-start" }}>
           {patterns.length > 0 && (
             <div style={{ flex: "1 1 140px", minWidth: 0 }}>

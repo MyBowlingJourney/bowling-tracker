@@ -13,7 +13,7 @@ export default function HelpView({ onNavigate, onClose, onReplayTour, environmen
   // app, not features their app doesn't have.
   const scoped = helpFor(environment);
   // In French, the French wording of each entry is searched too.
-  const results = query.trim() ? searchHelp(query, scoped, currentLanguage() === "fr" ? t : null) : null;
+  const results = query.trim() ? searchHelp(query, scoped, currentLanguage() !== "en" ? t : null) : null;
   const areas = helpByArea(scoped);
 
   function Entry({ entry }) {

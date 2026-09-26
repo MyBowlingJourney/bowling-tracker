@@ -199,8 +199,9 @@ export const HELP = [
     casual: true,
     view: "settings",
     title: "Changing the language",
-    keywords: ["language", "french", "english", "francais", "langue", "anglais", "traduction"],
-    body: "Language · Langue in Settings. Automatic follows your phone's language, or pick Français (Canada) or English. The app restarts in the language you pick.",
+    keywords: ["language", "french", "english", "spanish", "francais", "langue", "anglais", "traduction",
+               "idioma", "español", "espanol", "ingles", "traducción"],
+    body: "Language · Idioma · Langue in Settings. Automatic follows your phone's language, or pick English, Español (Latinoamérica) or Français (Canada). The app restarts in the language you pick.",
   },
   {
     id: "tournament-finish",

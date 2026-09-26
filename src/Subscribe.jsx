@@ -139,7 +139,11 @@ export default function Subscribe({ entitlement, onClose, onPurchased, initialPe
         </div>
         <div style={{ fontSize: "13px", color: C.textMuted, lineHeight: 1.5, marginBottom: "12px" }}>
           {winding
-            ? `You cancelled, so this ends${endsOn ? ` on ${endsOn}` : " when the period you paid for runs out"}. Everything stays unlocked until then, and you can start it again any time before it ends.`
+            // Two whole sentences rather than one with a piece swapped in,
+            // so each can be translated as a sentence.
+            ? (endsOn
+              ? `You cancelled, so this ends on ${endsOn}. Everything stays unlocked until then, and you can start it again any time before it ends.`
+              : "You cancelled, so this ends when the period you paid for runs out. Everything stays unlocked until then, and you can start it again any time before it ends.")
             : "Everything is unlocked."}
           {rail === "play"
             ? " Manage or cancel your subscription in the Play Store app, under Subscriptions."

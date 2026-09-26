@@ -74,6 +74,12 @@ describe('distanceLabel', () => {
     expect(distanceLabel(4364, 'en-AU')).toBe('4.4 km');
   });
 
+  it('follows the region of a Spanish phone: miles in the US and Puerto Rico', () => {
+    expect(distanceLabel(4364, 'es-US')).toBe('2.7 mi');
+    expect(distanceLabel(4364, 'es-PR')).toBe('2.7 mi');
+    expect(distanceLabel(4364, 'es-MX')).toBe('4.4 km');
+  });
+
   it('always uses kilometres in French', () => {
     expect(distanceLabel(4364, 'en-US', true)).toBe('4.4 km');
   });

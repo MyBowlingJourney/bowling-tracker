@@ -34,7 +34,7 @@ function placementLabel(id) {
 
 function fieldLabel(text) {
   return (
-    <div style={{ fontSize:"12px",color:C.textMuted, marginBottom: "4px" }}>
+    <div data-i18n="field" style={{ fontSize:"12px",color:C.textMuted, marginBottom: "4px" }}>
       {text}
     </div>
   );

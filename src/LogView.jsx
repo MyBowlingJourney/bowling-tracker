@@ -1585,7 +1585,7 @@ export default function LogView({
                 that does not exist yet. */}
             {leagueTabs&&!editingId&&(
               <div style={{...S.card,padding:"10px 12px"}}>
-                <div style={{...S.chips,flexWrap:"nowrap",gap:"4px",marginBottom:0}}>
+                <div data-i18n="tab" style={{...S.chips,flexWrap:"nowrap",gap:"4px",marginBottom:0}}>
                   {[["setup","Set up"],["scoring","Scoring"],
                     ["side","Side games"],["results","Results"]].map(([id,label])=>(
                     <Chip key={id} label={label} dense fill

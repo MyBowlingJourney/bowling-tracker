@@ -343,16 +343,25 @@ const list = [...entries.values()].map(e => ({ ...e, kinds: [...e.kinds] }))
   .sort((a, b) => a.where[0].localeCompare(b.where[0], undefined, { numeric: true }));
 
 // --missing: the English strings that have no entry (not even an empty
-// one) in the French catalog -- what to translate after adding text.
+// one) in a catalog -- what to translate after adding text. Checks every
+// catalog, or just one with --lang fr / --lang es.
 if (process.argv.includes("--missing")) {
-  const src = fs.readFileSync(path.join(ROOT, "i18n", "fr-CA.js"), "utf8");
-  const cat = JSON.parse(src.slice(src.indexOf("= {") + 2, src.lastIndexOf(";")));
+  const CATALOGS = { fr: ["fr-CA.js", "French"], es: ["es-419.js", "Spanish"] };
+  const li = process.argv.indexOf("--lang");
+  const only = li > 0 ? process.argv[li + 1] : null;
   const norm2 = t => t.replace(/\{(\d+):s\}/g, "{$1}").replace(/\s+/g, " ").trim();
-  const known = new Set([...Object.keys(cat.exact || {}), ...(cat.patterns || []).map(p => p[0])].map(norm2));
-  const missing = list.filter(e => !known.has(norm2(e.text)));
-  for (const e of missing) console.log(`${JSON.stringify(e.text)}  [${e.kinds.join(",")}] ${e.where[0]}`);
-  console.log(`${missing.length} of ${list.length} strings have no French entry.`);
-  process.exit(missing.length ? 1 : 0);
+  let total = 0;
+  for (const [code, [file, name]] of Object.entries(CATALOGS)) {
+    if (only && only !== code) continue;
+    const src = fs.readFileSync(path.join(ROOT, "i18n", file), "utf8");
+    const cat = JSON.parse(src.slice(src.indexOf("= {") + 2, src.lastIndexOf(";")));
+    const known = new Set([...Object.keys(cat.exact || {}), ...(cat.patterns || []).map(p => p[0])].map(norm2));
+    const missing = list.filter(e => !known.has(norm2(e.text)));
+    for (const e of missing) console.log(`${JSON.stringify(e.text)}  [${e.kinds.join(",")}] ${e.where[0]}`);
+    console.log(`${missing.length} of ${list.length} strings have no ${name} entry.`);
+    total += missing.length;
+  }
+  process.exit(total ? 1 : 0);
 }
 
 const outIdx = process.argv.indexOf("--json");

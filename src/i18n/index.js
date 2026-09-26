@@ -1,7 +1,8 @@
 // Which language the app shows, and switching it on.
 //
 // "auto" (the default) follows the phone: a phone set to French gets
-// French, everything else English. Settings can pin either language.
+// Quebec French, one set to Spanish gets Latin American Spanish, and
+// everything else English. Settings can pin any of them.
 //
 // The choice is kept on the DEVICE, not the account, and read synchronously
 // before the first render, so the app never flashes English and then
@@ -9,12 +10,19 @@
 // which is what the sign-in email template reads to pick its language
 // (Supabase templates can branch on .Data.language).
 //
-// The French catalog is loaded only when French is on, so English users
-// never download it.
+// A catalog is loaded only when its language is on, so English users
+// never download either one.
 import { createTranslator } from "./engine.js";
 
 export const LANGUAGE_KEY = "mbj-language-v1";
-export const LANGUAGE_CHOICES = ["auto", "fr", "en"];
+export const LANGUAGE_CHOICES = ["auto", "fr", "es", "en"];
+
+// Each language the app can show: its tag (what <html lang>, the AI
+// features and the sign-in email are told) and how its catalog loads.
+const LANGUAGES = {
+  fr: { tag: "fr-CA", load: () => import("./fr-CA.js").then(m => m.FR_CA) },
+  es: { tag: "es-419", load: () => import("./es-419.js").then(m => m.ES_419) },
+};
 
 export function chosenLanguage() {
   try {
@@ -26,14 +34,17 @@ export function chosenLanguage() {
 export function phoneLanguage() {
   try {
     const list = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language];
-    // The phone's FIRST language decides: French listed second (a bilingual
-    // phone set to English first) keeps English.
-    return /^fr\b/i.test(String(list[0] || "")) ? "fr" : "en";
+    // The phone's FIRST language decides: French or Spanish listed second
+    // (a bilingual phone set to English first) keeps English.
+    const first = String(list[0] || "");
+    if (/^fr\b/i.test(first)) return "fr";
+    if (/^es\b/i.test(first)) return "es";
+    return "en";
   } catch { return "en"; }
 }
 
 export function resolvedLanguage(choice = chosenLanguage()) {
-  if (choice === "fr" || choice === "en") return choice;
+  if (choice === "fr" || choice === "es" || choice === "en") return choice;
   return phoneLanguage();
 }
 
@@ -45,7 +56,8 @@ export function setLanguage(choice) {
   window.location.reload();
 }
 
-let active = null; // the translator while French is on
+let active = null; // the translator while French or Spanish is on
+let activeLang = "en";
 let dom = null;    // the page translator, to re-run when protected names change
 let protectedKey = "";
 
@@ -58,12 +70,13 @@ export function t(text) {
 export function tMessage(text) {
   return active ? active.translateMessage(text) : String(text ?? "");
 }
+// "fr", "es" or "en".
 export function currentLanguage() {
-  return active ? "fr" : "en";
+  return active ? activeLang : "en";
 }
 // The language to ask the AI features to answer in.
 export function aiLanguage() {
-  return active ? "fr-CA" : "en";
+  return active ? LANGUAGES[activeLang].tag : "en";
 }
 
 // Names the bowler typed -- leagues, teams, balls, people, centres -- are
@@ -82,8 +95,19 @@ export function protectNames(names) {
 // Dates and numbers formatted with no locale named follow the APP's
 // language, not the phone's: French chosen on an English phone still
 // shows "3 octobre", and English chosen on a French phone shows "October 3".
+//
+// Spanish keeps the phone's own Spanish where it writes numbers the way
+// the app does (Mexico, the US, Puerto Rico: 198.4, $4.99), and otherwise
+// uses Latin American Spanish (es-419), which does too -- a phone set to
+// Spain's or Argentina's Spanish would write 198,4 next to the app's 198.4.
+function spanishLocale() {
+  const phone = String(navigator.language || "");
+  return /^es-(MX|US|PR)\b/i.test(phone) ? phone : "es-419";
+}
 function followAppLanguage(lang) {
-  const loc = lang === "fr" ? "fr-CA" : (/^en\b/i.test(navigator.language || "") ? navigator.language : "en-US");
+  const loc = lang === "fr" ? "fr-CA"
+    : lang === "es" ? spanishLocale()
+    : (/^en\b/i.test(navigator.language || "") ? navigator.language : "en-US");
   const wrap = (proto, name) => {
     const orig = proto[name];
     if (typeof orig !== "function" || orig.__mbj) return;
@@ -114,17 +138,19 @@ function translateCanvasText(tr) {
 export async function startLanguage() {
   const lang = resolvedLanguage();
   try { followAppLanguage(lang); } catch { /* formatting stays on the phone's language */ }
-  if (lang !== "fr") { document.documentElement.lang = "en"; return "en"; }
+  const spec = LANGUAGES[lang];
+  if (!spec) { document.documentElement.lang = "en"; return "en"; }
   try {
-    const [{ FR_CA }, { installDomTranslation }] = await Promise.all([
-      import("./fr-CA.js"),
+    const [catalog, { installDomTranslation }] = await Promise.all([
+      spec.load(),
       import("./dom.js"),
     ]);
-    active = createTranslator(FR_CA);
-    document.documentElement.lang = "fr-CA";
+    active = createTranslator(catalog);
+    activeLang = lang;
+    document.documentElement.lang = spec.tag;
     dom = installDomTranslation(active);
     try { translateCanvasText(active); } catch { /* pictures stay English */ }
-    return "fr";
+    return lang;
   } catch (e) {
     // A failed download leaves the app in English rather than broken.
     active = null;

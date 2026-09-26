@@ -175,7 +175,9 @@ export function distanceMiles(metres) {
 export function distanceLabel(metres, locale = "en-US", french = false) {
   if (typeof metres !== "number") return null;
   const region = (/[-_]([A-Za-z]{2})\b/.exec(String(locale)) || [])[1];
-  const miles = !french && (!region || ["US", "LR", "MM"].includes(region.toUpperCase()));
+  // Puerto Rico signs its roads in kilometres but people talk in miles,
+  // as in the rest of the US -- so a Spanish phone set to es-PR gets miles.
+  const miles = !french && (!region || ["US", "PR", "LR", "MM"].includes(region.toUpperCase()));
   if (miles) return `${distanceMiles(metres)} mi`;
   return `${Math.round((metres / 1000) * 10) / 10} km`;
 }

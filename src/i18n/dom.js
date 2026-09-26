@@ -72,8 +72,8 @@ export function installDomTranslation(tr, root = document.documentElement) {
     }
     let out = tr.translate(orig);
     // "%" in its own element after the number ("<b>42</b><span>%</span>"):
-    // French puts a non-breaking space between them.
-    if (/^%/.test(out) && /\d$/.test(textBefore(node))) out = "\u00A0" + out;
+    // French puts a non-breaking space between them (Spanish does not).
+    if (tr.lang !== "es" && /^%/.test(out) && /\d$/.test(textBefore(node))) out = "\u00A0" + out;
     set(node, orig, out);
   }
 

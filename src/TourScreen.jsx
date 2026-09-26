@@ -40,7 +40,7 @@ function Phone({ children, title, headerIcon, casual }) {
         display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: "10px 12px", background: C.surface, borderBottom: `1px solid ${C.border}`,
       }}>
-        <span style={{ fontSize: "13px", fontWeight: 700, color: C.text, fontFamily: F.body }}>{title}</span>
+        <span data-i18n="title" style={{ fontSize: "13px", fontWeight: 700, color: C.text, fontFamily: F.body }}>{title}</span>
         <span style={{ display: "flex", gap: "7px", alignItems: "center", fontSize: "13px" }}>
           {!casual && (
             <span style={{
@@ -322,7 +322,7 @@ function ScoreTable({ rows = [] }) {
 // one row, no scrolling, the selected one filled.
 function Chips({ items, sel = 0 }) {
   return (
-    <div style={{ display: "flex", gap: "4px" }}>
+    <div data-i18n="tab" style={{ display: "flex", gap: "4px" }}>
       {items.map((t, i) => (
         <span key={t} style={{ ...chip(i === sel), flex: "1 1 0", minWidth: 0,
           textAlign: "center", padding: "5px 2px" }}>{t}</span>
@@ -840,7 +840,7 @@ const SCREENS = {
               </div>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={label}>Scoring</div>
+              <div data-i18n="field" style={label}>Scoring</div>
               <div style={{ display: "flex", gap: "3px" }}>
                 <span style={chip(true)}>Scratch</span>
                 <span style={chip(false)}>Handicap</span>

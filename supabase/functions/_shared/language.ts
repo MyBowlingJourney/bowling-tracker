@@ -1,21 +1,23 @@
 // Which language an AI feature answers in.
 //
-// The app sends `language: "fr-CA"` when it is showing French (see
-// src/i18n/index.js aiLanguage); anything else, or nothing, is English.
+// The app sends `language: "fr-CA"` when it is showing Quebec French and
+// `language: "es-419"` for Latin American Spanish (see src/i18n/index.js
+// aiLanguage); anything else, or nothing, is English.
 // Only the words the bowler reads change: JSON keys, fixed values the
 // app compares against, and the numbers themselves stay exactly as the
 // prompt specifies.
 
-export type AnswerLanguage = "fr-CA" | "en";
+export type AnswerLanguage = "fr-CA" | "es-419" | "en";
 
 export function answerLanguage(body: unknown): AnswerLanguage {
   const v = (body as { language?: unknown } | null)?.language;
-  return v === "fr-CA" ? "fr-CA" : "en";
+  return v === "fr-CA" || v === "es-419" ? v : "en";
 }
 
 // Appended to a system prompt. Empty for English, so the English prompts
 // are exactly what they were.
 export function languageInstruction(lang: AnswerLanguage): string {
+  if (lang === "es-419") return SPANISH;
   if (lang !== "fr-CA") return "";
   return `
 
@@ -25,3 +27,16 @@ Write numbers the French way: decimal comma (198,4), a space before % (54 %), do
 Keep names exactly as given: the bowler's, teammates', leagues', centres' and balls' names, and brand names.
 If you are asked to return JSON, the keys and any fixed values listed in the instructions stay exactly as specified in English; only the free text inside is in French.`;
 }
+
+// Latin American Spanish, for bowlers in Mexico, Puerto Rico, the US and
+// the rest of Latin America. The bowling words are the ones those league
+// bowlers use -- several are English loanwords (strike, spare, split) --
+// and match the app's own Spanish (src/i18n/glossary-es.md).
+const SPANISH = `
+
+LANGUAGE. The bowler reads the app in Latin American Spanish. Write every word they will read in natural Latin American Spanish as spoken in Mexico and Puerto Rico, not Spain's Spanish (no "vosotros", no "ordenador", no "móvil"), addressing them as "tú". The statistics you are given are labelled in English; translate what you say, never quote the English labels.
+Use these bowling terms: boliche (the sport), strike, spare, split (these three stay in English, as league bowlers say them; plural strikes, spares, splits), canal (gutter), cuadro (frame), cuadro abierto (open frame), cuadro limpio (clean frame), juego (game), serie (series), puntaje (score), promedio (average), pinos que quedan (leave), pino 1 (headpin), bolsillo (pocket), pista (lane), bola (ball), bola de strike / bola de spare, patrón de aceite (oil pattern), gancho (hook), soltada (release), liga, equipo, noche de liga (league night), práctica (practice), torneo.
+Write numbers the way Mexico and the US do: decimal point (198.4), comma for thousands (1,250), 54%, $4.99.
+Use opening question and exclamation marks (¿…? ¡…!).
+Keep names exactly as given: the bowler's, teammates', leagues', centers' and balls' names, and brand names.
+If you are asked to return JSON, the keys and any fixed values listed in the instructions stay exactly as specified in English; only the free text inside is in Spanish.`;

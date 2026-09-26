@@ -179,3 +179,40 @@ describe("punctuation", () => {
     expect(t3.translate("Done .")).toBe("Terminé.");
   });
 });
+
+// Latin American Spanish: English-style numbers, 12-hour "p. m." times,
+// ordinals 3.º, " y " in lists, and only exactly 1 is singular.
+describe("Spanish (es-419)", () => {
+  const es = createTranslator({
+    lang: "es",
+    exact: { "Practice": "Práctica", "League": "Liga", "Save": "Guardar", "Ready?": "¿Listo?" },
+    patterns: [
+      ["{0} game{1:s} logged", "{0} {0|juego registrado|juegos registrados}"],
+      ["Starts at {0}", "Empieza a las {0}"],
+      ["Paid {0}", "Pagado: {0}"],
+      ["Earned in {0} only", "Se obtiene solo en {0}"],
+    ],
+  });
+  it("keeps English-style numbers, money and percent", () => {
+    expect(es.translate("198.4")).toBe("198.4");
+    expect(es.translate("12,345")).toBe("12,345");
+    expect(es.translate("Paid $4.99")).toBe("Pagado: $4.99");
+    expect(es.translate("54%")).toBe("54%");
+  });
+  it("writes times and ordinals the Spanish way", () => {
+    expect(es.translate("Starts at 7:30 PM")).toBe("Empieza a las 7:30 p. m.");
+    expect(es.translate("3rd")).toBe("3.º");
+  });
+  it("takes the singular only for exactly one", () => {
+    expect(es.translate("0 games logged")).toBe("0 juegos registrados");
+    expect(es.translate("1 game logged")).toBe("1 juego registrado");
+    expect(es.translate("2 games logged")).toBe("2 juegos registrados");
+  });
+  it("joins lists with y and adds no space before punctuation", () => {
+    expect(es.translate("Earned in Practice and League only")).toBe("Se obtiene solo en práctica y liga");
+    expect(es.translate("Ready?")).toBe("¿Listo?");
+  });
+  it("still defaults to French rules for a catalog with no lang", () => {
+    expect(tr.translate("198.4")).toBe("198,4");
+  });
+});

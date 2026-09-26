@@ -9,7 +9,7 @@ import { chosenLanguage, resolvedLanguage, setLanguage, currentLanguage } from "
 
 // The public pages have French versions at name-fr.html. A function, not a
 // constant: this module can load before the language is decided.
-const pageSuffix = () => (currentLanguage() === "fr" ? "-fr" : "");
+const pageSuffix = () => ({ fr: "-fr", es: "-es" }[currentLanguage()] || "");
 import { getPendingCount } from "./syncQueue.js";
 import CalendarView from "./CalendarView.jsx";
 import ImportCsv from "./ImportCsv.jsx";
@@ -490,7 +490,7 @@ export default function Settings({
                 so this is one row on every handset without a sideways
                 scroll. Its own comment notes that estimating the fit has
                 already been wrong twice; this stops estimating. */}
-            <div style={{ ...S.chips, flexWrap: "nowrap", marginBottom: 0 }}>
+            <div data-i18n="tab" style={{ ...S.chips, flexWrap: "nowrap", marginBottom: 0 }}>
               <Chip label="Sessions" dense fill selected={historyTab === "sessions"} onToggle={() => setHistoryTab("sessions")} />
               <Chip label="Season" dense fill selected={historyTab === "season"} onToggle={() => setHistoryTab("season")} />
               <Chip label="Calendar" dense fill selected={historyTab === "calendar"} onToggle={() => setHistoryTab("calendar")} />
@@ -705,14 +705,14 @@ export default function Settings({
         </CollapsibleCard>
       )}
 
-      {/* Language. The title is in both languages and never translated, so
-          someone who cannot read the current one can still find it; each
-          language's name is written in that language. */}
+      {/* Language. The title is in all three languages and never
+          translated, so someone who cannot read the current one can still
+          find it; each language's name is written in that language. */}
       {showCard("language") && (() => {
         const choice = chosenLanguage();
-        const names = { fr: "Français (Canada)", en: "English" };
+        const names = { en: "English", es: "Español (Latinoamérica)", fr: "Français (Canada)" };
         return (
-      <CollapsibleCard title={<span translate="no">Language · Langue</span>}
+      <CollapsibleCard title={<span translate="no">Language · Idioma · Langue</span>}
         summary={choice === "auto"
           ? <>Automatic · <span translate="no">{names[resolvedLanguage()]}</span></>
           : <span translate="no">{names[choice]}</span>}
@@ -723,8 +723,9 @@ export default function Settings({
         <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
           <Chip label="Automatic" selected={choice === "auto"} onToggle={() => choice !== "auto" && setLanguage("auto")} />
           <span translate="no" style={{ display: "contents" }}>
-            <Chip label={names.fr} selected={choice === "fr"} onToggle={() => choice !== "fr" && setLanguage("fr")} />
-            <Chip label={names.en} selected={choice === "en"} onToggle={() => choice !== "en" && setLanguage("en")} />
+            {["en", "es", "fr"].map(l => (
+              <Chip key={l} label={names[l]} selected={choice === l} onToggle={() => choice !== l && setLanguage(l)} />
+            ))}
           </span>
         </div>
       </CollapsibleCard>
@@ -945,7 +946,7 @@ export default function Settings({
                     option at all. */}
                 {league !== "Practice" && league !== "Casual" && (
                   <>
-                    <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "8px", marginBottom: "4px" }}>
+                    <div data-i18n="field" style={{ fontSize: "11px", color: C.textMuted, marginTop: "8px", marginBottom: "4px" }}>
                       Scoring
                     </div>
                     <div style={S.chips}>
@@ -1397,7 +1398,7 @@ export default function Settings({
                     option at all. */}
                 {league !== "Practice" && league !== "Casual" && (
                   <>
-                    <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "8px", marginBottom: "4px" }}>
+                    <div data-i18n="field" style={{ fontSize: "11px", color: C.textMuted, marginTop: "8px", marginBottom: "4px" }}>
                       Scoring
                     </div>
                     <div style={S.chips}>

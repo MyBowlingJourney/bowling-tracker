@@ -2164,7 +2164,7 @@ export const FR_CA = {
 "Ball against ball, house against house, pattern against pattern": "Boule contre boule, salle contre salle, patron contre patron",
 "Head to head with friends and teammates": "Face-à-face avec vos amis et les membres de votre équipe",
 "This season against last": "Cette saison contre la précédente",
-"Nightcap, Insights, Brooklyn, the Caddie and coaching": "Nightcap, Analyses, Brooklyn, le Caddie et Entraîneur",
+"Nightcap, Insights, Brooklyn and coaching": "Nightcap, Analyses, Brooklyn et Entraîneur",
 "Scorecard import": "Importation de feuilles de pointage",
 "Choose a plan": "Choisissez un forfait",
 "Yearly ·": "Annuel ·",
@@ -2896,7 +2896,19 @@ export const FR_CA = {
 "You against a teammate. Needs frames for you and at least one teammate in this league.": "Vous contre un coéquipier. Il faut des carreaux pour vous et au moins un coéquipier dans cette ligue.",
 "Teammate": "Coéquipier",
 "This league only. Split Rate is the one where lower is better.": "Cette ligue seulement. Le taux de splits est le seul où plus bas, c'est mieux.",
-"All leagues": "Toutes les ligues"
+"All leagues": "Toutes les ligues",
+"Español (Latinoamérica)": "",
+"Language · Idioma · Langue": "",
+"Nightcap, Insights, Brooklyn, the Caddie and coaching": "Nightcap, Analyses, Brooklyn, le Caddie et Entraîneur",
+"Language · Idioma · Langue in Settings. Automatic follows your phone's language, or pick English, Español (Latinoamérica) or Français (Canada). The app restarts in the language you pick.": "Language · Idioma · Langue dans les Paramètres. Le mode automatique suit la langue de votre téléphone; vous pouvez aussi choisir English, Español (Latinoamérica) ou Français (Canada). L'application redémarre dans la langue choisie.",
+"You cancelled, so this ends when the period you paid for runs out. Everything stays unlocked until then, and you can start it again any time before it ends.": "Vous avez annulé, donc l'abonnement se termine à la fin de la période payée. Tout reste débloqué d'ici là, et vous pouvez le réactiver en tout temps avant la fin.",
+"window::All": "Tout",
+"tab::Season": "Saison",
+"tab::Calendar": "Agenda",
+"tab::Journey": "Parcours",
+"picker::Every night": "Toutes les soirées",
+"field::Scoring": "Pointage",
+"tab::Side games": "Cagnottes"
 },
 "patterns": [
 [
@@ -5842,6 +5854,10 @@ export const FR_CA = {
 [
 "data:image/svg+xml;charset=utf-8,{0}",
 ""
+],
+[
+"You cancelled, so this ends on {0}. Everything stays unlocked until then, and you can start it again any time before it ends.",
+"Vous avez annulé, donc l'abonnement se termine le {0}. Tout reste débloqué d'ici là, et vous pouvez le réactiver en tout temps avant la fin."
 ]
 ],
 "fragments": [

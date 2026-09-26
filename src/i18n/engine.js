@@ -1,4 +1,9 @@
-// The translation engine: English text in, French text out.
+// The translation engine: English text in, French or Spanish text out.
+//
+// The language comes from the catalog (catalog.lang: "fr" or "es"; French
+// when absent). What differs between them is kept in LANGUAGE_RULES below:
+// how numbers and punctuation are written, the word for "and", and which
+// numbers take the singular.
 //
 // Pure -- no DOM, no React, no storage -- so every rule here is tested in
 // engine.test.js.
@@ -19,17 +24,17 @@
 // matches only "", "s" or "es", which keeps it from swallowing a
 // neighbouring value.
 //
-// Plurals: French treats 0 and 1 as singular, English only 1. So the
-// French side can say {0|partie|parties}: the first form when capture 0 is
-// under 2, the second otherwise. The English side's own plural pieces are
-// simply left out of the French.
+// Plurals: French treats 0 and 1 as singular, English and Spanish only 1.
+// So the translation can say {0|partie|parties}: the first form when
+// capture 0 is singular in that language, the second otherwise. The
+// English side's own plural pieces are simply left out.
 //
 // Keys of the form "ctx::English" are context entries: the DOM layer asks
 // for them when an element carries data-i18n="ctx", for the rare English
 // word that needs two different French words on two screens.
 //
 // Anything with no entry is returned unchanged, except that numbers are
-// always written the French way (see frenchNumbers).
+// always written the language's way (frenchNumbers, spanishNumbers).
 
 const NBSP = "\u00A0";   // before : and % and $ -- the OQLF rules
 const NNBSP = "\u202F";  // thousands separator (narrow)
@@ -134,15 +139,15 @@ function dateLike(s) {
 // A plural choice keyed on a word rather than a number ("It" / "They").
 const SINGULAR_WORDS = new Set(["", "it", "this", "that", "is", "has", "was", "a", "an", "one"]);
 
-function isSingular(v) {
+function isSingular(v, oneOnly = false) {
   const n = numberOf(v);
-  if (Number.isFinite(n)) return Math.abs(n) < 2;
+  if (Number.isFinite(n)) return oneOnly ? Math.abs(n) === 1 : Math.abs(n) < 2;
   return SINGULAR_WORDS.has(collapse(v).toLowerCase());
 }
 
 // Upper-case the first letter, as a label or sentence start needs.
 function capitalize(s) {
-  return s.replace(/^(\s*[«"“(]?\s*)([a-zà-ÿ])/, (_, a, c) => a + c.toUpperCase());
+  return s.replace(/^(\s*[«"“(¿¡]?\s*)([a-zà-ÿ])/, (_, a, c) => a + c.toUpperCase());
 }
 function startsLower(s) { return /^[a-zà-ÿ]/.test(s); }
 function startsUpper(s) { return /^[A-ZÀ-Ý]/.test(s); }
@@ -192,6 +197,28 @@ export function frenchNumbers(text) {
   return s;
 }
 
+// ── Spanish (Latin America) ────────────────────────────────────────────
+//
+// Mexico, Puerto Rico and the US write numbers as English does -- 198.4,
+// 12,345, $4.99, 54% -- so those are left alone. What changes: the
+// 12-hour clock says "7:30 p. m.", and English ordinals become 1.º, 2.º.
+export function spanishNumbers(text) {
+  let s = String(text);
+  if (!/\d/.test(s) || /:\/\/|@\w/.test(s)) return s;
+  s = s.replace(/\b(\d{1,2}(?::\d{2})?)\s?([AaPp])\.?\s?[Mm]\.?(?![A-Za-z])/g,
+    (_, t, ap) => `${t}${NBSP}${/[Pp]/.test(ap) ? "p." : "a."}${NBSP}m.`);
+  s = s.replace(/\b(\d+)(?:st|nd|rd|th)\b/g, "$1.º");
+  return s;
+}
+
+// Spanish spacing: nothing before : ; ! ?, no space before . or , (a value
+// that came out empty leaves one behind), never two spaces in a row.
+function spanishPunctuation(s) {
+  return s
+    .replace(/ +([.,:;!?])(?=\s|$)/g, "$1")
+    .replace(/ {2,}/g, " ");
+}
+
 // French spacing: a non-breaking space before a colon, none before ; ! ?
 // (Quebec usage, unlike France); no space before . or , (a value that
 // came out empty leaves one behind); never two spaces in a row.
@@ -203,7 +230,14 @@ function frenchPunctuation(s) {
     .replace(/ {2,}/g, " ");
 }
 
+const LANGUAGE_RULES = {
+  fr: { numbers: frenchNumbers, punctuation: s => frenchPunctuation(s), and: " et ", oneOnly: false },
+  es: { numbers: spanishNumbers, punctuation: s => spanishPunctuation(s), and: " y ", oneOnly: true },
+};
+
 export function createTranslator(catalog = {}) {
+  const lang = LANGUAGE_RULES[catalog.lang] ? catalog.lang : "fr";
+  const rules = LANGUAGE_RULES[lang];
   const exact = new Map();
   for (const [en, fr] of Object.entries(catalog.exact || {})) {
     if (typeof fr === "string" && fr) exact.set(collapse(en), fr);
@@ -235,12 +269,12 @@ export function createTranslator(catalog = {}) {
   // into another sentence.
   const fragmentOnly = new Set((catalog.fragments || []).map(collapse));
 
-  // French number formatting, except inside a protected name: a ball
-  // called "Black Widow 3.0" keeps its dot.
+  // The language's number formatting, except inside a protected name: a
+  // ball called "Black Widow 3.0" keeps its dot.
   function numbers(text) {
     const s = String(text);
-    if (!protectedRe || !/\d/.test(s)) return frenchNumbers(s);
-    return s.split(protectedRe).map((part, i) => (i % 2 ? part : frenchNumbers(part))).join("");
+    if (!protectedRe || !/\d/.test(s)) return rules.numbers(s);
+    return s.split(protectedRe).map((part, i) => (i % 2 ? part : rules.numbers(part))).join("");
   }
 
   function lookupExact(key, depth = 0) {
@@ -256,12 +290,13 @@ export function createTranslator(catalog = {}) {
     if (!core || !/[A-Za-z]/.test(core) || protectedNames.has(core)) return { text: s, hit: false };
     const before = partials;
     let hit = core.includes("::") ? null : lookupCore(core, depth + 1);
-    if (hit === null) hit = translateList(core, depth);
+    let list = false;
+    if (hit === null) { hit = translateList(core, depth); list = hit !== null; }
     if (hit === null) return { text: s, hit: false };
     const lead = /^\s*/.exec(s)[0] ? " " : "", trail = /\s*$/.exec(s)[0] ? " " : "";
     // Only partly translated (a pattern whose own value stayed English)
     // counts as not translated.
-    return { text: lead + hit + trail, hit: hit !== core && partials === before };
+    return { text: lead + hit + trail, hit: hit !== core && partials === before, list };
   }
 
   // "a, b and c" built in code: translated only when every item is known.
@@ -277,7 +312,7 @@ export function createTranslator(catalog = {}) {
       if (t === null) return null;
       out.push(t);
     }
-    return out.slice(0, -1).join(", ") + " et " + out[out.length - 1];
+    return out.slice(0, -1).join(", ") + rules.and + out[out.length - 1];
   }
 
   // Fills a French template from the captured values. Returns null when a
@@ -289,14 +324,14 @@ export function createTranslator(catalog = {}) {
     let untranslated = 0;
     const out = fr.replace(/\{(\d+)(?:\|([^|}]*)\|([^}]*))?\}/g, (whole, i, sing, plur, off) => {
       const v = caps[Number(i)];
-      if (sing !== undefined) return isSingular(v ?? "") ? sing : plur;
+      if (sing !== undefined) return isSingular(v ?? "", rules.oneOnly) ? sing : plur;
       if (v === undefined) return "";
       // A value that swallowed one of an inline element's tokens: this
       // pattern was not written for that sentence.
       if (/⟨\d+⟩/.test(v) && !/⟨\d+⟩/.test(en)) rejected = true;
       // "Left {0}" is not "Left: 1" -- a value does not start with a colon.
       if (/^\s*:/.test(v)) rejected = true;
-      const { text, hit } = translateCapture(v, depth);
+      const { text, hit, list } = translateCapture(v, depth);
       if (!hit && /[A-Za-z]{2,}/.test(text) && !protectedNames.has(collapse(text)) && !dateLike(text)) untranslated++;
       if (!hit && weight < 12 && /(^|[^A-Za-zÀ-ÿ])[a-z]{2,}([^A-Za-zÀ-ÿ]|$)/.test(text)
           && !protectedNames.has(collapse(text)) && !dateLike(text)) rejected = true;
@@ -305,7 +340,12 @@ export function createTranslator(catalog = {}) {
       // touched, and neither is a value at the start of a sentence.
       // After a colon too: French lower-cases a common noun there.
       if (hit && /(?:[a-zà-ÿ'’] ?|[^\d] ?: )$/.test(fr.slice(0, off)) && /^\s?[A-ZÀ-Ý][a-zà-ÿ]/.test(text)) {
-        return text.replace(/^(\s?)(.)/, (_, sp, c) => sp + c.toLowerCase());
+        const lowered = text.replace(/^(\s?)(.)/, (_, sp, c) => sp + c.toLowerCase());
+        // A list built from catalog words ("Práctica y Liga") is lowered
+        // item by item; translateList never lets a typed name into one.
+        if (!list) return lowered;
+        const listSep = new RegExp(`(, |${rules.and})([A-ZÀ-Ý])(?=[a-zà-ÿ])`, "g");
+        return lowered.replace(listSep, (_, sep, c) => sep + c.toLowerCase());
       }
       return text;
     });
@@ -373,7 +413,7 @@ export function createTranslator(catalog = {}) {
     if (out === null) out = lookupSentences(key);
     if (out === null) out = lookupSegments(key);
     if (out !== null) {
-      out = frenchPunctuation(out);
+      out = rules.punctuation(out);
       // A label or a sentence starts with a capital in both languages.
       if (startsUpper(key) && !key.includes("::")) out = capitalize(out);
     }
@@ -462,8 +502,8 @@ export function createTranslator(catalog = {}) {
   // label, never a sentence to match patterns against.
   function context(ctx, text) {
     const hit = lookupExact(`${ctx}::${collapse(text)}`);
-    return hit ? frenchPunctuation(hit) : null;
+    return hit ? rules.punctuation(hit) : null;
   }
 
-  return { lookup, translate, translateMessage, protect, numbers, context, has: t => lookup(t) !== null };
+  return { lang, lookup, translate, translateMessage, protect, numbers, context, has: t => lookup(t) !== null };
 }

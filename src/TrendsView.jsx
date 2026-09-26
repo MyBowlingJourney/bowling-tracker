@@ -234,7 +234,9 @@ export default function TrendsView({
           Three ways to say it, because bowlers ask in all three. */}
       <div style={{ ...S.card, marginBottom: "10px" }}>
         <div style={S.label}>Show</div>
-          <div style={{ ...S.chips, flexWrap: "nowrap", gap: "5px" }}>
+          {/* data-i18n: "All" here has no noun to agree with ("Todo",
+              "Tout"), unlike the league list's "All" leagues. */}
+          <div data-i18n="window" style={{ ...S.chips, flexWrap: "nowrap", gap: "5px" }}>
             {TREND_WINDOW_MODES.map(m => (
               <Chip key={m.id} label={m.label} dense fill
                 selected={trendWindow.mode === m.id}
