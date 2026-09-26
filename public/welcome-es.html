@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>My Bowling Journey — seguimiento de boliche tiro por tiro</title>
 <meta name="description" content="Registra cada tiro en tu noche de liga y descubre cómo se ven de verdad tu arsenal, tus spares y tu temporada. De uso gratuito, con Pro para las comparaciones.">
-<meta name="theme-color" content="#F7F8FA">
+<meta name="theme-color" content="#0B1320">
 
 <!-- ⚠️ BEFORE THIS GOES LIVE ⚠️
      The two prices below MUST match the prices in Stripe and the base
@@ -28,109 +28,336 @@
 
 <style>
   :root{
-    --bg:#F7F8FA; --surface:#fff; --text:#16181D; --muted:#5A6070;
-    --border:#E3E6EC; --accent:#2F6F4F;
+    --bg:#F5F6F8; --surface:#FFFFFF; --text:#14171D; --muted:#586072;
+    --border:#E1E5EC; --accent:#23704D; --accent-ink:#FFFFFF; --soft:#EAF4EE;
+    --amber:#B86E12; --hero:#0B1320; --hero2:#16263F; --hero-text:#F3F5F8;
+    --hero-muted:#AAB4C5; --go:#6FCF97; --go-ink:#0B1712; --shadow:0 18px 40px rgba(12,20,34,.18);
   }
   @media (prefers-color-scheme: dark){
     :root{
-      --bg:#111317; --surface:#181B21; --text:#E8EAEE; --muted:#9AA2B1;
-      --border:#262A33; --accent:#6FCF97;
+      --bg:#0F1216; --surface:#171B21; --text:#E8EBF0; --muted:#9BA4B4;
+      --border:#262C36; --accent:#6FCF97; --accent-ink:#0B1712; --soft:#15261D;
+      --amber:#E8A33D; --shadow:0 18px 40px rgba(0,0,0,.45);
     }
   }
   *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto} }
   body{
     margin:0; background:var(--bg); color:var(--text);
-    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    padding:calc(28px + env(safe-area-inset-top,0px)) 16px
-            calc(48px + env(safe-area-inset-bottom,0px));
+    font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-text-size-adjust:100%;
   }
-  main{max-width:720px;margin:0 auto}
-  .brand{font-size:13px;color:var(--muted);letter-spacing:.02em;margin-bottom:6px}
-  .lang{float:right;font-size:13px;margin-left:12px;display:flex;align-items:center;gap:12px}
-  .pro{
-    display:inline-block;background:var(--accent);color:#fff;text-decoration:none;
-    font-weight:600;font-size:13px;line-height:1;padding:8px 12px;border-radius:999px;
-  }
-  @media (prefers-color-scheme: dark){ .pro{color:#0E1512} }
-  .plan .cta{display:block;text-align:center;margin:12px 0 0;padding:12px 16px;font-size:15px}
-  h1{font-size:30px;line-height:1.2;margin:0 0 10px;letter-spacing:-0.015em}
-  h2{font-size:19px;margin:34px 0 10px;padding-top:18px;border-top:1px solid var(--border)}
-  h3{font-size:16px;margin:0 0 6px}
-  .lead{font-size:18px;color:var(--muted);margin:0 0 24px}
-  ul{padding-left:20px;margin:10px 0}
-  li{margin-bottom:8px}
   a{color:var(--accent)}
-  .card{
-    background:var(--surface);border:1px solid var(--border);
-    border-radius:10px;padding:16px 18px;margin:18px 0;
+  a:focus-visible,.btn:focus-visible{outline:3px solid var(--go);outline-offset:3px}
+  .wrap{max-width:1080px;margin:0 auto;padding-inline:20px}
+  .narrow{max-width:760px}
+  img{max-width:100%;display:block}
+
+  /* ── Top bar and hero: a lane at night ─────────────────────────── */
+  .hero{
+    color:var(--hero-text);
+    background:
+      repeating-linear-gradient(90deg, rgba(255,255,255,.035) 0 1px, transparent 1px 24px),
+      radial-gradient(1200px 500px at 80% -10%, rgba(111,207,151,.16), transparent 60%),
+      linear-gradient(180deg, var(--hero), var(--hero2));
+    padding-top:env(safe-area-inset-top,0px);
+    overflow:hidden;
   }
-  .card h3{margin-top:0}
-  .plans{display:flex;gap:12px;flex-wrap:wrap}
-  .plan{flex:1 1 220px;background:var(--surface);border:1px solid var(--border);
-        border-radius:10px;padding:16px 18px}
-  .price{font-size:26px;font-weight:700;letter-spacing:-0.02em;margin:2px 0 2px}
-  .per{font-size:13px;color:var(--muted)}
-  .cta{
-    display:inline-block;background:var(--accent);color:#fff;
-    text-decoration:none;padding:14px 22px;border-radius:12px;
-    font-weight:600;margin:6px 0 4px;
+  .langs{display:flex;gap:14px;justify-content:flex-end;flex-wrap:wrap;
+    font-size:13px;padding-top:10px}
+  .langs a{color:var(--hero-muted);text-decoration:none}
+  .langs a:hover{color:var(--hero-text)}
+  .bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:14px 8px}
+  .logo{display:flex;align-items:center;gap:10px;color:var(--hero-text);text-decoration:none;
+    font-weight:800;letter-spacing:.06em;font-size:14px}
+  .logo img{width:34px;height:34px;border-radius:9px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    border-radius:12px;padding:14px 22px;font-weight:700;text-decoration:none;
+    font-size:16px;line-height:1.2;border:1px solid transparent}
+  .btn-go{background:var(--go);color:var(--go-ink)}
+  .btn-go:hover{filter:brightness(1.06)}
+  .btn-ghost{color:var(--hero-text);border-color:rgba(255,255,255,.28)}
+  .btn-ghost:hover{border-color:rgba(255,255,255,.55)}
+  .btn-sm{padding:9px 14px;font-size:14px;border-radius:999px}
+  .hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:40px;align-items:center;
+    padding-block:36px 0}
+  .eyebrow{color:#E8A33D;font-weight:700;font-size:13px;letter-spacing:.1em;text-transform:uppercase;margin:0 0 12px}
+  .hero h1{font-size:clamp(34px,6vw,58px);line-height:1.04;letter-spacing:-.025em;margin:0 0 18px;
+    font-weight:850;text-wrap:balance}
+  .hero .sub{font-size:clamp(17px,2.2vw,20px);color:var(--hero-muted);margin:0 0 26px;max-width:34em}
+  .ctas{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+  .trust{list-style:none;padding:0;margin:0 0 40px;display:flex;flex-wrap:wrap;gap:8px 20px;
+    font-size:14px;color:var(--hero-muted)}
+  .trust li::before{content:"✓";color:var(--go);font-weight:800;margin-right:7px}
+  .hero-phones{position:relative;height:560px}
+  .hero-phones .phone{position:absolute;width:270px}
+  .hero-phones .p1{right:150px;top:30px;transform:rotate(-4deg)}
+  .hero-phones .p2{right:0;top:0;transform:rotate(3deg)}
+
+  /* A phone, drawn once. The screenshot sets the screen's shape. */
+  .phone{background:#0A0D12;border-radius:34px;padding:9px;box-shadow:var(--shadow);
+    border:1px solid rgba(255,255,255,.08)}
+  .phone img{border-radius:26px;width:100%;height:auto;aspect-ratio:480/896;object-fit:cover;object-position:top}
+
+  /* ── Feature rows ───────────────────────────────────────────────── */
+  section{padding-block:72px}
+  .section-head{max-width:720px;margin:0 0 36px}
+  .section-head h2{font-size:clamp(28px,4vw,40px);line-height:1.12;letter-spacing:-.02em;margin:0 0 12px;text-wrap:balance}
+  .section-head p{color:var(--muted);font-size:18px;margin:0}
+  .kicker{color:var(--amber);font-weight:700;font-size:13px;letter-spacing:.1em;text-transform:uppercase;margin:0 0 10px}
+  .feature{display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center;padding-block:36px}
+  .feature + .feature{border-top:1px solid var(--border)}
+  .feature.flip .copy{order:2}
+  .feature .shot{display:flex;justify-content:center}
+  .feature .phone{width:min(290px,78vw)}
+  .feature h3{font-size:clamp(24px,3vw,30px);line-height:1.15;letter-spacing:-.015em;margin:0 0 12px;text-wrap:balance}
+  .feature p{color:var(--muted);font-size:17px;margin:0 0 14px}
+  .tag{display:inline-block;font-size:12px;font-weight:800;letter-spacing:.06em;padding:3px 9px;
+    border-radius:999px;background:var(--soft);color:var(--accent);vertical-align:middle;margin-left:6px}
+  .tag.inline{margin:0 0 0 2px}
+  /* The same features, without screenshots, as a grid of cards. */
+  .features-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+  .features-grid .feature{display:block;padding:22px 24px;border:1px solid var(--border);
+    background:var(--surface);border-radius:16px}
+  .features-grid .feature + .feature{border-top:1px solid var(--border)}
+  .features-grid .feature h3{font-size:21px}
+  .features-grid .feature p{font-size:16px;margin:0}
+
+  /* ── Everything else, in cards ─────────────────────────────────── */
+  .alt{background:var(--surface);border-block:1px solid var(--border)}
+  .more{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .more div{padding:18px;border:1px solid var(--border);border-radius:14px;background:var(--bg)}
+  .more h3{font-size:16px;margin:0 0 6px}
+  .more p{font-size:14.5px;color:var(--muted);margin:0}
+
+  .themes{display:flex;gap:18px;overflow-x:auto;padding:6px 4px 18px;scroll-snap-type:x mandatory}
+  .themes figure{margin:0;flex:0 0 190px;scroll-snap-align:start}
+  .themes .phone{border-radius:26px;padding:6px}
+  .themes .phone img{border-radius:21px}
+  .themes figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:10px}
+
+  /* ── Free and Pro ──────────────────────────────────────────────── */
+  .tiers{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .tier{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:24px 26px}
+  .tier.pro{border:2px solid var(--accent)}
+  .tier h3{margin:0 0 4px;font-size:22px}
+  .tier .note{color:var(--muted);font-size:14px;margin:0 0 14px}
+  .tier ul{list-style:none;padding:0;margin:0}
+  .tier li{padding:8px 0 8px 28px;position:relative;border-top:1px solid var(--border);font-size:15.5px}
+  .tier li:first-child{border-top:0}
+  .tier li::before{content:"✓";position:absolute;left:2px;top:8px;color:var(--accent);font-weight:800}
+  .trial{margin-top:16px;padding:18px 22px;border-radius:14px;background:var(--soft);font-size:16px}
+  .trial strong{color:var(--accent)}
+
+  .story{display:grid;grid-template-columns:auto 1fr;gap:22px;align-items:start;
+    background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:28px}
+  .story .pin{font-size:40px;line-height:1}
+  .story blockquote{margin:0;font-size:19px;line-height:1.55}
+  .story cite{display:block;margin-top:12px;font-style:normal;color:var(--muted);font-size:15px}
+
+  /* ── The pricing and the terms (unchanged content, restyled) ───── */
+  .terms h2{font-size:clamp(26px,3.5vw,34px);letter-spacing:-.015em;margin:56px 0 14px}
+  .terms h2:first-child{margin-top:0}
+  .terms h3{font-size:18px;margin:0 0 6px}
+  .terms .plans{display:flex;gap:14px;flex-wrap:wrap}
+  .terms .plan{flex:1 1 240px;background:var(--surface);border:1px solid var(--border);
+    border-radius:18px;padding:22px 24px}
+  .terms .plan:first-child{border:2px solid var(--accent)}
+  .terms .price{font-size:36px;font-weight:850;letter-spacing:-.02em;margin:4px 0 0;font-variant-numeric:tabular-nums}
+  .terms .per{font-size:14px;color:var(--muted)}
+  .terms .cta{display:inline-flex;align-items:center;justify-content:center;background:var(--accent);
+    color:var(--accent-ink);text-decoration:none;padding:14px 22px;border-radius:12px;font-weight:700;margin:14px 0 4px}
+  .terms .plan .cta{display:flex;width:100%}
+  .terms .card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px 22px;margin:18px 0}
+  .terms .card ul{padding-left:20px}
+  .terms li{margin-bottom:9px}
+  .terms .fine{font-size:14.5px;color:var(--muted)}
+  .terms footer{margin-top:48px;padding-top:20px;border-top:1px solid var(--border);font-size:13.5px;color:var(--muted)}
+
+  .final{text-align:center;color:var(--hero-text);
+    background:
+      repeating-linear-gradient(90deg, rgba(255,255,255,.035) 0 1px, transparent 1px 24px),
+      linear-gradient(180deg, var(--hero2), var(--hero))}
+  .final h2{font-size:clamp(28px,4.5vw,44px);letter-spacing:-.02em;line-height:1.1;margin:0 0 12px;text-wrap:balance}
+  .final p{color:var(--hero-muted);margin:0 0 26px;font-size:18px}
+  .final .ctas{justify-content:center;margin:0}
+
+  @media (max-width: 860px){
+    .hero-grid{grid-template-columns:1fr;gap:10px;padding-top:22px}
+    .hero-phones{height:420px;margin:0 auto;width:100%;max-width:380px}
+    .hero-phones .phone{width:205px}
+    .hero-phones .p1{left:0;right:auto;top:40px}
+    .hero-phones .p2{right:0;top:0}
+    .feature{grid-template-columns:1fr;gap:26px;padding-block:28px}
+    .feature.flip .copy{order:0}
+    .more{grid-template-columns:1fr 1fr}
+    .tiers,.features-grid{grid-template-columns:1fr}
+    section{padding-block:52px}
   }
-  @media (prefers-color-scheme: dark){ .cta{color:#0E1512} }
-  .fine{font-size:13.5px;color:var(--muted)}
-  footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--border);
-         font-size:13px;color:var(--muted)}
+  @media (max-width: 460px){
+    .more{grid-template-columns:1fr}
+    .ctas .btn{flex:1 1 100%}
+    .story{grid-template-columns:1fr}
+  }
+  /* Japanese has no spaces to break at: let the browser break headings
+     between phrases rather than mid-word. */
+  :lang(ja) h1, :lang(ja) h2, :lang(ja) h3{word-break:auto-phrase}
+  :lang(ko) h1, :lang(ko) h2, :lang(ko) h3, :lang(ko) p{word-break:keep-all}
 </style>
 </head>
 <body>
 <main>
 
-  <div class="lang"><a href="/" hreflang="en" lang="en">English</a><a href="/fr/" hreflang="fr-CA" lang="fr-CA">Français</a><a href="/ja/" hreflang="ja" lang="ja">日本語</a><a href="/ko/" hreflang="ko" lang="ko">한국어</a><a href="/zh-TW/" hreflang="zh-Hant-TW" lang="zh-Hant-TW">繁體中文</a><a class="pro" href="#pricing">Obtén Pro</a></div>
-  <div class="brand">MY BOWLING JOURNEY</div>
-  <h1>Cada tiro, no solo cada puntaje.</h1>
-  <p class="lead">
-    Registra lo que de verdad pasó en cada tiro mientras todavía estás en la
-    aproximación — qué bola usaste, qué pinos quedaron en pie, qué hiciste
-    después. Luego descubre cómo se ven realmente tu arsenal, tus spares y tu
-    temporada.
-  </p>
-
-  <a class="cta" href="/app/">Abre la app</a>
-  <div class="fine">Funciona en tu navegador. No necesitas instalar nada para empezar.</div>
-
-  <h2>Qué hace</h2>
-  <ul>
-    <li><strong>Registro tiro por tiro</strong> pensado para la noche de liga — tan rápido que puedes seguir el ritmo entre cuadros.</li>
-    <li><strong>Tu arsenal</strong>, bola por bola: lo que cada una realmente derriba y lo que deja en pie.</li>
-    <li><strong>Spares y splits</strong>, incluidos los pinos que te quedan y sigues fallando, y desde dónde.</li>
-    <li><strong>Ligas, equipos y torneos</strong>, con los formatos que de verdad se usan en el boliche.</li>
-    <li><strong>Centros de boliche y patrones de aceite</strong> — tus puntajes según dónde los logras.</li>
-    <li><strong>Un resumen de tu noche</strong> al terminar, en palabras sencillas.</li>
-  </ul>
-
-  <h2>Gratis y Pro</h2>
-  <p>
-    Tus propios números son gratis y lo seguirán siendo: tus puntajes, tus
-    promedios, tus porcentajes de spares y strikes, tus cifras bola por bola.
-    Pro es para las comparaciones — tú contra alguien de tu equipo, una bola
-    contra otra, esta temporada contra la anterior — y para las funciones que
-    analizan tu noche por ti.
-  </p>
-  <div class="card">
-    <h3>El plan gratuito incluye</h3>
-    <p class="fine" style="margin:0">
-      Una liga, práctica y juego libre ilimitados, cada tiro que registres
-      guardado por el tiempo que quieras, y todas tus propias estadísticas.
-    </p>
+<header class="hero">
+  <div class="wrap">
+    <nav class="langs" aria-label="Language"><a href="/" hreflang="en" lang="en">English</a><a href="/fr/" hreflang="fr-CA" lang="fr-CA">Français</a><a href="/ja/" hreflang="ja" lang="ja">日本語</a><a href="/ko/" hreflang="ko" lang="ko">한국어</a><a href="/zh-TW/" hreflang="zh-Hant-TW" lang="zh-Hant-TW">繁體中文</a></nav>
+    <div class="bar">
+      <a class="logo" href="#top" id="top"><img src="/icon-192.png" width="34" height="34" alt="">MY BOWLING JOURNEY</a>
+      <a class="btn btn-go btn-sm" href="#pricing">Obtén Pro</a>
+    </div>
+    <div class="hero-grid" style="grid-template-columns:1fr;padding-bottom:12px">
+      <div>
+        <p class="eyebrow">Hecha por un jugador de liga, para jugadores de liga</p>
+        <h1>Cada tiro, no solo cada puntaje.</h1>
+        <p class="sub">Registra cada tiro mientras juegas — la bola, los pinos que quedaron, la línea — y descubre cómo se ven de verdad tu arsenal, tus spares y tu temporada.</p>
+        <div class="ctas">
+          <a class="btn btn-go" href="/app/">Empieza gratis</a>
+          <a class="btn btn-ghost" href="#pricing">Ver precios</a>
+        </div>
+        <ul class="trust">
+          <li>Funciona en el navegador de cualquier celular</li>
+          <li>Pro gratis tus primeros 60 días</li>
+          <li>Sin tarjeta para empezar</li>
+        </ul>
+      </div>
+    </div>
   </div>
-  <div class="card">
-    <h3>Pro agrega</h3>
-    <p class="fine" style="margin:0">
-      Todas las ligas y equipos en los que juegas, comparaciones mano a mano y
-      con integrantes de tu equipo, bola contra bola y centro contra centro,
-      temporada contra temporada, importación de hojas de puntaje y las funciones
-      de IA — Nightcap, Análisis, Brooklyn, el Caddie y Entrenador.
-    </p>
+</header>
+
+<section>
+  <div class="wrap">
+    <div class="section-head">
+      <p class="kicker">Cómo funciona</p>
+      <h2>Tu noche de liga, con más detalle que el marcador</h2>
+    </div>
+    <div class="features-grid">
+    <div class="feature">
+      <div class="copy">
+        <h3>Regístralo antes de salir de la aproximación</h3>
+        <p>Toca el resultado y agrega lo que quieras: la bola, el tipo de strike, tus tablas de salida y de mira, la velocidad y más. Todo lo que va después del resultado es opcional, así que sigue el ritmo entre cuadros.</p>
+      </div>
+    </div>
+    <div class="feature">
+      <div class="copy">
+        <h3>La hoja de puntaje se lleva sola</h3>
+        <p>Cada cuadro muestra los pinos que de verdad quedaron, con tu serie hasta ahora y lo máximo que todavía puedes hacer. ¿Llevas el puntaje de tu equipo? Todos en un solo celular.</p>
+      </div>
+    </div>
+    <div class="feature">
+      <div class="copy">
+        <h3>Encuentra los pinos que te están costando</h3>
+        <p>Cada leave que se repite, qué tan seguido aparece y qué tan seguido lo conviertes — pinos sueltos, el 10, splits y el resto. Con Pro, compáralo con tu equipo.</p>
+      </div>
+    </div>
+    <div class="feature">
+      <div class="copy">
+        <h3>Mira cómo se mueve tu línea durante el bloque<span class="tag">Pro</span></h3>
+        <p>El recorrido de cada bola en una pista real: 39 tablas, flechas a 15 pies y el punto de quiebre según el patrón de aceite. Recorre la noche cuadro por cuadro.</p>
+      </div>
+    </div>
+    <div class="feature">
+      <div class="copy">
+        <h3>Nightcap te cuenta tu noche<span class="tag">Pro</span></h3>
+        <p>Guarda la noche y Nightcap te dice qué importó, en palabras sencillas. Tu serie teórica muestra los pinos que dejaste en la pista.</p>
+      </div>
+    </div>
+    <div class="feature">
+      <div class="copy">
+        <h3>Cada logro, guardado</h3>
+        <p>Tu primer 800, cincuenta noches, el big four que por fin hiciste. Tu recorrido los recuerda y te muestra lo que sigue.</p>
+      </div>
+    </div>
+    </div>
   </div>
+</section>
+
+<section class="alt">
+  <div class="wrap">
+    <div class="section-head"><h2>Y todo lo demás que necesita un jugador</h2></div>
+    <div class="more">
+      <div><h3>Ligas, equipos y torneos</h3><p>Match play, brackets y side pots, como los juega tu liga.</p></div>
+      <div><h3>Importar hojas de puntaje <span class="tag">Pro</span></h3><p>Toma una foto del marcador y tus puntajes de liga o práctica quedan registrados.</p></div>
+      <div><h3>Brooklyn <span class="tag">Pro</span></h3><p>Pregunta sobre tu propio juego — por qué te queda el 10, qué bola tirar.</p></div>
+      <div><h3>El Caddie <span class="tag">Pro</span></h3><p>Revisa tu arsenal y tu maleta: huecos y bolas repetidas.</p></div>
+      <div><h3>Entrenador <span class="tag">Pro</span></h3><p>Comparte tus números con un entrenador y recibe tareas y notas.</p></div>
+      <div><h3>Centros y patrones</h3><p>Tus puntajes en cada centro y en cada patrón de aceite.</p></div>
+      <div><h3>Ocho temas</h3><p>De Lane a Chalk — elige el look que prefieras.</p></div>
+      <div><h3>Seis idiomas</h3><p>Inglés, francés, español, japonés, coreano y chino tradicional.</p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="section-head">
+      <p class="kicker">Gratis y Pro</p>
+      <h2>Tus propios números son gratis. Pro es para compararlos.</h2>
+    </div>
+    <div class="tiers">
+      <div class="tier">
+        <h3>Gratis</h3>
+        <p class="note">Siempre, mientras juegues</p>
+        <ul>
+          <li>Registro tiro por tiro y la hoja de puntaje</li>
+          <li>Una liga, más práctica y juego libre ilimitados</li>
+          <li>Todas tus estadísticas — promedios, strikes, spares, leaves</li>
+          <li>Logros e insignias</li>
+          <li>Todo lo que registras, guardado por el tiempo que quieras</li>
+        </ul>
+      </div>
+      <div class="tier pro">
+        <h3>Pro</h3>
+        <p class="note">Todo lo del plan gratis, más</p>
+        <ul>
+          <li>Todas tus ligas y equipos</li>
+          <li>Tú contra tu equipo, bola contra bola, centro contra centro, temporada contra temporada</li>
+          <li>La vista de la pista y tu línea durante el bloque</li>
+          <li>Nightcap, Análisis, Brooklyn y el Caddie</li>
+          <li>Importación de hojas de puntaje</li>
+          <li>Entrenador, brackets y side pots, y más maletas</li>
+        </ul>
+      </div>
+    </div>
+    <p class="trial"><strong>Cada cuenta nueva tiene todo Pro gratis durante 60 días.</strong> Sin tarjeta. Al terminar, elige Pro o quédate con el plan Basic gratis — no pierdes nada de lo que registraste.</p>
+  </div>
+</section>
+
+<section class="alt">
+  <div class="wrap narrow">
+    <figure class="story" style="margin:0">
+      <div class="pin" aria-hidden="true">🎳</div>
+      <div>
+        <blockquote>“Creé My Bowling Journey porque quería saber qué bola me funcionaba mejor en la noche de liga — y cuándo cada una empezaba a dejarme el 10. Terminó siendo la app que siempre quise.”</blockquote>
+        <cite>— Ryan, jugador de liga y fundador</cite>
+      </div>
+    </figure>
+  </div>
+</section>
+
+<section class="final">
+  <div class="wrap">
+    <h2>Tu próxima noche de liga es la primera que vale la pena registrar.</h2>
+    <p>Empieza gratis. Pro va por nuestra cuenta durante 60 días.</p>
+    <div class="ctas">
+      <a class="btn btn-go" href="/app/">Empieza gratis</a>
+      <a class="btn btn-ghost" href="#pricing">Ver precios</a>
+    </div>
+  </div>
+</section>
+
+<section class="terms">
+<div class="wrap narrow">
 
   <h2 id="pricing">Cuánto cuesta</h2>
   <div class="plans">
@@ -214,6 +441,8 @@
     <a href="mailto:support@mybowlingjourney.com">support@mybowlingjourney.com</a>
   </footer>
 
+</div>
+</section>
 </main>
 <script>
   // Local prices on the web, as in the app: Canada 6.99 / 69.99 CAD, and

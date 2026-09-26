@@ -64,6 +64,11 @@ for (const f of ROOT_PAGES) await copyFile(join(pub, f), join(out, f));
 for (const f of await readdir(pub)) {
   if (/\.(png|svg|ico|webmanifest)$/.test(f)) await copyFile(join(pub, f), join(out, f));
 }
+// The app screenshots the welcome pages show, at /screens/.
+await mkdir(join(out, "screens"), { recursive: true });
+for (const f of await readdir(join(pub, "screens"))) {
+  if (/\.(webp|png)$/.test(f)) await copyFile(join(pub, "screens", f), join(out, "screens", f));
+}
 // Android App Links: assetlinks.json has to sit at the DOMAIN ROOT, on
 // https, as application/json. Android fetches it at install time and
 // only delivers mybowlingjourney.com/app/... links to the app when the

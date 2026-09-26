@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>My Bowling Journey — suivi de quilles lancer par lancer</title>
 <meta name="description" content="Enregistrez chaque lancer pendant votre soirée de ligue et voyez de quoi ont vraiment l'air votre arsenal, vos réserves et votre saison. Utilisation gratuite, avec Pro pour les comparaisons.">
-<meta name="theme-color" content="#F7F8FA">
+<meta name="theme-color" content="#0B1320">
 
 <!-- ⚠️ BEFORE THIS GOES LIVE ⚠️
      The two prices below MUST match the prices in Stripe and the base
@@ -28,113 +28,336 @@
 
 <style>
   :root{
-    --bg:#F7F8FA; --surface:#fff; --text:#16181D; --muted:#5A6070;
-    --border:#E3E6EC; --accent:#2F6F4F;
+    --bg:#F5F6F8; --surface:#FFFFFF; --text:#14171D; --muted:#586072;
+    --border:#E1E5EC; --accent:#23704D; --accent-ink:#FFFFFF; --soft:#EAF4EE;
+    --amber:#B86E12; --hero:#0B1320; --hero2:#16263F; --hero-text:#F3F5F8;
+    --hero-muted:#AAB4C5; --go:#6FCF97; --go-ink:#0B1712; --shadow:0 18px 40px rgba(12,20,34,.18);
   }
   @media (prefers-color-scheme: dark){
     :root{
-      --bg:#111317; --surface:#181B21; --text:#E8EAEE; --muted:#9AA2B1;
-      --border:#262A33; --accent:#6FCF97;
+      --bg:#0F1216; --surface:#171B21; --text:#E8EBF0; --muted:#9BA4B4;
+      --border:#262C36; --accent:#6FCF97; --accent-ink:#0B1712; --soft:#15261D;
+      --amber:#E8A33D; --shadow:0 18px 40px rgba(0,0,0,.45);
     }
   }
   *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto} }
   body{
     margin:0; background:var(--bg); color:var(--text);
-    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    padding:calc(28px + env(safe-area-inset-top,0px)) 16px
-            calc(48px + env(safe-area-inset-bottom,0px));
+    font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-text-size-adjust:100%;
   }
-  main{max-width:720px;margin:0 auto}
-  .brand{font-size:13px;color:var(--muted);letter-spacing:.02em;margin-bottom:6px}
-  .brand-sub{font-size:14px;color:var(--muted);margin:-6px 0 10px}
-  .lang{float:right;font-size:13px;margin-left:12px;display:flex;align-items:center;gap:12px}
-  .pro{
-    display:inline-block;background:var(--accent);color:#fff;text-decoration:none;
-    font-weight:600;font-size:13px;line-height:1;padding:8px 12px;border-radius:999px;
-  }
-  @media (prefers-color-scheme: dark){ .pro{color:#0E1512} }
-  .plan .cta{display:block;text-align:center;margin:12px 0 0;padding:12px 16px;font-size:15px}
-  h1{font-size:30px;line-height:1.2;margin:0 0 10px;letter-spacing:-0.015em}
-  h2{font-size:19px;margin:34px 0 10px;padding-top:18px;border-top:1px solid var(--border)}
-  h3{font-size:16px;margin:0 0 6px}
-  .lead{font-size:18px;color:var(--muted);margin:0 0 24px}
-  ul{padding-left:20px;margin:10px 0}
-  li{margin-bottom:8px}
   a{color:var(--accent)}
-  .card{
-    background:var(--surface);border:1px solid var(--border);
-    border-radius:10px;padding:16px 18px;margin:18px 0;
+  a:focus-visible,.btn:focus-visible{outline:3px solid var(--go);outline-offset:3px}
+  .wrap{max-width:1080px;margin:0 auto;padding-inline:20px}
+  .narrow{max-width:760px}
+  img{max-width:100%;display:block}
+
+  /* ── Top bar and hero: a lane at night ─────────────────────────── */
+  .hero{
+    color:var(--hero-text);
+    background:
+      repeating-linear-gradient(90deg, rgba(255,255,255,.035) 0 1px, transparent 1px 24px),
+      radial-gradient(1200px 500px at 80% -10%, rgba(111,207,151,.16), transparent 60%),
+      linear-gradient(180deg, var(--hero), var(--hero2));
+    padding-top:env(safe-area-inset-top,0px);
+    overflow:hidden;
   }
-  .card h3{margin-top:0}
-  .plans{display:flex;gap:12px;flex-wrap:wrap}
-  .plan{flex:1 1 220px;background:var(--surface);border:1px solid var(--border);
-        border-radius:10px;padding:16px 18px}
-  .price{font-size:26px;font-weight:700;letter-spacing:-0.02em;margin:2px 0 2px}
-  .per{font-size:13px;color:var(--muted)}
-  .cta{
-    display:inline-block;background:var(--accent);color:#fff;
-    text-decoration:none;padding:14px 22px;border-radius:12px;
-    font-weight:600;margin:6px 0 4px;
+  .langs{display:flex;gap:14px;justify-content:flex-end;flex-wrap:wrap;
+    font-size:13px;padding-top:10px}
+  .langs a{color:var(--hero-muted);text-decoration:none}
+  .langs a:hover{color:var(--hero-text)}
+  .bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:14px 8px}
+  .logo{display:flex;align-items:center;gap:10px;color:var(--hero-text);text-decoration:none;
+    font-weight:800;letter-spacing:.06em;font-size:14px}
+  .logo img{width:34px;height:34px;border-radius:9px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    border-radius:12px;padding:14px 22px;font-weight:700;text-decoration:none;
+    font-size:16px;line-height:1.2;border:1px solid transparent}
+  .btn-go{background:var(--go);color:var(--go-ink)}
+  .btn-go:hover{filter:brightness(1.06)}
+  .btn-ghost{color:var(--hero-text);border-color:rgba(255,255,255,.28)}
+  .btn-ghost:hover{border-color:rgba(255,255,255,.55)}
+  .btn-sm{padding:9px 14px;font-size:14px;border-radius:999px}
+  .hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:40px;align-items:center;
+    padding-block:36px 0}
+  .eyebrow{color:#E8A33D;font-weight:700;font-size:13px;letter-spacing:.1em;text-transform:uppercase;margin:0 0 12px}
+  .hero h1{font-size:clamp(34px,6vw,58px);line-height:1.04;letter-spacing:-.025em;margin:0 0 18px;
+    font-weight:850;text-wrap:balance}
+  .hero .sub{font-size:clamp(17px,2.2vw,20px);color:var(--hero-muted);margin:0 0 26px;max-width:34em}
+  .ctas{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+  .trust{list-style:none;padding:0;margin:0 0 40px;display:flex;flex-wrap:wrap;gap:8px 20px;
+    font-size:14px;color:var(--hero-muted)}
+  .trust li::before{content:"✓";color:var(--go);font-weight:800;margin-right:7px}
+  .hero-phones{position:relative;height:560px}
+  .hero-phones .phone{position:absolute;width:270px}
+  .hero-phones .p1{right:150px;top:30px;transform:rotate(-4deg)}
+  .hero-phones .p2{right:0;top:0;transform:rotate(3deg)}
+
+  /* A phone, drawn once. The screenshot sets the screen's shape. */
+  .phone{background:#0A0D12;border-radius:34px;padding:9px;box-shadow:var(--shadow);
+    border:1px solid rgba(255,255,255,.08)}
+  .phone img{border-radius:26px;width:100%;height:auto;aspect-ratio:480/896;object-fit:cover;object-position:top}
+
+  /* ── Feature rows ───────────────────────────────────────────────── */
+  section{padding-block:72px}
+  .section-head{max-width:720px;margin:0 0 36px}
+  .section-head h2{font-size:clamp(28px,4vw,40px);line-height:1.12;letter-spacing:-.02em;margin:0 0 12px;text-wrap:balance}
+  .section-head p{color:var(--muted);font-size:18px;margin:0}
+  .kicker{color:var(--amber);font-weight:700;font-size:13px;letter-spacing:.1em;text-transform:uppercase;margin:0 0 10px}
+  .feature{display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center;padding-block:36px}
+  .feature + .feature{border-top:1px solid var(--border)}
+  .feature.flip .copy{order:2}
+  .feature .shot{display:flex;justify-content:center}
+  .feature .phone{width:min(290px,78vw)}
+  .feature h3{font-size:clamp(24px,3vw,30px);line-height:1.15;letter-spacing:-.015em;margin:0 0 12px;text-wrap:balance}
+  .feature p{color:var(--muted);font-size:17px;margin:0 0 14px}
+  .tag{display:inline-block;font-size:12px;font-weight:800;letter-spacing:.06em;padding:3px 9px;
+    border-radius:999px;background:var(--soft);color:var(--accent);vertical-align:middle;margin-left:6px}
+  .tag.inline{margin:0 0 0 2px}
+  /* The same features, without screenshots, as a grid of cards. */
+  .features-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+  .features-grid .feature{display:block;padding:22px 24px;border:1px solid var(--border);
+    background:var(--surface);border-radius:16px}
+  .features-grid .feature + .feature{border-top:1px solid var(--border)}
+  .features-grid .feature h3{font-size:21px}
+  .features-grid .feature p{font-size:16px;margin:0}
+
+  /* ── Everything else, in cards ─────────────────────────────────── */
+  .alt{background:var(--surface);border-block:1px solid var(--border)}
+  .more{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .more div{padding:18px;border:1px solid var(--border);border-radius:14px;background:var(--bg)}
+  .more h3{font-size:16px;margin:0 0 6px}
+  .more p{font-size:14.5px;color:var(--muted);margin:0}
+
+  .themes{display:flex;gap:18px;overflow-x:auto;padding:6px 4px 18px;scroll-snap-type:x mandatory}
+  .themes figure{margin:0;flex:0 0 190px;scroll-snap-align:start}
+  .themes .phone{border-radius:26px;padding:6px}
+  .themes .phone img{border-radius:21px}
+  .themes figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:10px}
+
+  /* ── Free and Pro ──────────────────────────────────────────────── */
+  .tiers{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .tier{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:24px 26px}
+  .tier.pro{border:2px solid var(--accent)}
+  .tier h3{margin:0 0 4px;font-size:22px}
+  .tier .note{color:var(--muted);font-size:14px;margin:0 0 14px}
+  .tier ul{list-style:none;padding:0;margin:0}
+  .tier li{padding:8px 0 8px 28px;position:relative;border-top:1px solid var(--border);font-size:15.5px}
+  .tier li:first-child{border-top:0}
+  .tier li::before{content:"✓";position:absolute;left:2px;top:8px;color:var(--accent);font-weight:800}
+  .trial{margin-top:16px;padding:18px 22px;border-radius:14px;background:var(--soft);font-size:16px}
+  .trial strong{color:var(--accent)}
+
+  .story{display:grid;grid-template-columns:auto 1fr;gap:22px;align-items:start;
+    background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:28px}
+  .story .pin{font-size:40px;line-height:1}
+  .story blockquote{margin:0;font-size:19px;line-height:1.55}
+  .story cite{display:block;margin-top:12px;font-style:normal;color:var(--muted);font-size:15px}
+
+  /* ── The pricing and the terms (unchanged content, restyled) ───── */
+  .terms h2{font-size:clamp(26px,3.5vw,34px);letter-spacing:-.015em;margin:56px 0 14px}
+  .terms h2:first-child{margin-top:0}
+  .terms h3{font-size:18px;margin:0 0 6px}
+  .terms .plans{display:flex;gap:14px;flex-wrap:wrap}
+  .terms .plan{flex:1 1 240px;background:var(--surface);border:1px solid var(--border);
+    border-radius:18px;padding:22px 24px}
+  .terms .plan:first-child{border:2px solid var(--accent)}
+  .terms .price{font-size:36px;font-weight:850;letter-spacing:-.02em;margin:4px 0 0;font-variant-numeric:tabular-nums}
+  .terms .per{font-size:14px;color:var(--muted)}
+  .terms .cta{display:inline-flex;align-items:center;justify-content:center;background:var(--accent);
+    color:var(--accent-ink);text-decoration:none;padding:14px 22px;border-radius:12px;font-weight:700;margin:14px 0 4px}
+  .terms .plan .cta{display:flex;width:100%}
+  .terms .card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px 22px;margin:18px 0}
+  .terms .card ul{padding-left:20px}
+  .terms li{margin-bottom:9px}
+  .terms .fine{font-size:14.5px;color:var(--muted)}
+  .terms footer{margin-top:48px;padding-top:20px;border-top:1px solid var(--border);font-size:13.5px;color:var(--muted)}
+
+  .final{text-align:center;color:var(--hero-text);
+    background:
+      repeating-linear-gradient(90deg, rgba(255,255,255,.035) 0 1px, transparent 1px 24px),
+      linear-gradient(180deg, var(--hero2), var(--hero))}
+  .final h2{font-size:clamp(28px,4.5vw,44px);letter-spacing:-.02em;line-height:1.1;margin:0 0 12px;text-wrap:balance}
+  .final p{color:var(--hero-muted);margin:0 0 26px;font-size:18px}
+  .final .ctas{justify-content:center;margin:0}
+
+  @media (max-width: 860px){
+    .hero-grid{grid-template-columns:1fr;gap:10px;padding-top:22px}
+    .hero-phones{height:420px;margin:0 auto;width:100%;max-width:380px}
+    .hero-phones .phone{width:205px}
+    .hero-phones .p1{left:0;right:auto;top:40px}
+    .hero-phones .p2{right:0;top:0}
+    .feature{grid-template-columns:1fr;gap:26px;padding-block:28px}
+    .feature.flip .copy{order:0}
+    .more{grid-template-columns:1fr 1fr}
+    .tiers,.features-grid{grid-template-columns:1fr}
+    section{padding-block:52px}
   }
-  @media (prefers-color-scheme: dark){ .cta{color:#0E1512} }
-  .fine{font-size:13.5px;color:var(--muted)}
-  footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--border);
-         font-size:13px;color:var(--muted)}
+  @media (max-width: 460px){
+    .more{grid-template-columns:1fr}
+    .ctas .btn{flex:1 1 100%}
+    .story{grid-template-columns:1fr}
+  }
+  /* Japanese has no spaces to break at: let the browser break headings
+     between phrases rather than mid-word. */
+  :lang(ja) h1, :lang(ja) h2, :lang(ja) h3{word-break:auto-phrase}
+  :lang(ko) h1, :lang(ko) h2, :lang(ko) h3, :lang(ko) p{word-break:keep-all}
 </style>
 </head>
 <body>
 <main>
 
-  <div class="lang"><a href="/" hreflang="en" lang="en">English</a><a href="/es/" hreflang="es-419" lang="es-419">Español</a><a href="/ja/" hreflang="ja" lang="ja">日本語</a><a href="/ko/" hreflang="ko" lang="ko">한국어</a><a href="/zh-TW/" hreflang="zh-Hant-TW" lang="zh-Hant-TW">繁體中文</a><a class="pro" href="#pricing">Passer à Pro</a></div>
-  <div class="brand">MY BOWLING JOURNEY</div>
-  <div class="brand-sub">Suivi de quilles</div>
-  <h1>Chaque lancer, pas seulement chaque pointage.</h1>
-  <p class="lead">
-    Enregistrez ce qui s'est vraiment passé à chaque lancer, pendant que vous
-    êtes encore sur l'approche — quelle boule, quelles quilles elle a laissées
-    debout, ce que vous avez fait ensuite. Découvrez ensuite de quoi ont
-    vraiment l'air votre arsenal, vos réserves et votre saison.
-  </p>
-
-  <a class="cta" href="/app/">Ouvrir l'application</a>
-  <div class="fine">Fonctionne dans votre navigateur. Aucune installation nécessaire pour commencer.</div>
-
-  <h2>Ce que fait l'application</h2>
-  <ul>
-    <li><strong>Enregistrement lancer par lancer</strong> conçu pour les soirées de ligue — assez rapide pour suivre le rythme entre les carreaux.</li>
-    <li><strong>Votre arsenal</strong>, boule par boule&nbsp;: ce que chacune abat vraiment, et ce qu'elle laisse debout.</li>
-    <li><strong>Réserves et écarts</strong>, y compris les quilles restantes que vous ratez encore et encore, et depuis quel endroit.</li>
-    <li><strong>Ligues, équipes et tournois</strong>, avec les formats qu'utilisent vraiment les quilleurs et quilleuses.</li>
-    <li><strong>Salles et patrons d'huilage</strong> — vos pointages, selon l'endroit où vous les obtenez.</li>
-    <li><strong>Le récit de votre soirée</strong> quand elle se termine, en mots simples.</li>
-  </ul>
-
-  <h2>Gratuit, et Pro</h2>
-  <p>
-    Vos propres chiffres sont gratuits et le restent&nbsp;: vos pointages, vos
-    moyennes, vos pourcentages de réserves et d'abats, vos statistiques boule
-    par boule. Pro sert aux comparaisons — vous contre un membre de votre
-    équipe, une boule contre une autre, cette saison contre la précédente — et
-    aux fonctions qui décortiquent votre soirée pour vous.
-  </p>
-  <div class="card">
-    <h3>La version gratuite comprend</h3>
-    <p class="fine" style="margin:0">
-      Une ligue, l'entraînement et le jeu libre en illimité, tous les lancers
-      que vous enregistrez, conservés aussi longtemps que vous le voulez, et
-      toutes vos propres statistiques.
-    </p>
+<header class="hero">
+  <div class="wrap">
+    <nav class="langs" aria-label="Language"><a href="/" hreflang="en" lang="en">English</a><a href="/es/" hreflang="es-419" lang="es-419">Español</a><a href="/ja/" hreflang="ja" lang="ja">日本語</a><a href="/ko/" hreflang="ko" lang="ko">한국어</a><a href="/zh-TW/" hreflang="zh-Hant-TW" lang="zh-Hant-TW">繁體中文</a></nav>
+    <div class="bar">
+      <a class="logo" href="#top" id="top"><img src="/icon-192.png" width="34" height="34" alt="">MY BOWLING JOURNEY</a>
+      <a class="btn btn-go btn-sm" href="#pricing">Passer à Pro</a>
+    </div>
+    <div class="hero-grid" style="grid-template-columns:1fr;padding-bottom:12px">
+      <div>
+        <p class="eyebrow">Conçu par un quilleur de ligue, pour les quilleurs de ligue</p>
+        <h1>Chaque lancer, pas seulement chaque pointage.</h1>
+        <p class="sub">Enregistrez chaque lancer pendant que vous jouez — la boule, les quilles restantes, la ligne — et découvrez de quoi ont vraiment l'air votre arsenal, vos réserves et votre saison.</p>
+        <div class="ctas">
+          <a class="btn btn-go" href="/app/">Commencer gratuitement</a>
+          <a class="btn btn-ghost" href="#pricing">Voir les prix</a>
+        </div>
+        <ul class="trust">
+          <li>Fonctionne dans le navigateur de n'importe quel téléphone</li>
+          <li>Pro gratuit pendant vos 60 premiers jours</li>
+          <li>Aucune carte pour commencer</li>
+        </ul>
+      </div>
+    </div>
   </div>
-  <div class="card">
-    <h3>Pro ajoute</h3>
-    <p class="fine" style="margin:0">
-      Toutes les ligues et équipes où vous jouez, les comparaisons en
-      face-à-face et avec les membres de votre équipe, boule contre boule et
-      salle contre salle, saison contre saison, l'importation de feuilles de
-      pointage et les fonctions d'IA — Nightcap, Analyses, Brooklyn, le
-      Caddie et Entraîneur.
-    </p>
+</header>
+
+<section>
+  <div class="wrap">
+    <div class="section-head">
+      <p class="kicker">Comment ça marche</p>
+      <h2>Votre soirée de ligue, plus en détail que le tableau de pointage</h2>
+    </div>
+    <div class="features-grid">
+    <div class="feature">
+      <div class="copy">
+        <h3>Enregistrez-le avant de quitter l'approche</h3>
+        <p>Touchez le résultat, puis ajoutez ce que vous voulez : la boule, le genre d'abat, vos planches de départ et de visée, la vitesse et plus. Tout ce qui suit le résultat est facultatif, alors ça suit le rythme entre les carreaux.</p>
+      </div>
+    </div>
+    <div class="feature">
+      <div class="copy">
+        <h3>La feuille de pointage se tient toute seule</h3>
+        <p>Chaque carreau montre les quilles réellement restées debout, avec votre série jusqu'ici et le maximum encore possible. Vous comptez aussi pour votre équipe? Gardez tout le monde sur un seul téléphone.</p>
+      </div>
+    </div>
+    <div class="feature">
+      <div class="copy">
+        <h3>Trouvez les quilles qui vous coûtent cher</h3>
+        <p>Chaque configuration qui revient, à quelle fréquence et à quel point vous la convertissez — quilles seules, la 10, les écarts et le reste. Avec Pro, comparez-vous à votre équipe.</p>
+      </div>
+    </div>
+    <div class="feature">
+      <div class="copy">
+        <h3>Voyez votre ligne bouger au fil du bloc<span class="tag">Pro</span></h3>
+        <p>Le trajet de chaque boule sur une vraie allée : 39 planches, flèches à 15 pieds, point de cassure selon le patron d'huilage. Parcourez la soirée carreau par carreau.</p>
+      </div>
+    </div>
+    <div class="feature">
+      <div class="copy">
+        <h3>Nightcap vous raconte votre soirée<span class="tag">Pro</span></h3>
+        <p>Enregistrez la soirée et Nightcap vous dit ce qui a compté, en mots simples. Votre série théorique montre les quilles laissées sur l'allée.</p>
+      </div>
+    </div>
+    <div class="feature">
+      <div class="copy">
+        <h3>Chaque étape, gardée</h3>
+        <p>Votre premier 800, cinquante soirées, le grand quatre enfin converti. Votre parcours s'en souvient et vous montre la suite.</p>
+      </div>
+    </div>
+    </div>
   </div>
+</section>
+
+<section class="alt">
+  <div class="wrap">
+    <div class="section-head"><h2>Et tout le reste dont un quilleur a besoin</h2></div>
+    <div class="more">
+      <div><h3>Ligues, équipes et tournois</h3><p>Matchs, brackets et pots, organisés comme votre ligue les joue.</p></div>
+      <div><h3>Importation de feuilles <span class="tag">Pro</span></h3><p>Photographiez le tableau et vos pointages de ligue ou d'entraînement sont entrés.</p></div>
+      <div><h3>Brooklyn <span class="tag">Pro</span></h3><p>Posez des questions sur votre jeu — pourquoi la 10 reste debout, quelle boule lancer.</p></div>
+      <div><h3>Le Caddie <span class="tag">Pro</span></h3><p>Vérifie votre arsenal et votre sac : les trous et les doublons.</p></div>
+      <div><h3>Coaching <span class="tag">Pro</span></h3><p>Partagez vos chiffres avec un entraîneur et recevez tâches et notes.</p></div>
+      <div><h3>Salles et patrons</h3><p>Vos pointages selon la salle et le patron d'huilage.</p></div>
+      <div><h3>Huit thèmes</h3><p>De Lane à Chalk — choisissez l'apparence qui vous plaît.</p></div>
+      <div><h3>Six langues</h3><p>Anglais, français, espagnol, japonais, coréen et chinois traditionnel.</p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="section-head">
+      <p class="kicker">Gratuit et Pro</p>
+      <h2>Vos propres chiffres sont gratuits. Pro sert à les comparer.</h2>
+    </div>
+    <div class="tiers">
+      <div class="tier">
+        <h3>Gratuit</h3>
+        <p class="note">Toujours, aussi longtemps que vous jouez</p>
+        <ul>
+          <li>L'enregistrement lancer par lancer et la feuille de pointage</li>
+          <li>Une ligue, plus l'entraînement et le jeu libre en illimité</li>
+          <li>Toutes vos statistiques — moyennes, abats, réserves, quilles restantes</li>
+          <li>Étapes et badges</li>
+          <li>Tout ce que vous enregistrez, gardé aussi longtemps que vous le voulez</li>
+        </ul>
+      </div>
+      <div class="tier pro">
+        <h3>Pro</h3>
+        <p class="note">Tout ce qui est gratuit, plus</p>
+        <ul>
+          <li>Toutes vos ligues et équipes</li>
+          <li>Vous contre votre équipe, boule contre boule, salle contre salle, saison contre saison</li>
+          <li>La vue de l'allée et votre ligne au fil du bloc</li>
+          <li>Nightcap, Analyses, Brooklyn et le Caddie</li>
+          <li>L'importation de feuilles de pointage</li>
+          <li>Coaching, brackets et pots, et plus de sacs</li>
+        </ul>
+      </div>
+    </div>
+    <p class="trial"><strong>Chaque nouveau compte a tout Pro gratuitement pendant 60 jours.</strong> Aucune carte. Ensuite, choisissez Pro ou gardez le plan Basic gratuit — rien de ce que vous avez enregistré n'est perdu.</p>
+  </div>
+</section>
+
+<section class="alt">
+  <div class="wrap narrow">
+    <figure class="story" style="margin:0">
+      <div class="pin" aria-hidden="true">🎳</div>
+      <div>
+        <blockquote>« J'ai créé My Bowling Journey parce que je voulais savoir quelle boule me convenait le mieux en soirée de ligue — et quand chacune commençait à laisser la 10. C'est devenu l'application que j'avais toujours voulue. »</blockquote>
+        <cite>— Ryan, quilleur de ligue et fondateur</cite>
+      </div>
+    </figure>
+  </div>
+</section>
+
+<section class="final">
+  <div class="wrap">
+    <h2>Votre prochaine soirée de ligue est la première qui vaut la peine d'être enregistrée.</h2>
+    <p>Commencez gratuitement. Pro est offert pendant 60 jours.</p>
+    <div class="ctas">
+      <a class="btn btn-go" href="/app/">Commencer gratuitement</a>
+      <a class="btn btn-ghost" href="#pricing">Voir les prix</a>
+    </div>
+  </div>
+</section>
+
+<section class="terms">
+<div class="wrap narrow">
 
   <h2 id="pricing">Combien ça coûte</h2>
   <div class="plans">
@@ -224,6 +447,8 @@
     <a href="mailto:support@mybowlingjourney.com">support@mybowlingjourney.com</a>
   </footer>
 
+</div>
+</section>
 </main>
 </body>
 </html>

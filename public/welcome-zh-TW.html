@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>My Bowling Journey — 逐球記錄的保齡球紀錄 App</title>
 <meta name="description" content="在聯賽日記錄每一球，看看你的球具庫、補中和整個賽季真正的樣子。免費使用，比較功能則由 Pro 提供。">
-<meta name="theme-color" content="#F7F8FA">
+<meta name="theme-color" content="#0B1320">
 
 <!-- ⚠️ BEFORE THIS GOES LIVE ⚠️
      The two prices below are the TAIWAN prices (New Taiwan dollars, tax
@@ -29,99 +29,336 @@
 
 <style>
   :root{
-    --bg:#F7F8FA; --surface:#fff; --text:#16181D; --muted:#5A6070;
-    --border:#E3E6EC; --accent:#2F6F4F;
+    --bg:#F5F6F8; --surface:#FFFFFF; --text:#14171D; --muted:#586072;
+    --border:#E1E5EC; --accent:#23704D; --accent-ink:#FFFFFF; --soft:#EAF4EE;
+    --amber:#B86E12; --hero:#0B1320; --hero2:#16263F; --hero-text:#F3F5F8;
+    --hero-muted:#AAB4C5; --go:#6FCF97; --go-ink:#0B1712; --shadow:0 18px 40px rgba(12,20,34,.18);
   }
   @media (prefers-color-scheme: dark){
     :root{
-      --bg:#111317; --surface:#181B21; --text:#E8EAEE; --muted:#9AA2B1;
-      --border:#262A33; --accent:#6FCF97;
+      --bg:#0F1216; --surface:#171B21; --text:#E8EBF0; --muted:#9BA4B4;
+      --border:#262C36; --accent:#6FCF97; --accent-ink:#0B1712; --soft:#15261D;
+      --amber:#E8A33D; --shadow:0 18px 40px rgba(0,0,0,.45);
     }
   }
   *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto} }
   body{
     margin:0; background:var(--bg); color:var(--text);
-    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;
-    overflow-wrap:break-word;
-    padding:calc(28px + env(safe-area-inset-top,0px)) 16px
-            calc(48px + env(safe-area-inset-bottom,0px));
+    font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;
+    -webkit-text-size-adjust:100%;
   }
-  main{max-width:720px;margin:0 auto}
-  .brand{font-size:13px;color:var(--muted);letter-spacing:.02em;margin-bottom:6px}
-  .lang{float:right;font-size:13px;margin-left:12px;display:flex;align-items:center;gap:12px}
-  .pro{
-    display:inline-block;background:var(--accent);color:#fff;text-decoration:none;
-    font-weight:600;font-size:13px;line-height:1;padding:8px 12px;border-radius:999px;
-  }
-  @media (prefers-color-scheme: dark){ .pro{color:#0E1512} }
-  .plan .cta{display:block;text-align:center;margin:12px 0 0;padding:12px 16px;font-size:15px}
-  h1{font-size:30px;line-height:1.2;margin:0 0 10px;letter-spacing:-0.015em}
-  h2{font-size:19px;margin:34px 0 10px;padding-top:18px;border-top:1px solid var(--border)}
-  h3{font-size:16px;margin:0 0 6px}
-  .lead{font-size:18px;color:var(--muted);margin:0 0 24px}
-  ul{padding-left:20px;margin:10px 0}
-  li{margin-bottom:8px}
   a{color:var(--accent)}
-  .card{
-    background:var(--surface);border:1px solid var(--border);
-    border-radius:10px;padding:16px 18px;margin:18px 0;
+  a:focus-visible,.btn:focus-visible{outline:3px solid var(--go);outline-offset:3px}
+  .wrap{max-width:1080px;margin:0 auto;padding-inline:20px}
+  .narrow{max-width:760px}
+  img{max-width:100%;display:block}
+
+  /* ── Top bar and hero: a lane at night ─────────────────────────── */
+  .hero{
+    color:var(--hero-text);
+    background:
+      repeating-linear-gradient(90deg, rgba(255,255,255,.035) 0 1px, transparent 1px 24px),
+      radial-gradient(1200px 500px at 80% -10%, rgba(111,207,151,.16), transparent 60%),
+      linear-gradient(180deg, var(--hero), var(--hero2));
+    padding-top:env(safe-area-inset-top,0px);
+    overflow:hidden;
   }
-  .card h3{margin-top:0}
-  .plans{display:flex;gap:12px;flex-wrap:wrap}
-  .plan{flex:1 1 220px;background:var(--surface);border:1px solid var(--border);
-        border-radius:10px;padding:16px 18px}
-  .price{font-size:26px;font-weight:700;letter-spacing:-0.02em;margin:2px 0 2px}
-  .per{font-size:13px;color:var(--muted)}
-  .cta{
-    display:inline-block;background:var(--accent);color:#fff;
-    text-decoration:none;padding:14px 22px;border-radius:12px;
-    font-weight:600;margin:6px 0 4px;
+  .langs{display:flex;gap:14px;justify-content:flex-end;flex-wrap:wrap;
+    font-size:13px;padding-top:10px}
+  .langs a{color:var(--hero-muted);text-decoration:none}
+  .langs a:hover{color:var(--hero-text)}
+  .bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:14px 8px}
+  .logo{display:flex;align-items:center;gap:10px;color:var(--hero-text);text-decoration:none;
+    font-weight:800;letter-spacing:.06em;font-size:14px}
+  .logo img{width:34px;height:34px;border-radius:9px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    border-radius:12px;padding:14px 22px;font-weight:700;text-decoration:none;
+    font-size:16px;line-height:1.2;border:1px solid transparent}
+  .btn-go{background:var(--go);color:var(--go-ink)}
+  .btn-go:hover{filter:brightness(1.06)}
+  .btn-ghost{color:var(--hero-text);border-color:rgba(255,255,255,.28)}
+  .btn-ghost:hover{border-color:rgba(255,255,255,.55)}
+  .btn-sm{padding:9px 14px;font-size:14px;border-radius:999px}
+  .hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:40px;align-items:center;
+    padding-block:36px 0}
+  .eyebrow{color:#E8A33D;font-weight:700;font-size:13px;letter-spacing:.1em;text-transform:uppercase;margin:0 0 12px}
+  .hero h1{font-size:clamp(34px,6vw,58px);line-height:1.04;letter-spacing:-.025em;margin:0 0 18px;
+    font-weight:850;text-wrap:balance}
+  .hero .sub{font-size:clamp(17px,2.2vw,20px);color:var(--hero-muted);margin:0 0 26px;max-width:34em}
+  .ctas{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+  .trust{list-style:none;padding:0;margin:0 0 40px;display:flex;flex-wrap:wrap;gap:8px 20px;
+    font-size:14px;color:var(--hero-muted)}
+  .trust li::before{content:"✓";color:var(--go);font-weight:800;margin-right:7px}
+  .hero-phones{position:relative;height:560px}
+  .hero-phones .phone{position:absolute;width:270px}
+  .hero-phones .p1{right:150px;top:30px;transform:rotate(-4deg)}
+  .hero-phones .p2{right:0;top:0;transform:rotate(3deg)}
+
+  /* A phone, drawn once. The screenshot sets the screen's shape. */
+  .phone{background:#0A0D12;border-radius:34px;padding:9px;box-shadow:var(--shadow);
+    border:1px solid rgba(255,255,255,.08)}
+  .phone img{border-radius:26px;width:100%;height:auto;aspect-ratio:480/896;object-fit:cover;object-position:top}
+
+  /* ── Feature rows ───────────────────────────────────────────────── */
+  section{padding-block:72px}
+  .section-head{max-width:720px;margin:0 0 36px}
+  .section-head h2{font-size:clamp(28px,4vw,40px);line-height:1.12;letter-spacing:-.02em;margin:0 0 12px;text-wrap:balance}
+  .section-head p{color:var(--muted);font-size:18px;margin:0}
+  .kicker{color:var(--amber);font-weight:700;font-size:13px;letter-spacing:.1em;text-transform:uppercase;margin:0 0 10px}
+  .feature{display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center;padding-block:36px}
+  .feature + .feature{border-top:1px solid var(--border)}
+  .feature.flip .copy{order:2}
+  .feature .shot{display:flex;justify-content:center}
+  .feature .phone{width:min(290px,78vw)}
+  .feature h3{font-size:clamp(24px,3vw,30px);line-height:1.15;letter-spacing:-.015em;margin:0 0 12px;text-wrap:balance}
+  .feature p{color:var(--muted);font-size:17px;margin:0 0 14px}
+  .tag{display:inline-block;font-size:12px;font-weight:800;letter-spacing:.06em;padding:3px 9px;
+    border-radius:999px;background:var(--soft);color:var(--accent);vertical-align:middle;margin-left:6px}
+  .tag.inline{margin:0 0 0 2px}
+  /* The same features, without screenshots, as a grid of cards. */
+  .features-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+  .features-grid .feature{display:block;padding:22px 24px;border:1px solid var(--border);
+    background:var(--surface);border-radius:16px}
+  .features-grid .feature + .feature{border-top:1px solid var(--border)}
+  .features-grid .feature h3{font-size:21px}
+  .features-grid .feature p{font-size:16px;margin:0}
+
+  /* ── Everything else, in cards ─────────────────────────────────── */
+  .alt{background:var(--surface);border-block:1px solid var(--border)}
+  .more{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .more div{padding:18px;border:1px solid var(--border);border-radius:14px;background:var(--bg)}
+  .more h3{font-size:16px;margin:0 0 6px}
+  .more p{font-size:14.5px;color:var(--muted);margin:0}
+
+  .themes{display:flex;gap:18px;overflow-x:auto;padding:6px 4px 18px;scroll-snap-type:x mandatory}
+  .themes figure{margin:0;flex:0 0 190px;scroll-snap-align:start}
+  .themes .phone{border-radius:26px;padding:6px}
+  .themes .phone img{border-radius:21px}
+  .themes figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:10px}
+
+  /* ── Free and Pro ──────────────────────────────────────────────── */
+  .tiers{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .tier{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:24px 26px}
+  .tier.pro{border:2px solid var(--accent)}
+  .tier h3{margin:0 0 4px;font-size:22px}
+  .tier .note{color:var(--muted);font-size:14px;margin:0 0 14px}
+  .tier ul{list-style:none;padding:0;margin:0}
+  .tier li{padding:8px 0 8px 28px;position:relative;border-top:1px solid var(--border);font-size:15.5px}
+  .tier li:first-child{border-top:0}
+  .tier li::before{content:"✓";position:absolute;left:2px;top:8px;color:var(--accent);font-weight:800}
+  .trial{margin-top:16px;padding:18px 22px;border-radius:14px;background:var(--soft);font-size:16px}
+  .trial strong{color:var(--accent)}
+
+  .story{display:grid;grid-template-columns:auto 1fr;gap:22px;align-items:start;
+    background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:28px}
+  .story .pin{font-size:40px;line-height:1}
+  .story blockquote{margin:0;font-size:19px;line-height:1.55}
+  .story cite{display:block;margin-top:12px;font-style:normal;color:var(--muted);font-size:15px}
+
+  /* ── The pricing and the terms (unchanged content, restyled) ───── */
+  .terms h2{font-size:clamp(26px,3.5vw,34px);letter-spacing:-.015em;margin:56px 0 14px}
+  .terms h2:first-child{margin-top:0}
+  .terms h3{font-size:18px;margin:0 0 6px}
+  .terms .plans{display:flex;gap:14px;flex-wrap:wrap}
+  .terms .plan{flex:1 1 240px;background:var(--surface);border:1px solid var(--border);
+    border-radius:18px;padding:22px 24px}
+  .terms .plan:first-child{border:2px solid var(--accent)}
+  .terms .price{font-size:36px;font-weight:850;letter-spacing:-.02em;margin:4px 0 0;font-variant-numeric:tabular-nums}
+  .terms .per{font-size:14px;color:var(--muted)}
+  .terms .cta{display:inline-flex;align-items:center;justify-content:center;background:var(--accent);
+    color:var(--accent-ink);text-decoration:none;padding:14px 22px;border-radius:12px;font-weight:700;margin:14px 0 4px}
+  .terms .plan .cta{display:flex;width:100%}
+  .terms .card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px 22px;margin:18px 0}
+  .terms .card ul{padding-left:20px}
+  .terms li{margin-bottom:9px}
+  .terms .fine{font-size:14.5px;color:var(--muted)}
+  .terms footer{margin-top:48px;padding-top:20px;border-top:1px solid var(--border);font-size:13.5px;color:var(--muted)}
+
+  .final{text-align:center;color:var(--hero-text);
+    background:
+      repeating-linear-gradient(90deg, rgba(255,255,255,.035) 0 1px, transparent 1px 24px),
+      linear-gradient(180deg, var(--hero2), var(--hero))}
+  .final h2{font-size:clamp(28px,4.5vw,44px);letter-spacing:-.02em;line-height:1.1;margin:0 0 12px;text-wrap:balance}
+  .final p{color:var(--hero-muted);margin:0 0 26px;font-size:18px}
+  .final .ctas{justify-content:center;margin:0}
+
+  @media (max-width: 860px){
+    .hero-grid{grid-template-columns:1fr;gap:10px;padding-top:22px}
+    .hero-phones{height:420px;margin:0 auto;width:100%;max-width:380px}
+    .hero-phones .phone{width:205px}
+    .hero-phones .p1{left:0;right:auto;top:40px}
+    .hero-phones .p2{right:0;top:0}
+    .feature{grid-template-columns:1fr;gap:26px;padding-block:28px}
+    .feature.flip .copy{order:0}
+    .more{grid-template-columns:1fr 1fr}
+    .tiers,.features-grid{grid-template-columns:1fr}
+    section{padding-block:52px}
   }
-  @media (prefers-color-scheme: dark){ .cta{color:#0E1512} }
-  .fine{font-size:13.5px;color:var(--muted)}
-  footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--border);
-         font-size:13px;color:var(--muted)}
+  @media (max-width: 460px){
+    .more{grid-template-columns:1fr}
+    .ctas .btn{flex:1 1 100%}
+    .story{grid-template-columns:1fr}
+  }
+  /* Japanese has no spaces to break at: let the browser break headings
+     between phrases rather than mid-word. */
+  :lang(ja) h1, :lang(ja) h2, :lang(ja) h3{word-break:auto-phrase}
+  :lang(ko) h1, :lang(ko) h2, :lang(ko) h3, :lang(ko) p{word-break:keep-all}
 </style>
 </head>
 <body>
 <main>
 
-  <div class="lang"><a href="/" hreflang="en" lang="en">English</a><a href="/es/" hreflang="es-419" lang="es-419">Español</a><a href="/fr/" hreflang="fr-CA" lang="fr-CA">Français</a><a href="/ja/" hreflang="ja" lang="ja">日本語</a><a href="/ko/" hreflang="ko" lang="ko">한국어</a><a class="pro" href="#pricing">升級 Pro</a></div>
-  <div class="brand">MY BOWLING JOURNEY</div>
-  <h1>記下每一球，不只是每一局的分數。</h1>
-  <p class="lead">
-    趁你還站在助走道上，把每一球實際發生的事記下來——用了哪顆球、留下什麼殘瓶、你又怎麼處理。接著看看你的球具庫、補中和整個賽季真正的樣子。
-  </p>
-
-  <a class="cta" href="/app/">開啟 App</a>
-  <div class="fine">直接在瀏覽器裡使用，不必安裝就能開始。</div>
-
-  <h2>功能</h2>
-  <ul>
-    <li><strong>逐球記錄</strong>，專為聯賽日設計——快到在格與格之間也跟得上。</li>
-    <li><strong>你的球具庫</strong>，一顆一顆看：每顆球實際的帶瓶和留下的殘瓶。</li>
-    <li><strong>補中和技術球</strong>，包括你一直補不到的是哪些殘瓶、又是從哪個位置失手。</li>
-    <li><strong>聯賽、球隊和比賽</strong>，支援球友實際在用的賽制。</li>
-    <li><strong>球館和油型</strong> — 在哪裡打、打出什麼分數。</li>
-    <li><strong>當天的回顧</strong>：打完球後，用淺白的話幫你整理今天的表現。</li>
-  </ul>
-
-  <h2>免費，以及 Pro</h2>
-  <p>
-    你自己的數字是免費的，而且會一直免費：你的分數、平均、補中率和全倒率、每顆球的各項數字。Pro 是為了比較而設計的——你和隊友、這顆球和那顆球、這個賽季和上個賽季——還有幫你解讀當天表現的功能。
-  </p>
-  <div class="card">
-    <h3>免費版包含</h3>
-    <p class="fine" style="margin:0">
-      1 個聯賽、不限次數的練習和自由打。你記錄的每一球，想保留多久就保留多久，你自己的統計也全部都看得到。
-    </p>
+<header class="hero">
+  <div class="wrap">
+    <nav class="langs" aria-label="Language"><a href="/" hreflang="en" lang="en">English</a><a href="/es/" hreflang="es-419" lang="es-419">Español</a><a href="/fr/" hreflang="fr-CA" lang="fr-CA">Français</a><a href="/ja/" hreflang="ja" lang="ja">日本語</a><a href="/ko/" hreflang="ko" lang="ko">한국어</a></nav>
+    <div class="bar">
+      <a class="logo" href="#top" id="top"><img src="/icon-192.png" width="34" height="34" alt="">MY BOWLING JOURNEY</a>
+      <a class="btn btn-go btn-sm" href="#pricing">升級 Pro</a>
+    </div>
+    <div class="hero-grid" style="grid-template-columns:1fr;padding-bottom:12px">
+      <div>
+        <p class="eyebrow">聯賽球友打造，為聯賽球友而生</p>
+        <h1>記下每一球，不只是每一局的分數。</h1>
+        <p class="sub">邊打邊記錄每一球——用哪顆球、留下什麼殘瓶、走什麼線——看清你的球具庫、補中和整個賽季真正的樣子。</p>
+        <div class="ctas">
+          <a class="btn btn-go" href="/app/">免費開始</a>
+          <a class="btn btn-ghost" href="#pricing">查看價格</a>
+        </div>
+        <ul class="trust">
+          <li>任何手機的瀏覽器都能用</li>
+          <li>前 60 天免費使用 Pro</li>
+          <li>開始不必綁卡</li>
+        </ul>
+      </div>
+    </div>
   </div>
-  <div class="card">
-    <h3>Pro 另外提供</h3>
-    <p class="fine" style="margin:0">
-      你參加的所有聯賽和球隊、一對一和隊友比較、球與球的比較和球館與球館的比較、賽季之間的比較、匯入計分表，以及 AI 功能——Nightcap、分析、Brooklyn、Caddie 和教練指導。
-    </p>
+</header>
+
+<section>
+  <div class="wrap">
+    <div class="section-head">
+      <p class="kicker">怎麼用</p>
+      <h2>你的聯賽日，比計分螢幕記得更詳細</h2>
+    </div>
+    <div class="features-grid">
+    <div class="feature">
+      <div class="copy">
+        <h3>還沒離開助走道就記下來</h3>
+        <p>點選結果，其他想記多少就記多少：用哪顆球、全倒的種類、站位和目標板、球速等等。結果以外都是選填，所以格與格之間也跟得上。</p>
+      </div>
+    </div>
+    <div class="feature">
+      <div class="copy">
+        <h3>計分表自動完成</h3>
+        <p>每一格都顯示實際留下的球瓶，還有目前的系列總分和還能打出的最高分。幫隊友計分？一支手機就能記下所有人。</p>
+      </div>
+    </div>
+    <div class="feature">
+      <div class="copy">
+        <h3>找出讓你掉分的球瓶</h3>
+        <p>每個反覆出現的殘瓶、出現幾次、補中幾次——單支瓶、10 號瓶、技術球等等。升級 Pro，還能和隊友並排比較。</p>
+      </div>
+    </div>
+    <div class="feature">
+      <div class="copy">
+        <h3>看你的走線在整個油況中怎麼移動<span class="tag">Pro</span></h3>
+        <p>在真實球道上畫出每顆球的路徑：39 片板、15 英尺處的箭頭，轉彎點依油型而定。逐格回顧當晚的變化。</p>
+      </div>
+    </div>
+    <div class="feature">
+      <div class="copy">
+        <h3>Nightcap 幫你回顧當天<span class="tag">Pro</span></h3>
+        <p>儲存當天的紀錄後，Nightcap 用淺白的話告訴你重點。理論系列分數會顯示你留在球道上的球瓶。</p>
+      </div>
+    </div>
+    <div class="feature">
+      <div class="copy">
+        <h3>每個里程碑都幫你記著</h3>
+        <p>第一次 800、第 50 個聯賽日、終於補中的 Big Four。你的旅程會記住這些，並告訴你下一個目標。</p>
+      </div>
+    </div>
+    </div>
   </div>
+</section>
+
+<section class="alt">
+  <div class="wrap">
+    <div class="section-head"><h2>球友需要的其他功能，也都有</h2></div>
+    <div class="more">
+      <div><h3>聯賽、球隊和比賽</h3><p>對戰、對戰籤表和彩池，照你的聯賽玩法設定。</p></div>
+      <div><h3>匯入計分表 <span class="tag">Pro</span></h3><p>拍下計分螢幕，聯賽或練習的分數就記進來了。</p></div>
+      <div><h3>Brooklyn <span class="tag">Pro</span></h3><p>問問你自己的打球狀況——為什麼總留下 10 號瓶、該用哪顆球。</p></div>
+      <div><h3>Caddie <span class="tag">Pro</span></h3><p>檢查你的球具庫和球袋有沒有缺口或重疊。</p></div>
+      <div><h3>教練指導 <span class="tag">Pro</span></h3><p>和教練分享你的數字，收到練習任務和筆記。</p></div>
+      <div><h3>球館和油型</h3><p>你在每間球館、每種油型的分數。</p></div>
+      <div><h3>8 種主題</h3><p>從 Lane 到 Chalk，選你喜歡的樣子。</p></div>
+      <div><h3>6 種語言</h3><p>英文、法文、西班牙文、日文、韓文和繁體中文。</p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="section-head">
+      <p class="kicker">免費與 Pro</p>
+      <h2>你自己的數字免費，想比較就用 Pro。</h2>
+    </div>
+    <div class="tiers">
+      <div class="tier">
+        <h3>免費</h3>
+        <p class="note">只要你還在打球，就一直免費</p>
+        <ul>
+          <li>逐球記錄和計分表</li>
+          <li>1 個聯賽，練習和自由打不限次數</li>
+          <li>你自己的所有統計——平均、全倒、補中、殘瓶</li>
+          <li>里程碑和徽章</li>
+          <li>你記錄的一切，想保留多久就保留多久</li>
+        </ul>
+      </div>
+      <div class="tier pro">
+        <h3>Pro</h3>
+        <p class="note">免費版的全部，再加上</p>
+        <ul>
+          <li>你參加的所有聯賽和球隊</li>
+          <li>你和隊友、球與球、球館與球館、賽季與賽季的比較</li>
+          <li>球道畫面和整個油況中的走線</li>
+          <li>Nightcap、分析、Brooklyn 和 Caddie</li>
+          <li>匯入計分表</li>
+          <li>教練指導、對戰籤表和彩池，以及更多球袋</li>
+        </ul>
+      </div>
+    </div>
+    <p class="trial"><strong>每個新帳號都能免費使用 Pro 全部功能 60 天。</strong>不必綁卡。結束後可以選擇 Pro，或繼續用免費的 Basic 方案——你記錄的資料都不會消失。</p>
+  </div>
+</section>
+
+<section class="alt">
+  <div class="wrap narrow">
+    <figure class="story" style="margin:0">
+      <div class="pin" aria-hidden="true">🎳</div>
+      <div>
+        <blockquote>「我打造 My Bowling Journey，是因為想知道在聯賽日哪一顆球最適合我，以及每一顆球從什麼時候開始留下 10 號瓶。做著做著，它就成了我一直想要的 App。」</blockquote>
+        <cite>— Ryan，聯賽球友暨創辦人</cite>
+      </div>
+    </figure>
+  </div>
+</section>
+
+<section class="final">
+  <div class="wrap">
+    <h2>下一個聯賽日，就是第一個值得記錄的日子。</h2>
+    <p>免費開始。前 60 天 Pro 由我們請客。</p>
+    <div class="ctas">
+      <a class="btn btn-go" href="/app/">免費開始</a>
+      <a class="btn btn-ghost" href="#pricing">查看價格</a>
+    </div>
+  </div>
+</section>
+
+<section class="terms">
+<div class="wrap narrow">
 
   <h2 id="pricing">價格</h2>
   <div class="plans">
@@ -183,6 +420,8 @@
     <a href="mailto:support@mybowlingjourney.com">support@mybowlingjourney.com</a>
   </footer>
 
+</div>
+</section>
 </main>
 </body>
 </html>

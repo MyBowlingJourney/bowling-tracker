@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>My Bowling Journey — 투구 하나하나까지 남기는 볼링 기록</title>
 <meta name="description" content="리그 날 모든 투구를 기록하고, 내 보유 볼과 스페어, 시즌의 실제 모습을 확인해 보세요. 무료로 쓸 수 있고, 비교 기능은 Pro에서 제공해요.">
-<meta name="theme-color" content="#F7F8FA">
+<meta name="theme-color" content="#0B1320">
 
 <!-- ⚠️ BEFORE THIS GOES LIVE ⚠️
      The two prices below are the SOUTH KOREA prices (won, VAT included)
@@ -29,106 +29,336 @@
 
 <style>
   :root{
-    --bg:#F7F8FA; --surface:#fff; --text:#16181D; --muted:#5A6070;
-    --border:#E3E6EC; --accent:#2F6F4F;
+    --bg:#F5F6F8; --surface:#FFFFFF; --text:#14171D; --muted:#586072;
+    --border:#E1E5EC; --accent:#23704D; --accent-ink:#FFFFFF; --soft:#EAF4EE;
+    --amber:#B86E12; --hero:#0B1320; --hero2:#16263F; --hero-text:#F3F5F8;
+    --hero-muted:#AAB4C5; --go:#6FCF97; --go-ink:#0B1712; --shadow:0 18px 40px rgba(12,20,34,.18);
   }
   @media (prefers-color-scheme: dark){
     :root{
-      --bg:#111317; --surface:#181B21; --text:#E8EAEE; --muted:#9AA2B1;
-      --border:#262A33; --accent:#6FCF97;
+      --bg:#0F1216; --surface:#171B21; --text:#E8EBF0; --muted:#9BA4B4;
+      --border:#262C36; --accent:#6FCF97; --accent-ink:#0B1712; --soft:#15261D;
+      --amber:#E8A33D; --shadow:0 18px 40px rgba(0,0,0,.45);
     }
   }
   *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto} }
   body{
     margin:0; background:var(--bg); color:var(--text);
-    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif;
-    word-break:keep-all; overflow-wrap:break-word;
-    padding:calc(28px + env(safe-area-inset-top,0px)) 16px
-            calc(48px + env(safe-area-inset-bottom,0px));
+    font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif;
+    -webkit-text-size-adjust:100%;
   }
-  main{max-width:720px;margin:0 auto}
-  .brand{font-size:13px;color:var(--muted);letter-spacing:.02em;margin-bottom:6px}
-  .lang{float:right;font-size:13px;margin-left:12px;display:flex;align-items:center;gap:12px}
-  .pro{
-    display:inline-block;background:var(--accent);color:#fff;text-decoration:none;
-    font-weight:600;font-size:13px;line-height:1;padding:8px 12px;border-radius:999px;
-  }
-  @media (prefers-color-scheme: dark){ .pro{color:#0E1512} }
-  .plan .cta{display:block;text-align:center;margin:12px 0 0;padding:12px 16px;font-size:15px}
-  h1{font-size:30px;line-height:1.2;margin:0 0 10px;letter-spacing:-0.015em}
-  h2{font-size:19px;margin:34px 0 10px;padding-top:18px;border-top:1px solid var(--border)}
-  h3{font-size:16px;margin:0 0 6px}
-  .lead{font-size:18px;color:var(--muted);margin:0 0 24px}
-  ul{padding-left:20px;margin:10px 0}
-  li{margin-bottom:8px}
   a{color:var(--accent)}
-  .card{
-    background:var(--surface);border:1px solid var(--border);
-    border-radius:10px;padding:16px 18px;margin:18px 0;
+  a:focus-visible,.btn:focus-visible{outline:3px solid var(--go);outline-offset:3px}
+  .wrap{max-width:1080px;margin:0 auto;padding-inline:20px}
+  .narrow{max-width:760px}
+  img{max-width:100%;display:block}
+
+  /* ── Top bar and hero: a lane at night ─────────────────────────── */
+  .hero{
+    color:var(--hero-text);
+    background:
+      repeating-linear-gradient(90deg, rgba(255,255,255,.035) 0 1px, transparent 1px 24px),
+      radial-gradient(1200px 500px at 80% -10%, rgba(111,207,151,.16), transparent 60%),
+      linear-gradient(180deg, var(--hero), var(--hero2));
+    padding-top:env(safe-area-inset-top,0px);
+    overflow:hidden;
   }
-  .card h3{margin-top:0}
-  .plans{display:flex;gap:12px;flex-wrap:wrap}
-  .plan{flex:1 1 220px;background:var(--surface);border:1px solid var(--border);
-        border-radius:10px;padding:16px 18px}
-  .price{font-size:26px;font-weight:700;letter-spacing:-0.02em;margin:2px 0 2px}
-  .per{font-size:13px;color:var(--muted)}
-  .cta{
-    display:inline-block;background:var(--accent);color:#fff;
-    text-decoration:none;padding:14px 22px;border-radius:12px;
-    font-weight:600;margin:6px 0 4px;
+  .langs{display:flex;gap:14px;justify-content:flex-end;flex-wrap:wrap;
+    font-size:13px;padding-top:10px}
+  .langs a{color:var(--hero-muted);text-decoration:none}
+  .langs a:hover{color:var(--hero-text)}
+  .bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:14px 8px}
+  .logo{display:flex;align-items:center;gap:10px;color:var(--hero-text);text-decoration:none;
+    font-weight:800;letter-spacing:.06em;font-size:14px}
+  .logo img{width:34px;height:34px;border-radius:9px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    border-radius:12px;padding:14px 22px;font-weight:700;text-decoration:none;
+    font-size:16px;line-height:1.2;border:1px solid transparent}
+  .btn-go{background:var(--go);color:var(--go-ink)}
+  .btn-go:hover{filter:brightness(1.06)}
+  .btn-ghost{color:var(--hero-text);border-color:rgba(255,255,255,.28)}
+  .btn-ghost:hover{border-color:rgba(255,255,255,.55)}
+  .btn-sm{padding:9px 14px;font-size:14px;border-radius:999px}
+  .hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:40px;align-items:center;
+    padding-block:36px 0}
+  .eyebrow{color:#E8A33D;font-weight:700;font-size:13px;letter-spacing:.1em;text-transform:uppercase;margin:0 0 12px}
+  .hero h1{font-size:clamp(34px,6vw,58px);line-height:1.04;letter-spacing:-.025em;margin:0 0 18px;
+    font-weight:850;text-wrap:balance}
+  .hero .sub{font-size:clamp(17px,2.2vw,20px);color:var(--hero-muted);margin:0 0 26px;max-width:34em}
+  .ctas{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+  .trust{list-style:none;padding:0;margin:0 0 40px;display:flex;flex-wrap:wrap;gap:8px 20px;
+    font-size:14px;color:var(--hero-muted)}
+  .trust li::before{content:"✓";color:var(--go);font-weight:800;margin-right:7px}
+  .hero-phones{position:relative;height:560px}
+  .hero-phones .phone{position:absolute;width:270px}
+  .hero-phones .p1{right:150px;top:30px;transform:rotate(-4deg)}
+  .hero-phones .p2{right:0;top:0;transform:rotate(3deg)}
+
+  /* A phone, drawn once. The screenshot sets the screen's shape. */
+  .phone{background:#0A0D12;border-radius:34px;padding:9px;box-shadow:var(--shadow);
+    border:1px solid rgba(255,255,255,.08)}
+  .phone img{border-radius:26px;width:100%;height:auto;aspect-ratio:480/896;object-fit:cover;object-position:top}
+
+  /* ── Feature rows ───────────────────────────────────────────────── */
+  section{padding-block:72px}
+  .section-head{max-width:720px;margin:0 0 36px}
+  .section-head h2{font-size:clamp(28px,4vw,40px);line-height:1.12;letter-spacing:-.02em;margin:0 0 12px;text-wrap:balance}
+  .section-head p{color:var(--muted);font-size:18px;margin:0}
+  .kicker{color:var(--amber);font-weight:700;font-size:13px;letter-spacing:.1em;text-transform:uppercase;margin:0 0 10px}
+  .feature{display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center;padding-block:36px}
+  .feature + .feature{border-top:1px solid var(--border)}
+  .feature.flip .copy{order:2}
+  .feature .shot{display:flex;justify-content:center}
+  .feature .phone{width:min(290px,78vw)}
+  .feature h3{font-size:clamp(24px,3vw,30px);line-height:1.15;letter-spacing:-.015em;margin:0 0 12px;text-wrap:balance}
+  .feature p{color:var(--muted);font-size:17px;margin:0 0 14px}
+  .tag{display:inline-block;font-size:12px;font-weight:800;letter-spacing:.06em;padding:3px 9px;
+    border-radius:999px;background:var(--soft);color:var(--accent);vertical-align:middle;margin-left:6px}
+  .tag.inline{margin:0 0 0 2px}
+  /* The same features, without screenshots, as a grid of cards. */
+  .features-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+  .features-grid .feature{display:block;padding:22px 24px;border:1px solid var(--border);
+    background:var(--surface);border-radius:16px}
+  .features-grid .feature + .feature{border-top:1px solid var(--border)}
+  .features-grid .feature h3{font-size:21px}
+  .features-grid .feature p{font-size:16px;margin:0}
+
+  /* ── Everything else, in cards ─────────────────────────────────── */
+  .alt{background:var(--surface);border-block:1px solid var(--border)}
+  .more{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .more div{padding:18px;border:1px solid var(--border);border-radius:14px;background:var(--bg)}
+  .more h3{font-size:16px;margin:0 0 6px}
+  .more p{font-size:14.5px;color:var(--muted);margin:0}
+
+  .themes{display:flex;gap:18px;overflow-x:auto;padding:6px 4px 18px;scroll-snap-type:x mandatory}
+  .themes figure{margin:0;flex:0 0 190px;scroll-snap-align:start}
+  .themes .phone{border-radius:26px;padding:6px}
+  .themes .phone img{border-radius:21px}
+  .themes figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:10px}
+
+  /* ── Free and Pro ──────────────────────────────────────────────── */
+  .tiers{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .tier{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:24px 26px}
+  .tier.pro{border:2px solid var(--accent)}
+  .tier h3{margin:0 0 4px;font-size:22px}
+  .tier .note{color:var(--muted);font-size:14px;margin:0 0 14px}
+  .tier ul{list-style:none;padding:0;margin:0}
+  .tier li{padding:8px 0 8px 28px;position:relative;border-top:1px solid var(--border);font-size:15.5px}
+  .tier li:first-child{border-top:0}
+  .tier li::before{content:"✓";position:absolute;left:2px;top:8px;color:var(--accent);font-weight:800}
+  .trial{margin-top:16px;padding:18px 22px;border-radius:14px;background:var(--soft);font-size:16px}
+  .trial strong{color:var(--accent)}
+
+  .story{display:grid;grid-template-columns:auto 1fr;gap:22px;align-items:start;
+    background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:28px}
+  .story .pin{font-size:40px;line-height:1}
+  .story blockquote{margin:0;font-size:19px;line-height:1.55}
+  .story cite{display:block;margin-top:12px;font-style:normal;color:var(--muted);font-size:15px}
+
+  /* ── The pricing and the terms (unchanged content, restyled) ───── */
+  .terms h2{font-size:clamp(26px,3.5vw,34px);letter-spacing:-.015em;margin:56px 0 14px}
+  .terms h2:first-child{margin-top:0}
+  .terms h3{font-size:18px;margin:0 0 6px}
+  .terms .plans{display:flex;gap:14px;flex-wrap:wrap}
+  .terms .plan{flex:1 1 240px;background:var(--surface);border:1px solid var(--border);
+    border-radius:18px;padding:22px 24px}
+  .terms .plan:first-child{border:2px solid var(--accent)}
+  .terms .price{font-size:36px;font-weight:850;letter-spacing:-.02em;margin:4px 0 0;font-variant-numeric:tabular-nums}
+  .terms .per{font-size:14px;color:var(--muted)}
+  .terms .cta{display:inline-flex;align-items:center;justify-content:center;background:var(--accent);
+    color:var(--accent-ink);text-decoration:none;padding:14px 22px;border-radius:12px;font-weight:700;margin:14px 0 4px}
+  .terms .plan .cta{display:flex;width:100%}
+  .terms .card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px 22px;margin:18px 0}
+  .terms .card ul{padding-left:20px}
+  .terms li{margin-bottom:9px}
+  .terms .fine{font-size:14.5px;color:var(--muted)}
+  .terms footer{margin-top:48px;padding-top:20px;border-top:1px solid var(--border);font-size:13.5px;color:var(--muted)}
+
+  .final{text-align:center;color:var(--hero-text);
+    background:
+      repeating-linear-gradient(90deg, rgba(255,255,255,.035) 0 1px, transparent 1px 24px),
+      linear-gradient(180deg, var(--hero2), var(--hero))}
+  .final h2{font-size:clamp(28px,4.5vw,44px);letter-spacing:-.02em;line-height:1.1;margin:0 0 12px;text-wrap:balance}
+  .final p{color:var(--hero-muted);margin:0 0 26px;font-size:18px}
+  .final .ctas{justify-content:center;margin:0}
+
+  @media (max-width: 860px){
+    .hero-grid{grid-template-columns:1fr;gap:10px;padding-top:22px}
+    .hero-phones{height:420px;margin:0 auto;width:100%;max-width:380px}
+    .hero-phones .phone{width:205px}
+    .hero-phones .p1{left:0;right:auto;top:40px}
+    .hero-phones .p2{right:0;top:0}
+    .feature{grid-template-columns:1fr;gap:26px;padding-block:28px}
+    .feature.flip .copy{order:0}
+    .more{grid-template-columns:1fr 1fr}
+    .tiers,.features-grid{grid-template-columns:1fr}
+    section{padding-block:52px}
   }
-  @media (prefers-color-scheme: dark){ .cta{color:#0E1512} }
-  .fine{font-size:13.5px;color:var(--muted)}
-  footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--border);
-         font-size:13px;color:var(--muted)}
+  @media (max-width: 460px){
+    .more{grid-template-columns:1fr}
+    .ctas .btn{flex:1 1 100%}
+    .story{grid-template-columns:1fr}
+  }
+  /* Japanese has no spaces to break at: let the browser break headings
+     between phrases rather than mid-word. */
+  :lang(ja) h1, :lang(ja) h2, :lang(ja) h3{word-break:auto-phrase}
+  :lang(ko) h1, :lang(ko) h2, :lang(ko) h3, :lang(ko) p{word-break:keep-all}
 </style>
 </head>
 <body>
 <main>
 
-  <div class="lang"><a href="/" hreflang="en" lang="en">English</a><a href="/es/" hreflang="es-419" lang="es-419">Español</a><a href="/fr/" hreflang="fr-CA" lang="fr-CA">Français</a><a href="/ja/" hreflang="ja" lang="ja">日本語</a><a href="/zh-TW/" hreflang="zh-Hant-TW" lang="zh-Hant-TW">繁體中文</a><a class="pro" href="#pricing">Pro로 업그레이드</a></div>
-  <div class="brand">MY BOWLING JOURNEY</div>
-  <h1>점수만이 아니라, 투구 하나하나까지.</h1>
-  <p class="lead">
-    아직 어프로치에 서 있을 때, 투구마다 실제로 무슨 일이 있었는지 기록하세요
-    — 어떤 볼을 썼는지, 어떤 핀이 남았는지, 그 핀을 어떻게 처리했는지. 그러고 나서
-    내 보유 볼과 스페어, 그리고 시즌의 실제 모습을 확인해 보세요.
-  </p>
-
-  <a class="cta" href="/app/">앱 열기</a>
-  <div class="fine">브라우저에서 바로 쓸 수 있어요. 설치하지 않아도 시작할 수 있어요.</div>
-
-  <h2>주요 기능</h2>
-  <ul>
-    <li><strong>투구별 기록</strong>은 리그 날에 맞춰 만들었어요 — 프레임 사이에도 충분히 입력할 수 있을 만큼 빨라요.</li>
-    <li><strong>보유 볼</strong>을 볼별로: 각 볼이 실제로 얼마나 캐리하고 어떤 핀을 남기는지 알 수 있어요.</li>
-    <li><strong>스페어와 스플릿</strong>: 자꾸 놓치는 남은 핀이 무엇인지, 어느 위치에서 놓치는지까지 알 수 있어요.</li>
-    <li><strong>리그, 팀, 대회</strong>: 볼러들이 실제로 쓰는 방식을 지원해요.</li>
-    <li><strong>볼링장과 오일 패턴</strong> — 어느 볼링장에서, 어떤 패턴에서 어떤 점수를 내는지.</li>
-    <li><strong>오늘의 리뷰</strong>: 볼링을 마치면 오늘 투구를 알기 쉬운 말로 정리해 줘요.</li>
-  </ul>
-
-  <h2>무료, 그리고 Pro</h2>
-  <p>
-    내 기록은 무료이고, 앞으로도 계속 무료예요. 점수, 에버리지, 스페어 처리율과
-    스트라이크율, 볼별 수치까지요. Pro는 비교를 위한 플랜이에요
-    — 나와 팀원, 볼과 볼, 이번 시즌과 지난 시즌 —
-    그리고 오늘의 투구를 대신 읽어 주는 기능도 Pro에 들어 있어요.
-  </p>
-  <div class="card">
-    <h3>무료로 쓸 수 있는 기능</h3>
-    <p class="fine" style="margin:0">
-      리그 1개, 연습과 자유 게임은 무제한이에요. 기록한 투구는 원하는 만큼 계속 보관되고,
-      내 통계도 모두 볼 수 있어요.
-    </p>
+<header class="hero">
+  <div class="wrap">
+    <nav class="langs" aria-label="Language"><a href="/" hreflang="en" lang="en">English</a><a href="/es/" hreflang="es-419" lang="es-419">Español</a><a href="/fr/" hreflang="fr-CA" lang="fr-CA">Français</a><a href="/ja/" hreflang="ja" lang="ja">日本語</a><a href="/zh-TW/" hreflang="zh-Hant-TW" lang="zh-Hant-TW">繁體中文</a></nav>
+    <div class="bar">
+      <a class="logo" href="#top" id="top"><img src="/icon-192.png" width="34" height="34" alt="">MY BOWLING JOURNEY</a>
+      <a class="btn btn-go btn-sm" href="#pricing">Pro로 업그레이드</a>
+    </div>
+    <div class="hero-grid" style="grid-template-columns:1fr;padding-bottom:12px">
+      <div>
+        <p class="eyebrow">리그 볼러가 리그 볼러를 위해 만들었어요</p>
+        <h1>점수만이 아니라, 투구 하나하나까지.</h1>
+        <p class="sub">치면서 투구마다 기록하세요 — 볼, 남은 핀, 라인까지. 내 보유 볼과 스페어, 그리고 시즌의 실제 모습을 알 수 있어요.</p>
+        <div class="ctas">
+          <a class="btn btn-go" href="/app/">무료로 시작하기</a>
+          <a class="btn btn-ghost" href="#pricing">요금 보기</a>
+        </div>
+        <ul class="trust">
+          <li>어떤 휴대폰이든 브라우저에서 바로</li>
+          <li>처음 60일은 Pro 무료</li>
+          <li>카드 없이 시작</li>
+        </ul>
+      </div>
+    </div>
   </div>
-  <div class="card">
-    <h3>Pro에서 추가되는 기능</h3>
-    <p class="fine" style="margin:0">
-      참가하는 모든 리그와 팀, 맞대결과 팀원 비교, 볼 간 비교와 볼링장 간 비교, 시즌 간 비교,
-      점수표 가져오기, 그리고 AI 기능 — Nightcap, 분석, Brooklyn, Caddie, 코칭.
-    </p>
+</header>
+
+<section>
+  <div class="wrap">
+    <div class="section-head">
+      <p class="kicker">이렇게 써요</p>
+      <h2>리그 날을 점수판보다 더 자세하게</h2>
+    </div>
+    <div class="features-grid">
+    <div class="feature">
+      <div class="copy">
+        <h3>어프로치를 떠나기 전에 기록</h3>
+        <p>결과를 누르고, 원하는 만큼 더 적으세요. 어떤 볼인지, 스트라이크의 종류, 스탠스와 타깃 보드, 속도 등. 결과 외에는 모두 선택이라 프레임 사이에도 충분히 입력할 수 있어요.</p>
+      </div>
+    </div>
+    <div class="feature">
+      <div class="copy">
+        <h3>점수표는 알아서 채워져요</h3>
+        <p>프레임마다 실제로 남은 핀이 표시되고, 지금까지의 시리즈와 아직 낼 수 있는 최고 점수도 보여 줘요. 팀원 점수도 휴대폰 하나로 함께 기록할 수 있어요.</p>
+      </div>
+    </div>
+    <div class="feature">
+      <div class="copy">
+        <h3>점수를 깎아 먹는 핀을 찾아요</h3>
+        <p>반복되는 남은 핀마다 얼마나 자주 나오는지, 얼마나 처리하는지 — 한 핀, 10번 핀, 스플릿 등. Pro에서는 팀원과 나란히 비교할 수 있어요.</p>
+      </div>
+    </div>
+    <div class="feature">
+      <div class="copy">
+        <h3>블록 내내 라인이 어떻게 움직이는지 봐요<span class="tag">Pro</span></h3>
+        <p>볼마다 실제 레인 위에 경로를 그려요. 39개 보드, 15피트의 스팟, 오일 패턴에 따른 브레이크포인트. 프레임별로 그날을 따라가 볼 수 있어요.</p>
+      </div>
+    </div>
+    <div class="feature">
+      <div class="copy">
+        <h3>Nightcap이 그날을 정리해 줘요<span class="tag">Pro</span></h3>
+        <p>리그를 저장하면 Nightcap이 중요한 점을 쉬운 말로 알려 줘요. 이론 시리즈로 레인에 남기고 온 핀도 확인할 수 있어요.</p>
+      </div>
+    </div>
+    <div class="feature">
+      <div class="copy">
+        <h3>모든 이정표를 기록해요</h3>
+        <p>첫 800, 50번째 리그 날, 드디어 처리한 빅 포. 지나온 길을 기억하고 다음 목표도 보여 줘요.</p>
+      </div>
+    </div>
+    </div>
   </div>
+</section>
+
+<section class="alt">
+  <div class="wrap">
+    <div class="section-head"><h2>볼러에게 필요한 나머지 기능도</h2></div>
+    <div class="more">
+      <div><h3>리그, 팀, 대회</h3><p>매치 플레이, 브래킷, 사이드 팟을 리그 방식대로 설정해요.</p></div>
+      <div><h3>점수표 가져오기 <span class="tag">Pro</span></h3><p>점수판 사진만 찍으면 리그나 연습 점수가 들어가요.</p></div>
+      <div><h3>Brooklyn <span class="tag">Pro</span></h3><p>내 볼링에 대해 물어보세요 — 왜 10번 핀이 남는지, 어떤 볼을 던질지.</p></div>
+      <div><h3>Caddie <span class="tag">Pro</span></h3><p>보유 볼과 볼 가방의 빈 곳과 겹치는 볼을 점검해요.</p></div>
+      <div><h3>코칭 <span class="tag">Pro</span></h3><p>코치와 기록을 공유하고 과제와 메모를 받아요.</p></div>
+      <div><h3>볼링장과 오일 패턴</h3><p>볼링장별, 오일 패턴별 점수.</p></div>
+      <div><h3>테마 8가지</h3><p>Lane부터 Chalk까지, 원하는 모습으로.</p></div>
+      <div><h3>6개 언어</h3><p>영어, 프랑스어, 스페인어, 일본어, 한국어, 중국어(번체).</p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="section-head">
+      <p class="kicker">무료와 Pro</p>
+      <h2>내 기록은 무료예요. 비교하려면 Pro.</h2>
+    </div>
+    <div class="tiers">
+      <div class="tier">
+        <h3>무료</h3>
+        <p class="note">볼링을 치는 동안 언제까지나</p>
+        <ul>
+          <li>투구별 기록과 점수표</li>
+          <li>리그 1개, 연습과 자유 게임은 무제한</li>
+          <li>내 통계 전부 — 에버리지, 스트라이크, 스페어, 남은 핀</li>
+          <li>이정표와 배지</li>
+          <li>기록한 모든 투구를 원하는 만큼 보관</li>
+        </ul>
+      </div>
+      <div class="tier pro">
+        <h3>Pro</h3>
+        <p class="note">무료 기능 전부에 더해</p>
+        <ul>
+          <li>참가하는 모든 리그와 팀</li>
+          <li>나와 팀원, 볼과 볼, 볼링장과 볼링장, 시즌과 시즌 비교</li>
+          <li>레인 화면과 블록 내내의 라인</li>
+          <li>Nightcap, 분석, Brooklyn, Caddie</li>
+          <li>점수표 가져오기</li>
+          <li>코칭, 브래킷과 사이드 팟, 볼 가방 추가</li>
+        </ul>
+      </div>
+    </div>
+    <p class="trial"><strong>새 계정은 60일 동안 Pro를 모두 무료로 쓸 수 있어요.</strong> 카드는 필요 없어요. 끝나면 Pro를 선택하거나 무료 Basic 플랜을 계속 쓰면 돼요. 기록한 내용은 사라지지 않아요.</p>
+  </div>
+</section>
+
+<section class="alt">
+  <div class="wrap narrow">
+    <figure class="story" style="margin:0">
+      <div class="pin" aria-hidden="true">🎳</div>
+      <div>
+        <blockquote>“My Bowling Journey를 만든 건, 리그 날 어떤 볼이 나에게 가장 잘 맞는지, 그리고 볼마다 언제부터 10번 핀을 남기기 시작하는지 알고 싶었기 때문이에요. 그러다 보니 늘 갖고 싶던 앱이 됐어요.”</blockquote>
+        <cite>— Ryan, 리그 볼러이자 창업자</cite>
+      </div>
+    </figure>
+  </div>
+</section>
+
+<section class="final">
+  <div class="wrap">
+    <h2>다음 리그 날이, 기록할 가치가 있는 첫날이에요.</h2>
+    <p>무료로 시작하세요. 처음 60일은 Pro도 무료예요.</p>
+    <div class="ctas">
+      <a class="btn btn-go" href="/app/">무료로 시작하기</a>
+      <a class="btn btn-ghost" href="#pricing">요금 보기</a>
+    </div>
+  </div>
+</section>
+
+<section class="terms">
+<div class="wrap narrow">
 
   <h2 id="pricing">요금</h2>
   <div class="plans">
@@ -201,6 +431,8 @@
     <a href="mailto:support@mybowlingjourney.com">support@mybowlingjourney.com</a>
   </footer>
 
+</div>
+</section>
 </main>
 </body>
 </html>
