@@ -23,10 +23,10 @@ export const DEFAULT_BALL_GROUPS = [
   "Urethane",
 ];
 
-export const COVERSTOCKS = ["solid", "pearl", "hybrid"];
+export const COVERSTOCKS = ["solid", "pearl", "hybrid", "urethane"];
 export const CORE_TYPES = ["symmetric", "asymmetric"];
 
-export const COVERSTOCK_LABELS = { solid: "Solid", pearl: "Pearl", hybrid: "Hybrid" };
+export const COVERSTOCK_LABELS = { solid: "Solid", pearl: "Pearl", hybrid: "Hybrid", urethane: "Urethane" };
 export const CORE_TYPE_LABELS = { symmetric: "Symmetric", asymmetric: "Asymmetric" };
 
 // How the arsenal can be organised. "group" is the bowler's own grouping;

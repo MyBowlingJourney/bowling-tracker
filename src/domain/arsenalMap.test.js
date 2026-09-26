@@ -140,3 +140,19 @@ describe('placeArsenal / pointFor / bags', () => {
     expect(c.a.strength).toEqual([40, 70]);
   });
 });
+
+describe('urethane', () => {
+  const ure = { coverstock: 'urethane', coreType: 'symmetric', rg: '2.60', diff: '0.030' };
+  const solid = { coverstock: 'solid', coreType: 'symmetric', rg: '2.60', diff: '0.030' };
+  const pearl = { coverstock: 'pearl', coreType: 'symmetric', rg: '2.60', diff: '0.030' };
+  it('reads earlier and smoother than a reactive solid on the same core, but is weaker', () => {
+    const u = placeBall(ure, null, 'Box'), s = placeBall(solid, null, 'Box'), p = placeBall(pearl, null, 'Box');
+    expect(u.length).toBeLessThan(s.length);
+    expect(u.shape).toBeLessThan(s.shape);
+    expect(u.shape).toBeLessThan(p.shape);
+    expect(u.strength).toBeLessThan(s.strength);
+  });
+  it('is not taken for a spare ball', () => {
+    expect(isSpareBall('Purple Pearl Urethane', ure)).toBe(false);
+  });
+});

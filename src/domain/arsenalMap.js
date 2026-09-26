@@ -51,7 +51,15 @@ const clamp01 = v => Math.max(0, Math.min(1, v));
 const rows = v => (Array.isArray(v) ? v : []).filter(x => x && typeof x === "object");
 
 // How grippy each cover chemistry is, 0 (slides) to 1 (grabs).
-export const COVER_FRICTION = { solid: 1, hybrid: 0.6, pearl: 0.3 };
+//
+// Urethane is not a point on the solid-to-pearl line. It reads the lane
+// earliest and turns the smoothest of all, but spends its energy before
+// the back end, so it hooks less in total than a reactive solid. So it
+// carries its own length and back-end values (COVER_LENGTH, COVER_SHAPE)
+// instead of taking them from its friction the way the reactive covers do.
+export const COVER_FRICTION = { solid: 1, hybrid: 0.6, pearl: 0.3, urethane: 0.45 };
+export const COVER_LENGTH = { urethane: 0 };  // 0 = earliest
+export const COVER_SHAPE = { urethane: 0 };   // 0 = smoothest
 
 // Surface texture, 0 (shiny, skids) to 1 (rough, grabs). Lower grit
 // numbers are rougher. "Lane Shine" is a cover worn smooth by use.
@@ -61,8 +69,9 @@ export const SURFACE_TEXTURE = {
 };
 
 // "Box" is whatever the factory shipped, which follows the cover: solids
-// come sanded, pearls polished, hybrids somewhere between.
-export const BOX_TEXTURE = { solid: 0.58, hybrid: 0.4, pearl: 0.2 };
+// come sanded, pearls polished, hybrids somewhere between, and urethane
+// sanded (usually about 2000 grit).
+export const BOX_TEXTURE = { solid: 0.58, hybrid: 0.4, pearl: 0.2, urethane: 0.64 };
 
 export const WEIGHTS = {
   strength: { cover: 0.30, surface: 0.25, diff: 0.15, rg: 0.12, layout: 0.10, intDiff: 0.08 },
@@ -202,13 +211,13 @@ export function placeBall(specs, layout, surface) {
 
   const length = blend({
     surface: tex.value === null ? null : 1 - tex.value,
-    cover: coverF === null ? null : 1 - coverF,
+    cover: coverF === null ? null : (COVER_LENGTH[cover] ?? 1 - coverF),
     rg: rgEarly === null ? null : 1 - rgEarly,
     layout: lay?.length === null || lay?.length === undefined ? null : (lay.length + 1) / 2,
   }, WEIGHTS.length);
 
   const shape = blend({
-    cover: coverF === null ? null : 1 - coverF,
+    cover: coverF === null ? null : (COVER_SHAPE[cover] ?? 1 - coverF),
     surface: tex.value === null ? null : 1 - tex.value,
     layout: lay?.shape === null || lay?.shape === undefined ? null : (lay.shape + 1) / 2,
     diff: flare,

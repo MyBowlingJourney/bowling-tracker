@@ -2897,10 +2897,8 @@ export const FR_CA = {
 "Teammate": "Coéquipier",
 "This league only. Split Rate is the one where lower is better.": "Cette ligue seulement. Le taux de splits est le seul où plus bas, c'est mieux.",
 "All leagues": "Toutes les ligues",
-"Español (Latinoamérica)": "",
 "Language · Idioma · Langue": "",
 "Nightcap, Insights, Brooklyn, the Caddie and coaching": "Nightcap, Analyses, Brooklyn, le Caddie et Entraîneur",
-"Language · Idioma · Langue in Settings. Automatic follows your phone's language, or pick English, Español (Latinoamérica) or Français (Canada). The app restarts in the language you pick.": "Language · Idioma · Langue dans les Paramètres. Le mode automatique suit la langue de votre téléphone; vous pouvez aussi choisir English, Español (Latinoamérica) ou Français (Canada). L'application redémarre dans la langue choisie.",
 "You cancelled, so this ends when the period you paid for runs out. Everything stays unlocked until then, and you can start it again any time before it ends.": "Vous avez annulé, donc l'abonnement se termine à la fin de la période payée. Tout reste débloqué d'ici là, et vous pouvez le réactiver en tout temps avant la fin.",
 "window::All": "Tout",
 "tab::Season": "Saison",
@@ -2908,7 +2906,11 @@ export const FR_CA = {
 "tab::Journey": "Parcours",
 "picker::Every night": "Toutes les soirées",
 "field::Scoring": "Pointage",
-"tab::Side games": "Cagnottes"
+"tab::Side games": "Cagnottes",
+"Language · Idioma · Langue in Settings. Automatic follows your phone's language, or pick English, Español or Français. The app restarts in the language you pick.": "Language · Idioma · Langue dans les Paramètres. Le mode automatique suit la langue de votre téléphone; vous pouvez aussi choisir English, Español ou Français. L'application redémarre dans la langue choisie.",
+"Español": "",
+"Français": "",
+"⟨0⟩ Urethane": "⟨0⟩ Uréthane"
 },
 "patterns": [
 [

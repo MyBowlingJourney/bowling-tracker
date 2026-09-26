@@ -710,7 +710,7 @@ export default function Settings({
           find it; each language's name is written in that language. */}
       {showCard("language") && (() => {
         const choice = chosenLanguage();
-        const names = { en: "English", es: "Español (Latinoamérica)", fr: "Français (Canada)" };
+        const names = { en: "English", es: "Español", fr: "Français" };
         return (
       <CollapsibleCard title={<span translate="no">Language · Idioma · Langue</span>}
         summary={choice === "auto"

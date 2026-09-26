@@ -36,7 +36,7 @@ function ballFact(b) {
   return {
     name: safeName(b.name),
     spare: !!b.spare,
-    cover: ["solid", "pearl", "hybrid"].includes(s.coverstock) ? s.coverstock : null,
+    cover: ["solid", "pearl", "hybrid", "urethane"].includes(s.coverstock) ? s.coverstock : null,
     core: ["symmetric", "asymmetric"].includes(s.coreType) ? s.coreType : null,
     rg: round(num(s.rg), 3),
     diff: round(num(s.diff), 3),

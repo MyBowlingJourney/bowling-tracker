@@ -2903,9 +2903,7 @@ export const ES_419 = {
 "The Caddie's read was written by AI. It can be confidently wrong — it's working from specs and your logged games, not from watching you throw.": "La lectura del Caddie la escribió una IA. Puede equivocarse con total seguridad — se basa en las especificaciones y en tus juegos registrados, no en verte tirar.",
 "This was written by AI. It can be confidently wrong — check it against what you saw on the lane.": "Esto lo escribió una IA. Puede equivocarse con total seguridad — compáralo con lo que viste en la pista.",
 "✓ Session Saved": "✓ Sesión guardada",
-"Español (Latinoamérica)": "",
 "Language · Idioma · Langue": "",
-"Language · Idioma · Langue in Settings. Automatic follows your phone's language, or pick English, Español (Latinoamérica) or Français (Canada). The app restarts in the language you pick.": "Language · Idioma · Langue en Configuración. Automático sigue el idioma de tu celular, o elige English, Español (Latinoamérica) o Français (Canada). La app se reinicia en el idioma que elijas.",
 "You cancelled, so this ends when the period you paid for runs out. Everything stays unlocked until then, and you can start it again any time before it ends.": "Cancelaste, así que tu suscripción termina cuando se acabe el periodo que pagaste. Todo sigue desbloqueado hasta entonces y puedes reactivarla cuando quieras antes de que termine.",
 "window::All": "Todo",
 "▼ How much data it’s built on, beside it": "▼ Cuántos datos lo respaldan, justo al lado",
@@ -2916,7 +2914,11 @@ export const ES_419 = {
 "tab::Journey": "Camino",
 "picker::Every night": "Todas",
 "field::Scoring": "Modalidad",
-"tab::Side games": "Extras"
+"tab::Side games": "Extras",
+"Language · Idioma · Langue in Settings. Automatic follows your phone's language, or pick English, Español or Français. The app restarts in the language you pick.": "Language · Idioma · Langue en Configuración. Automático sigue el idioma de tu celular, o elige English, Español o Français. La app se reinicia en el idioma que elijas.",
+"Español": "",
+"Français": "",
+"⟨0⟩ Urethane": "⟨0⟩ Uretano"
 },
 "patterns": [
 [

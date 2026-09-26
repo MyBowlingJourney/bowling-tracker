@@ -26,7 +26,7 @@ import { supabase } from "./supabaseClient.js";
 // Caddie (an AI read, Pro) turns them into advice.
 
 // One colour per cover, so a glance says which balls are pearls.
-const COVER_COLORS = { solid: "#c2504a", hybrid: "#7a6ff0", pearl: "#3aa9a3" };
+const COVER_COLORS = { solid: "#c2504a", hybrid: "#7a6ff0", pearl: "#3aa9a3", urethane: "#c98a1e" };
 const coverColor = c => COVER_COLORS[c] || C.textMuted;
 const BAG_COLORS = ["#2f7ed8", "#e07b39"];
 const PHASE_LABEL = { fresh: "fresh", transition: "transition", late: "late" };
@@ -339,6 +339,7 @@ export default function ArsenalAnalysis({
               <span><span style={{ color: COVER_COLORS.solid }}>●</span> Solid</span>
               <span><span style={{ color: COVER_COLORS.hybrid }}>●</span> Hybrid</span>
               <span><span style={{ color: COVER_COLORS.pearl }}>●</span> Pearl</span>
+              <span><span style={{ color: COVER_COLORS.urethane }}>●</span> Urethane</span>
               <span style={{ opacity: 0.6 }}>● Faded: specs incomplete</span>
             </>
           )}
