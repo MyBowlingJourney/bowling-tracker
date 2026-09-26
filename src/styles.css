@@ -1366,3 +1366,16 @@ body {
 /* Under 380px the logo's 41px is the difference between the app name
    showing and reading "My Bowling Jour…". */
 @media (max-width: 380px){ .mbj-app-logo { display:none } }
+
+
+/* InsightsView's root is only a wrapper. The rules above paint every
+   direct child of .mbj-view-insights as a card, which wrapped the whole
+   screen in one unpadded card and pushed the sample-size note against
+   its top-left edge. The real cards inside keep their own styling. */
+.mbj-view-insights > .mbj-insights-root {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+}

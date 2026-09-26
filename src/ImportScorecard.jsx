@@ -1340,7 +1340,10 @@ export default function ImportScorecard({
             {/* What the photo shows. Game is the default because it is
                 the fast read; picking wrong costs one extra read, not a
                 restart. */}
-            <div style={S.label}>What's on the card?</div>
+            {/* The date box above has no margin of its own (it also ends
+                the review card), so the gap goes here: the same 14px the
+                chip rows leave before the next label. */}
+            <div style={{...S.label,marginTop:"14px"}}>What's on the card?</div>
             <div style={{...S.chips,marginBottom:"6px"}}>
               <Chip label="Game scores" selected={cardType==="totals"} onToggle={()=>setCardType("totals")}/>
               <Chip label="Frame by frame" selected={cardType==="frames"} onToggle={()=>setCardType("frames")}/>

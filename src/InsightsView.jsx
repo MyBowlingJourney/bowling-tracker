@@ -146,7 +146,10 @@ export default function InsightsView({ stats, onAnalyze, bowlerName, newlyAvaila
   }
 
   return (
-    <div>
+    // A plain wrapper, not a panel: the Improve styles paint every direct
+    // child of the view as a card, which framed this whole screen as one
+    // unpadded card around the real ones (see .mbj-insights-root).
+    <div className="mbj-insights-root">
       {/* Insights sharpen with data, and saying so matters.
       
           Crossing the 10-game gate isn't "now it's right" -- it's the
@@ -157,9 +160,16 @@ export default function InsightsView({ stats, onAnalyze, bowlerName, newlyAvaila
           Shown only while the sample is small: past a season's worth it
           would be noise. */}
       {gameCount < 40 && (
-        <div style={{ fontSize: "11.5px", color: C.textMuted, marginBottom: "10px", lineHeight: 1.45 }}>
-          Based on {gameCount} games so far. These get sharper the more you log —
-          a few nights gives a hint, a season gives you something to act on.
+        <div style={{ display: "flex", gap: "8px", alignItems: "flex-start",
+          fontSize: "12px", color: C.textMuted, lineHeight: 1.5, padding: "4px 8px 0", marginBottom: "12px" }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+            strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0, marginTop: "2px" }}>
+            <circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" />
+          </svg>
+          <span>
+            Based on {gameCount} games so far. These get sharper the more you log —
+            a few nights gives a hint, a season gives you something to act on.
+          </span>
         </div>
       )}
 
@@ -252,7 +262,6 @@ export default function InsightsView({ stats, onAnalyze, bowlerName, newlyAvaila
         </>
       )}
 
-      <div style={{ height: "32px" }} />
     </div>
   );
 }
