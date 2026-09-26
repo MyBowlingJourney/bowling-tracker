@@ -64,13 +64,25 @@ export function isCanadianTimeZone(tz) {
   return CANADA_ZONES.has(tz) || tz.startsWith("Canada/");
 }
 
-// ── Japan, Singapore, Malaysia, the Philippines, Mexico, Korea ──────
+// ── Local prices: Japan, Singapore, Malaysia, the Philippines, Mexico,
+//    South Korea, Hong Kong, India, the UAE, Costa Rica, Kuwait, Brunei ─
 //
 // The same arrangement as Canada: Play charges these prices, both Stripe
 // prices carry the same amounts as a currency option, and create-checkout
 // asks for that currency when the device is on that country's time. In
-// these six the price shown is the price paid, tax included, on Play and
+// these twelve the price shown is the price paid, tax included, on Play and
 // on the web alike.
+//
+// Puerto Rico and Bermuda are not here on purpose: they pay in US dollars
+// (Bermuda's dollar is at par and Play charges USD there), so their zones
+// get the US prices like any other.
+//
+// Kuwait's dinar has three decimals: KD 1.500 is one and a half dinars.
+// Brunei's dollar is at par with Singapore's, so it takes the Singapore
+// price.
+//
+// Asia/Dubai is the UAE's only zone. Oman's phones report Asia/Muscat,
+// so they are not caught by it.
 const LOCAL_PRICING = [
   { zones: ["Asia/Tokyo", "Japan"], currency: "jpy",
     prices: Object.freeze({ month: "¥800", year: "¥8,000" }) },
@@ -84,6 +96,18 @@ const LOCAL_PRICING = [
     prices: Object.freeze({ month: "MX$99", year: "MX$999" }) },
   { zones: ["Asia/Seoul", "ROK"], currency: "krw",
     prices: Object.freeze({ month: "₩7,900", year: "₩79,000" }) },
+  { zones: ["Asia/Hong_Kong", "Hongkong"], currency: "hkd",
+    prices: Object.freeze({ month: "HK$38", year: "HK$388" }) },
+  { zones: ["Asia/Kolkata", "Asia/Calcutta"], currency: "inr",
+    prices: Object.freeze({ month: "₹449", year: "₹4,490" }) },
+  { zones: ["Asia/Dubai"], currency: "aed",
+    prices: Object.freeze({ month: "AED 18.99", year: "AED 189.99" }) },
+  { zones: ["America/Costa_Rica"], currency: "crc",
+    prices: Object.freeze({ month: "₡2,700", year: "₡27,000" }) },
+  { zones: ["Asia/Kuwait"], currency: "kwd",
+    prices: Object.freeze({ month: "KD 1.500", year: "KD 15.000" }) },
+  { zones: ["Asia/Brunei"], currency: "bnd",
+    prices: Object.freeze({ month: "B$6.98", year: "B$69.98" }) },
 ];
 const localPricingFor = tz => LOCAL_PRICING.find(r => r.zones.includes(tz)) || null;
 
@@ -103,7 +127,7 @@ export function displayPricesFor(tz) {
 }
 
 // The currency create-checkout is asked for: "cad" in Canada, the local
-// currency in the six countries above, nothing anywhere else (Stripe
+// currency in the twelve countries above, nothing anywhere else (Stripe
 // then picks, as it always has).
 export function checkoutCurrencyFor(tz) {
   if (isCanadianTimeZone(tz)) return "cad";

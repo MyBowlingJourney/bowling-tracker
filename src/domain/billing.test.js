@@ -109,3 +109,31 @@ describe('South Korea', () => {
     expect(checkoutCurrencyFor('Asia/Seoul')).toBe('krw');
   });
 });
+
+describe('Hong Kong, India, the UAE, Costa Rica, Kuwait and Brunei', () => {
+  it('show local prices and ask checkout for the local currency', () => {
+    expect(displayPricesFor('Asia/Hong_Kong')).toEqual({ month: 'HK$38', year: 'HK$388' });
+    expect(checkoutCurrencyFor('Hongkong')).toBe('hkd');
+    expect(displayPricesFor('Asia/Kolkata')).toEqual({ month: '₹449', year: '₹4,490' });
+    expect(checkoutCurrencyFor('Asia/Calcutta')).toBe('inr');
+    expect(displayPricesFor('Asia/Dubai')).toEqual({ month: 'AED 18.99', year: 'AED 189.99' });
+    expect(checkoutCurrencyFor('Asia/Dubai')).toBe('aed');
+    expect(displayPricesFor('America/Costa_Rica')).toEqual({ month: '₡2,700', year: '₡27,000' });
+    expect(checkoutCurrencyFor('America/Costa_Rica')).toBe('crc');
+  });
+
+  it('shows dinars in Kuwait and Brunei dollars in Brunei', () => {
+    expect(displayPricesFor('Asia/Kuwait')).toEqual({ month: 'KD 1.500', year: 'KD 15.000' });
+    expect(checkoutCurrencyFor('Asia/Kuwait')).toBe('kwd');
+    expect(displayPricesFor('Asia/Brunei')).toEqual({ month: 'B$6.98', year: 'B$69.98' });
+    expect(checkoutCurrencyFor('Asia/Brunei')).toBe('bnd');
+  });
+
+  it('leaves Puerto Rico, Bermuda and the dropped countries on US prices', () => {
+    for (const tz of ['America/Puerto_Rico', 'Atlantic/Bermuda', 'Asia/Muscat', 'America/Lima', 'Africa/Johannesburg',
+      'Asia/Riyadh', 'America/Sao_Paulo', 'America/Nassau', 'Asia/Bangkok']) {
+      expect(displayPricesFor(tz)).toEqual({ month: '$4.99', year: '$49.99' });
+      expect(checkoutCurrencyFor(tz)).toBe('');
+    }
+  });
+});

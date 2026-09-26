@@ -76,6 +76,41 @@ describe('the rest of the event', () => {
       .toBe('Brackets and side pots: 4 entries, $20 in, $0 back — down $20.');
   });
 
+  it('writes side action in the bowler\'s own money', () => {
+    const side = (currency, f) => renderFacts([{ id: 'eventSide', entries: 4, ...f }], { event: 'tournament', currency })[0];
+    expect(side('₩', { cost: 40000, won: 150000, net: 110000 }))
+      .toBe('Brackets and side pots: 4 entries, ₩40,000 in, ₩150,000 back — up ₩110,000.');
+    expect(side('¥', { cost: 2000, won: 0, net: -2000 }))
+      .toBe('Brackets and side pots: 4 entries, ¥2,000 in, ¥0 back — down ¥2,000.');
+    // A won night far past the dollar cap is still an ordinary night.
+    expect(side('₩', { cost: 200000, won: 0, net: -200000 })).toContain('₩200,000 in');
+    // Anything off the closed list, or nothing, is the dollar wording
+    // an older app always got.
+    expect(side('€', { cost: 20, won: 75, net: 55 }))
+      .toBe('Brackets and side pots: 4 entries, $20 in, $75 back — up $55.');
+    expect(side(undefined, { cost: 2000, won: 0, net: -2000 }))
+      .toBe('Brackets and side pots: 4 entries, $2000 in, $0 back — down $2000.');
+    expect(side('₩<script>', { cost: 20, won: 0, net: -20 })).toContain('$20 in');
+  });
+
+  it('writes dirhams with a space, rupees and colones without', () => {
+    const side = (currency, f) => renderFacts([{ id: 'eventSide', entries: 4, ...f }], { event: 'tournament', currency })[0];
+    expect(side('AED', { cost: 200, won: 1500, net: 1300 }))
+      .toBe('Brackets and side pots: 4 entries, AED 200 in, AED 1,500 back — up AED 1,300.');
+    expect(side('₹', { cost: 2000, won: 0, net: -2000 }))
+      .toBe('Brackets and side pots: 4 entries, ₹2,000 in, ₹0 back — down ₹2,000.');
+    expect(side('₡', { cost: 20000, won: 50000, net: 30000 })).toContain('₡20,000 in');
+  });
+
+  it('reads dinars to the fils', () => {
+    const side = (currency, f) => renderFacts([{ id: 'eventSide', entries: 4, ...f }], { event: 'tournament', currency })[0];
+    expect(side('KD', { cost: 2, won: 3.5, net: 1.5 }))
+      .toBe('Brackets and side pots: 4 entries, KD 2.000 in, KD 3.500 back — up KD 1.500.');
+    expect(side('KD', { cost: 1.25, won: 0, net: -1.25 })).toContain('down KD 1.250.');
+    // Dollars are still whole, exactly as before.
+    expect(side('$', { cost: 20.4, won: 0, net: -20.4 })).toContain('$20 in');
+  });
+
   it('takes the finish from a closed list', () => {
     expect(oneEvent({ id: 'eventFinish', placement: 'won' })).toBe('Won the tournament.');
     expect(oneEvent({ id: 'eventFinish', placement: 'runnerUp' })).toBe('Finished runner-up.');

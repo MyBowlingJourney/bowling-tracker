@@ -176,7 +176,50 @@ function ordinalWord(n: number): string {
   return `${abs}${rem10 === 1 ? "st" : rem10 === 2 ? "nd" : rem10 === 3 ? "rd" : "th"}`;
 }
 
-export type RenderOptions = { ballNames?: boolean; teamNames?: boolean; event?: string };
+export type RenderOptions = { ballNames?: boolean; teamNames?: boolean; event?: string; currency?: string };
+
+// The money sign the bowler's app shows (moneySymbol in
+// src/domain/currency.js), so a Korean bowler's read-back says "₩5,000
+// in" rather than "$5000 in". A closed list, like every other value on
+// the wire: anything else is "$", which is also what an app too old to
+// send one gets -- the words it always got.
+//
+// factor widens the plausible range: a ₩100,000 bracket night is an
+// ordinary one, and the dollar cap would have dropped it as nonsense.
+// Dollars keep the bare number they always had; the others group
+// thousands the way the app writes them.
+// sep: "AED 5,000", "KD 1.500" -- the dirham and the dinar are written
+// with a space. decimals: the dinar has three and a KD 0.500 bracket is
+// real money, so it is read to the fils; everything else is read to the
+// whole unit, as dollars always were.
+const MONEY: Record<string, { factor: number; group: boolean; sep?: string; decimals?: number }> = {
+  "$": { factor: 1, group: false },
+  "¥": { factor: 100, group: true },
+  "₩": { factor: 1000, group: true },
+  "RM": { factor: 5, group: true },
+  "₱": { factor: 50, group: true },
+  "₹": { factor: 50, group: true },
+  "AED": { factor: 5, group: true, sep: " " },
+  "₡": { factor: 500, group: true },
+  "KD": { factor: 0.3, group: true, sep: " ", decimals: 3 },
+};
+export function moneyCurrency(v: unknown): string {
+  return typeof v === "string" && Object.prototype.hasOwnProperty.call(MONEY, v) ? v : "$";
+}
+function moneyText(n: number, currency: string): string {
+  const m = MONEY[currency];
+  const [int, frac] = (m.decimals ? Math.abs(n).toFixed(m.decimals) : String(Math.abs(n))).split(".");
+  const digits = m.group ? int.replace(/\B(?=(\d{3})+(?!\d))/g, ",") : int;
+  return `${currency}${m.sep || ""}${digits}${frac !== undefined ? "." + frac : ""}`;
+}
+// A money field, rounded to the currency's own unit: whole dollars as
+// before, fils for the dinar. Same rules as int() otherwise.
+function money(v: unknown, min: number, max: number, currency: string): number | null {
+  if (typeof v !== "number" || !Number.isFinite(v)) return null;
+  const d = MONEY[currency].decimals || 0;
+  const r = Number(v.toFixed(d));
+  return r >= min && r <= max ? r : null;
+}
 
 // A league night and a tournament block are the same shape of data and
 // different words. The facts carry figures, not wording, so the wording
@@ -415,15 +458,17 @@ export const RENDERERS: Record<string, Renderer> = {
     return `Stepladder${opened}: ${climbed}, finishing ${ordinalWord(place)}.`;
   },
 
-  eventSide(f) {
+  eventSide(f, opts) {
+    const cur = moneyCurrency(opts?.currency);
+    const k = MONEY[cur].factor;
     const entries = int(f.entries, 1, 99);
-    const cost = int(f.cost, 0, 100000);
-    const won = int(f.won, 0, 1000000);
-    const net = int(f.net, -100000, 1000000);
+    const cost = money(f.cost, 0, 100000 * k, cur);
+    const won = money(f.won, 0, 1000000 * k, cur);
+    const net = money(f.net, -100000 * k, 1000000 * k, cur);
     if (entries === null || cost === null || won === null || net === null) return null;
-    const side = `Brackets and side pots: ${entries} ${plural(entries, "entry", "entries")}, $${cost} in, $${won} back`;
+    const side = `Brackets and side pots: ${entries} ${plural(entries, "entry", "entries")}, ${moneyText(cost, cur)} in, ${moneyText(won, cur)} back`;
     if (net === 0) return `${side} — even.`;
-    return `${side} — ${net > 0 ? "up" : "down"} $${Math.abs(net)}.`;
+    return `${side} — ${net > 0 ? "up" : "down"} ${moneyText(net, cur)}.`;
   },
 
   eventFinish(f) {

@@ -25,6 +25,12 @@
 // matches only "", "s" or "es", which keeps it from swallowing a
 // neighbouring value.
 //
+// {0:m} marks an amount of money as formatMoney writes it ("$12.00",
+// "₩5,000", "RM1", "AED 5", "KD 0.500"): it matches only that. "{0:m} game" names a poker game
+// by its stake ("¥100 game") and must not take "3 game" from the plural
+// "{0} game{1:s}" -- a count and a price are different things, and the
+// two patterns weigh the same.
+//
 // Plurals: French treats 0 and 1 as singular, English and Spanish only 1;
 // Japanese has no plural, so its entries simply use one form.
 // So the translation can say {0|partie|parties}: the first form when
@@ -49,7 +55,9 @@ function escapeRegex(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-const PLACEHOLDER = /(\{\d+(?::s)?\})/;
+const PLACEHOLDER = /(\{\d+(?::[sm])?\})/;
+// A formatted amount (src/domain/currency.js): sign, symbol, digits.
+const MONEY_VALUE = "([-+\u2212]?(?:\\$|¥|₩|₱|₹|₡|RM|AED |KD )\\d[\\d,]*(?:\\.\\d+)?)";
 
 // English pattern -> anchored regex.
 //
@@ -76,7 +84,7 @@ function compilePattern(en) {
   let re = "^";
   const order = [];
   parts.forEach((p, i) => {
-    const m = /^\{(\d+)(:s)?\}$/.exec(p);
+    const m = /^\{(\d+)(:[sm])?\}$/.exec(p);
     if (m) {
       // Two values side by side ("Frame {0}{1}") have no word between them
       // to split on; the first is almost always a number, so a number is
@@ -86,7 +94,8 @@ function compilePattern(en) {
       // "{1} {2}": only a space between two values -- the first is one word
       // ("up", "3"), not nothing.
       const spaced = rest[0] && !rest[0].trim() && rest[1] && /^\{\d+/.test(rest[1]);
-      re += m[2] ? "(es|s|)"
+      re += m[2] === ":s" ? "(es|s|)"
+        : m[2] === ":m" ? MONEY_VALUE
         : glued ? "(-?\\d+(?:[.,]\\d+)*|[\\s\\S]*?)"
         : spaced ? "(\\S+|[\\s\\S]*?)"
         : "([\\s\\S]*?)";
@@ -111,7 +120,7 @@ function compilePattern(en) {
 // whole -- the text may say "games" -- so it is not used.
 const WORD = /[a-zà-ÿ']{3,}/g;
 function indexWord(en) {
-  const marked = en.replace(/\{\d+(?::s)?\}/g, "\u0001").toLowerCase();
+  const marked = en.replace(/\{\d+(?::[sm])?\}/g, "\u0001").toLowerCase();
   const words = [];
   let m;
   WORD.lastIndex = 0;
@@ -124,7 +133,7 @@ function indexWord(en) {
 }
 
 function literalLength(en) {
-  return en.replace(/\{\d+(?::s)?\}/g, "").replace(/\s+/g, "").length;
+  return en.replace(/\{\d+(?::[sm])?\}/g, "").replace(/\s+/g, "").length;
 }
 
 function numberOf(v) {
