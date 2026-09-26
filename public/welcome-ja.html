@@ -8,8 +8,9 @@
 <meta name="theme-color" content="#F7F8FA">
 
 <!-- ⚠️ BEFORE THIS GOES LIVE ⚠️
-     The two prices below MUST match the prices in Stripe and the base
-     plans in Google Play, to the cent. They are marked PRICE: in the
+     The two prices below are the JAPAN prices (yen, tax included) and
+     MUST match the JPY option on both Stripe prices and the Japan price
+     on both Google Play base plans. They are marked PRICE: in the
      body so they are quick to find.
 
      A page that promises one number while the card takes another is a
@@ -128,14 +129,14 @@
   <div class="plans">
     <div class="plan">
       <h3>年額</h3>
-      <!-- PRICE: must match the Stripe yearly price and the Play yearly base plan (the script at the bottom swaps in CAD for Canada) -->
+      <!-- PRICE: must match the JPY option on the Stripe yearly price and the Play yearly base plan in Japan (8,000 yen, tax included) -->
       <div class="price" data-price="year">8,000円</div>
       <div class="per">1年あたり（税込）</div>
       <a class="cta" href="/app/?subscribe=year">年額で登録する</a>
     </div>
     <div class="plan">
       <h3>月額</h3>
-      <!-- PRICE: must match the Stripe monthly price and the Play monthly base plan (the script at the bottom swaps in CAD for Canada) -->
+      <!-- PRICE: must match the JPY option on the Stripe monthly price and the Play monthly base plan in Japan (800 yen, tax included) -->
       <div class="price" data-price="month">800円</div>
       <div class="per">1か月あたり（税込）</div>
       <a class="cta" href="/app/?subscribe=month">月額で登録する</a>
@@ -187,21 +188,5 @@
   </footer>
 
 </main>
-<script>
-  // Canada pays 6.99 / 69.99 CAD, on the web as in the app. Same time
-  // zone test as src/domain/billing.js -- keep the two lists together.
-  (function () {
-    var z = "";
-    try { z = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (e) {}
-    var ca = /^Canada\//.test(z) || ["Atikokan","Blanc-Sablon","Cambridge_Bay","Coral_Harbour","Creston",
-      "Dawson","Dawson_Creek","Edmonton","Fort_Nelson","Glace_Bay","Goose_Bay","Halifax","Inuvik","Iqaluit",
-      "Moncton","Montreal","Nipigon","Pangnirtung","Rainy_River","Rankin_Inlet","Regina","Resolute","St_Johns",
-      "Swift_Current","Thunder_Bay","Toronto","Vancouver","Whitehorse","Winnipeg","Yellowknife"]
-      .indexOf(z.replace(/^America\//, "")) >= 0 && /^America\//.test(z);
-    if (!ca) return;
-    var p = { year: "$69.99 CAD", month: "$6.99 CAD" };
-    document.querySelectorAll("[data-price]").forEach(function (el) { el.textContent = p[el.getAttribute("data-price")]; });
-  })();
-</script>
 </body>
 </html>
