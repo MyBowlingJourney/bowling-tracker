@@ -28,8 +28,8 @@
 import { checkoutCurrencyFor } from "./billing.js";
 
 // Every dollar country keeps "$" and two decimals: the US, Canada,
-// Singapore, Mexico, Hong Kong, Puerto Rico, Bermuda, Brunei, Australia,
-// New Zealand, and anywhere unknown. Their
+// Singapore, Mexico, Hong Kong, Puerto Rico, Bermuda, Australia, New
+// Zealand, and anywhere unknown. Their
 // output is byte-for-byte what the app printed before this module
 // existed ("$12.00", "−$5.00", "+$45"), which is what keeps every English
 // screen, catalog pattern and test for dollar users unchanged.
@@ -60,10 +60,10 @@ export const CURRENCIES = Object.freeze({
   kwd: Object.freeze({ id: "kwd", symbol: "KD", sep: " ", decimals: 3, factor: 0.3, stakes: Object.freeze([0.1, 0.5]) }),
 });
 
-// The eight with their own money. Singapore, Mexico, Hong Kong and Brunei
-// have local subscription PRICES (S$, MX$, HK$, B$) but are dollar
-// countries here: a bare "$" is what a bowler there writes on a bracket
-// sheet.
+// The seven with their own money here (plus Kuwait, below). Singapore,
+// Mexico and Hong Kong have local subscription PRICES (S$, MX$, HK$) but
+// are dollar countries here: a bare "$" is what a bowler there writes on a
+// bracket sheet.
 const BY_CHECKOUT = { jpy: "jpy", krw: "krw", myr: "myr", php: "php", inr: "inr", aed: "aed", crc: "crc" };
 
 // Kuwait: the one country whose money the app shows but whose

@@ -133,14 +133,14 @@
   <div class="plans">
     <div class="plan">
       <h3>Yearly</h3>
-      <!-- PRICE: must match the Stripe yearly price and the Play yearly base plan (the script at the bottom swaps in CAD, JPY, SGD, MYR, PHP, MXN, KRW, HKD, INR, AED, CRC and BND by time zone -- those must match too) -->
+      <!-- PRICE: must match the Stripe yearly price and the Play yearly base plan (the script at the bottom swaps in CAD, JPY, SGD, MYR, PHP, MXN, KRW, HKD, INR, AED and CRC by time zone -- those must match too) -->
       <div class="price" data-price="year">$49.99</div>
       <div class="per">per year</div>
       <a class="cta" href="/app/?subscribe=year">Subscribe yearly</a>
     </div>
     <div class="plan">
       <h3>Monthly</h3>
-      <!-- PRICE: must match the Stripe monthly price and the Play monthly base plan (the script at the bottom swaps in CAD, JPY, SGD, MYR, PHP, MXN, KRW, HKD, INR, AED, CRC and BND by time zone -- those must match too) -->
+      <!-- PRICE: must match the Stripe monthly price and the Play monthly base plan (the script at the bottom swaps in CAD, JPY, SGD, MYR, PHP, MXN, KRW, HKD, INR, AED and CRC by time zone -- those must match too) -->
       <div class="price" data-price="month">$4.99</div>
       <div class="per">per month</div>
       <a class="cta" href="/app/?subscribe=month">Subscribe monthly</a>
@@ -181,7 +181,7 @@
         Prices are in US dollars. In Canada they are in Canadian dollars &mdash;
         $6.99 a month or $69.99 a year &mdash; and in Japan, Singapore, Malaysia,
         the Philippines, Mexico, South Korea, Hong Kong, India, the United Arab
-        Emirates, Costa Rica and Brunei they are in your own currency with tax included, in
+        Emirates and Costa Rica they are in your own currency with tax included, in
         the app and on the web alike. In the Android app elsewhere, Google Play
         shows the price in your own currency. If tax applies where you are, it
         is shown before you confirm.
@@ -213,7 +213,7 @@
 <script>
   // Local prices on the web, as in the app: Canada 6.99 / 69.99 CAD, and
   // Japan, Singapore, Malaysia, the Philippines, Mexico, South Korea, Hong
-  // Kong, India, the UAE, Costa Rica and Brunei in their own currency,
+  // Kong, India, the UAE and Costa Rica in their own currency,
   // tax included. Same time-zone test as src/domain/billing.js -- keep the
   // two lists together.
   (function () {
@@ -234,7 +234,6 @@
       "Asia/Kolkata": { year: "₹4,490", month: "₹449" }, "Asia/Calcutta": { year: "₹4,490", month: "₹449" },
       "Asia/Dubai": { year: "AED 189.99", month: "AED 18.99" },
       "America/Costa_Rica": { year: "₡27,000", month: "₡2,700" },
-      "Asia/Brunei": { year: "B$69.98", month: "B$6.98" },
       "America/Mexico_City": { year: "MX$999", month: "MX$99" }, "America/Cancun": { year: "MX$999", month: "MX$99" }, "America/Merida": { year: "MX$999", month: "MX$99" }, "America/Monterrey": { year: "MX$999", month: "MX$99" }, "America/Matamoros": { year: "MX$999", month: "MX$99" }, "America/Chihuahua": { year: "MX$999", month: "MX$99" }, "America/Ciudad_Juarez": { year: "MX$999", month: "MX$99" }, "America/Ojinaga": { year: "MX$999", month: "MX$99" }, "America/Mazatlan": { year: "MX$999", month: "MX$99" }, "America/Bahia_Banderas": { year: "MX$999", month: "MX$99" }, "America/Hermosillo": { year: "MX$999", month: "MX$99" }, "America/Tijuana": { year: "MX$999", month: "MX$99" }, "Mexico/General": { year: "MX$999", month: "MX$99" }, "Mexico/BajaNorte": { year: "MX$999", month: "MX$99" }, "Mexico/BajaSur": { year: "MX$999", month: "MX$99" }
     };
     var p = ca ? { year: "$69.99 CAD", month: "$6.99 CAD" } : local[z];

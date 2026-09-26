@@ -110,7 +110,7 @@ describe('South Korea', () => {
   });
 });
 
-describe('Hong Kong, India, the UAE, Costa Rica, Kuwait and Brunei', () => {
+describe('Hong Kong, India, the UAE, Costa Rica and Kuwait', () => {
   it('show local prices and ask checkout for the local currency', () => {
     expect(displayPricesFor('Asia/Hong_Kong')).toEqual({ month: 'HK$38', year: 'HK$388' });
     expect(checkoutCurrencyFor('Hongkong')).toBe('hkd');
@@ -122,16 +122,14 @@ describe('Hong Kong, India, the UAE, Costa Rica, Kuwait and Brunei', () => {
     expect(checkoutCurrencyFor('America/Costa_Rica')).toBe('crc');
   });
 
-  it('shows Brunei dollars in Brunei, and US dollars on the web in Kuwait (Stripe has no KWD)', () => {
+  it('shows US dollars on the web in Kuwait (Stripe has no KWD)', () => {
     expect(displayPricesFor('Asia/Kuwait')).toEqual({ month: '$4.99', year: '$49.99' });
     expect(checkoutCurrencyFor('Asia/Kuwait')).toBe('');
-    expect(displayPricesFor('Asia/Brunei')).toEqual({ month: 'B$6.98', year: 'B$69.98' });
-    expect(checkoutCurrencyFor('Asia/Brunei')).toBe('bnd');
   });
 
   it('leaves Puerto Rico, Bermuda and the dropped countries on US prices', () => {
     for (const tz of ['America/Puerto_Rico', 'Atlantic/Bermuda', 'Asia/Muscat', 'America/Lima', 'Africa/Johannesburg',
-      'Asia/Riyadh', 'America/Sao_Paulo', 'America/Nassau', 'Asia/Bangkok']) {
+      'Asia/Riyadh', 'America/Sao_Paulo', 'America/Nassau', 'Asia/Bangkok', 'Asia/Brunei']) {
       expect(displayPricesFor(tz)).toEqual({ month: '$4.99', year: '$49.99' });
       expect(checkoutCurrencyFor(tz)).toBe('');
     }

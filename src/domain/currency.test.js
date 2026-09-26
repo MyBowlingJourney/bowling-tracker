@@ -341,10 +341,9 @@ describe('India, the UAE and Costa Rica', () => {
   });
 });
 
-describe('Kuwait and Brunei', () => {
-  it('writes dinars to three decimals; Brunei and Bermuda stay on "$"', () => {
+describe('Kuwait', () => {
+  it('writes dinars to three decimals; Bermuda stays on "$"', () => {
     expect(currencyForZone('Asia/Kuwait').id).toBe('kwd');
-    expect(currencyForZone('Asia/Brunei').id).toBe('dollar');
     expect(currencyForZone('Atlantic/Bermuda').id).toBe('dollar');
     expect(formatMoney(1.5, { currency: 'kwd' })).toBe('KD 1.500');
     expect(formatMoney(-0.25, { currency: 'kwd' })).toBe('−KD 0.250');
