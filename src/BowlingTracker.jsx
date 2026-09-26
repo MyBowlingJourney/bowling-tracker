@@ -75,7 +75,14 @@ import { coachViewActive, setCoachView, applyEnvironment, setTrackingMode, toggl
 import { emptyBag, normalizeBag, bagToRow, bagFromRow, availableBalls, bagsForEnvironment, plasticLast, bagHasRoom, toggleBallInBag, removeBagMemberships, ballsByBagFor, membershipKey, lockedBagIds } from "./domain/bags.js";
 import { DEFAULT_BALL_GROUPS, emptyBallSpecs, normalizeBallSpecs, specsToRow, specsFromRow, groupToRow, groupFromRow } from "./domain/ballSpecs.js";
 import { ballKey, catalogState, bestEntry, rejectedBallsFor, clearedSpecsAfterRejection, canVote } from "./domain/ballCatalog.js";
-import { normalizeCenter, centerToRow, centerFromRow, findExistingCenter, statsByCenter, statsByRackType, deviceLocationAllowed, COUNTRY_SEARCH_ANCHOR } from "./domain/centers.js";
+import { normalizeCenter, centerToRow, centerFromRow, findExistingCenter, statsByCenter, statsByRackType, deviceLocationAllowed, COUNTRY_SEARCH_ANCHOR, matchCentersByName } from "./domain/centers.js";
+
+// The bowling centres near the last place searched from, kept for half an
+// hour so the rest of a name can be matched on the phone as it is typed,
+// without another (billed) search per keystroke. Public place data, keyed
+// by location to about a kilometre.
+let nearbyCentersCache=null;
+const NEARBY_CENTERS_TTL=30*60*1000;
 import { rackTypeDetail } from "./domain/rackTypeDetail.js";
 import { TabBar } from "./Tabs.jsx";
 import { normalizePattern, patternFromRow, patternToRow, patternAverages, allVerifiedPbaPatterns } from "./domain/oilPatterns.js";
@@ -3260,6 +3267,16 @@ export default function BowlingTracker(){
     const at=coords||(fallback?{lat:fallback.lat,lng:fallback.lng}:null)||(!locationAllowed?COUNTRY_SEARCH_ANCHOR[tz]||null:null);
     if(!at)return{error:"Location is needed to find nearby centers. Allow location access, or add the center by name."};
 
+    // Nearby centres already fetched: match the typing against them first.
+    // Only when none match (a farther house, or a name typed out in full)
+    // does it ask the server again.
+    const cacheKey=`${at.lat.toFixed(2)},${at.lng.toFixed(2)}`;
+    const cached=nearbyCentersCache;
+    if(cached&&cached.key===cacheKey&&Date.now()-cached.at<NEARBY_CENTERS_TTL){
+      const local=matchCentersByName(query,cached.list);
+      if(local.length)return{centers:local.slice(0,20)};
+    }
+
     try{
       const{data,error}=await supabase.functions.invoke("find-centers",{
         body:{query,lat:at.lat,lng:at.lng},
@@ -3271,6 +3288,7 @@ export default function BowlingTracker(){
         return{error:friendlyFunctionError(failure,CENTERS_FALLBACK).text};
       }
       if(data?.error)return{error:friendlyFunctionError({status:500,body:data},CENTERS_FALLBACK).text};
+      if(Array.isArray(data?.nearby)&&data.nearby.length)nearbyCentersCache={key:cacheKey,at:Date.now(),list:data.nearby};
       return{centers:data?.centers||[]};
     }catch(e){
       recordError({kind:"function",where:"find-centers",message:String(e?.message||e)});

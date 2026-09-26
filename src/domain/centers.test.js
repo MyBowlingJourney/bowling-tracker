@@ -400,3 +400,50 @@ describe('deviceLocationAllowed', () => {
     expect(COUNTRY_SEARCH_ANCHOR['Asia/Seoul']).toEqual({ lat: 36.35, lng: 127.8 });
   });
 });
+
+import { centerNameKey, centerMatchRank, matchCentersByName } from './centers.js';
+describe('matching a centre name while typing', () => {
+  it('matches the start of the name before it is finished', () => {
+    expect(centerMatchRank('Holi', 'Holiday Bowl')).toBe(0);
+    expect(centerMatchRank('holiday b', 'Holiday Bowl')).toBe(0);
+    expect(centerMatchRank('Holiday Bowl', 'Holiday Bowl')).toBe(0);
+  });
+  it('matches the start of any word, in any order', () => {
+    expect(centerMatchRank('bowl', 'Holiday Bowl')).toBe(1);
+    expect(centerMatchRank('bo hol', 'Holiday Bowl')).toBe(1);
+    expect(centerMatchRank('lanes', 'Holiday Bowl')).toBe(null);
+  });
+  it('ignores case, accents and punctuation', () => {
+    expect(centerNameKey("Dave's Salle de Quilles Été")).toBe('daves salle de quilles ete');
+    expect(centerMatchRank('daves', "Dave's Lanes")).toBe(0);
+    expect(centerMatchRank('quilles ete', 'Salle de Quilles Été')).toBe(1);
+    expect(centerMatchRank('holidaybowl', 'Holiday Bowl')).toBe(2);
+  });
+  it('matches Korean and Japanese names as they are typed', () => {
+    expect(centerMatchRank('홀리', '홀리데이 볼링장')).toBe(0);
+    expect(centerMatchRank('볼링', '홀리데이 볼링장')).toBe(1);
+    expect(centerMatchRank('ラウンド', 'ラウンドワン 横浜')).toBe(0);
+  });
+  it('does not match unrelated names', () => {
+    expect(centerMatchRank('Holiday', 'AMF Lanes')).toBe(null);
+    expect(centerMatchRank('Holiday', '')).toBe(null);
+  });
+  it('ranks the name that starts with the text first, then the nearest', () => {
+    const list = [
+      { name: 'Bowl-O-Rama', distance: 900 },
+      { name: 'Holiday Bowl', distance: 5000 },
+      { name: 'Super Holiday Lanes', distance: 100 },
+      { name: 'Holiday Lanes', distance: 2000 },
+      { name: 'AMF Lanes', distance: 50 },
+    ];
+    expect(matchCentersByName('holi', list).map(c => c.name))
+      .toEqual(['Holiday Lanes', 'Holiday Bowl', 'Super Holiday Lanes']);
+    expect(matchCentersByName('', list)).toHaveLength(5);
+    expect(matchCentersByName('x', null)).toEqual([]);
+  });
+});
+describe('centre name keys keep Japanese voiced kana whole', () => {
+  it('does not split ド into ト and a mark', () => {
+    expect(centerNameKey('ラウンドワン')).toBe('ラウンドワン');
+  });
+});

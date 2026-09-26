@@ -10,9 +10,17 @@
 // forces lowercase secret names)
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { centerMatchRank } from "../_shared/centerMatch.ts";
 
 const HERE_API_KEY = Deno.env.get("HERE_API_KEY");
 const DISCOVER_URL = "https://discover.search.hereapi.com/v1/discover";
+// Browse lists the places of one category nearest a point, whatever their
+// name. Discover needs the whole name ("Holi" finds nothing, "Holiday
+// Bowl" finds the house), so the nearby bowling centres come from Browse
+// and are matched against the typed text here, word by word -- a name
+// then turns up after its first few letters.
+const BROWSE_URL = "https://browse.search.hereapi.com/v1/browse";
+const NEARBY_LIMIT = 100; // Browse's maximum
 
 // HERE's category id for a bowling centre. A venue can carry several
 // categories, and the PRIMARY one isn't always this: "Pins Mechanical Co."
@@ -220,33 +228,74 @@ Deno.serve(async (req) => {
       return json({ error: "A location is needed to search nearby centers." }, CORS, 400);
     }
 
-    const params = new URLSearchParams({
+    const at = `${lat},${lng}`;
+    const isBowling = (item: any) =>
+      (item?.categories ?? []).some((c: any) => c?.id === BOWLING_CATEGORY);
+    const usable = (c: any) => c.name && c.lat !== null;
+
+    // Both at once. Either can fail on its own without losing the other:
+    // a failed Browse still leaves Discover's full-name search, and the
+    // other way round.
+    const browseParams = new URLSearchParams({
+      at,
+      categories: BOWLING_CATEGORY,
+      limit: String(NEARBY_LIMIT),
+      apiKey: HERE_API_KEY,
+    });
+    const discoverParams = new URLSearchParams({
       // An empty query still works: it returns nearby bowling centres,
       // which is the right default when someone just opens the picker.
       q: q || "bowling",
-      at: `${lat},${lng}`,
+      at,
       limit: "20",
       apiKey: HERE_API_KEY,
     });
-
-    const res = await fetch(`${DISCOVER_URL}?${params}`);
-    if (!res.ok) {
-      const detail = await res.text();
-      console.error("HERE error", res.status, detail);
-      return json({ error: `Location search failed (${res.status}).` }, CORS, 502);
+    const fetchItems = async (url: string, label: string) => {
+      try {
+        const res = await fetch(url);
+        if (!res.ok) {
+          console.error(`HERE ${label} error`, res.status, await res.text());
+          return null;
+        }
+        const data = await res.json();
+        return Array.isArray(data?.items) ? data.items : [];
+      } catch (e) {
+        console.error(`HERE ${label} failed`, String(e));
+        return null;
+      }
+    };
+    const [browseItems, discoverItems] = await Promise.all([
+      fetchItems(`${BROWSE_URL}?${browseParams}`, "browse"),
+      fetchItems(`${DISCOVER_URL}?${discoverParams}`, "discover"),
+    ]);
+    if (browseItems === null && discoverItems === null) {
+      return json({ error: "Location search failed." }, CORS, 502);
     }
 
-    const data = await res.json();
-    const items = Array.isArray(data?.items) ? data.items : [];
+    // Every nearby centre, so the app can match further typing itself
+    // without another call.
+    const nearby = (browseItems ?? []).filter(isBowling).map(toCenter).filter(usable);
 
-    const centers = items
-      .filter((item: any) =>
-        (item?.categories ?? []).some((c: any) => c?.id === BOWLING_CATEGORY)
-      )
-      .map(toCenter)
-      .filter((c: any) => c.name && c.lat !== null);
+    // The nearby centres whose name matches what was typed, plus whatever
+    // Discover judged a match (a farther house typed in full, or a small
+    // typo), each house once.
+    const ranked = new Map<string, { c: any; rank: number }>();
+    for (const c of nearby) {
+      const rank = centerMatchRank(q, c.name);
+      if (rank !== null) ranked.set(c.hereId || c.name, { c, rank });
+    }
+    for (const c of (discoverItems ?? []).filter(isBowling).map(toCenter).filter(usable)) {
+      const key = c.hereId || c.name;
+      if (ranked.has(key)) continue;
+      ranked.set(key, { c, rank: centerMatchRank(q, c.name) ?? 3 });
+    }
+    const centers = [...ranked.values()]
+      .sort((a, b) => a.rank - b.rank
+        || (a.c.distance ?? Infinity) - (b.c.distance ?? Infinity))
+      .slice(0, 20)
+      .map((x) => x.c);
 
-    return json({ centers }, CORS);
+    return json({ centers, nearby }, CORS);
   } catch (err) {
     console.error("find-centers failed", err);
     return json({ error: "Couldn't search for centers right now." }, CORS, 500);

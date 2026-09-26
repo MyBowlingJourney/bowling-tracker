@@ -468,3 +468,49 @@ export function deviceLocationAllowed(tz) {
 }
 // The search anchor for those places when no centre is known yet.
 export const COUNTRY_SEARCH_ANCHOR = { "Asia/Seoul": { lat: 36.35, lng: 127.8 }, "ROK": { lat: 36.35, lng: 127.8 } };
+
+// ── Matching a centre's name as the bowler types ─────────────────────
+//
+// HERE's own text search wants the whole name: "Holi" finds nothing,
+// "Holiday Bowl" finds the house. So the search also fetches the bowling
+// centres near the bowler and matches them here, word by word, against
+// what has been typed so far: every typed word must be the START of a
+// word in the name ("hol bo" -> Holiday Bowl), ignoring case, accents and
+// punctuation. The same rule runs in the find-centers function
+// (supabase/functions/_shared/centerMatch.ts) -- keep the two in step.
+export function centerNameKey(s) {
+  return String(s ?? "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "").normalize("NFC")
+    .toLowerCase()
+    .replace(/['’`.]/g, "")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+}
+
+// 0 = the name starts with what was typed, 1 = every typed word starts a
+// word of the name, 2 = the typed text appears inside the name with the
+// spaces taken out ("holidaybowl"), null = no match. Nothing typed
+// matches everything at 0.
+export function centerMatchRank(query, name) {
+  const q = centerNameKey(query);
+  if (!q) return 0;
+  const n = centerNameKey(name);
+  if (!n) return null;
+  if (n.startsWith(q)) return 0;
+  const words = n.split(" ");
+  if (q.split(" ").every(t => words.some(w => w.startsWith(t)))) return 1;
+  if (n.replace(/ /g, "").includes(q.replace(/ /g, ""))) return 2;
+  return null;
+}
+
+// The centres from `list` that match, best match first and nearest first
+// within a match.
+export function matchCentersByName(query, list) {
+  return (Array.isArray(list) ? list : [])
+    .map(c => ({ c, rank: c && c.name ? centerMatchRank(query, c.name) : null }))
+    .filter(x => x.rank !== null)
+    .sort((a, b) => a.rank - b.rank
+      || (a.c.distance ?? Infinity) - (b.c.distance ?? Infinity)
+      || String(a.c.name).localeCompare(String(b.c.name)))
+    .map(x => x.c);
+}

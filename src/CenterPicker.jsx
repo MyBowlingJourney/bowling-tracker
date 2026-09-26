@@ -21,6 +21,9 @@ export default function CenterPicker({ leagueName, currentCenter, onSelect, onSe
   const [showManual, setShowManual] = useState(false);
   const [laneDraft, setLaneDraft] = useState(null);
   const timer = useRef(null);
+  // Only the latest search may fill the list: an earlier, slower answer
+  // arriving after it would otherwise replace the right results.
+  const searchSeq = useRef(0);
 
   useEffect(() => () => clearTimeout(timer.current), []);
 
@@ -29,14 +32,17 @@ export default function CenterPicker({ leagueName, currentCenter, onSelect, onSe
     setError(null);
     clearTimeout(timer.current);
     if (value.trim().length < 3) {
+      searchSeq.current++;
       setResults([]);
       setStatus("idle");
       return;
     }
     setStatus("searching");
+    const seq = ++searchSeq.current;
     // 600ms after typing stops, not per keystroke.
     timer.current = setTimeout(async () => {
       const out = await onSearch(value.trim());
+      if (seq !== searchSeq.current) return;
       if (out.error) {
         setError(out.error);
         setResults([]);

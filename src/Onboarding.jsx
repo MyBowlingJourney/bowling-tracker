@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { C, S, Chip } from "./ui.jsx";
 import { APP_NAME } from "./constants.js";
 import { resolveHomeCenters } from "./domain/profiles.js";
@@ -64,11 +64,25 @@ export default function Onboarding({ preferences, onApply, onFinish, profile, on
     onProfileChange?.({ ...profile, [field]: value });
   }
 
-  async function runCenterSearch(q) {
+  // Searched 600ms after typing stops, from the third letter -- the same
+  // as the league centre picker. It used to search on every keystroke,
+  // which spent the hourly search allowance in a few names and let a
+  // slower, older answer replace a newer one.
+  const centerTimer = useRef(null);
+  const centerSeq = useRef(0);
+  useEffect(() => () => clearTimeout(centerTimer.current), []);
+
+  function runCenterSearch(q) {
     setCenterQuery(q);
-    if (!q.trim() || !searchCenters) { setCenterResults([]); setCenterError(null); return; }
+    clearTimeout(centerTimer.current);
+    const seq = ++centerSeq.current;
+    if (q.trim().length < 3 || !searchCenters) { setCenterResults([]); setCenterError(null); setSearching(false); return; }
     setSearching(true);
     setCenterError(null);
+    centerTimer.current = setTimeout(() => searchNow(q, seq), 600);
+  }
+
+  async function searchNow(q, seq) {
     try {
       // searchCenters resolves to { centers: [...] } on success or
       // { error: "..." } on failure -- never a bare array. Treating the
@@ -76,10 +90,12 @@ export default function Onboarding({ preferences, onApply, onFinish, profile, on
       // result was an object, .slice() isn't a function on it, and that
       // throw during render produced a blank screen with no message,
       // including on the ordinary "location permission denied" case.
-      const result = await searchCenters(q);
+      const result = await searchCenters(q.trim());
+      if (seq !== centerSeq.current) return;
       if (result?.error) { setCenterError(result.error); setCenterResults([]); }
       else setCenterResults(Array.isArray(result?.centers) ? result.centers : []);
     } catch (e) {
+      if (seq !== centerSeq.current) return;
       setCenterError(e?.message || "Couldn't search for centers right now.");
       setCenterResults([]);
     }
