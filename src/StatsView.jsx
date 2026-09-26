@@ -28,6 +28,7 @@ import { cardsInGroup } from "./domain/statsGroups.js";
 import { cardHint } from "./domain/cardHints.js";
 import { progressPercent } from "./domain/progressPercent.js";
 import { PAID_STATS_CARDS, canSeeStatsCard } from "./domain/entitlements.js";
+import { rateSummary, headToHeadOpponents } from "./domain/headToHead.js";
 
 // Card titles, taken from the same list Settings orders them by, so a
 // card is called one thing in both places.
@@ -425,6 +426,18 @@ export default function StatsView({
                 )
                 );
                 byId["headToHead"] = (
+                // On the Team chip there is no Compare To, so this card
+                // brings its own: you against the teammate you pick, both
+                // from this league's frames. It used to render only when
+                // Compare To was set on Mine -- so the Team chip showed it
+                // as "not yet" whatever the team had logged.
+!showTeamCompare&&statsGroup==="team"&&statsLeague&&displayName
+  ? (headToHeadOpponents(shots, statsLeague, displayName).length > 0
+      && shots.some(s => s && s.bowler === displayName && s.league === statsLeague)
+      ? <TeamHeadToHead shots={shots} league={statsLeague} me={displayName}
+          leftHandedFor={leftHandedForBowler} />
+      : null)
+  :
 showTeamCompare&&(()=>{
                   const pctData=[
                     {metric:"Strike %",you:stkR,opp:teamStkR},
@@ -1876,6 +1889,62 @@ function HideableCard({ label, onHide, children }) {
           <circle cx="12" cy="12" r="3" />
         </svg>
       </button>
+    </div>
+  );
+}
+
+
+// You against one teammate, on the Team chip.
+function TeamHeadToHead({ shots, league, me, leftHandedFor }) {
+  const opponents = headToHeadOpponents(shots, league, me);
+  const [pick, setPick] = useState("");
+  const opp = opponents.some(o => o.name === pick) ? pick : (opponents[0]?.name || "");
+  const lh = name => (typeof leftHandedFor === "function" ? !!leftHandedFor(name) : false);
+  const mine = rateSummary(shots.filter(s => s && s.bowler === me && s.league === league), { leftHanded: lh(me) });
+  const theirs = rateSummary(shots.filter(s => s && s.bowler === opp && s.league === league), { leftHanded: lh(opp) });
+  const pctData = [
+    { metric: "Strike %", you: mine.strike, opp: theirs.strike },
+    { metric: "Spare %", you: mine.spare, opp: theirs.spare },
+    { metric: "Clean Frame %", you: mine.cleanFrame, opp: theirs.cleanFrame },
+    { metric: "Split Rate", you: mine.split, opp: theirs.split },
+    { metric: "10-Pin Spare %", you: mine.tenPinSpare, opp: theirs.tenPinSpare },
+    { metric: "Single-Pin Spare %", you: mine.singlePinSpare, opp: theirs.singlePinSpare },
+  ].filter(d => d.you != null || d.opp != null);
+  const pinData = [
+    { metric: "First-Ball Avg", you: mine.firstBallAvg, opp: theirs.firstBallAvg },
+    { metric: "Leave Avg", you: mine.leaveAvg, opp: theirs.leaveAvg },
+  ].filter(d => d.you != null || d.opp != null);
+  const chart = (data, domain, suffix) => (
+    <div style={{ height: `${data.length * 36 + 20}px`, marginTop: "8px" }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data} layout="vertical" margin={{ top: 0, right: 16, left: 0, bottom: 0 }}>
+          <CartesianGrid stroke={C.border} strokeDasharray="3 3" horizontal={false} />
+          <XAxis type="number" domain={domain} tick={{ fill: C.textMuted, fontSize: 10 }} />
+          <YAxis type="category" dataKey="metric" tick={{ fill: C.textMuted, fontSize: 10 }} width={110} />
+          <Tooltip contentStyle={{ backgroundColor: C.surface, border: `1px solid ${C.border}`, borderRadius: "8px", fontSize: "12px" }}
+            labelStyle={{ color: C.text }} formatter={v => [suffix ? `${v}${suffix}` : v]} />
+          <Bar dataKey="you" fill={C.accent} radius={[0, 4, 4, 0]} barSize={12} />
+          <Bar dataKey="opp" fill={C.compare} radius={[0, 4, 4, 0]} barSize={12} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+  return (
+    <div style={S.card}>
+      <div style={S.label}>Head-to-Head</div>
+      <select style={{ ...S.sel, width: "100%", marginBottom: "8px" }} aria-label="Teammate"
+        value={opp} onChange={e => setPick(e.target.value)}>
+        {opponents.map(o => <option key={o.name} value={o.name}>{o.name}</option>)}
+      </select>
+      <div style={{ fontSize: "10px", color: C.textMuted, marginBottom: "6px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
+        <span><span style={{ color: C.accent }}>●</span> {me} · {mine.shots} shots</span>
+        <span><span style={{ color: C.compare }}>●</span> {opp} · {theirs.shots} shots</span>
+      </div>
+      {pctData.length > 0 && chart(pctData, [0, 100], "%")}
+      {pinData.length > 0 && chart(pinData, [0, 10], "")}
+      <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "6px" }}>
+        This league only. Split Rate is the one where lower is better.
+      </div>
     </div>
   );
 }

@@ -2892,7 +2892,10 @@ export const FR_CA = {
 "/year": "/an",
 "Basic is free, and keeps:": "Basic est gratuit, et garde :",
 "Continue with Basic": "Continuer avec Basic",
-"No card is on file, so nothing is charged when the trial ends — you move to Basic unless you choose Pro.": "Aucune carte n'est enregistrée, donc rien n'est facturé à la fin de l'essai — vous passez à Basic à moins de choisir Pro."
+"No card is on file, so nothing is charged when the trial ends — you move to Basic unless you choose Pro.": "Aucune carte n'est enregistrée, donc rien n'est facturé à la fin de l'essai — vous passez à Basic à moins de choisir Pro.",
+"You against a teammate. Needs frames for you and at least one teammate in this league.": "Vous contre un coéquipier. Il faut des carreaux pour vous et au moins un coéquipier dans cette ligue.",
+"Teammate": "Coéquipier",
+"This league only. Split Rate is the one where lower is better.": "Cette ligue seulement. Le taux de splits est le seul où plus bas, c'est mieux."
 },
 "patterns": [
 [
@@ -5822,6 +5825,10 @@ export const FR_CA = {
 [
 "You have Pro free for {0} more day{1:s}. Subscribing now starts billing today; you can also wait, and we'll ask when your trial ends.",
 "Vous avez Pro gratuitement pour encore {0} {0|jour|jours}. S'abonner maintenant commence la facturation aujourd'hui; vous pouvez aussi attendre, et nous vous le demanderons à la fin de votre essai."
+],
+[
+"⟨0⟩ {0} · {1} shots",
+"⟨0⟩ {0} · {1} lancers"
 ]
 ],
 "fragments": [

@@ -11,7 +11,7 @@
 
 export const CARD_HINTS = {
   // ── The match ──
-  headToHead: "Compare yourself with a teammate. Log a night with more than one bowler.",
+  headToHead: "You against a teammate. Needs frames for you and at least one teammate in this league.",
   teamRecords: "Your team's best games and series. Needs team-mates with logged scores.",
   personalRecords: "Your high game and high series. Fills in once you have a game logged.",
   seasonRecord: "Win-loss record. Record match results on a league night.",
