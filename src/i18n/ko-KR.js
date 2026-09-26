@@ -15,6 +15,12 @@
 export const KO_KR = {
 "lang": "ko",
 "exact": {
+"League night": "리그 날",
+"3 days left of Pro": "Pro가 3일 남았어요",
+"Open the app to see what you've used Pro for, and choose Pro or Basic.": "앱을 열어 Pro로 어떤 기능을 썼는지 확인하고, Pro와 Basic 중에서 골라 주세요.",
+"Reminder on": "알림 켜짐",
+"Remind me": "알림 받기",
+"Notifications are off for this app in your phone's settings.": "휴대폰 설정에서 이 앱의 알림이 꺼져 있어요.",
 "Group": "그룹",
 "Ungrouped": "그룹 없음",
 "Coverstock": "커버스톡",
@@ -2952,6 +2958,10 @@ export const KO_KR = {
 "aria-label::Open bowling. For a fun activity. You get the scoresheet, standings and badges — all other views are hidden, not deleted, to keep it quick and simple.": "자유 게임. 가볍게 즐기기 위한 모드예요. 점수표, 순위표, 배지를 사용할 수 있어요 — 빠르고 간단하게 쓸 수 있도록 나머지 화면은 삭제하지 않고 숨겨 둬요."
 },
 "patterns": [
+[
+"{0} is tonight. Log it as you bowl.",
+"오늘 밤은 {0} 날이에요. 치면서 기록해 보세요."
+],
 [
 "Add {0}'s balls to start logging shots.",
 "{0}의 볼을 추가하면 투구를 기록할 수 있어요."

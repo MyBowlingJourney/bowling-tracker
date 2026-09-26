@@ -28,6 +28,8 @@ import { sessionsToCsv, shotsToCsv, seasonSummary, summaryToText } from "./domai
 import { formatMoney } from "./domain/currency.js";
 import { inferLeagueDay, dayName, reminderSpec, reminderToIcs, reminderToGoogleCalendarUrl } from "./domain/reminders.js";
 import { localDateString, APP_URL, APP_NAME } from "./constants.js";
+import LeagueReminderButton from "./LeagueReminderButton.jsx";
+import { remindersAvailable } from "./localReminders.js";
 import { leagueLimit, teamLimit, isSubscriber, isTestAccount, hasPaidSubscription, isTrialing, trialDaysLeft, onProTrial, proTrialDaysLeft } from "./domain/entitlements.js";
 import {
   ENVIRONMENT_LABELS,
@@ -1107,9 +1109,15 @@ export default function Settings({
                           ? `Usually ${dayName(day)}s`
                           : `Bowls on ${dayName(day)}s`}
                       </span>
-                      <button style={{ ...S.btn(), padding: "3px 8px", fontSize: "10px" }} onClick={addToCalendar}>
-                        Add weekly reminder
-                      </button>
+                      {/* The Android app notifies by itself; the website
+                          can only hand a repeating event to a calendar. */}
+                      {remindersAvailable() ? (
+                        <LeagueReminderButton league={league} sessions={sessions} entitlement={entitlement} />
+                      ) : (
+                        <button style={{ ...S.btn(), padding: "3px 8px", fontSize: "10px" }} onClick={addToCalendar}>
+                          Add weekly reminder
+                        </button>
+                      )}
                     </div>
                   );
                 })()}
@@ -1559,9 +1567,15 @@ export default function Settings({
                           ? `Usually ${dayName(day)}s`
                           : `Bowls on ${dayName(day)}s`}
                       </span>
-                      <button style={{ ...S.btn(), padding: "3px 8px", fontSize: "10px" }} onClick={addToCalendar}>
-                        Add weekly reminder
-                      </button>
+                      {/* The Android app notifies by itself; the website
+                          can only hand a repeating event to a calendar. */}
+                      {remindersAvailable() ? (
+                        <LeagueReminderButton league={league} sessions={sessions} entitlement={entitlement} />
+                      ) : (
+                        <button style={{ ...S.btn(), padding: "3px 8px", fontSize: "10px" }} onClick={addToCalendar}>
+                          Add weekly reminder
+                        </button>
+                      )}
                     </div>
                   );
                 })()}

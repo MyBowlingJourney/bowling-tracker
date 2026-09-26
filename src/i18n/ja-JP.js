@@ -13,6 +13,12 @@
 export const JA_JP = {
 "lang": "ja",
 "exact": {
+"League night": "リーグの日",
+"3 days left of Pro": "Proの残りは3日です",
+"Open the app to see what you've used Pro for, and choose Pro or Basic.": "アプリを開いて、Proで使った機能を確認し、ProかBasicを選んでください。",
+"Reminder on": "リマインダーオン",
+"Remind me": "リマインドする",
+"Notifications are off for this app in your phone's settings.": "スマートフォンの設定で、このアプリの通知がオフになっています。",
 "Group": "グループ",
 "Ungrouped": "グループなし",
 "Coverstock": "カバーストック",
@@ -2948,6 +2954,10 @@ export const JA_JP = {
 "aria-label::Open bowling. For a fun activity. You get the scoresheet, standings and badges — all other views are hidden, not deleted, to keep it quick and simple.": "フリー投球. 気軽に楽しむために。スコアシート、順位表、バッジが使えます — ほかの画面は削除ではなく非表示になり、手早くシンプルに使えます。"
 },
 "patterns": [
+[
+"{0} is tonight. Log it as you bowl.",
+"今夜は{0}です。投げながら記録しましょう。"
+],
 [
 "Add {0}'s balls to start logging shots.",
 "{0}のボールを追加すると、投球を記録できます。"

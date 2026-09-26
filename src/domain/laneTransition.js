@@ -329,7 +329,8 @@ export function patternLengthFor(lanePatterns, name) {
  * set the depth drawn for the house shot and for every unmeasured
  * pattern beside it.
  */
-export function drawLengthFor(pattern, { lanePatterns, oilPatterns, lengthByName, houseFeet }) {
+export function drawLengthFor(pattern, opts) {
+  const { lanePatterns, oilPatterns, lengthByName, houseFeet } = opts && typeof opts === "object" ? opts : {};
   const house = Number(houseFeet);
   const fallback = Number.isFinite(house) && house > 0 ? house : null;
   const want = clean(pattern);

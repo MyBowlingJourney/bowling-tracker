@@ -450,7 +450,11 @@ export function compareBags(a, b) {
 // ── Putting it together ───────────────────────────────────────────────
 
 // Every ball of a bowler, placed, with its scoring attached.
-export function placeArsenal({ balls, bowler, ballSpecs, ballLayouts, shots, sessions, gameEquipment }) {
+export function placeArsenal(opts) {
+  // A null or missing argument would throw on destructuring (a "= {}"
+  // default does not catch null). Treat it, and any non-object, as
+  // "nothing given".
+  const { balls, bowler, ballSpecs, ballLayouts, shots, sessions, gameEquipment } = opts && typeof opts === "object" ? opts : {};
   const who = clean(bowler);
   const games = gamesByBall(sessions, shots, gameEquipment, who);
   const scoring = scoringByBall(games);
@@ -498,6 +502,9 @@ export const MAP_VIEWS = [
 
 // A ball's x/y on a view, as 0-100, or null.
 export function pointFor(ball, view) {
+  // Nothing to plot is null, which is what callers already filter on.
+  if (!ball || typeof ball !== "object" || !view || typeof view !== "object"
+      || !view.x || !view.y) return null;
   const read = axis => {
     if (axis.key === "rg" || axis.key === "diff") {
       const v = num(ball.specs?.[axis.key]);

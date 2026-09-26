@@ -13,7 +13,11 @@
 //   4. Home                      -> leave the app (minimise, not kill,
 //                                   which is what back does on Android's
 //                                   own home-level screens)
-export function backAction({ activeTour = "", view = "home", parentView = null } = {}) {
+export function backAction(opts) {
+  // A null or missing argument would throw on destructuring (a "= {}"
+  // default does not catch null). Treat it, and any non-object, as
+  // "nothing given".
+  const { activeTour = "", view = "home", parentView = null } = opts && typeof opts === "object" ? opts : {};
   if (activeTour) return { type: "closeTour" };
   if (parentView) return { type: "view", view: parentView };
   if (view && view !== "home") return { type: "view", view: "home" };

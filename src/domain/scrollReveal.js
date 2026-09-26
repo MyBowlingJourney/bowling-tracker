@@ -61,9 +61,13 @@
  *
  * @returns pixels to scroll DOWN, or negative to scroll UP when allowUp.
  */
-export function revealBottomDelta({
+export function revealBottomDelta(opts) {
+  // A null or missing argument would throw on destructuring (a "= {}"
+  // default does not catch null). Treat it, and any non-object, as
+  // "nothing given".
+  const {
   rect, bottomLimit, headerH, cap = false, allowUp = false, gap = 12,
-}) {
+} = opts && typeof opts === "object" ? opts : {};
   if (!rect || !Number.isFinite(bottomLimit) || bottomLimit <= 0) return 0;
 
   let delta = rect.bottom + gap - bottomLimit;

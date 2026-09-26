@@ -75,7 +75,11 @@ function gapFact(g, index) {
 // bags:   [{ name, balls: [ball names] }]
 // gaps:   { all: [...], byBag: { bagName: [...] } }
 // candidates: [{ gapId, name, brand, placed, specs }]
-export function buildCaddiePayload({ placed, bags, gaps, candidates, overallAverage, leftHanded, twoHanded, focus }) {
+export function buildCaddiePayload(opts) {
+  // A null or missing argument would throw on destructuring (a "= {}"
+  // default does not catch null). Treat it, and any non-object, as
+  // "nothing given".
+  const { placed, bags, gaps, candidates, overallAverage, leftHanded, twoHanded, focus } = opts && typeof opts === "object" ? opts : {};
   const balls = (Array.isArray(placed) ? placed : []).slice(0, 30);
   const index = new Map(balls.map((b, i) => [b.name, i]));
   const bagList = (Array.isArray(bags) ? bags : []).slice(0, 6).map(bag => ({

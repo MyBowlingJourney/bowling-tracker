@@ -31,7 +31,11 @@
 // to a store that may not exist: the STRING "false" is truthy, and so is
 // "no". Truthiness here fails towards Play, which is the rail that
 // cannot fall back to anything.
-export function paymentRail({ isNative = false } = {}) {
+export function paymentRail(opts) {
+  // A null or missing argument would throw on destructuring (a "= {}"
+  // default does not catch null). Treat it, and any non-object, as
+  // "nothing given".
+  const { isNative = false } = opts && typeof opts === "object" ? opts : {};
   return isNative === true ? "play" : "stripe";
 }
 
@@ -138,7 +142,11 @@ export function checkoutCurrencyFor(tz) {
 // or nothing at all -- never the US figure, which would be the wrong
 // currency for everyone outside the US. The banner leaves the price out
 // when this is empty. On the web it is the price checkout will charge.
-export function annualPriceToShow({ rail, offers, displayPrices } = {}) {
+export function annualPriceToShow(opts) {
+  // A null or missing argument would throw on destructuring (a "= {}"
+  // default does not catch null). Treat it, and any non-object, as
+  // "nothing given".
+  const { rail, offers, displayPrices } = opts && typeof opts === "object" ? opts : {};
   if (rail === "play") return offers?.prices?.year ? String(offers.prices.year) : "";
   return displayPrices?.year || "";
 }

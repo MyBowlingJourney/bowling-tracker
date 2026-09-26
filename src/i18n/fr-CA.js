@@ -11,6 +11,12 @@
 // src/i18n/glossary.md and src/i18n/style.md.
 export const FR_CA = {
 "exact": {
+"League night": "Soirée de ligue",
+"3 days left of Pro": "Plus que 3 jours de Pro",
+"Open the app to see what you've used Pro for, and choose Pro or Basic.": "Ouvrez l'application pour voir ce que vous avez utilisé dans Pro, puis choisissez Pro ou Basic.",
+"Reminder on": "Rappel activé",
+"Remind me": "Me le rappeler",
+"Notifications are off for this app in your phone's settings.": "Les notifications de cette application sont désactivées dans les paramètres de votre téléphone.",
 "Group": "Groupe",
 "Ungrouped": "Sans groupe",
 "Coverstock": "Enrobage",
@@ -2938,6 +2944,10 @@ export const FR_CA = {
 "aria-label::Open bowling. For a fun activity. You get the scoresheet, standings and badges — all other views are hidden, not deleted, to keep it quick and simple.": "Jeu libre. Pour une activité amusante. Vous avez la feuille de pointage, le classement et les badges — toutes les autres vues sont masquées, pas supprimées, pour que ce soit simple et rapide."
 },
 "patterns": [
+[
+"{0} is tonight. Log it as you bowl.",
+"{0}, c'est ce soir. Enregistrez vos lancers en jouant."
+],
 [
 "Add {0}'s balls to start logging shots.",
 "Ajoutez les boules de {0} pour commencer à enregistrer des lancers."

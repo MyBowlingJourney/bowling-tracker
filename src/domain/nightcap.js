@@ -150,7 +150,8 @@ function tally(values) {
 // Excludes tonight explicitly rather than filtering on "< date": a night
 // logged out of order, or a make-up game entered later, would otherwise
 // be silently dropped from its own season or counted into it twice.
-export function seasonShots(shots, { bowler, league, date }) {
+export function seasonShots(shots, opts) {
+  const { bowler, league, date } = opts && typeof opts === "object" ? opts : {};
   return rows(shots).filter(s =>
     clean(s.bowler) === clean(bowler) &&
     clean(s.league) === clean(league) &&
@@ -198,7 +199,8 @@ export function rateSet(shotList, leftHanded = false) {
 // off the same set. The caller passing a pre-filtered list and this
 // filtering again is harmless; the caller passing everything and this NOT
 // filtering would quietly mix last week's league night into tonight.
-export function nightShots(shots, { bowler, league, date }) {
+export function nightShots(shots, opts) {
+  const { bowler, league, date } = opts && typeof opts === "object" ? opts : {};
   return rows(shots).filter(s =>
     clean(s.bowler) === clean(bowler) &&
     clean(s.league) === clean(league) &&

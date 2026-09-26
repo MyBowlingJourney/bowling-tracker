@@ -76,4 +76,5 @@
          and the Play Data Safety form declares approximate location.
          Adding ACCESS_FINE_LOCATION would make that declaration untrue. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 </manifest>

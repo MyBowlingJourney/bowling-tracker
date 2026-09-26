@@ -114,7 +114,7 @@ export function rackTypeDetail(shots, leagues, centers, bowler, leftHanded = fal
 // ways. Only leaves seen at least three times in total, so one stray
 // 4-6 doesn't headline the card.
 export function biggestChanges(ff, st, limit = 3) {
-  if (!ff.firstBalls || !st.firstBalls) return [];
+  if (!ff?.firstBalls || !st?.firstBalls || !ff.leaves || !st.leaves) return [];
   const keys = new Set([...Object.keys(ff.leaves), ...Object.keys(st.leaves)]);
   return [...keys]
     .map(key => {

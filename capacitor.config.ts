@@ -49,6 +49,12 @@ const config: CapacitorConfig = {
       backgroundColor: '#F7F8FA', // chalk's bg, so the splash matches the app
       showSpinner: false,
     },
+    // League-night and Pro-trial reminders (src/localReminders.js). The
+    // status-bar icon has to be a white silhouette -- the launcher icon
+    // there shows as a plain white square.
+    LocalNotifications: {
+      smallIcon: 'ic_stat_notify',
+    },
   },
 };
 

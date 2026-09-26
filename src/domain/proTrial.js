@@ -34,6 +34,7 @@ const count = v => (Number.isFinite(Number(v)) && Number(v) > 0 ? Math.round(Num
 //   sidePots       tournaments where brackets / side pots were entered
 //   coaching       an active coach or bowler relationship
 export function proLosses(ctx = {}) {
+  if (!ctx || typeof ctx !== "object") ctx = {};
   const out = [];
   const leagues = (Array.isArray(ctx.leagues) ? ctx.leagues : []).map(clean).filter(n => n && !isContainerLeague(n));
   const u = ctx.usage || {};
@@ -104,7 +105,11 @@ export function proLosses(ctx = {}) {
 //
 // topBall: { ball, games } -- the ball with the most games, or null.
 // price: the monthly price as shown ("$4.99").
-export function trialHeadline({ topBall, usage, leagues, games } = {}, price = "") {
+export function trialHeadline(opts, price = "") {
+  // A null or missing argument would throw on destructuring (a "= {}"
+  // default does not catch null). Treat it, and any non-object, as
+  // "nothing given".
+  const { topBall, usage, leagues, games } = opts && typeof opts === "object" ? opts : {};
   const per = price ? ` for ${price}/month` : "";
   const u = usage || {};
   const realLeagues = (Array.isArray(leagues) ? leagues : []).filter(n => clean(n) && !isContainerLeague(clean(n)));

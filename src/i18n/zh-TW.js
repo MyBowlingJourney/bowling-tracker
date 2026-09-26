@@ -15,6 +15,12 @@
 export const ZH_TW = {
 "lang": "zh",
 "exact": {
+"League night": "聯賽日",
+"3 days left of Pro": "Pro 還剩 3 天",
+"Open the app to see what you've used Pro for, and choose Pro or Basic.": "打開 App，看看你用過哪些 Pro 功能，再選擇 Pro 或 Basic。",
+"Reminder on": "提醒已開啟",
+"Remind me": "提醒我",
+"Notifications are off for this app in your phone's settings.": "手機設定中已關閉這個 App 的通知。",
 "Group": "群組",
 "Ungrouped": "未分組",
 "Coverstock": "球皮",
@@ -2954,6 +2960,10 @@ export const ZH_TW = {
 "tile::Games": "各局分數"
 },
 "patterns": [
+[
+"{0} is tonight. Log it as you bowl.",
+"今晚是 {0}，邊打邊記錄吧。"
+],
 [
 "Add {0}'s balls to start logging shots.",
 "新增 {0} 的球，就能開始記錄投球。"

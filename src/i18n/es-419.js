@@ -14,6 +14,12 @@
 export const ES_419 = {
 "lang": "es",
 "exact": {
+"League night": "Noche de liga",
+"3 days left of Pro": "Te quedan 3 días de Pro",
+"Open the app to see what you've used Pro for, and choose Pro or Basic.": "Abre la app para ver para qué has usado Pro y elige Pro o Basic.",
+"Reminder on": "Recordatorio activado",
+"Remind me": "Recordármelo",
+"Notifications are off for this app in your phone's settings.": "Las notificaciones de esta app están desactivadas en la configuración de tu celular.",
 "Group": "Grupo",
 "Ungrouped": "Sin grupo",
 "Coverstock": "Cubierta",
@@ -2946,6 +2952,10 @@ export const ES_419 = {
 "aria-label::Open bowling. For a fun activity. You get the scoresheet, standings and badges — all other views are hidden, not deleted, to keep it quick and simple.": "Juego libre. Para una actividad divertida. Tienes la hoja de puntaje, la tabla de posiciones y las insignias — las demás vistas se ocultan, no se borran, para que todo sea rápido y sencillo."
 },
 "patterns": [
+[
+"{0} is tonight. Log it as you bowl.",
+"{0} es esta noche. Regístrala mientras juegas."
+],
 [
 "Add {0}'s balls to start logging shots.",
 "Agrega las bolas de {0} para empezar a registrar tiros."

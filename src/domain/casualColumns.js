@@ -7,7 +7,11 @@
 //
 // Returns the writes to make, in order, as {who, game, value} where
 // value "" clears the box. `get(who, game)` reads a score (null = empty).
-export function deleteGameColumnPlan({ people, game, lastGame, get } = {}) {
+export function deleteGameColumnPlan(opts) {
+  // A null or missing argument would throw on destructuring (a "= {}"
+  // default does not catch null). Treat it, and any non-object, as
+  // "nothing given".
+  const { people, game, lastGame, get } = opts && typeof opts === "object" ? opts : {};
   const who = (Array.isArray(people) ? people : []).filter(p => typeof p === "string" && p);
   const g = Number(game);
   const last = Number(lastGame);
@@ -31,7 +35,11 @@ export function deleteGameColumnPlan({ people, game, lastGame, get } = {}) {
 }
 
 // Whether a column holds any score, so deleting it asks first.
-export function columnHasScores({ people, game, get } = {}) {
+export function columnHasScores(opts) {
+  // A null or missing argument would throw on destructuring (a "= {}"
+  // default does not catch null). Treat it, and any non-object, as
+  // "nothing given".
+  const { people, game, get } = opts && typeof opts === "object" ? opts : {};
   const read = typeof get === "function" ? get : () => null;
   return (Array.isArray(people) ? people : []).some(p => read(p, Number(game)) != null);
 }

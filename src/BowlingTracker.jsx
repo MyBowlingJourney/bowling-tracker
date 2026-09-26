@@ -99,6 +99,7 @@ import ProTrialEnd from "./ProTrialEnd.jsx";
 // and a Suspense boundary around a prompt this short would flash.
 import KeptLeaguePicker from "./KeptLeaguePicker.jsx";
 import TrialBanner from "./TrialBanner.jsx";
+import { syncLocalReminders, askForTrialReminder } from "./localReminders.js";
 // The yearly figure the banner quotes when it nudges a monthly
 // subscriber. Display only -- what is actually charged is whatever the
 // Stripe price says. See purchase.js.
@@ -7503,6 +7504,23 @@ export default function BowlingTracker(){
   const proEnded=proTrialEnded(entitlement)&&proChoice!=="basic";
   const proDaysLeft=!hasPaidSubscription(entitlement)&&!isTestAccount(entitlement)&&onProTrial(entitlement)?proTrialDaysLeft(entitlement):0;
   const proEnding=proDaysLeft>0&&proDaysLeft<=7&&proLaterDay!==localDateString();
+  // Phone notifications (Android app only; a no-op on the web): league
+  // nights the bowler turned on in Settings, and "3 days left of Pro".
+  // Rescheduled when the sessions behind the inferred league night, or the
+  // trial, change -- not on every render.
+  const trialEndForReminders=entitlement?.pro_trial_end||"";
+  const paidForReminders=hasPaidSubscription(entitlement)||isTestAccount(entitlement);
+  useEffect(()=>{
+    syncLocalReminders({sessions,entitlement});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[sessions.length,trialEndForReminders,paidForReminders]);
+  // Asked once, and never over onboarding or the tour: the system prompt
+  // should arrive when the app is in view, not stacked on the first screen.
+  useEffect(()=>{
+    if(firstRunBusy)return;
+    askForTrialReminder({sessions,entitlement});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[firstRunBusy,trialEndForReminders,paidForReminders]);
   const proPromptCtx=useMemo(()=>{
     if(!proEnded&&!proEnding)return null;
     const me=displayName||activeBowler;
