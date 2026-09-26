@@ -64,19 +64,35 @@ export function isCanadianTimeZone(tz) {
   return CANADA_ZONES.has(tz) || tz.startsWith("Canada/");
 }
 
-// What the screen says. "$" in both: Play shows Canadians "$6.99" too,
-// and the French layer writes it as "6,99 $".
-export const PRICES_USD = Object.freeze({ month: "$4.99", year: "$49.99" });
-export const PRICES_CAD = Object.freeze({ month: "$6.99", year: "$69.99" });
-
-export function displayPricesFor(tz) {
-  return isCanadianTimeZone(tz) ? PRICES_CAD : PRICES_USD;
+// ── Japan: yen, tax included ────────────────────────────────────────
+//
+// The same arrangement as Canada: Play charges 800 / 8,000 yen, both
+// Stripe prices carry those amounts as a JPY currency option, and
+// create-checkout asks for JPY when the device is on Japan time. Japanese
+// law expects the price shown to be the price paid, tax included, so the
+// JPY option is set to include tax.
+export function isJapanTimeZone(tz) {
+  return tz === "Asia/Tokyo" || tz === "Japan";
 }
 
-// The currency create-checkout is asked for: "cad" in Canada, nothing
-// anywhere else (Stripe then picks, as it always has).
+// What the screen says. "$" for both dollars: Play shows Canadians
+// "$6.99" too, and the French layer writes it as "6,99 $".
+export const PRICES_USD = Object.freeze({ month: "$4.99", year: "$49.99" });
+export const PRICES_CAD = Object.freeze({ month: "$6.99", year: "$69.99" });
+export const PRICES_JPY = Object.freeze({ month: "¥800", year: "¥8,000" });
+
+export function displayPricesFor(tz) {
+  if (isCanadianTimeZone(tz)) return PRICES_CAD;
+  if (isJapanTimeZone(tz)) return PRICES_JPY;
+  return PRICES_USD;
+}
+
+// The currency create-checkout is asked for: "cad" in Canada, "jpy" in
+// Japan, nothing anywhere else (Stripe then picks, as it always has).
 export function checkoutCurrencyFor(tz) {
-  return isCanadianTimeZone(tz) ? "cad" : "";
+  if (isCanadianTimeZone(tz)) return "cad";
+  if (isJapanTimeZone(tz)) return "jpy";
+  return "";
 }
 
 // The yearly price the trial banner quotes. On Play it is Google's own

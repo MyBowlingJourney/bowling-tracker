@@ -150,11 +150,13 @@ Deno.serve(async (req: Request) => {
   // is charged, and it arrives from the browser.
   const period = body?.period === "year" ? "year" : body?.period === "month" ? "month" : "";
   if (!period) return json({ error: "Bad request" }, cors, 400);
-  // Canada only, and an allowlist for the same reason as period. The app
-  // shows Canadians the Play Canada prices (9.99 / 69.99 CAD) and asks
-  // for CAD here; both Stripe prices carry those amounts as a CAD
-  // currency option. Anything else: no currency, and Stripe picks.
-  const currency = body?.currency === "cad" ? "cad" : "";
+  // Canada and Japan only, and an allowlist for the same reason as
+  // period. The app shows Canadians the Play Canada prices (6.99 / 69.99
+  // CAD) and Japan the Play Japan prices (800 / 8,000 JPY, tax included)
+  // and asks for that currency here; both Stripe prices carry those
+  // amounts as CAD and JPY currency options. Anything else: no currency,
+  // and Stripe picks.
+  const currency = body?.currency === "cad" ? "cad" : body?.currency === "jpy" ? "jpy" : "";
   // Resolved from a lookup key rather than read as a price id. See
   // _shared/stripe.ts: this is what makes test and live use the same
   // configuration instead of two sets of ids that can be mixed up on the
@@ -279,7 +281,7 @@ Deno.serve(async (req: Request) => {
   // pays. Logged loudly, because it means the screen and the charge no
   // longer match for this bowler.
   if (!session?.url && currency) {
-    console.error(`checkout in ${currency} failed; retrying without a currency. Check the CAD option on both Stripe prices.`);
+    console.error(`checkout in ${currency} failed; retrying without a currency. Check the ${currency.toUpperCase()} option on both Stripe prices.`);
     session = await stripeRequest("/checkout/sessions", sessionParams);
   }
 

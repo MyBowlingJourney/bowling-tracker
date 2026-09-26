@@ -72,3 +72,13 @@ describe('the yearly price on the trial banner', () => {
     expect(annualPriceToShow({ rail: 'stripe', offers: null, displayPrices: PRICES_CAD })).toBe('$69.99');
   });
 });
+
+describe('Japan pricing', () => {
+  it('shows yen, tax included, and asks checkout for JPY on Japan time', () => {
+    expect(displayPricesFor('Asia/Tokyo')).toEqual({ month: '¥800', year: '¥8,000' });
+    expect(displayPricesFor('Japan')).toEqual({ month: '¥800', year: '¥8,000' });
+    expect(checkoutCurrencyFor('Asia/Tokyo')).toBe('jpy');
+    expect(checkoutCurrencyFor('Asia/Seoul')).toBe('');
+    expect(displayPricesFor('Asia/Seoul')).toEqual({ month: '$4.99', year: '$49.99' });
+  });
+});
