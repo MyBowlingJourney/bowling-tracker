@@ -2921,7 +2921,9 @@ export const FR_CA = {
 "tile::Strikes": "Abats",
 "field::Target": "Cible",
 "milestone::Next ·": "À venir ·",
-"newly::.": "."
+"newly::.": ".",
+"Japan": "",
+"Singapore": ""
 },
 "patterns": [
 [

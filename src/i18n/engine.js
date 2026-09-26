@@ -178,7 +178,8 @@ export function frenchNumbers(text) {
     return `${hh}${NBSP}h`;
   });
   // Money: "$1,234.50" / "-$3" / "+$12.50" -> "1 234,50 $"
-  s = s.replace(/([-+−]?)\$\s?(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?/g, (_, sign, int, dec) => {
+  // Not "S$6.98" (Singapore dollars): only a bare "$" is moved.
+  s = s.replace(/([-+−]?)(?<![A-Za-z])\$\s?(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?/g, (_, sign, int, dec) => {
     const i = int.replace(/,/g, NNBSP);
     return `${sign}${i}${dec !== undefined ? "," + dec : ""}${NBSP}$`;
   });

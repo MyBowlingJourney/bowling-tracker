@@ -33,6 +33,7 @@ const ROOT_PAGES = [
   "privacy-fr.html", "terms-fr.html", "delete-account-fr.html",
   "privacy-es.html", "terms-es.html", "delete-account-es.html",
   "privacy-ja.html", "terms-ja.html", "delete-account-ja.html", "tokushoho.html",
+  "privacy-ms.html",
 ];
 
 await mkdir(out, { recursive: true });

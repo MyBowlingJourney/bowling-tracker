@@ -64,35 +64,48 @@ export function isCanadianTimeZone(tz) {
   return CANADA_ZONES.has(tz) || tz.startsWith("Canada/");
 }
 
-// ── Japan: yen, tax included ────────────────────────────────────────
+// ── Japan, Singapore, Malaysia, the Philippines, Mexico: local price ──
 //
-// The same arrangement as Canada: Play charges 800 / 8,000 yen, both
-// Stripe prices carry those amounts as a JPY currency option, and
-// create-checkout asks for JPY when the device is on Japan time. Japanese
-// law expects the price shown to be the price paid, tax included, so the
-// JPY option is set to include tax.
+// The same arrangement as Canada: Play charges these prices, both Stripe
+// prices carry the same amounts as a currency option, and create-checkout
+// asks for that currency when the device is on that country's time. In
+// these five the price shown is the price paid, tax included, on Play and
+// on the web alike.
+const LOCAL_PRICING = [
+  { zones: ["Asia/Tokyo", "Japan"], currency: "jpy",
+    prices: Object.freeze({ month: "¥800", year: "¥8,000" }) },
+  { zones: ["Asia/Singapore", "Singapore"], currency: "sgd",
+    prices: Object.freeze({ month: "S$6.98", year: "S$69.98" }) },
+  { zones: ["Asia/Kuala_Lumpur", "Asia/Kuching"], currency: "myr",
+    prices: Object.freeze({ month: "RM21.90", year: "RM219.90" }) },
+  { zones: ["Asia/Manila"], currency: "php",
+    prices: Object.freeze({ month: "₱349", year: "₱3,490" }) },
+  { zones: ["America/Mexico_City", "America/Cancun", "America/Merida", "America/Monterrey", "America/Matamoros", "America/Chihuahua", "America/Ciudad_Juarez", "America/Ojinaga", "America/Mazatlan", "America/Bahia_Banderas", "America/Hermosillo", "America/Tijuana", "Mexico/General", "Mexico/BajaNorte", "Mexico/BajaSur"], currency: "mxn",
+    prices: Object.freeze({ month: "MX$99", year: "MX$999" }) },
+];
+const localPricingFor = tz => LOCAL_PRICING.find(r => r.zones.includes(tz)) || null;
+
 export function isJapanTimeZone(tz) {
-  return tz === "Asia/Tokyo" || tz === "Japan";
+  return localPricingFor(tz)?.currency === "jpy";
 }
 
 // What the screen says. "$" for both dollars: Play shows Canadians
 // "$6.99" too, and the French layer writes it as "6,99 $".
 export const PRICES_USD = Object.freeze({ month: "$4.99", year: "$49.99" });
 export const PRICES_CAD = Object.freeze({ month: "$6.99", year: "$69.99" });
-export const PRICES_JPY = Object.freeze({ month: "¥800", year: "¥8,000" });
+export const PRICES_JPY = LOCAL_PRICING[0].prices;
 
 export function displayPricesFor(tz) {
   if (isCanadianTimeZone(tz)) return PRICES_CAD;
-  if (isJapanTimeZone(tz)) return PRICES_JPY;
-  return PRICES_USD;
+  return localPricingFor(tz)?.prices || PRICES_USD;
 }
 
-// The currency create-checkout is asked for: "cad" in Canada, "jpy" in
-// Japan, nothing anywhere else (Stripe then picks, as it always has).
+// The currency create-checkout is asked for: "cad" in Canada, the local
+// currency in the five countries above, nothing anywhere else (Stripe
+// then picks, as it always has).
 export function checkoutCurrencyFor(tz) {
   if (isCanadianTimeZone(tz)) return "cad";
-  if (isJapanTimeZone(tz)) return "jpy";
-  return "";
+  return localPricingFor(tz)?.currency || "";
 }
 
 // The yearly price the trial banner quotes. On Play it is Google's own

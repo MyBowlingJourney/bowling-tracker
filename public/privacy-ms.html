@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="ms">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dasar Privasi — My Bowling Journey</title>
+<meta name="description" content="Cara My Bowling Journey mengumpul, menggunakan dan memadam data anda.">
+<meta name="theme-color" content="#F7F8FA">
+<style>
+  :root{
+    --bg:#F7F8FA; --surface:#fff; --text:#16181D; --muted:#5A6070;
+    --border:#E3E6EC; --accent:#2F6F4F;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#111317; --surface:#181B21; --text:#E8EAEE; --muted:#9AA2B1;
+      --border:#262A33; --accent:#6FCF97;
+    }
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    padding:calc(28px + env(safe-area-inset-top,0px)) 16px
+            calc(48px + env(safe-area-inset-bottom,0px));
+  }
+  main{max-width:720px;margin:0 auto}
+  .brand{font-size:13px;color:var(--muted);letter-spacing:.02em;margin-bottom:6px}
+  h1{font-size:28px;line-height:1.25;margin:0 0 6px}
+  .dates{font-size:13px;color:var(--muted);margin-bottom:28px}
+  h2{font-size:19px;margin:34px 0 10px;padding-top:18px;border-top:1px solid var(--border)}
+  h3{font-size:16px;margin:22px 0 6px}
+  p,li{color:var(--text)}
+  ul{padding-left:20px;margin:10px 0}
+  li{margin-bottom:8px}
+  a{color:var(--accent)}
+  .lead{font-size:17px;color:var(--muted)}
+  .card{
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:10px;padding:16px 18px;margin:18px 0;
+  }
+  .card h3{margin-top:0}
+  table{border-collapse:collapse;width:100%;margin:14px 0;font-size:15px}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:13px;letter-spacing:.02em}
+  footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--border);
+         font-size:13px;color:var(--muted)}
+  code{background:var(--border);padding:1px 5px;border-radius:4px;font-size:14px}
+</style>
+</head>
+<body>
+<main>
+
+
+  <div class="brand">🎳 My Bowling Journey · <a href="./privacy.html" hreflang="en" lang="en">English</a> · <a href="./privacy-es.html" hreflang="es-419" lang="es-419">Español</a> · <a href="./privacy-fr.html" hreflang="fr-CA" lang="fr-CA">Français</a> · <a href="./privacy-ja.html" hreflang="ja" lang="ja">日本語</a></div>
+  <h1>Dasar Privasi</h1>
+  <div class="dates">Berkuat kuasa 18 September 2026 · Kemas kini terakhir 26 September 2026</div>
+
+  <p class="lead">
+    My Bowling Journey dikendalikan oleh My Bowling Journey LLC, sebuah syarikat
+    liabiliti terhad di Pennsylvania. Dasar ini menerangkan dengan tepat apakah
+    data yang dikumpul oleh aplikasi, sebabnya, siapa lagi yang boleh melihatnya,
+    dan cara untuk memadamnya.
+  </p>
+
+  <h2>Ringkasan</h2>
+  <div class="card">
+    <p style="margin-top:0">
+      Kami mengumpul alamat e-mel anda supaya anda boleh log masuk, serta data
+      boling yang anda masukkan. Kami meminta lokasi anda hanya apabila anda
+      mencari pusat boling, dan foto hanya apabila anda mengimport kad skor.
+      Kami tidak menjual data anda, kami tidak memaparkan iklan, dan kami tidak
+      menjejaki anda merentasi aplikasi atau laman web lain.
+    </p>
+    <p style="margin-bottom:0">
+      Anda boleh mengeksport semua data dari Settings (Tetapan) pada bila-bila
+      masa, dan anda boleh meminta semuanya dipadam — lihat
+      <a href="#deletion">Memadam akaun anda</a>.
+    </p>
+  </div>
+
+  <h2>Data yang kami kumpul, dan sebabnya</h2>
+
+  <table>
+    <tr><th>Apa</th><th>Bila</th><th>Sebab</th></tr>
+    <tr>
+      <td><strong>Alamat e-mel</strong></td>
+      <td>Apabila anda log masuk</td>
+      <td>Alamat ini ialah akaun anda. Log masuk dilakukan dengan menghantar
+          pautan kepada anda melalui e-mel, jadi kami memerlukan alamat untuk
+          menghantarnya.</td>
+    </tr>
+    <tr>
+      <td><strong>Nama pemain boling anda</strong></td>
+      <td>Semasa persediaan</td>
+      <td>Nama ini dipaparkan pada skor anda dan digunakan oleh rakan sepasukan
+          untuk mencari anda apabila mereka menghantar jemputan.</td>
+    </tr>
+    <tr>
+      <td><strong>Data boling</strong></td>
+      <td>Semasa anda menggunakan aplikasi</td>
+      <td>Balingan, bingkai, skor, sesi, liga, pasukan, kejohanan, arsenal bola
+          anda, corak minyak lorong, matlamat dan nota bimbingan. Inilah tujuan
+          aplikasi ini.</td>
+    </tr>
+    <tr>
+      <td><strong>Lokasi anggaran</strong></td>
+      <td>Hanya apabila anda mencari pusat boling</td>
+      <td>Untuk mencari pusat boling berhampiran anda. Peranti anda akan meminta
+          kebenaran terlebih dahulu, dan jika anda menolak, carian akan
+          menggunakan pusat boling utama yang anda simpan. Kami tidak menyimpan
+          koordinat anda atau menjejaki pergerakan anda.</td>
+    </tr>
+    <tr>
+      <td><strong>Foto</strong></td>
+      <td>Hanya apabila anda mengimport kad skor</td>
+      <td>Untuk membaca skor daripada gambar tersebut. Kami tidak sekali-kali
+          mengakses galeri foto anda atas kehendak kami sendiri — anda memilih
+          imej itu setiap kali.</td>
+    </tr>
+    <tr>
+      <td><strong>Diagnostik ralat</strong></td>
+      <td>Secara automatik, apabila berlaku kerosakan</td>
+      <td>Supaya kami dapat membaiki pepijat. Lihat di bawah untuk mengetahui
+          kandungan sebenarnya.</td>
+    </tr>
+  </table>
+
+  <h3>Kandungan sebenar diagnostik ralat</h3>
+  <p>
+    Apabila aplikasi mengalami ralat, aplikasi merekodkan jenis ralat tersebut,
+    di bahagian mana dalam aplikasi ralat itu berlaku, kod ralat, dan kiraan
+    bilangan kali ralat itu berlaku. Mesej ralat <strong>disunting untuk
+    menyembunyikan maklumat sebelum disimpan</strong>, dan laporan hanya dihantar
+    bagi akaun yang telah log masuk. Kami tidak merakam skrin anda, ketukan
+    kekunci anda, atau kandungan apa yang sedang anda masukkan.
+  </p>
+
+  <h2>Siapa lagi yang melihatnya</h2>
+  <p>
+    Kami menggunakan sebilangan kecil pembekal perkhidmatan untuk mengendalikan
+    aplikasi. Setiap pembekal hanya menerima apa yang diperlukan untuk
+    menjalankan tugasnya, dan tiada seorang pun daripada mereka dibenarkan
+    menggunakan data anda untuk tujuan mereka sendiri.
+  </p>
+
+  <table>
+    <tr><th>Pembekal</th><th>Apa yang mereka terima</th><th>Sebab</th></tr>
+    <tr>
+      <td><strong>Supabase</strong></td>
+      <td>Akaun anda dan semua data boling anda</td>
+      <td>Pangkalan data, pengesahan dan pengehosan bagi sistem belakang aplikasi</td>
+    </tr>
+    <tr>
+      <td><strong>Google (Gemini)</strong></td>
+      <td>Foto kad skor yang anda import; soalan yang anda tanya kepada pembantu
+          dalam aplikasi; statistik ringkasan apabila anda menjalankan Insights
+          (analisis); bagi Nightcap, ringkasan malam anda, termasuk nama pemain
+          boling rakan sepasukan yang “tergantung” (hung) atau terlepas pin 5
+          tunggal pada malam itu</td>
+      <td>Membaca skor daripada foto, dan menjana jawapan serta pemerhatian</td>
+    </tr>
+    <tr>
+      <td><strong>HERE Technologies</strong></td>
+      <td>Koordinat anggaran, hanya pada ketika anda mencari pusat boling</td>
+      <td>Mencari pusat boling berhampiran sesuatu lokasi</td>
+    </tr>
+    <tr>
+      <td><strong>Resend</strong></td>
+      <td>Alamat e-mel anda</td>
+      <td>Menghantar pautan log masuk anda</td>
+    </tr>
+    <tr>
+      <td><strong>GitHub Pages</strong></td>
+      <td>Maklumat standard permintaan web</td>
+      <td>Mengehos versi web aplikasi</td>
+    </tr>
+    <tr>
+      <td><strong>Cloudflare</strong></td>
+      <td>Maklumat standard permintaan web; e-mel yang anda hantar ke alamat sokongan kami</td>
+      <td>Domain kami, dan memajukan e-mel sokongan kepada kami</td>
+    </tr>
+    <tr>
+      <td><strong>Google Play</strong></td>
+      <td>Pembelian langganan anda, jika anda melanggan dalam aplikasi Android</td>
+      <td>Menerima bayaran dan menguruskan langganan, sebagai penjual rekod</td>
+    </tr>
+    <tr>
+      <td><strong>Stripe</strong> (melalui Link)</td>
+      <td>Alamat e-mel anda dan pembelian langganan anda, jika anda melanggan di web</td>
+      <td>Menerima bayaran dan menguruskan langganan, sebagai penjual rekod. Kami tidak sekali-kali melihat butiran penuh kad anda.</td>
+    </tr>
+  </table>
+
+  <p>
+    Kami tidak menjual maklumat peribadi anda, dan kami tidak berkongsinya untuk
+    pengiklanan atau untuk pemasaran pihak lain.
+  </p>
+
+  <h2>Apa yang boleh dilihat oleh pemain boling lain</h2>
+  <p>
+    Tiada apa-apa yang anda rekodkan boleh dilihat oleh pemain boling lain
+    melainkan anda mewujudkan sambungan yang berkongsinya. Terdapat tepat tiga
+    jenis sambungan, dan setiap satu berbeza dari segi jumlah yang dikongsi:
+  </p>
+
+  <table>
+    <tr><th>Sambungan</th><th>Apa yang boleh mereka lihat</th></tr>
+    <tr>
+      <td><strong>Rakan sepasukan</strong></td>
+      <td>Nama pemain boling anda, dan sesi serta balingan yang anda rekodkan
+          <strong>untuk pasukan itu</strong> — itu sahaja. Latihan anda, liga
+          anda yang lain dan mana-mana pasukan lain kekal peribadi.</td>
+    </tr>
+    <tr>
+      <td><strong>Rakan</strong></td>
+      <td>Setelah kedua-dua pihak menerima, setiap seorang boleh melihat sesi dan
+          balingan pihak yang satu lagi. <strong>Ini tidak terhad kepada pasukan
+          atau liga yang dikongsi bersama</strong> — ia merangkumi rekod boling
+          anda secara umum.</td>
+    </tr>
+    <tr>
+      <td><strong>Jurulatih yang anda terima</strong></td>
+      <td>Sesi dan balingan anda, serta sebarang nota yang ditulis oleh jurulatih
+          itu untuk anda. Juga tidak terhad kepada satu liga.</td>
+    </tr>
+  </table>
+
+  <div class="card">
+    <h3>Berada dalam liga yang sama bukan bermaksud berkongsi</h3>
+    <p style="margin-bottom:0">
+      Liga hanyalah label pada rekod anda sendiri. Seseorang dalam liga anda yang
+      bukan rakan sepasukan, rakan atau jurulatih yang anda terima <strong>tidak
+      dapat melihat nama atau skor anda</strong> melalui aplikasi.
+    </p>
+  </div>
+
+  <p>
+    Tiada satu pun sambungan ini berlaku tanpa penerimaan anda, dan anda boleh
+    menamatkannya. Oleh sebab rakan dan jurulatih dapat melihat lebih banyak
+    berbanding rakan sepasukan, sebaiknya anda hanya menerima sambungan tersebut
+    daripada orang yang anda selesa untuk tunjukkan permainan boling anda.
+  </p>
+
+  <h2>Tempoh kami menyimpannya</h2>
+  <p>
+    Data anda disimpan selagi akaun anda wujud, kerana sejarah boling hanya
+    berguna dari semasa ke semasa. Apabila anda memadam akaun anda, kami memadam
+    data anda, kecuali apa-apa yang kami wajib simpan untuk tujuan keselamatan,
+    pencegahan penipuan atau pematuhan undang-undang — yang pada praktiknya
+    bermaksud rekod terhad tentang penyalahgunaan atau salah guna, yang disimpan
+    tidak lebih lama daripada yang perlu.
+  </p>
+  <p>
+    Kami menyimpan sandaran pangkalan data selama sehingga 30 hari, supaya data
+    dapat dipulihkan selepas berlakunya ralat. Data daripada akaun yang telah
+    dipadam mungkin kekal dalam sandaran tersebut sehingga sandaran itu tamat
+    tempoh; data itu tidak sekali-kali dipulihkan atau digunakan, dan ia hilang
+    sebaik sahaja sandaran terakhir yang mengandunginya dipadam.
+  </p>
+  <p>
+    Terdapat dua perkara yang tidak turut dipadam. Jika pemain boling lain
+    merekodkan sesuatu tentang anda dalam rekod <em>mereka</em> sendiri —
+    contohnya rakan sepasukan yang merekodkan perlawanan yang anda berdua
+    mainkan — rekod itu milik akaun mereka, bukan akaun anda, sama seperti
+    helaian skor bercetak. Selain itu, liga atau pasukan yang anda cipta akan
+    kekal jika pemain boling lain masih menggunakannya, supaya mereka tidak
+    kehilangannya kerana anda telah keluar; ia cuma tidak lagi menunjukkan anda
+    sebagai penciptanya. <strong>Liga atau pasukan yang tidak mempunyai ahli lain
+    akan dipadam</strong> bersama semua data yang lain. Rekod anda sendiri, nama
+    anda dan akaun anda sentiasa dipadam.
+  </p>
+
+  <h2 id="deletion">Memadam akaun dan data anda</h2>
+  <div class="card">
+    <h3>Cara memadam semuanya</h3>
+    <p>
+      <strong>Dalam aplikasi:</strong> Settings → Danger Zone → Delete My Account
+      (Tetapan → Zon Bahaya → Padam Akaun Saya). Anda menaip alamat e-mel anda
+      untuk mengesahkan, dan akaun anda serta segala kandungannya dialih keluar
+      serta-merta. Anda tidak perlu meminta daripada kami atau menunggu.
+    </p>
+    <p style="margin-bottom:0">
+      <strong>Jika anda tidak lagi mempunyai aplikasi:</strong> hantar e-mel ke
+      <a href="mailto:support@mybowlingjourney.com">support@mybowlingjourney.com</a>
+      daripada alamat yang didaftarkan pada akaun anda. Kami akan mengesahkan
+      identiti anda dan memadam akaun tersebut dalam tempoh 30 hari. Arahan
+      lengkap terdapat di <a href="./delete-account.html">halaman pemadaman
+      akaun</a>.
+    </p>
+  </div>
+  <p>
+    <strong>Eksport dahulu jika anda mahukan salinan.</strong> Settings → Backup
+    &amp; Restore (Tetapan → Sandaran &amp; Pemulihan) memberi anda semua yang
+    telah anda rekodkan, dalam bentuk fail yang anda simpan. Pemadaman tidak
+    boleh dibatalkan, dan kami tidak dapat memulihkan sejarah anda selepas itu.
+  </p>
+
+  <h2>Pilihan anda</h2>
+  <ul>
+    <li><strong>Lokasi</strong> — peranti anda akan bertanya sebelum aplikasi
+        boleh menggunakannya, dan anda boleh menolak atau membatalkan kebenaran
+        itu dalam tetapan peranti anda. Carian pusat boling masih berfungsi
+        menggunakan pusat boling utama yang anda simpan.</li>
+    <li><strong>Foto</strong> — anda memilih setiap imej satu demi satu.
+        Aplikasi tidak sekali-kali menyemak imbas galeri anda.</li>
+    <li><strong>Eksport</strong> — tersedia pada bila-bila masa dari Settings
+        (Tetapan).</li>
+    <li><strong>Pemadaman</strong> — lihat di atas.</li>
+    <li><strong>E-mel</strong> — kami hanya menghantar e-mel kepada anda tentang
+        perkara yang diperlukan oleh aplikasi untuk berfungsi, seperti kod log
+        masuk anda. Kami tidak menghantar e-mel pemasaran. Jika kami berbuat
+        demikian kelak, e-mel itu hanya akan dihantar kepada mereka yang telah
+        memilih untuk menerimanya, dan setiap mesej akan menyediakan cara untuk
+        berhenti melanggan.</li>
+  </ul>
+
+  <h2 id="rights">Hak anda</h2>
+  <p>
+    Di mana-mana sahaja anda tinggal, anda boleh meminta kami untuk:
+  </p>
+  <ul>
+    <li><strong>memberi anda akses</strong> kepada maklumat peribadi yang kami
+        simpan tentang anda, dan memberikan salinannya (kebanyakannya sudah
+        terdapat dalam eksport di Settings);</li>
+    <li><strong>membetulkan</strong> apa-apa yang tidak tepat;</li>
+    <li><strong>memadamnya</strong> — lihat Memadam akaun anda di atas;</li>
+    <li>memproses <strong>penarikan balik persetujuan anda</strong> terhadap
+        penggunaannya oleh kami, yang pada praktiknya bermaksud memadam akaun
+        anda, kerana aplikasi tidak dapat berfungsi tanpanya;</li>
+    <li><strong>memberitahu anda</strong> cara ia digunakan, dengan siapa ia
+        dikongsi, dan di mana ia dikendalikan.</li>
+  </ul>
+  <p>
+    Hantar e-mel ke <a href="mailto:support@mybowlingjourney.com">support@mybowlingjourney.com</a>
+    daripada alamat yang didaftarkan pada akaun anda. Kami tidak akan mengenakan
+    sebarang caj, dan kami akan membalas dalam tempoh 20 hari bekerja. Jika kami
+    tidak dapat melaksanakan sesuatu yang anda minta, kami akan memberitahu anda
+    sebabnya.
+  </p>
+  <p>
+    Jika anda tidak berpuas hati dengan cara kami mengendalikan maklumat anda,
+    sila maklumkan kepada kami terlebih dahulu supaya kami dapat
+    membetulkannya. Anda juga boleh membuat aduan kepada pengawal selia privasi
+    di tempat anda tinggal:
+  </p>
+  <ul>
+    <li><strong>Kanada</strong> — Pejabat Pesuruhjaya Privasi Kanada
+        (Office of the Privacy Commissioner of Canada),
+        <a href="https://www.priv.gc.ca">priv.gc.ca</a>. Di Quebec,
+        Commission d'accès à l'information,
+        <a href="https://www.cai.gouv.qc.ca">cai.gouv.qc.ca</a>.</li>
+    <li><strong>Australia</strong> — Pejabat Pesuruhjaya Maklumat Australia
+        (Office of the Australian Information Commissioner),
+        <a href="https://www.oaic.gov.au">oaic.gov.au</a>.</li>
+    <li><strong>New Zealand</strong> — Pejabat Pesuruhjaya Privasi
+        (Office of the Privacy Commissioner),
+        <a href="https://www.privacy.org.nz">privacy.org.nz</a>.</li>
+    <li><strong>Jepun</strong> — Suruhanjaya Perlindungan Maklumat Peribadi
+        (Personal Information Protection Commission),
+        <a href="https://www.ppc.go.jp">ppc.go.jp</a>.</li>
+    <li><strong>Singapura</strong> — Suruhanjaya Perlindungan Data Peribadi
+        (Personal Data Protection Commission),
+        <a href="https://www.pdpc.gov.sg">pdpc.gov.sg</a>.</li>
+    <li><strong>Malaysia</strong> — Pesuruhjaya Perlindungan Data Peribadi,
+        <a href="https://www.pdp.gov.my">pdp.gov.my</a>.</li>
+    <li><strong>Filipina</strong> — Suruhanjaya Privasi Kebangsaan
+        (National Privacy Commission),
+        <a href="https://privacy.gov.ph">privacy.gov.ph</a>.</li>
+    <li><strong>Mexico</strong> — Secretaría Anticorrupción y Buen Gobierno
+        (Kementerian Antirasuah dan Tadbir Urus Baik), pihak berkuasa bagi
+        perlindungan data peribadi.</li>
+    <li><strong>Amerika Syarikat</strong> — peguam negara bagi negeri anda, atau
+        Suruhanjaya Perdagangan Persekutuan (Federal Trade Commission).</li>
+  </ul>
+
+  <h2>Keselamatan</h2>
+  <p>
+    Data disulitkan semasa penghantaran menggunakan HTTPS. Akses kepada data anda
+    dihadkan kepada akaun anda sendiri melalui peraturan keselamatan di peringkat
+    pangkalan data. Tiada sistem yang sempurna, dan kami tidak akan berpura-pura
+    sebaliknya — tetapi anda tidak sekali-kali mencipta kata laluan dengan kami:
+    anda log masuk dengan Google atau dengan kod atau pautan yang kami hantar
+    melalui e-mel, jadi tiada kata laluan anda yang kami pegang atau yang boleh
+    digunakan semula di tempat lain. Sandaran disimpan dalam bentuk tersulit.
+  </p>
+  <p>
+    Jika pelanggaran keselamatan meletakkan maklumat anda pada risiko kemudaratan
+    yang sebenar, kami akan memberitahu anda, dan pengawal selia yang perlu
+    mengetahuinya, secepat yang boleh dan sebagaimana yang dikehendaki oleh
+    undang-undang di tempat anda tinggal.
+  </p>
+
+  <h2>Kanak-kanak</h2>
+  <p>
+    <strong>Kanak-kanak di bawah umur 13 tahun tidak sepatutnya mencipta akaun
+    mereka sendiri.</strong> Aplikasi ini tidak ditujukan kepada mereka dan kami
+    tidak dengan sengaja mengumpul maklumat peribadi daripada kanak-kanak yang
+    mendaftar sendiri. Jika seorang kanak-kanak telah mencipta akaun tanpa
+    pengetahuan ibu bapa atau penjaganya, hantar e-mel kepada kami dan kami akan
+    memadamnya — anda tidak perlu memberikan sebarang penjelasan.
+  </p>
+  <p>
+    Di Quebec, seseorang yang berumur di bawah 14 tahun memerlukan persetujuan
+    ibu bapa atau penjaga untuk mempunyai akaun.
+  </p>
+
+  <div class="card">
+    <h3>Merekodkan permainan boling anak anda ialah perkara yang berbeza, dan itu dibenarkan</h3>
+    <p>
+      Ramai ibu bapa ingin menyimpan rekod permainan pemain boling muda. Anda
+      boleh berbuat demikian di bawah <strong>akaun anda sendiri</strong>, sama
+      seperti yang anda lakukan pada helaian skor kertas — tambahkan anak anda
+      sebagai pemain boling dan rekodkan permainannya bersama permainan anda.
+      <strong>Anak itu tidak memerlukan akaun dan tidak akan diberikan
+      akaun.</strong>
+    </p>
+    <p style="margin-bottom:0">
+      Anda kekal sebagai pemegang akaun sepanjang masa: anda menentukan apa yang
+      direkodkan, nama yang digunakan, dan dengan siapa — jika ada — anda
+      berkongsinya. Anda boleh mengeksport atau memadam semuanya pada bila-bila
+      masa. Apa yang anda pilih untuk rekodkan tentang anak anda sendiri adalah
+      keputusan anda.
+    </p>
+  </div>
+
+  <p>
+    Jika seorang kanak-kanak berumur 13 tahun atau lebih mahukan akaunnya
+    sendiri, perkara itu terserah kepada anda dan dia. Sila ambil perhatian
+    bahawa perkongsian yang diterangkan di atas terpakai pada akaunnya sama
+    seperti akaun orang lain.
+  </p>
+
+  <h2>Tempat data anda dikendalikan</h2>
+  <p>
+    Kami berpangkalan di Amerika Syarikat dan pembekal perkhidmatan kami memproses
+    data di Amerika Syarikat. Jika anda menggunakan aplikasi dari Kanada,
+    Australia, New Zealand atau di mana-mana tempat lain di luar AS, maklumat
+    anda dipindahkan ke dan dikendalikan di AS.
+  </p>
+  <p>
+    Perlindungan yang diterimanya di sana datang daripada kami dan daripada
+    kontrak kami dengan pembekal yang disenaraikan di atas, yang hanya
+    membenarkan mereka menggunakannya untuk menyediakan perkhidmatan mereka
+    kepada kami dan mewajibkan mereka memastikan keselamatannya. Undang-undang
+    privasi AS tidak sama dengan undang-undang di tempat anda tinggal, dan
+    mahkamah serta pihak berkuasa AS mungkin boleh menuntut akses kepada maklumat
+    yang disimpan di AS.
+  </p>
+
+  <h3 id="japan">Jika anda tinggal di Jepun</h3>
+  <p>
+    Bahagian ini adalah untuk pemain boling di Jepun, di bawah Akta Perlindungan
+    Maklumat Peribadi (Act on the Protection of Personal Information, APPI).
+  </p>
+  <ul>
+    <li><strong>Negara yang menerima maklumat anda.</strong> Amerika Syarikat.
+        Pembekal perkhidmatan yang disenaraikan di bawah “Siapa lagi yang
+        melihatnya” mengendalikannya di sana bagi pihak kami.</li>
+    <li><strong>Undang-undang privasi di sana.</strong> Amerika Syarikat tidak
+        mempunyai satu undang-undang privasi kebangsaan seperti APPI.
+        Suruhanjaya Perdagangan Persekutuan (Federal Trade Commission) mengambil
+        tindakan terhadap pengendalian maklumat peribadi yang tidak adil atau
+        mengelirukan, dan sesetengah negeri, seperti California, mempunyai
+        undang-undang privasi mereka sendiri. Suruhanjaya Perlindungan Maklumat
+        Peribadi Jepun menerbitkan maklumat tentang sistem negara lain di
+        <a href="https://www.ppc.go.jp">ppc.go.jp</a>.</li>
+    <li><strong>Cara ia kekal dilindungi.</strong> Setiap pembekal terikat
+        dengan kontrak yang hanya membenarkannya menggunakan maklumat anda untuk
+        menyediakan perkhidmatannya kepada kami dan mewajibkannya memastikan
+        keselamatan maklumat tersebut — langkah yang setara dengan langkah yang
+        dikehendaki oleh APPI. Kami menyemak bahawa mereka mematuhinya, dan atas
+        permintaan kami akan memberitahu anda apakah langkah-langkah tersebut dan
+        cara kami menyemaknya.</li>
+    <li><strong>Apa yang kami lakukan sendiri</strong> (langkah pengurusan
+        keselamatan): seorang individu yang dinamakan bertanggungjawab ke atas
+        maklumat peribadi (lihat Hubungi kami di bawah); hanya dia yang boleh
+        mencapai data pemain boling di luar aplikasi; pangkalan data hanya
+        membenarkan setiap akaun membaca datanya sendiri dan data yang dipilih
+        oleh orang lain untuk dikongsi dengannya; semua data dihantar dalam
+        bentuk tersulit; sandaran disulitkan dan disimpan pada peranti yang
+        disulitkan; dan tiada apa-apa yang disimpan di atas kertas.</li>
+    <li><strong>Permintaan anda.</strong> Anda boleh meminta kami mendedahkan
+        maklumat peribadi yang kami simpan tentang anda, membetulkan, menambah
+        atau memadamnya, berhenti menggunakannya atau berhenti memberikannya
+        kepada pihak lain, dan mendedahkan rekod tentang apa yang telah kami
+        berikan kepada pihak lain. Hantar e-mel ke alamat di bawah daripada
+        alamat yang didaftarkan pada akaun anda. Tiada caj dikenakan.</li>
+  </ul>
+
+  <h3 id="singapore">Jika anda tinggal di Singapura</h3>
+  <p>
+    Di bawah Akta Perlindungan Data Peribadi 2012 (Personal Data Protection Act
+    2012), pegawai perlindungan data kami ialah Ryan Everett, yang boleh
+    dihubungi di
+    <a href="mailto:support@mybowlingjourney.com">support@mybowlingjourney.com</a>.
+    Anda boleh meminta akses kepada dan pembetulan data peribadi anda, dan
+    menarik balik persetujuan anda, sebagaimana yang diterangkan di bawah “Hak
+    anda”. Apabila data anda dikendalikan di Amerika Syarikat, kontrak kami
+    dengan pembekal yang disenaraikan di atas mewajibkan mereka melindunginya
+    pada standard yang setanding dengan standard Singapura.
+  </p>
+
+  <h3 id="malaysia">Jika anda tinggal di Malaysia</h3>
+  <p>
+    Notis ini diberikan di bawah Akta Perlindungan Data Peribadi 2010 dan
+    disediakan dalam Bahasa Malaysia dan bahasa Inggeris:
+    <a href="./privacy.html" hreflang="en" lang="en">Privacy Policy</a>.
+    Pemberian alamat e-mel anda kepada kami adalah wajib untuk mencipta akaun;
+    semua data lain adalah pilihan anda sendiri untuk direkodkan. Anda boleh
+    meminta akses kepada dan pembetulan data peribadi anda, dan mengehadkan cara
+    data itu digunakan, sebagaimana yang diterangkan di bawah “Hak anda”. Data
+    anda dikendalikan di Amerika Syarikat di bawah kontrak yang mewajibkan
+    pembekal melindunginya.
+  </p>
+
+  <h3 id="philippines">Jika anda tinggal di Filipina</h3>
+  <p>
+    Di bawah Akta Privasi Data 2012 (Data Privacy Act of 2012), anda mempunyai
+    hak untuk dimaklumkan, untuk mengakses, untuk membantah, untuk meminta data
+    anda dibetulkan atau dihapuskan, hak kemudahalihan data (eksport di
+    Settings), dan hak untuk mendapatkan ganti rugi, dan anda boleh membuat
+    aduan kepada Suruhanjaya Privasi Kebangsaan (National Privacy Commission).
+    Bagi mana-mana hak ini, hubungi pegawai perlindungan data kami, Ryan
+    Everett, di
+    <a href="mailto:support@mybowlingjourney.com">support@mybowlingjourney.com</a>.
+    Data anda dikendalikan di Amerika Syarikat di bawah kontrak yang mewajibkan
+    pembekal melindunginya.
+  </p>
+
+  <h3 id="mexico">Jika anda tinggal di Mexico</h3>
+  <p>
+    Ini ialah notis privasi kami di bawah Undang-undang Persekutuan mengenai
+    Perlindungan Data Peribadi yang Dipegang oleh Pihak Swasta (Ley Federal de
+    Protección de Datos Personales en Posesión de los Particulares). Pihak yang
+    bertanggungjawab ke atas data peribadi anda ialah My Bowling Journey LLC,
+    1319 Mifflin St, Huntingdon, PA 16652, Amerika Syarikat. Data yang kami
+    kendalikan dan tujuannya dinyatakan di atas; tiada satu pun daripadanya
+    merupakan data peribadi sensitif, dan setiap tujuan itu diperlukan untuk
+    menyediakan aplikasi. Data anda dikendalikan di Amerika Syarikat oleh
+    pembekal yang disenaraikan di bawah “Siapa lagi yang melihatnya”, bagi
+    pihak kami dan di bawah kontrak yang mewajibkan mereka melindunginya.
+  </p>
+  <p>
+    Anda boleh melaksanakan hak akses, pembetulan, pembatalan dan bantahan
+    (hak ARCO), atau menarik balik persetujuan anda, dengan menghantar e-mel ke
+    <a href="mailto:support@mybowlingjourney.com">support@mybowlingjourney.com</a>
+    daripada alamat e-mel akaun anda dan menyatakan hak yang ingin anda
+    laksanakan. Kami akan membalas dalam tempoh 20 hari bekerja. Notis ini juga
+    disediakan dalam bahasa Sepanyol:
+    <a href="./privacy-es.html" hreflang="es-419" lang="es-419">Política de privacidad</a>.
+  </p>
+
+  <h2>Perubahan pada dasar ini</h2>
+  <p>
+    Jika kami mengubah apa yang kami kumpul atau dengan siapa kami berkongsinya,
+    kami akan mengemas kini halaman ini dan menukar tarikh “kemas kini terakhir”
+    di atas. Jika sesuatu perubahan itu ketara, kami akan memberitahu anda dalam
+    aplikasi.
+  </p>
+
+  <h2>Hubungi kami</h2>
+  <p>
+    My Bowling Journey LLC<br>
+    <a href="mailto:support@mybowlingjourney.com">support@mybowlingjourney.com</a>
+  </p>
+  <p>
+    <strong>Orang yang bertanggungjawab ke atas privasi:</strong> Ryan Everett,
+    pemilik My Bowling Journey LLC, yang boleh dihubungi di alamat yang sama.
+    Soalan, permintaan dan aduan mengenai maklumat peribadi anda hendaklah
+    dikemukakan kepadanya.
+  </p>
+
+  <footer>
+    My Bowling Journey LLC · Pennsylvania, AS ·
+    <a href="./terms.html">Terma Perkhidmatan</a> ·
+    <a href="./delete-account.html">Padam akaun anda</a>
+  </footer>
+
+</main>
+</body>
+</html>

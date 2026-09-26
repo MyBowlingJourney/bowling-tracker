@@ -82,3 +82,23 @@ describe('Japan pricing', () => {
     expect(displayPricesFor('Asia/Seoul')).toEqual({ month: '$4.99', year: '$49.99' });
   });
 });
+
+describe('Singapore, Malaysia and the Philippines', () => {
+  it('show local prices and ask checkout for the local currency', () => {
+    expect(displayPricesFor('Asia/Singapore')).toEqual({ month: 'S$6.98', year: 'S$69.98' });
+    expect(checkoutCurrencyFor('Asia/Singapore')).toBe('sgd');
+    expect(displayPricesFor('Asia/Kuala_Lumpur')).toEqual({ month: 'RM21.90', year: 'RM219.90' });
+    expect(checkoutCurrencyFor('Asia/Kuching')).toBe('myr');
+    expect(displayPricesFor('Asia/Manila')).toEqual({ month: '₱349', year: '₱3,490' });
+    expect(checkoutCurrencyFor('Asia/Manila')).toBe('php');
+    expect(checkoutCurrencyFor('Asia/Bangkok')).toBe('');
+  });
+});
+
+describe('Mexico', () => {
+  it('shows pesos and asks checkout for MXN on Mexico time', () => {
+    expect(displayPricesFor('America/Mexico_City')).toEqual({ month: 'MX$99', year: 'MX$999' });
+    expect(checkoutCurrencyFor('America/Tijuana')).toBe('mxn');
+    expect(checkoutCurrencyFor('America/Chicago')).toBe('');
+  });
+});

@@ -133,14 +133,14 @@
   <div class="plans">
     <div class="plan">
       <h3>Yearly</h3>
-      <!-- PRICE: must match the Stripe yearly price and the Play yearly base plan (the script at the bottom swaps in CAD for Canada) -->
+      <!-- PRICE: must match the Stripe yearly price and the Play yearly base plan (the script at the bottom swaps in CAD, JPY, SGD, MYR, PHP and MXN by time zone -- those must match too) -->
       <div class="price" data-price="year">$49.99</div>
       <div class="per">per year</div>
       <a class="cta" href="/app/?subscribe=year">Subscribe yearly</a>
     </div>
     <div class="plan">
       <h3>Monthly</h3>
-      <!-- PRICE: must match the Stripe monthly price and the Play monthly base plan (the script at the bottom swaps in CAD for Canada) -->
+      <!-- PRICE: must match the Stripe monthly price and the Play monthly base plan (the script at the bottom swaps in CAD, JPY, SGD, MYR, PHP and MXN by time zone -- those must match too) -->
       <div class="price" data-price="month">$4.99</div>
       <div class="per">per month</div>
       <a class="cta" href="/app/?subscribe=month">Subscribe monthly</a>
@@ -179,9 +179,11 @@
       </li>
       <li>
         Prices are in US dollars. In Canada they are in Canadian dollars &mdash;
-        $6.99 a month or $69.99 a year, in the app and on the web alike. In the
-        Android app elsewhere, Google Play shows the price in your own currency.
-        If tax applies where you are, it is shown before you confirm.
+        $6.99 a month or $69.99 a year &mdash; and in Japan, Singapore, Malaysia,
+        the Philippines and Mexico they are in your own currency with tax included, in
+        the app and on the web alike. In the Android app elsewhere, Google Play
+        shows the price in your own currency. If tax applies where you are, it
+        is shown before you confirm.
       </li>
       <li>
         <strong>If you stop paying, nothing you logged is deleted.</strong> One
@@ -208,18 +210,27 @@
 
 </main>
 <script>
-  // Canada pays 6.99 / 69.99 CAD, on the web as in the app. Same time
-  // zone test as src/domain/billing.js -- keep the two lists together.
+  // Local prices on the web, as in the app: Canada 6.99 / 69.99 CAD, and
+  // Japan, Singapore, Malaysia, the Philippines and Mexico in their own currency,
+  // tax included. Same time-zone test as src/domain/billing.js -- keep the
+  // two lists together.
   (function () {
     var z = "";
     try { z = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (e) {}
-    var ca = /^Canada\//.test(z) || ["Atikokan","Blanc-Sablon","Cambridge_Bay","Coral_Harbour","Creston",
+    var ca = /^Canada\//.test(z) || (["Atikokan","Blanc-Sablon","Cambridge_Bay","Coral_Harbour","Creston",
       "Dawson","Dawson_Creek","Edmonton","Fort_Nelson","Glace_Bay","Goose_Bay","Halifax","Inuvik","Iqaluit",
       "Moncton","Montreal","Nipigon","Pangnirtung","Rainy_River","Rankin_Inlet","Regina","Resolute","St_Johns",
       "Swift_Current","Thunder_Bay","Toronto","Vancouver","Whitehorse","Winnipeg","Yellowknife"]
-      .indexOf(z.replace(/^America\//, "")) >= 0 && /^America\//.test(z);
-    if (!ca) return;
-    var p = { year: "$69.99 CAD", month: "$6.99 CAD" };
+      .indexOf(z.replace(/^America\//, "")) >= 0 && /^America\//.test(z));
+    var local = {
+      "Asia/Tokyo": { year: "¥8,000", month: "¥800" }, "Japan": { year: "¥8,000", month: "¥800" },
+      "Asia/Singapore": { year: "S$69.98", month: "S$6.98" }, "Singapore": { year: "S$69.98", month: "S$6.98" },
+      "Asia/Kuala_Lumpur": { year: "RM219.90", month: "RM21.90" }, "Asia/Kuching": { year: "RM219.90", month: "RM21.90" },
+      "Asia/Manila": { year: "₱3,490", month: "₱349" },
+      "America/Mexico_City": { year: "MX$999", month: "MX$99" }, "America/Cancun": { year: "MX$999", month: "MX$99" }, "America/Merida": { year: "MX$999", month: "MX$99" }, "America/Monterrey": { year: "MX$999", month: "MX$99" }, "America/Matamoros": { year: "MX$999", month: "MX$99" }, "America/Chihuahua": { year: "MX$999", month: "MX$99" }, "America/Ciudad_Juarez": { year: "MX$999", month: "MX$99" }, "America/Ojinaga": { year: "MX$999", month: "MX$99" }, "America/Mazatlan": { year: "MX$999", month: "MX$99" }, "America/Bahia_Banderas": { year: "MX$999", month: "MX$99" }, "America/Hermosillo": { year: "MX$999", month: "MX$99" }, "America/Tijuana": { year: "MX$999", month: "MX$99" }, "Mexico/General": { year: "MX$999", month: "MX$99" }, "Mexico/BajaNorte": { year: "MX$999", month: "MX$99" }, "Mexico/BajaSur": { year: "MX$999", month: "MX$99" }
+    };
+    var p = ca ? { year: "$69.99 CAD", month: "$6.99 CAD" } : local[z];
+    if (!p) return;
     document.querySelectorAll("[data-price]").forEach(function (el) { el.textContent = p[el.getAttribute("data-price")]; });
   })();
 </script>

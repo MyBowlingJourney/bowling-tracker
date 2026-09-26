@@ -150,13 +150,16 @@ Deno.serve(async (req: Request) => {
   // is charged, and it arrives from the browser.
   const period = body?.period === "year" ? "year" : body?.period === "month" ? "month" : "";
   if (!period) return json({ error: "Bad request" }, cors, 400);
-  // Canada and Japan only, and an allowlist for the same reason as
+  // Canada, Japan and the three below only, and an allowlist for the same reason as
   // period. The app shows Canadians the Play Canada prices (6.99 / 69.99
   // CAD) and Japan the Play Japan prices (800 / 8,000 JPY, tax included)
   // and asks for that currency here; both Stripe prices carry those
   // amounts as CAD and JPY currency options. Anything else: no currency,
   // and Stripe picks.
-  const currency = body?.currency === "cad" ? "cad" : body?.currency === "jpy" ? "jpy" : "";
+  // Singapore, Malaysia, the Philippines and Mexico work the same way
+  // (SGD, MYR, PHP, MXN, tax included).
+  const CURRENCIES = ["cad", "jpy", "sgd", "myr", "php", "mxn"];
+  const currency = CURRENCIES.includes(String(body?.currency)) ? String(body?.currency) : "";
   // Resolved from a lookup key rather than read as a price id. See
   // _shared/stripe.ts: this is what makes test and live use the same
   // configuration instead of two sets of ids that can be mixed up on the

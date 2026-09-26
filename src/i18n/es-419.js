@@ -2929,7 +2929,9 @@ export const ES_419 = {
 "tile::Strikes": "Strikes",
 "field::Target": "Meta",
 "milestone::Next ·": "Próximo ·",
-"newly::.": "."
+"newly::.": ".",
+"Japan": "",
+"Singapore": ""
 },
 "patterns": [
 [

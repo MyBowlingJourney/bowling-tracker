@@ -2931,7 +2931,9 @@ export const JA_JP = {
 "tile::Strikes": "ストライク率",
 "field::Target": "目標",
 "milestone::Next ·": "次の目標 ·",
-"newly::.": "。"
+"newly::.": "。",
+"Japan": "",
+"Singapore": ""
 },
 "patterns": [
 [
