@@ -78,6 +78,23 @@ export function setSpecField(specs, field, value) {
   return next;
 }
 
+// Ball weight, kept to what a bowling ball can be: 16 lb is the USBC
+// maximum and 6 lb the lightest sold. Above 16 is cut to 16 while typing;
+// below 6 is only corrected when the field is left, so typing "12" can
+// pass through "1" on the way.
+export const MIN_BALL_WEIGHT = 6;
+export const MAX_BALL_WEIGHT = 16;
+export function clampWeightTyping(value) {
+  const n = Number(value);
+  if (value === "" || !Number.isFinite(n)) return value;
+  return n > MAX_BALL_WEIGHT ? String(MAX_BALL_WEIGHT) : value;
+}
+export function clampWeightFinal(value) {
+  const n = Number(value);
+  if (value === "" || value === null || value === undefined || !Number.isFinite(n)) return "";
+  return String(Math.min(MAX_BALL_WEIGHT, Math.max(MIN_BALL_WEIGHT, n)));
+}
+
 export function hasAnySpecs(specs) {
   if (!specs) return false;
   return ["coverstock", "coreType", "weight", "rg", "diff", "intDiff"]

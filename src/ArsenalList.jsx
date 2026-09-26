@@ -15,16 +15,24 @@ import {
   COVERSTOCKS, CORE_TYPES, COVERSTOCK_LABELS, CORE_TYPE_LABELS,
   GROUP_MODES, GROUP_MODE_LABELS, normalizeBallSpecs,
   setSpecField, describeSpecs, groupBalls,
+  MIN_BALL_WEIGHT, MAX_BALL_WEIGHT, clampWeightTyping, clampWeightFinal,
 } from "./domain/ballSpecs.js";
 
 function SpecEditor({ specs, groups, onChange }) {
   const s = normalizeBallSpecs(specs);
+  const isWeight = key => key === "weight";
   const numField = (key, label, placeholder, step) => (
     <div style={{ flex: 1 }}>
       <div style={{ fontSize: "10px", color: C.textMuted, marginBottom: "3px" }}>{label}</div>
       <input style={{ ...S.input, fontSize: "13px", padding: "6px 8px" }}
         type="number" step={step} inputMode="decimal" placeholder={placeholder}
-        value={s[key]} onChange={e => onChange(setSpecField(s, key, e.target.value))} />
+        min={isWeight(key) ? MIN_BALL_WEIGHT : undefined} max={isWeight(key) ? MAX_BALL_WEIGHT : undefined}
+        value={s[key]}
+        onChange={e => onChange(setSpecField(s, key, isWeight(key) ? clampWeightTyping(e.target.value) : e.target.value))}
+        onBlur={isWeight(key) ? (e => {
+          const fixed = clampWeightFinal(e.target.value);
+          if (fixed !== s.weight) onChange(setSpecField(s, "weight", fixed));
+        }) : undefined} />
     </div>
   );
 

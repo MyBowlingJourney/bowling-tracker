@@ -131,3 +131,18 @@ describe('defaults and round trip', () => {
     expect(specsFromRow(specsToRow(full))).toEqual(full);
   });
 });
+
+import { clampWeightTyping, clampWeightFinal } from './ballSpecs.js';
+describe('ball weight limits', () => {
+  it('cuts anything over 16 while typing, but lets "1" through on the way to 12', () => {
+    expect(clampWeightTyping('17')).toBe('16');
+    expect(clampWeightTyping('1')).toBe('1');
+    expect(clampWeightTyping('')).toBe('');
+  });
+  it('settles on 6-16 when the field is left', () => {
+    expect(clampWeightFinal('1')).toBe('6');
+    expect(clampWeightFinal('20')).toBe('16');
+    expect(clampWeightFinal('14')).toBe('14');
+    expect(clampWeightFinal('')).toBe('');
+  });
+});

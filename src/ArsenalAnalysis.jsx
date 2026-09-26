@@ -254,6 +254,38 @@ export default function ArsenalAnalysis({
 
   return (
     <div>
+      {/* The Caddie first: the read is what a bowler opens this screen
+          for. It follows the All balls / bag / Compare choice below. */}
+      {!unlocked ? (
+        <LockedNote title="The Caddie">
+          Your caddie reads the whole bag — which ball for which condition, which bag is built right, what to add and what to leave home. It's part of the paid plan.
+          {onUpgrade && (
+            <button style={{ ...S.btn("primary"), width: "100%", marginTop: "8px" }} onClick={onUpgrade}>See the plan</button>
+          )}
+        </LockedNote>
+      ) : (
+        <div style={S.card}>
+          <div style={S.label}>🏌️ The Caddie</div>
+          <div style={{ fontSize: "12px", color: C.textMuted, lineHeight: 1.5, marginBottom: "10px" }}>
+            {scope === "compare" ? "Asks which of these two bags is built for what."
+              : scope === "all" ? "Reads the whole arsenal: each ball's job, your bags, and what to add or leave home."
+              : `Reads ${bagName(scope)}: what it's built for and what it's missing.`}
+          </div>
+          {caddie.status !== "done" && (
+            <button style={{ ...S.btn("primary"), width: "100%" }} disabled={caddie.status === "loading" || placedCount < 1}
+              onClick={askCaddie}>
+              {caddie.status === "loading" ? "The Caddie is looking over the bag…" : "Ask the Caddie"}
+            </button>
+          )}
+          {placedCount < 1 && (
+            <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "6px" }}>Add cover and core to at least one ball first.</div>
+          )}
+          {caddie.status === "error" && (
+            <div style={{ fontSize: "12px", color: C.miss, marginTop: "8px" }}>{caddie.error}</div>
+          )}
+          {caddie.status === "done" && caddie.result && <CaddieRead r={caddie.result} onAgain={askCaddie} />}
+        </div>
+      )}
       <div style={S.card}>
         <div style={S.label}>Arsenal analysis</div>
         <div style={{ fontSize: "12px", color: C.textMuted, lineHeight: 1.5, marginBottom: "10px" }}>
@@ -385,37 +417,6 @@ export default function ArsenalAnalysis({
         ))}
       </div>
 
-      {/* The Caddie */}
-      {!unlocked ? (
-        <LockedNote title="The Caddie">
-          Your caddie reads the whole bag — which ball for which condition, which bag is built right, what to add and what to leave home. It's part of the paid plan.
-          {onUpgrade && (
-            <button style={{ ...S.btn("primary"), width: "100%", marginTop: "8px" }} onClick={onUpgrade}>See the plan</button>
-          )}
-        </LockedNote>
-      ) : (
-        <div style={S.card}>
-          <div style={S.label}>🏌️ The Caddie</div>
-          <div style={{ fontSize: "12px", color: C.textMuted, lineHeight: 1.5, marginBottom: "10px" }}>
-            {scope === "compare" ? "Asks which of these two bags is built for what."
-              : scope === "all" ? "Reads the whole arsenal: each ball's job, your bags, and what to add or leave home."
-              : `Reads ${bagName(scope)}: what it's built for and what it's missing.`}
-          </div>
-          {caddie.status !== "done" && (
-            <button style={{ ...S.btn("primary"), width: "100%" }} disabled={caddie.status === "loading" || placedCount < 1}
-              onClick={askCaddie}>
-              {caddie.status === "loading" ? "The Caddie is looking over the bag…" : "Ask the Caddie"}
-            </button>
-          )}
-          {placedCount < 1 && (
-            <div style={{ fontSize: "11px", color: C.textMuted, marginTop: "6px" }}>Add cover and core to at least one ball first.</div>
-          )}
-          {caddie.status === "error" && (
-            <div style={{ fontSize: "12px", color: C.miss, marginTop: "8px" }}>{caddie.error}</div>
-          )}
-          {caddie.status === "done" && caddie.result && <CaddieRead r={caddie.result} onAgain={askCaddie} />}
-        </div>
-      )}
     </div>
   );
 }
