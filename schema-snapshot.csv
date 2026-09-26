@@ -461,7 +461,7 @@ constraint,api_usage,api_usage_user_id_fkey,FOREIGN KEY (user_id) REFERENCES aut
 constraint,arsenals,arsenal_pkey,PRIMARY KEY (id)
 constraint,arsenals,arsenals_bowler_id_fkey,FOREIGN KEY (bowler_id) REFERENCES bowler_names(id) ON DELETE SET NULL
 constraint,arsenals,arsenals_core_type_check,"CHECK (((core_type IS NULL) OR (core_type = ANY (ARRAY['symmetric'::text, 'asymmetric'::text]))))"
-constraint,arsenals,arsenals_coverstock_check,"CHECK (((coverstock IS NULL) OR (coverstock = ANY (ARRAY['solid'::text, 'pearl'::text, 'hybrid'::text]))))"
+constraint,arsenals,arsenals_coverstock_check,"CHECK (((coverstock IS NULL) OR (coverstock = ANY (ARRAY['solid'::text, 'pearl'::text, 'hybrid'::text, 'urethane'::text]))))"
 constraint,arsenals,arsenals_created_by_fkey,FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE CASCADE
 constraint,arsenals,arsenals_group_id_fkey,FOREIGN KEY (group_id) REFERENCES ball_groups(id) ON DELETE SET NULL
 constraint,arsenals,arsenals_layout_system_check,"CHECK (((layout_system IS NULL) OR (layout_system = ANY (ARRAY['dual_angle'::text, 'vls'::text, '2ls'::text]))))"
