@@ -106,7 +106,7 @@ const LOCAL_PRICING = [
   { zones: ["America/Costa_Rica"], currency: "crc",
     prices: Object.freeze({ month: "₡2,700", year: "₡27,000" }) },
   { zones: ["Asia/Taipei", "ROC"], currency: "twd",
-    prices: Object.freeze({ month: "NT$170", year: "NT$1,690" }) },
+    prices: Object.freeze({ month: "NT$170", year: "NT$1,700" }) },
 ];
 const localPricingFor = tz => LOCAL_PRICING.find(r => r.zones.includes(tz)) || null;
 

@@ -123,7 +123,7 @@ describe('Hong Kong, India, the UAE, Costa Rica and Kuwait', () => {
   });
 
   it('shows New Taiwan dollars on Taiwan time', () => {
-    expect(displayPricesFor('Asia/Taipei')).toEqual({ month: 'NT$170', year: 'NT$1,690' });
+    expect(displayPricesFor('Asia/Taipei')).toEqual({ month: 'NT$170', year: 'NT$1,700' });
     expect(checkoutCurrencyFor('ROC')).toBe('twd');
   });
 
