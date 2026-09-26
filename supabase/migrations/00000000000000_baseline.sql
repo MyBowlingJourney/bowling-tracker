@@ -2259,7 +2259,7 @@ ALTER TABLE public.api_usage ADD CONSTRAINT api_usage_pkey PRIMARY KEY (id);
 ALTER TABLE public.api_usage ADD CONSTRAINT api_usage_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.arsenals ADD CONSTRAINT arsenal_pkey PRIMARY KEY (id);
 ALTER TABLE public.arsenals ADD CONSTRAINT arsenals_core_type_check CHECK (((core_type IS NULL) OR (core_type = ANY (ARRAY['symmetric'::text, 'asymmetric'::text]))));
-ALTER TABLE public.arsenals ADD CONSTRAINT arsenals_coverstock_check CHECK (((coverstock IS NULL) OR (coverstock = ANY (ARRAY['solid'::text, 'pearl'::text, 'hybrid'::text]))));
+ALTER TABLE public.arsenals ADD CONSTRAINT arsenals_coverstock_check CHECK (((coverstock IS NULL) OR (coverstock = ANY (ARRAY['solid'::text, 'pearl'::text, 'hybrid'::text, 'urethane'::text]))));
 ALTER TABLE public.arsenals ADD CONSTRAINT arsenals_layout_system_check CHECK (((layout_system IS NULL) OR (layout_system = ANY (ARRAY['dual_angle'::text, 'vls'::text, '2ls'::text]))));
 ALTER TABLE public.arsenals ADD CONSTRAINT arsenals_bowler_id_fkey FOREIGN KEY (bowler_id) REFERENCES bowler_names(id) ON DELETE SET NULL;
 ALTER TABLE public.arsenals ADD CONSTRAINT arsenals_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE CASCADE;
