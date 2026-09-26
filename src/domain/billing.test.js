@@ -122,9 +122,9 @@ describe('Hong Kong, India, the UAE, Costa Rica, Kuwait and Brunei', () => {
     expect(checkoutCurrencyFor('America/Costa_Rica')).toBe('crc');
   });
 
-  it('shows dinars in Kuwait and Brunei dollars in Brunei', () => {
-    expect(displayPricesFor('Asia/Kuwait')).toEqual({ month: 'KD 1.500', year: 'KD 15.000' });
-    expect(checkoutCurrencyFor('Asia/Kuwait')).toBe('kwd');
+  it('shows Brunei dollars in Brunei, and US dollars on the web in Kuwait (Stripe has no KWD)', () => {
+    expect(displayPricesFor('Asia/Kuwait')).toEqual({ month: '$4.99', year: '$49.99' });
+    expect(checkoutCurrencyFor('Asia/Kuwait')).toBe('');
     expect(displayPricesFor('Asia/Brunei')).toEqual({ month: 'B$6.98', year: 'B$69.98' });
     expect(checkoutCurrencyFor('Asia/Brunei')).toBe('bnd');
   });

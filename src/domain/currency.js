@@ -64,9 +64,15 @@ export const CURRENCIES = Object.freeze({
 // have local subscription PRICES (S$, MX$, HK$, B$) but are dollar
 // countries here: a bare "$" is what a bowler there writes on a bracket
 // sheet.
-const BY_CHECKOUT = { jpy: "jpy", krw: "krw", myr: "myr", php: "php", inr: "inr", aed: "aed", crc: "crc", kwd: "kwd" };
+const BY_CHECKOUT = { jpy: "jpy", krw: "krw", myr: "myr", php: "php", inr: "inr", aed: "aed", crc: "crc" };
+
+// Kuwait: the one country whose money the app shows but whose
+// subscription is not priced here -- Stripe cannot charge dinars, so
+// billing.js leaves it on US prices. A bracket there is still KD 0.500.
+const KWD_ZONES = new Set(["Asia/Kuwait"]);
 
 export function currencyForZone(tz) {
+  if (typeof tz === "string" && KWD_ZONES.has(tz)) return CURRENCIES.kwd;
   const code = typeof tz === "string" && tz ? checkoutCurrencyFor(tz) : "";
   return CURRENCIES[BY_CHECKOUT[code]] || CURRENCIES.dollar;
 }
